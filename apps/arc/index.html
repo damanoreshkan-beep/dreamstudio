@@ -40,7 +40,10 @@
       "nanostores": "https://esm.sh/nanostores@0.11.4",
       "@nanostores/persistent": "https://esm.sh/@nanostores/persistent@0.10.2?external=nanostores",
       "@nanostores/preact": "https://esm.sh/@nanostores/preact@0.5.2?external=preact,nanostores",
-      "motion": "https://esm.sh/motion@11.18.2"
+      "motion": "https://esm.sh/motion@11.18.2",
+      "d3-geo": "https://esm.sh/d3-geo@3",
+      "topojson-client": "https://esm.sh/topojson-client@3",
+      "@microspec/core/runtime/": "/_rt/"
     }
   }
   </script>
@@ -53,11 +56,8 @@
     import en from "./i18n/en.json" with { type: "json" };
     import uk from "./i18n/uk.json" with { type: "json" };
     import * as views from "./view.js";
-    import { load } from "./data.js";
     import { start } from "/_rt/index.js";
-    // Both halves: `load` powers the systemic list tabs, `views` supplies the one bespoke surface (the
-    // reader) that `detail.view` mounts inside the runtime's drill-down.
-    start({ ...spec, i18n: { en, uk } }, { load, views });
+    start({ ...spec, i18n: { en, uk } }, { views });
   </script>
 </body>
 </html>
