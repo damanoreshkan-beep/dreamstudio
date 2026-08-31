@@ -4,20 +4,20 @@
   "minimumDependencyAge": 0,
   "//core": "THE dependency. Execution rides the jsr: pin below (deno realm — the registry cache); the FILE tree for /_rt serving and the build rides the npm-compat tarball in package.json. Bump = the version here + in package.json, then deno task install.",
   "imports": {
-    "@microspec/core": "jsr:@microspec/core@0.1.12",
-    "@microspec/core/": "jsr:@microspec/core@0.1.12/"
+    "@microspec/core": "jsr:@microspec/core@0.1.13",
+    "@microspec/core/": "jsr:@microspec/core@0.1.13/"
   },
   "//tasks": "Tools run via explicit jsr: specifiers — the registry realm by construction. (A CLI arg is never import-mapped, and a bare @microspec/core/* arg byonm-resolves into node_modules — the npm realm, where jsr:/https imports are refused.) The version appears in imports, package.json and these tasks; deno task install after a bump.",
   "tasks": {
     "install": "deno install --minimum-dependency-age 0",
     "test": "deno test -A .microspec/tests/unit_test.js rt/rt_test.js",
-    "affected": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.12/affected",
+    "affected": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.13/affected",
     "verify": "deno run -A .microspec/verify.mjs",
-    "gates": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.12/8n8 gates",
-    "8n8": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.12/8n8",
-    "rtmap": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.12/rtmap",
-    "dist-eye": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.12/dist-eye",
-    "build": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.12/build",
+    "gates": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.13/8n8 gates",
+    "8n8": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.13/8n8",
+    "rtmap": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.13/rtmap",
+    "dist-eye": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.13/dist-eye",
+    "build": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@0.1.13/build",
     "red": "gh run view $(gh run list --workflow=verify.yml --limit 1 --json databaseId --jq '.[0].databaseId') --log-failed | sed 's/\\x1b\\[[0-9;]*m//g' | grep -E '✗'"
   },
   "lint": {
