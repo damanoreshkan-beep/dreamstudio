@@ -1,0 +1,34 @@
+{
+  "id": "store",
+  "theme": "signal",
+  "tabs": [
+    {
+      "id": "apps",
+      "type": "tool",
+      "icon": "lucide:layout-grid",
+      "label": "tabApps",
+      "view": "store"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "featured": ["tide", "reel", "mirage", "persona", "rave", "drift"],
+  "profile": {
+    "icon": "lucide:layout-grid",
+    "account": "any",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "source": {
+      "label": "profSource",
+      "url": "https://github.com/damanoreshkan-beep/microspec",
+      "icon": "lucide:github"
+    }
+  },
+  "accent": "#D2A24C"
+}

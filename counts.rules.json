@@ -1,0 +1,3 @@
+[
+  { "file": "README.md", "pattern": "(\\*\\*)(\\d+)( installable apps\\*\\*)" }
+]

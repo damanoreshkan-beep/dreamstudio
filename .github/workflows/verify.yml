@@ -1,0 +1,97 @@
+name: verify
+
+# The gate, on OUR OWN iron: the self-hosted runner on the VPS (labels: [self-hosted, vps]) — a private
+# repo's hosted minutes would not survive a 74-app Chromium matrix. Deno and Chrome live on the runner
+# host (~/.deno, /usr/bin/google-chrome); the framework is checked out at the pin in microspec.lock and
+# linked in by setup.sh, so every gate runs exactly as it does locally.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit:
+    runs-on: [self-hosted, vps]
+    timeout-minutes: 15
+    outputs:
+      apps: ${{ steps.discover.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Framework at the pin (microspec.lock)
+        run: |
+          PIN=$(cat microspec.lock)
+          rm -rf microspec
+          git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
+          git -C microspec checkout --quiet "$PIN" || git -C microspec checkout --quiet "$(echo "$PIN" | cut -c1-7)"
+          ./setup.sh
+      - name: Toolchain on PATH (the runner host's deno)
+        run: echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+      - name: Runtime unit tests
+        run: deno test -A packages/runtime/runtime_test.js
+      - name: Schema contract gate (ajv) over every app spec
+        run: deno run -A packages/schema/validate.mjs apps/*/spec.json
+      - name: App-count claims match the product (counts.rules.json)
+        run: deno run -A deploy/counts.mjs --check
+      - name: Service-worker precache manifests match the real import graph
+        run: deno run -A deploy/sw.mjs --check
+      - name: Build check (dist assembles)
+        run: deno run -A deploy/build.mjs
+      - name: Discover apps to verify (affected-only, from the real import graph)
+        id: discover
+        run: |
+          BEFORE="${{ github.event.before }}"
+          RANGE=""
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            RANGE="${BEFORE}...${{ github.sha }}"
+          fi
+          if [ -z "$RANGE" ]; then
+            echo "no usable diff base → whole farm"
+            APPS=$(deno run -A tools/affected.mjs --all)
+          else
+            APPS=$(git diff --name-only "$RANGE" | deno run -A tools/affected.mjs)
+          fi
+          [ -z "$APPS" ] && APPS="[]"
+          echo "verify matrix → $APPS"
+          echo "apps=$APPS" >> "$GITHUB_OUTPUT"
+
+  verify:
+    runs-on: [self-hosted, vps]
+    needs: unit
+    if: ${{ needs.unit.outputs.apps != '[]' }}
+    # ONE runner processes the matrix serially — the budget is per app, and a full-farm sweep is a long
+    # (but our-own-iron, free) run. max-parallel documents the fact rather than changing it.
+    timeout-minutes: 6
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        app: ${{ fromJSON(needs.unit.outputs.apps) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Framework at the pin
+        run: |
+          PIN=$(cat microspec.lock)
+          rm -rf microspec
+          git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
+          git -C microspec checkout --quiet "$PIN" || true
+          ./setup.sh
+      - name: Toolchain on PATH
+        run: echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
+      - name: Verify ${{ matrix.app }}
+        timeout-minutes: 5
+        env:
+          CHROMIUM_PATH: /usr/bin/google-chrome
+        run: deno run -A packages/gates/verify.mjs "$GITHUB_WORKSPACE/apps/${{ matrix.app }}" --shots
+      - name: Upload screenshot
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: shot-${{ matrix.app }}
+          path: apps/${{ matrix.app }}/states/
+          if-no-files-found: warn
