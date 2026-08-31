@@ -1,5 +1,12 @@
 # DreamStudio style — the portal, the two sides, the tilt engine (research, 2026-08-31)
 
+> **STATUS (same evening): the tilt engine is REMOVED.** The owner found the motion nauseating ("укачує"),
+> and its moving full-width lip was horizontal overflow on every app that no rest-state gate could see
+> (headless Chromium has no deviceorientation). Everything else here — the portal, the two sides, the
+> sprites, the lit chrome — SHIPPED and stands; the decor is simply static now, and the verify gate reads
+> chrome pseudo-element transforms so shifted decor can never return. Keep the sensor sections below as
+> the record of why it was tried and why it went.
+
 The owner's artistic logic, stated once so every later pass builds on it and not beside it:
 
 > **The screen is a PORTAL.** The chrome (header, dock) is the portal's *rim* — it catches light; it never

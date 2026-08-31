@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" width="880" height="460" role="img" aria-label="DreamStudio architecture: 74 apps over rt/ domain modules and WebUSB drivers, over the pinned microspec core, over the web platform, down to real radio hardware.">
+  <style>
+    .t   { font: 600 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #f2ead9; }
+    .s   { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #a89f8d; }
+    .cap { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #7d7466; letter-spacing: .18em; }
+    .chip{ font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #cfc8b8; }
+    .w   { fill: none; stroke: rgba(255,232,196,.15); stroke-width: 1.1; stroke-dasharray: 3 8; animation: drift 3.2s linear infinite; }
+    @keyframes drift { to { stroke-dashoffset: -110; } }
+    .up   { animation: rise 4.8s cubic-bezier(.45,.05,.55,.95) infinite; }
+    .up2  { animation: rise 4.8s cubic-bezier(.45,.05,.55,.95) 1.6s infinite; opacity: 0; }
+    .up3  { animation: rise 4.8s cubic-bezier(.45,.05,.55,.95) 3.2s infinite; opacity: 0; }
+    @keyframes rise { 0% { offset-distance: 0%; opacity: 0 } 10% { opacity: 1 } 88% { opacity: 1 } 100% { offset-distance: 100%; opacity: 0 } }
+    .drv { animation: drvglow 4.8s ease-in-out infinite; }
+    @keyframes drvglow { 0%,100% { stroke-opacity: .45 } 50% { stroke-opacity: 1 } }
+    @media (prefers-reduced-motion: reduce) { .w, .drv { animation: none; } .up, .up2, .up3 { animation: none; display: none; } }
+  </style>
+  <defs>
+    <filter id="ga" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="3.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <linearGradient id="amcy2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F2B84B"/><stop offset="1" stop-color="#5CE4DC"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="1" y="1" width="878" height="458" rx="16" fill="#050505" stroke="rgba(255,232,196,.14)"/>
+  <text class="cap" x="32" y="36">DREAMSTUDIO — WHAT A TAP TRAVELS THROUGH</text>
+
+  <!-- L1: the apps -->
+  <rect x="32" y="54" width="816" height="64" rx="13" fill="#0A0A0D" stroke="rgba(242,184,75,.6)" stroke-width="1.3"/>
+  <text class="t" x="56" y="80">74 installable apps</text>
+  <text class="s" x="56" y="100">radio · instruments · astrology · media · games · tools — every one a spec + one adapter</text>
+
+  <!-- L2: rt/ domain -->
+  <rect x="32" y="142" width="816" height="76" rx="13" fill="#0A0A0D" stroke="rgba(92,228,220,.5)" stroke-width="1.3"/>
+  <text class="t" x="56" y="168">rt/ — the product's own runtime half</text>
+  <text class="s" x="56" y="188">67 domain modules: fm demodulation · astrology maths · groove theory consumers · characters · tide</text>
+  <g class="drv" filter="url(#ga)">
+    <rect x="580" y="156" width="244" height="48" rx="10" fill="#071312" stroke="#5CE4DC" stroke-width="1.3"/>
+  </g>
+  <text class="chip" x="596" y="176" fill="#5CE4DC">the drivers — WebUSB, no install:</text>
+  <text class="chip" x="596" y="193">hackrf.js · rtlsdr.js · 433 MHz OOK</text>
+
+  <!-- L3: the core -->
+  <rect x="32" y="242" width="816" height="76" rx="13" fill="#0A0A0D" stroke="rgba(255,232,196,.35)" stroke-width="1.3"/>
+  <text class="t" x="56" y="268">microspec — the core, linked in at a pin</text>
+  <text class="s" x="56" y="288">/_rt verified runtime (68 systemic modules) · spec schema · the 8n8 gate DAG · generators</text>
+  <text class="s" x="56" y="305" fill="#F2B84B">the core knows no apps — rt/ mirrors it in beside our modules, one directory is /_rt for everything</text>
+
+  <!-- L4: the platform -->
+  <rect x="32" y="342" width="520" height="52" rx="13" fill="#0A0A0D" stroke="rgba(255,232,196,.2)"/>
+  <text class="t" x="56" y="364">the web platform</text>
+  <text class="s" x="56" y="382">WebUSB · WebAudio · WebGL · sensors · service worker — a browser tab, offline-first</text>
+
+  <!-- L5: hardware -->
+  <rect x="584" y="342" width="264" height="52" rx="13" fill="#0A0A0D" stroke="rgba(92,228,220,.35)"/>
+  <text class="t" x="604" y="364">real hardware</text>
+  <text class="s" x="604" y="382">HackRF One · RTL-SDR · the antenna</text>
+
+  <!-- vertical wires + travelling light -->
+  <path class="w" d="M440 118 L440 142"/>
+  <path class="w" d="M440 218 L440 242"/>
+  <path class="w" d="M292 318 L292 342"/>
+  <path class="w" d="M702 204 C 702 260 716 300 716 342"/>
+  <circle class="up"  r="3.2" fill="#FFE8C4" filter="url(#ga)" style="offset-path: path('M292 342 L292 318 L440 242 L440 218 L440 142 L440 118');"/>
+  <circle class="up2" r="3.2" fill="#5CE4DC" filter="url(#ga)" style="offset-path: path('M716 342 C 716 300 702 260 702 204');"/>
+  <circle class="up3" r="3.2" fill="url(#amcy2)" filter="url(#ga)" style="offset-path: path('M440 242 L440 218 L440 142 L440 118');"/>
+
+  <text class="s" x="32" y="430" fill="#7d7466">Light climbs the stack: an antenna's samples become a demodulated broadcast in rt/, rendered by the core,</text>
+  <text class="s" x="32" y="446" fill="#7d7466">gated in CI, installed from the store — with no native code anywhere on the way.</text>
+</svg>

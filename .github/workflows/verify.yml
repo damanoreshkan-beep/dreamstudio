@@ -1,9 +1,8 @@
 name: verify
 
-# The gate, on OUR OWN iron: the self-hosted runner on the VPS (labels: [self-hosted, vps]) — a private
-# repo's hosted minutes would not survive a 74-app Chromium matrix. Deno and Chrome live on the runner
-# host (~/.deno, /usr/bin/google-chrome); the framework is checked out at the pin in microspec.lock and
-# linked in by setup.sh, so every gate runs exactly as it does locally.
+# The gate — the shape the public farm always had (and the repo is public again, 2026-08-31): one Chromium
+# job per affected app on GitHub's own fleet, ~20 in parallel, free. The framework is checked out at the
+# pin in microspec.lock and linked in by setup.sh, so every gate runs exactly as it does locally.
 on:
   push:
     branches: [main]
@@ -15,33 +14,32 @@ concurrency:
 
 jobs:
   unit:
-    runs-on: [self-hosted, vps]
-    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       apps: ${{ steps.discover.outputs.apps }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Cache deno deps (DENO_DIR, keyed on the lockfile)
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ hashFiles('deno.lock') }}
+          restore-keys: deno-
       - name: Framework at the pin (microspec.lock)
         run: |
           PIN=$(cat microspec.lock)
           rm -rf microspec
           git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
-          git -C microspec checkout --quiet "$PIN" || git -C microspec checkout --quiet "$(echo "$PIN" | cut -c1-7)"
+          git -C microspec checkout --quiet "$PIN" || true
           ./setup.sh
-      - name: Toolchain on PATH (the runner host's deno)
-        run: echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
-      - name: Runtime unit tests
-        run: deno test -A packages/runtime/runtime_test.js
-      - name: Schema contract gate (ajv) over every app spec
-        run: deno run -A packages/schema/validate.mjs apps/*/spec.json
-      - name: App-count claims match the product (counts.rules.json)
-        run: deno run -A deploy/counts.mjs --check
-      - name: Service-worker precache manifests match the real import graph
-        run: deno run -A deploy/sw.mjs --check
-      - name: Build check (dist assembles)
-        run: deno run -A deploy/build.mjs
+      - name: The browser-free gate DAG (same floor as local)
+        run: deno task gates
       - name: Discover apps to verify (affected-only, from the real import graph)
         id: discover
         run: |
@@ -54,6 +52,7 @@ jobs:
             echo "no usable diff base → whole farm"
             APPS=$(deno run -A tools/affected.mjs --all)
           else
+            echo "changed files:"; git diff --name-only "$RANGE" | sed 's/^/  /'
             APPS=$(git diff --name-only "$RANGE" | deno run -A tools/affected.mjs)
           fi
           [ -z "$APPS" ] && APPS="[]"
@@ -61,19 +60,25 @@ jobs:
           echo "apps=$APPS" >> "$GITHUB_OUTPUT"
 
   verify:
-    runs-on: [self-hosted, vps]
+    runs-on: ubuntu-latest
     needs: unit
     if: ${{ needs.unit.outputs.apps != '[]' }}
-    # ONE runner processes the matrix serially — the budget is per app, and a full-farm sweep is a long
-    # (but our-own-iron, free) run. max-parallel documents the fact rather than changing it.
     timeout-minutes: 6
     strategy:
       fail-fast: false
-      max-parallel: 1
       matrix:
         app: ${{ fromJSON(needs.unit.outputs.apps) }}
     steps:
       - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Cache deno deps (DENO_DIR, keyed on the lockfile)
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/deno
+          key: deno-${{ hashFiles('deno.lock') }}
+          restore-keys: deno-
       - name: Framework at the pin
         run: |
           PIN=$(cat microspec.lock)
@@ -81,10 +86,9 @@ jobs:
           git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
           git -C microspec checkout --quiet "$PIN" || true
           ./setup.sh
-      - name: Toolchain on PATH
-        run: echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
       - name: Verify ${{ matrix.app }}
-        timeout-minutes: 5
+        # Chrome is preinstalled on the hosted runner; headless — no Xvfb, no apt-get.
+        timeout-minutes: 4
         env:
           CHROMIUM_PATH: /usr/bin/google-chrome
         run: deno run -A packages/gates/verify.mjs "$GITHUB_WORKSPACE/apps/${{ matrix.app }}" --shots

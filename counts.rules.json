@@ -1,3 +1,4 @@
 [
-  { "file": "README.md", "pattern": "(\\*\\*)(\\d+)( installable apps\\*\\*)" }
+  { "file": "README.md", "pattern": "(\\*\\*)(\\d+)( installable apps\\*\\*)" },
+  { "file": "README.md", "pattern": "(draws the )(\\d+)( icons)" }
 ]

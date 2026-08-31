@@ -1,8 +1,9 @@
 name: deploy
 
-# Ships dist/ to /srv/www on THIS host — the runner lives on the production VPS, so the deploy is a local
-# rsync (no ssh secret, no network): the same restricted tree the old remote deploy wrote to, the same
-# dist-eye gate before it, and the same public-URL verify after it. Gated on a green verify of main.
+# Ships dist/ to the box — entirely in Actions steps, no committed scripts, no infrastructure in the
+# tree: host, user and path live in repo SECRETS (VPS_HOST / VPS_USER / VPS_PATH), the key in
+# VPS_DEPLOY_KEY. Build on the hosted runner, the dist-eye gate on the BUILT pages, a restricted rsync,
+# then the public-URL probe. Gated on a green verify of main.
 on:
   workflow_run:
     workflows: [verify]
@@ -19,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: [self-hosted, vps]
+    runs-on: ubuntu-latest
     timeout-minutes: 40
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
@@ -27,6 +28,9 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Framework at the pin
         run: |
           PIN=$(cat microspec.lock)
@@ -34,8 +38,6 @@ jobs:
           git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
           git -C microspec checkout --quiet "$PIN" || true
           ./setup.sh
-      - name: Toolchain on PATH
-        run: echo "$HOME/.deno/bin" >> "$GITHUB_PATH"
       - name: Assemble dist/
         run: deno run -A deploy/build.mjs
       - name: Eye on dist (real Chromium, measured)
@@ -50,10 +52,19 @@ jobs:
           name: dist-eye
           path: dist-eye/
           retention-days: 14
-      - name: Ship dist/ to /srv/www (local — the runner IS the host)
+      - name: Ship dist/ (secrets only — no infrastructure in the tree)
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PATH: ${{ secrets.VPS_PATH }}
         run: |
           set -euo pipefail
-          sudo rsync -a --delete dist/ /srv/www/
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -t ed25519 "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          rsync -az --delete --rsync-path="sudo rsync" -e "ssh -i ~/.ssh/deploy_key" dist/ "$VPS_USER@$VPS_HOST:$VPS_PATH/"
           sleep 2
           curl -fsS -o /dev/null https://dreamstudio.mooo.com/store/
           test "$(curl -fsS https://dreamstudio.mooo.com/_rt/build.js)" = "$(cat dist/_rt/build.js)"

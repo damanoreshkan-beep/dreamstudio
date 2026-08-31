@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "swarm",
-  version: "b070a0596d",
+  version: "306af2c484",
   precache: [
     "./",
     "./engine.js",
@@ -50,7 +50,6 @@ self.MS = {
     "/_rt/swarm.js",
     "/_rt/swipe.js",
     "/_rt/theme.css",
-    "/_rt/tilt.js",
     "/_rt/translate.js",
     "/_rt/ui.js",
     "/_rt/validate.js",
