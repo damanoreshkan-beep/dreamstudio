@@ -9,8 +9,8 @@
 // FAIL OPEN. Until the owner enables the nginx ws location (vps/enable-sync-ws.sh in the edge repo) the
 // handshake dies at nginx — the client retries with a capped backoff and the app stays fully usable.
 // GATE-SAFE: under `gate` there is no network — a deterministic mock peer populates the sheet for the shot.
-import { VPS_PROXY } from "./feed.js";
-import { gate } from "./gate.js";
+import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
+import { gate } from "@microspec/core/runtime/gate.js";
 
 export const SYNC_URL = VPS_PROXY.replace(/^http/, "ws") + "/sync";
 

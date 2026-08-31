@@ -1,8 +1,9 @@
 name: verify
 
-# The gate — the shape the public farm always had (and the repo is public again, 2026-08-31): one Chromium
-# job per affected app on GitHub's own fleet, ~20 in parallel, free. The framework is checked out at the
-# pin in microspec.lock and linked in by setup.sh, so every gate runs exactly as it does locally.
+# The gate. The core arrives as the @microspec/core PACKAGE — `deno task install` materializes the file
+# tree (npm-compat tarball) for /_rt serving, and every tool runs via its jsr: pin. One job per affected
+# app on GitHub's fleet. The --minimum-dependency-age 0 in the tasks is deliberate: this farm consumes its
+# own core minutes after publishing, inside the registry's default quarantine window.
 on:
   push:
     branches: [main]
@@ -31,13 +32,8 @@ jobs:
           path: ~/.cache/deno
           key: deno-${{ hashFiles('deno.lock') }}
           restore-keys: deno-
-      - name: Framework at the pin (microspec.lock)
-        run: |
-          PIN=$(cat microspec.lock)
-          rm -rf microspec
-          git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
-          git -C microspec checkout --quiet "$PIN" || true
-          ./setup.sh
+      - name: The core, as a package
+        run: deno task install
       - name: The browser-free gate DAG (same floor as local)
         run: deno task gates
       - name: Discover apps to verify (affected-only, from the real import graph)
@@ -50,10 +46,10 @@ jobs:
           fi
           if [ -z "$RANGE" ]; then
             echo "no usable diff base → whole farm"
-            APPS=$(deno run -A tools/affected.mjs --all)
+            APPS=$(deno task --quiet affected --all)
           else
             echo "changed files:"; git diff --name-only "$RANGE" | sed 's/^/  /'
-            APPS=$(git diff --name-only "$RANGE" | deno run -A tools/affected.mjs)
+            APPS=$(git diff --name-only "$RANGE" | deno task --quiet affected)
           fi
           [ -z "$APPS" ] && APPS="[]"
           echo "verify matrix → $APPS"
@@ -79,19 +75,15 @@ jobs:
           path: ~/.cache/deno
           key: deno-${{ hashFiles('deno.lock') }}
           restore-keys: deno-
-      - name: Framework at the pin
-        run: |
-          PIN=$(cat microspec.lock)
-          rm -rf microspec
-          git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
-          git -C microspec checkout --quiet "$PIN" || true
-          ./setup.sh
+      - name: The core, as a package
+        run: deno task install
+      - name: The generated shims (rt map + local importers)
+        run: deno task rtmap
       - name: Verify ${{ matrix.app }}
-        # Chrome is preinstalled on the hosted runner; headless — no Xvfb, no apt-get.
         timeout-minutes: 4
         env:
           CHROMIUM_PATH: /usr/bin/google-chrome
-        run: deno run -A packages/gates/verify.mjs "$GITHUB_WORKSPACE/apps/${{ matrix.app }}" --shots
+        run: deno task verify "$GITHUB_WORKSPACE/apps/${{ matrix.app }}" --shots
       - name: Upload screenshot
         if: always()
         uses: actions/upload-artifact@v6

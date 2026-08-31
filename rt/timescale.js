@@ -5,7 +5,7 @@
 // or null = live "now". Anchors let each app declare its own jump targets (rise / golden / set / …). Any
 // time-driven app reuses it; the sun compass is the reference consumer.
 import { html } from "htm/preact";
-import { T } from "./i18n.js";
+import { T } from "@microspec/core/runtime/i18n.js";
 
 const hhmm = (m) => m == null ? "—" : `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const pct = (m) => m == null ? null : (m / 1439) * 100;

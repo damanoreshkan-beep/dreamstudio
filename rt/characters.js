@@ -9,10 +9,10 @@
 // fixture reply on a timer — so the shot and the e2e see a POPULATED conversation, not a composer over
 // nothing (the empty state is the one screen nobody should be judging).
 import { atom } from "nanostores";
-import { VPS_PROXY } from "./feed.js";
-import { gate } from "./gate.js";
-import { session } from "./auth.js";
-import { parseSse } from "./sse.js";
+import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
+import { gate } from "@microspec/core/runtime/gate.js";
+import { session } from "@microspec/core/runtime/auth.js";
+import { parseSse } from "@microspec/core/runtime/sse.js";
 export { parseSse };
 
 const BASE = VPS_PROXY;

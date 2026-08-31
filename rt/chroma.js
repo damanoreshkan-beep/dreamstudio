@@ -2,7 +2,7 @@
 // scene's dominant palette becomes a chord (each colour's HUE picks a note in a consonant scale, so it
 // always sounds musical), and the scene's BRIGHTNESS opens the filter. The audio graph lives in the app;
 // the mapping — the part that must be right and testable — lives here.
-import { rgbToHsl } from "./colour.js";
+import { rgbToHsl } from "@microspec/core/runtime/colour.js";
 
 // Two octaves of each mode, low→high, so a full hue sweep (0..360) spans a wide, playable range. Degrees
 // are semitone offsets from the root.

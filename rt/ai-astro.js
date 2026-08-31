@@ -17,7 +17,7 @@
 //
 // See apps/transit/RESEARCH.md Part II for the sourcing of the corpus and the composition rules the server
 // prompts encode.
-import { reading, aiTick } from "./ai-core.js";
+import { reading, aiTick } from "@microspec/core/runtime/ai-core.js";
 
 // the whole sky on a date, against the chart
 const SKY = reading("astro", "astro");

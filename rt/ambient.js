@@ -9,8 +9,8 @@
 // Eno's asynchronous tape loops (several coprime loop lengths → a combination that never repeats). See
 // apps/drift/RESEARCH.md for the full numeric recipe and sources.
 
-import { mulberry32 } from "./groove.js";
-import { midiToFreq } from "./audio.js";
+import { mulberry32 } from "@microspec/core/runtime/groove.js";
+import { midiToFreq } from "@microspec/core/runtime/audio.js";
 
 export { midiToFreq };
 

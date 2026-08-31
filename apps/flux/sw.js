@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "flux",
-  version: "d2612d7bd1",
+  version: "29147d2e2e",
   precache: [
     "./",
     "./i18n/en.json",
@@ -30,7 +30,6 @@ self.MS = {
     "/_rt/hero.js",
     "/_rt/i18n.js",
     "/_rt/index.js",
-    "/_rt/motion.js",
     "/_rt/overlay.js",
     "/_rt/permissions.js",
     "/_rt/playback.js",

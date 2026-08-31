@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "horoscope",
-  version: "7d46b3091c",
+  version: "068a8ae491",
   precache: [
     "./",
     "./i18n/en.json",
@@ -28,7 +28,6 @@ self.MS = {
     "/_rt/geomag.js",
     "/_rt/gesture.js",
     "/_rt/hero.js",
-    "/_rt/horoscope.js",
     "/_rt/i18n.js",
     "/_rt/index.js",
     "/_rt/localize.js",
@@ -55,7 +54,6 @@ self.MS = {
     "/_rt/version.js",
     "/_rt/video.js",
     "/_rt/weather.js",
-    "/_rt/zodiac.js",
     "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4",
     "https://cdn.jsdelivr.net/npm/daisyui@5",
     "https://cdn.jsdelivr.net/npm/daisyui@5/themes.css",

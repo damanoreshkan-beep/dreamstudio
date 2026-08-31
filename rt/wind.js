@@ -16,7 +16,7 @@
 //   · a real pipe is never silent between the harmonics: turbulent jet noise at the labium is always there,
 //     and the "chiff" at the start of a note is that noise before the standing wave establishes.
 // Refs: Bolton (flute-a-bec.com/acoustiquegb.html) · recorder spectrum literature.
-import { noiseBuffer } from "./audio.js";
+import { noiseBuffer } from "@microspec/core/runtime/audio.js";
 
 // [ratio, gain] — odd-dominant, fundamental-led. The even partials are present but quiet: removing them
 // entirely gives a synthetic hollowness (a pure square), keeping them equal gives a reed.

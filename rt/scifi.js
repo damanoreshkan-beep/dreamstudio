@@ -4,7 +4,7 @@
 // detuned-voice spread whose geometric mean stays on the note (so a drone beats around its true pitch, not
 // off it), an equal-power crossfade law (constant perceived loudness through a morph) and a perceptual dB
 // fader curve. Refs: equal temperament (2^(c/1200)) · constant-power pan law (cos/sin) · dBFS = 20·log10(g).
-import { noteFreq } from "./audio.js";
+import { noteFreq } from "@microspec/core/runtime/audio.js";
 
 // ---- interval / frequency math (equal temperament) ----
 export const centsToRatio = (c) => 2 ** (c / 1200);

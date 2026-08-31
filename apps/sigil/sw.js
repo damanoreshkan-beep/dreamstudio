@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "sigil",
-  version: "b804d7cdf9",
+  version: "2f042bf372",
   precache: [
     "./",
     "./i18n/en.json",
@@ -17,8 +17,6 @@ self.MS = {
     "./viz.js",
     "/_rt/account.js",
     "/_rt/apk.js",
-    "/_rt/aspects.js",
-    "/_rt/astro.js",
     "/_rt/auth.js",
     "/_rt/authwall.js",
     "/_rt/build.js",
@@ -31,7 +29,6 @@ self.MS = {
     "/_rt/hero.js",
     "/_rt/i18n.js",
     "/_rt/index.js",
-    "/_rt/natal.js",
     "/_rt/overlay.js",
     "/_rt/permissions.js",
     "/_rt/playback.js",
@@ -44,7 +41,6 @@ self.MS = {
     "/_rt/sensors.js",
     "/_rt/shell-actions.js",
     "/_rt/shell.js",
-    "/_rt/sigil.js",
     "/_rt/signin.js",
     "/_rt/skeleton.js",
     "/_rt/store.js",

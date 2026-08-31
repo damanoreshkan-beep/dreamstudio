@@ -1,9 +1,9 @@
 name: deploy
 
-# Ships dist/ to the box — entirely in Actions steps, no committed scripts, no infrastructure in the
-# tree: host, user and path live in repo SECRETS (VPS_HOST / VPS_USER / VPS_PATH), the key in
-# VPS_DEPLOY_KEY. Build on the hosted runner, the dist-eye gate on the BUILT pages, a restricted rsync,
-# then the public-URL probe. Gated on a green verify of main.
+# Ships dist/ to the box — Actions steps only, no infrastructure in the tree: host/user/path live in repo
+# secrets, the key in VPS_DEPLOY_KEY. The core arrives as the @microspec/core package (deno task install);
+# build + the dist-eye gate on the BUILT pages, then a restricted rsync and the public-URL probe. Gated on
+# a green verify of main.
 on:
   workflow_run:
     workflows: [verify]
@@ -31,20 +31,15 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Framework at the pin
-        run: |
-          PIN=$(cat microspec.lock)
-          rm -rf microspec
-          git clone --quiet https://github.com/damanoreshkan-beep/microspec microspec
-          git -C microspec checkout --quiet "$PIN" || true
-          ./setup.sh
+      - name: The core, as a package
+        run: deno task install
       - name: Assemble dist/
-        run: deno run -A deploy/build.mjs
+        run: deno task build
       - name: Eye on dist (real Chromium, measured)
         timeout-minutes: 20
         env:
           CHROMIUM_PATH: /usr/bin/google-chrome
-        run: deno run -A packages/gates/dist-eye.mjs --dist dist --out dist-eye
+        run: deno task dist-eye --dist dist --out dist-eye
       - name: Upload dist shots
         if: always()
         uses: actions/upload-artifact@v6

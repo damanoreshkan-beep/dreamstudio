@@ -13,7 +13,7 @@
 // the question alone.
 //
 // See apps/arc/RESEARCH.md for the measured sentence/character ladder behind the levels.
-import { reading, aiTick } from "./ai-core.js";
+import { reading, aiTick } from "@microspec/core/runtime/ai-core.js";
 
 const clamp = (level) => Math.min(3, Math.max(1, Number(level) || 2));
 

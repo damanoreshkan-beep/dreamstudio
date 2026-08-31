@@ -7,7 +7,7 @@
 //
 // The pure parts (transliteration, result shaping, labels) unit-test offline; only `searchPlaces` touches
 // the network, and it never runs under the gate.
-import { gate } from "./gate.js";
+import { gate } from "@microspec/core/runtime/gate.js";
 
 const ENDPOINT = "https://geocoding-api.open-meteo.com/v1/search";
 

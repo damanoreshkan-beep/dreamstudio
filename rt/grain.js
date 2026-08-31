@@ -1,7 +1,7 @@
 // microspec runtime — granular synthesis math. Pure and DOM-free: the app owns the Web Audio nodes, this
 // file owns every number that decides how they are scheduled, so the same plan drives the live instrument
 // and the offline export bit-for-bit. Recipe + sources: apps/grain/RESEARCH.md.
-import { mulberry32 } from "./groove.js";
+import { mulberry32 } from "@microspec/core/runtime/groove.js";
 
 // ---- grain envelope ----
 // Hann, exactly zero at both ends — that is the whole reason a grain cannot click. 128 points is the render

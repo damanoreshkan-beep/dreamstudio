@@ -1,0 +1,1 @@
+/root/microspec/packages/runtime/auth.js

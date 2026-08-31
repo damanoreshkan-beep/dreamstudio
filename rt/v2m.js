@@ -9,7 +9,7 @@
 // Three mirrors serve the same tree with `Access-Control-Allow-Origin: *`, so the app fetches them directly
 // (no proxy) and fails over between them.
 
-import { fib } from "./spectrum.js";
+import { fib } from "@microspec/core/runtime/spectrum.js";
 
 export const MIRRORS = [
   "https://modland.com/pub/modules/V2/",

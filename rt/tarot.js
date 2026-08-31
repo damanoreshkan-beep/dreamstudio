@@ -2,7 +2,7 @@
 // (apps/tarot/deck.js); this module owns only the deterministic shuffle so a draw is reproducible from a
 // seed (a date key for the daily card → stable through the day; a random seed for an interactive draw) and
 // unit-testable. Depth lives here, like groove.js / astro.js.
-import { mulberry32 } from "./groove.js";
+import { mulberry32 } from "@microspec/core/runtime/groove.js";
 
 // The spreads. `pos` are i18n keys for each position, in layout order; size = pos.length.
 // `rows` (optional) is the visual arrangement: each inner array lists position indices (into `pos`)
