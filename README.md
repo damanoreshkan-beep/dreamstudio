@@ -1,6 +1,6 @@
 # DreamStudio
 
-The product. **74 installable apps** — the store, the brand, the captures — built on the open
+The product. **73 installable apps** — the store, the brand, the captures — built on the open
 [microspec](https://github.com/damanoreshkan-beep/microspec) core, which this repo consumes as a pinned
 dependency (see `microspec.lock` and `setup.sh`).
 
