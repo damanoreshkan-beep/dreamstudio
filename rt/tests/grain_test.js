@@ -3,7 +3,7 @@
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { hannCurve as grHann, grainRate as grGrainRate, overlapOf as grOverlapOf, cloudGain as grCloudGain, planGrains as grPlan, conditionSample as grCondition, dcOffset as grDcOffset, clipRatio as grClipRatio, trimBounds as grTrim, detectPitch as grPitch, CENTS as grCENTS, encodeWav as grWav, syntheticSample as grSynth, MIN_KEEP as grMIN_KEEP } from "../grain.js";
-import { mulberry32 as grRng } from "../groove.js";
+import { mulberry32 as grRng } from "@microspec/core/runtime/groove.js";
 
 // ================= grain (granular math) =================
 Deno.test("grain/hann: the envelope is zero at both ends — that is what stops the click", () => {
