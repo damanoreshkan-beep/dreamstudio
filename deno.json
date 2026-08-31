@@ -7,7 +7,7 @@
     "./packages/gates"
   ],
   "tasks": {
-    "test": "deno test -A packages/runtime/runtime_test.js",
+    "test": "deno test -A packages/runtime/runtime_test.js rt/rt_test.js",
     "affected": "deno run -A tools/affected.mjs",
     "verify": "deno run -A packages/gates/verify.mjs",
     "gates": "deno run -A tools/8n8/run.mjs gates",
