@@ -15,7 +15,7 @@
     "daisyui": "npm:daisyui@5",
     "motion": "https://esm.sh/motion@11.18.2",
     "lodash-es": "https://esm.sh/lodash-es@4.17.21",
-    "canvas": "https://jsr.io/@microspec/core/0.1.17/packages/gates/canvas-stub.js",
+    "canvas": "https://jsr.io/@microspec/core/1.0.0/packages/gates/canvas-stub.js",
     "/_rt/acts.js": "./rt/acts.js",
     "/_rt/ai-astro.js": "./rt/ai-astro.js",
     "/_rt/ai-books.js": "./rt/ai-books.js",
@@ -83,7 +83,7 @@
     "/_rt/wind.js": "./rt/wind.js",
     "/_rt/wish.js": "./rt/wish.js",
     "/_rt/zodiac.js": "./rt/zodiac.js",
-    "/_rt/": "https://jsr.io/@microspec/core/0.1.17/packages/runtime/",
-    "@microspec/core/runtime/": "https://jsr.io/@microspec/core/0.1.17/packages/runtime/"
+    "/_rt/": "https://jsr.io/@microspec/core/1.0.0/packages/runtime/",
+    "@microspec/core/runtime/": "https://jsr.io/@microspec/core/1.0.0/packages/runtime/"
   }
 }
