@@ -49,6 +49,43 @@
     }
   }
   </script>
+  <style>
+    /* A reel is the content — a scrollbar drawn over it is chrome the medium doesn't have. Hidden on the
+       feed AND on the page itself (Chrome's overlay bar still paints over a full-bleed surface), while the
+       scrolling itself stays completely native. */
+    html{scrollbar-width:none}
+    html::-webkit-scrollbar{display:none}
+    [data-scroller]{scrollbar-width:none}
+    [data-scroller]::-webkit-scrollbar{width:0;height:0;display:none}
+    /* The feed surface is always black — in ANY theme. So while it is mounted the app bar above it must
+       read light too: in signal-light the bar's own base-100 gradient never lands (the surface covers it)
+       and the title rendered near-black on black, ~1.2:1. The runtime sets nothing per-tab, so the view
+       flags the root with data-feed while the surface is up. */
+    :root[data-feed] header.navbar{background:linear-gradient(to bottom,rgba(0,0,0,.6),rgba(0,0,0,.25) 70%,transparent)}
+    :root[data-feed] header.navbar [data-title],
+    :root[data-feed] header.navbar button{color:#fff}
+    /* Landscape (and split-screen): the app bar comes off the feed entirely. On this surface it carries no
+       control at all — reel declares no filters, has no refresh, and the desktop "open on phone" button is
+       `hidden lg:` — so it is the wordmark and nothing else, floating over the picture. Measured at
+       832x384: header 59px, island 51px, dock 52px = 48% of the height covered by chrome, of which the
+       header is the only third that does nothing. The design system already makes exactly this call on the
+       axis a watch is short of ("an app's NAME is not information at 208px wide", theme.css); a landscape
+       phone is short of the same axis, and 560px is that ladder's own rung for it.
+       Height only, so portrait keeps its title bar; scoped to [data-feed], so the sources and profile tabs
+       are documents with a heading like every other app. --hdr-h is deliberately NOT re-declared: nothing on
+       this surface reads it (the island pins to --dock-h) and a measured number may never be overwritten by
+       a written one — see the chrome contract in render.js. */
+    @media (max-height: 560px){
+      :root[data-feed] header.navbar{display:none}
+    }
+    /* Noir. The filter sits on the SLIDE, not on the <video>, and that is not a style choice: the ambient
+       backdrop carries its own `filter: blur()`, and `:root[data-mono] video` (0,1,1) outranks Tailwind's
+       `.blur-2xl` (0,1,0) — it would replace the blur instead of adding to it. One pass over the section
+       drains video, poster and backdrop while their own filters stay intact. The island is a SIBLING of
+       [data-reel], so its favicon and play button keep their colour, where colour means source and action. */
+    :root[data-mono] [data-reel],
+    :root[data-mono] [role="dialog"] video{filter:grayscale(1)}
+  </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
   <div id="boot" aria-hidden="true"><div class="bh"><span class="bm">Reel</span></div><div class="bb"><i></i></div><div class="bd"></div></div>
