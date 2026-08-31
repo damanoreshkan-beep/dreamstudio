@@ -32,7 +32,8 @@ jobs:
         with:
           deno-version: v2.x
       - name: The core, as a package
-        run: deno task install
+        # flagged, once: this farm consumes its own fresh publishes inside the registry's quarantine window
+        run: deno install --minimum-dependency-age 0
       - name: Assemble dist/
         run: deno task build
       - name: Eye on dist (real Chromium, measured)

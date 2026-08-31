@@ -33,7 +33,8 @@ jobs:
           key: deno-${{ hashFiles('deno.lock') }}
           restore-keys: deno-
       - name: The core, as a package
-        run: deno task install
+        # flagged, once: this farm consumes its own fresh publishes inside the registry's quarantine window
+        run: deno install --minimum-dependency-age 0
       - name: The browser-free gate DAG (same floor as local)
         run: deno task gates
       - name: Discover apps to verify (affected-only, from the real import graph)
@@ -76,7 +77,8 @@ jobs:
           key: deno-${{ hashFiles('deno.lock') }}
           restore-keys: deno-
       - name: The core, as a package
-        run: deno task install
+        # flagged, once: this farm consumes its own fresh publishes inside the registry's quarantine window
+        run: deno install --minimum-dependency-age 0
       - name: The generated shims (rt map + local importers)
         run: deno task rtmap
       - name: Verify ${{ matrix.app }}

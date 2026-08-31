@@ -39,14 +39,16 @@ hardware from a browser tab with nothing installed.
 
 - **`apps/`** — the farm. Each app declares its tabs and cards in `spec.json`, writes one `data.js` /
   `view.js`, and inherits accessibility, responsiveness, offline, i18n and routing from the core.
-- **`rt/`** — our runtime modules, served as `/_rt/…` beside the core's. `setup.sh` mirrors the core in as
-  per-file symlinks, so ONE directory is the whole runtime for the gates, the build and the tests alike.
-  The drivers live here: `hackrf.js` (`0x1d50:0x6089`, 256 KiB bulk transfers, RX **and** TX), `rtlsdr.js`,
-  433 MHz OOK capture and replay — each with a research note written before the code.
+- **`rt/`** — our runtime modules, served as `/_rt/…` beside the core's; they import the core by bare
+  specifier (`@microspec/core/runtime/…`), which every app page's import map resolves. The drivers live
+  here: `hackrf.js` (`0x1d50:0x6089`, 256 KiB bulk transfers, RX **and** TX), `rtlsdr.js`, 433 MHz OOK
+  capture and replay — each with a research note written before the code.
 - **`wasm/`** — the vendored engines (a synthesiser, two game reactors, an offline speech model's runtime),
   built once, committed like codecs.
-- **`microspec.lock`** — the core at one exact commit. A framework bump is a one-line pin move, proven by
-  this repo's own CI before it ships.
+- **`@microspec/core`** — [the core on JSR](https://jsr.io/@microspec/core), a REAL package pinned to one
+  exact version: `deno task install` materializes its full file tree for `/_rt` serving and the build,
+  while every tool (the gates, the generators) runs straight off the registry. A framework bump is a
+  version move, proven by this repo's own CI before it ships.
 
 ## The same gates as the core
 
