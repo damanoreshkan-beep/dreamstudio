@@ -115,9 +115,11 @@
   --ds-strand-y: calc(100% + 23.5vw);          /* bulbs end on the bottom edge — see decor.css */
   --ds-strand-y-wide: calc(100% + 89px);
   --ds-strand-a: .85;
-  --ds-lip: url("/_rt/ds-n-arc.webp");         /* the header's woven-light band */
+  /* the woven-light band is HIDDEN for the owner's look (2026-09-01: "приховай текстуру на хедері");
+     bring it back with url("/_rt/ds-n-arc.webp") and --ds-lip-a: .6 — the sprite stays in rt/ */
+  --ds-lip: none;
   --ds-lip-pos: center 52%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .6;
+  --ds-lip-a: 0;
   --ds-scatter: url("/_rt/ds-n-scatter.webp"); /* fireflies behind an empty state */
   --ds-scatter-pos: center -44px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .8;
