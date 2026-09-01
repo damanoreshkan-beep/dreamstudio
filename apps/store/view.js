@@ -174,10 +174,8 @@ export function store({ S, openScreen, closeScreen }) {
       ${shot ? html`<div class="shrink-0 self-center w-14 aspect-[384/832] rounded-[0.55rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>` : null}
       <div class="min-w-0 flex-1 flex flex-col gap-1 py-0.5">
         <div class="text-[0.52rem] font-mono uppercase tracking-[.12em] text-secondary truncate">${T(t, catKey(a.category))}</div>
-        <div class="flex items-center gap-1.5 min-w-0">
-          ${Tile(a, "w-6 h-6")}
-          <span class="font-bold text-[0.85rem] leading-tight line-clamp-2">${nameOf(a)}</span>
-        </div>
+        ${/* no icon tile here — the capture already IS the app's face, and the 80px column belongs to the name */""}
+        <span class="font-bold text-[0.88rem] leading-tight line-clamp-2 break-words">${nameOf(a)}</span>
         <div class="mt-auto pt-1">${pill(a, "pointer-events-auto")}</div>
       </div>
     </div>
