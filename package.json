@@ -1,6 +1,6 @@
 {
   "//": "The core arrives as a REAL package: JSR's npm-compat layer materializes the full file tree under node_modules (runtime js/css/sprites, tools, schema), which /_rt serving, the build and the tests all read. Bump the version here; deno install does the rest.",
   "dependencies": {
-    "@microspec/core": "npm:@jsr/microspec__core@1.0.4"
+    "@microspec/core": "npm:@jsr/microspec__core@1.0.5"
   }
 }
