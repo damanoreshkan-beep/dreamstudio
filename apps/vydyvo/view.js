@@ -40,8 +40,8 @@ function ShowType({ t, loc, frame }) {
   </div>`;
 }
 
-export function vydyvo({ t, loc, S, screen, closeScreen }) {
-  const opts = useStore($opts), frames = useStore($frames), stage = useStore($stage), gen = useStore($gen);
+export function vydyvo({ t, S, screen, closeScreen }) {
+  const opts = useStore($opts), frames = useStore($frames), stage = useStore($stage), gen = useStore($gen), loc = useStore(S.locale);
   const now = useTick();
   const show = screen === "show";
   const stageRef = useRef(null);
@@ -109,8 +109,8 @@ export function vydyvo({ t, loc, S, screen, closeScreen }) {
         <div class="flex items-center gap-2 min-w-0">
           <button data-settings class=${`flex items-center gap-2 min-w-0 flex-1 text-left ${label}`} onClick=${() => S.screen.set("settings")}>
             <span class="size-2 rounded-full shrink-0" style=${`background:hsl(${preset.hue} 60% 60%)`}></span>
-            <span class="shrink-0">${T(t, "p_" + opts.preset)}</span><span class="opacity-40">·</span><span class="shrink-0">${T(t, "s" + opts.every)}</span><span class="opacity-40">·</span>
-            <span data-status class="truncate normal-case tracking-normal">${status}</span>
+            <span class="shrink-0">${T(t, "p_" + opts.preset)}</span><span class="opacity-40">·</span>
+            <span data-status class="truncate normal-case tracking-normal tabular-nums">${status}</span>
             ${Icon("lucide:sliders-horizontal", "ml-auto text-base shrink-0")}
           </button>
           <button data-skip class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "skip")} disabled=${frames.length < 2} onClick=${skip}>${Icon("lucide:skip-forward", "text-base")}</button>
@@ -129,7 +129,7 @@ export function vydyvo({ t, loc, S, screen, closeScreen }) {
         <div class=${label}>${T(t, "quality")}</div>
         <${Segmented} attr="data-q" label=${T(t, "quality")} value=${opts.quality} onChange=${(q) => setOpts({ quality: q })}
           items=${[{ id: "fast", label: T(t, "qFast"), icon: "lucide:zap" }, { id: "2k", label: T(t, "q2k"), icon: "lucide:gem" }]} />
-        <div class=${`flex items-center justify-between ${label}`}><span>${T(t, "collection")}</span><span data-collection class="tabular-nums">${frames.length} ${T(t, "frames")}</span></div>
+        <div class=${`flex items-center justify-between ${label}`}><span>${T(t, "collection")}</span><span data-collection class="tabular-nums">${frames.length}</span></div>
       </div>
     <//>
   </div>`;
