@@ -102,7 +102,7 @@ export function vydyvo({ t, S, screen, closeScreen }) {
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
-    <div data-stage ref=${stageRef} data-vy-preset=${opts.preset} data-vy-every=${opts.every} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
+    <div data-stage ref=${stageRef} data-vy-preset=${opts.preset} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
       class=${`vy-stage fixed inset-0 ${show ? "z-[60]" : "z-0"} bg-black overflow-hidden`}
       onClick=${show ? () => S.screen.set(null) : null}>
       ${[0, 1].map((slot) => {
