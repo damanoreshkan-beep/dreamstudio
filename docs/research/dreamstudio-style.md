@@ -106,3 +106,40 @@ smears (the owner: "банальна чорна тінь").
   phone tilts). Dock the same, opposite phase (light source is above).
 - The enclosure gains a depth falloff (radial darkening toward the rim on night; a warm paper vignette on
   day) — static, cheap, and the one place a corner sprite may live.
+
+## Second cut — the lip is woven, the sprites are visible (core 1.0.1, 2026-09-01)
+
+Owner, on the first cut: "хедер не гармонійний усьому дизайну… не бачу текстур". Measured on the deployed
+build: the app bar still carried `bg-base-100 sf-e2` in its markup (only the three overlay headers had been
+cleaned), so it was a flat card with a ring welded over every stage; and of the 12 sprites exactly ONE was
+consumed — the dock garland at `h-9 opacity-40`, `auto 200%` (the 512px art drawn at 14%: bulbs ~5px).
+
+What ships, all in `theme.css` (markup carries only hooks — `data-garland`, `data-empty`, `data-dock-fade`):
+
+| piece | night (`signal`) | day (`signal-light`) |
+|---|---|---|
+| bar | pane gradient only (no bg, no ring) | same |
+| `::before` band | `ds-n-arc` 100% wide, 28px window at `center 52%`, bottom −10px, α .6, masked 18–82% × 32–68% | none (gold on paper = smear) |
+| `::after` hairline | `rgba(255,238,208,.58)` centred 38–62%, glow `0 0 12px 1px accent 26%` | ink `rgba(20,18,16,.18)`, no glow |
+| wordmark | `text-shadow 0 0 14px accent 42%` | none |
+| garland | `ds-n-strand` tile 50% wide, `center calc(100% + 23.5vw)`, α .85 | `ds-d-strand`, `+22.75vw`, α .9 |
+| empty state | `ds-n-scatter` 260px at `center −44px`, α .8 | `ds-d-scatter`, α .9 |
+
+**Every offset is measured off the sprite's alpha** (scratch `measure-sprites.mjs`: per-row alpha mass →
+first/last row above 8% of the max, the ≥50% core, the peak row):
+
+    ds-n-arc      384  art rows 180–245, core 187–239, peak 194   → band peak at 50.5%; `center 52%` in a 28px window
+    ds-n-strand   512  art rows 146–271 (wire 146, bulbs to 271)  → 47.1% blank below × half-width tile = 23.5vw
+    ds-d-strand   512  art rows 202–279                           → 45.5% → 22.75vw
+    ds-n-scatter  384  core rows 173–200 (48%)                    → on 260px: core at 125px; glyph centre 82px → −44px
+    ds-d-scatter  512  core rows 225–271 (48%)                    → same offset
+
+Why `calc(100% + Nvw)` for the garland: `100%` aligns the sprite's bottom with the zone's bottom, `+N` pushes its
+empty lower part below the viewport, so the bulbs END on the screen edge whatever `--dock-h` is; the tile is
+50% of the width so the one seam sits behind the centred dock pill. Past 640px the tile pins to 192px
+(`calc(100% + 89px)`) so a desktop never gets a 3× garland. Watch mode (≤300px) drops both header pseudo
+layers with `.ms-decor`. Chrome pseudo-elements carry NO transform — the verify gate still reads them.
+
+Left open (deliberately not in this cut): the corner curl (`ds-n-corner` / `ds-d-corner`) — the only free
+corners are the bottom ones, and cropped to the 68px dock zone the swirl reads as a partial blob; needs a
+composition pass with the eye. Sun/moon as the theme-toggle art (`ds-d-moonsun`, `ds-n-ring`).
