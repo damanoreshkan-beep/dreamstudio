@@ -54,6 +54,20 @@ export default [
     },
   },
   {
+    name: "зміна теми без кадру її режиму — вуаль-поле, потім свіжий кадр", run: async (h) => {
+      await ready(h);
+      await h.click('[data-tab="me"]'); await h.wait(200);
+      await h.click('#p-theme [data-mode="day"]'); await h.wait(250);
+      await h.click('[data-tab="stage"]'); await h.wait(250);
+      h.expect((await h.count("[data-veiled]")) === 1, "немає вуалі після зміни теми");
+      for (let i = 0; i < 24; i++) { if ((await h.count("[data-veiled]")) === 0) break; await h.wait(400); }
+      h.expect((await h.count("[data-veiled]")) === 0, "кадр нового режиму так і не став на сцену");
+      await h.click('[data-tab="me"]'); await h.wait(150);
+      await h.click('#p-theme [data-mode="night"]'); await h.wait(200);
+      await h.click('[data-tab="stage"]'); await h.wait(150);
+    },
+  },
+  {
     name: "i18n EN/UA міняє текст", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);

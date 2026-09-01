@@ -10,9 +10,9 @@ import { T } from "/_rt/i18n.js";
 import { Sheet, Segmented, Island } from "/_rt/ui.js";
 import { Battery } from "/_rt/render.js";
 import { wakeLock } from "/_rt/sensors.js";
-import { Pixels } from "/_rt/skeleton.js";
+import { GlStage, hasWebGL2 } from "/_rt/glstage.js";
 import { PRESETS, presetOf } from "./presets.js";
-import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown } from "./state.js";
+import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const fsSupported = typeof document !== "undefined" && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -26,6 +26,12 @@ function useTick() {
 }
 const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
 
+// A text that arrives as a WAVE: one span per character, each a beat later (owner: "моушн анімація зміни
+// тексту хвилями"). Keyed by the text, so a change remounts and the wave replays; the delay is capped so a
+// long line never takes seconds to finish. Used only inside the show's aria-hidden layer.
+const Waved = ({ text, cls = "" }) => html`<span key=${text} class=${cls}>${[...String(text)].map((ch, i) =>
+  html`<span key=${i} class="vy-ch" style=${`--ci:${i}`}>${ch === " " ? " " : ch}</span>`)}</span>`;
+
 // The typographic layer of the show: the clock, the date, the preset's line for THIS frame, the words it
 // grew from. Fixed white on a scrim on purpose — it sits on a photograph, not on a farm surface, and must
 // read the same in both themes (wall's precedent).
@@ -34,24 +40,38 @@ function ShowType({ t, loc, frame }) {
   const time = new Intl.DateTimeFormat(lc, { hour: "2-digit", minute: "2-digit" }).format(d);
   const date = new Intl.DateTimeFormat(lc, { weekday: "long", day: "numeric", month: "long" }).format(d);
   return html`<div class="vy-type" aria-hidden="true">
-    <div data-clock class="vy-clock">${time}</div>
-    <div class="vy-date">${date}</div>
-    ${frame ? html`<p data-line class="vy-line">${T(t, `l_${frame.preset}_${(frame.li ?? 0) + 1}`)}</p>` : null}
+    <div data-clock class="vy-clock"><${Waved} text=${time} /></div>
+    <div class="vy-date"><${Waved} text=${date} /></div>
+    ${frame ? html`<p data-line class="vy-line"><${Waved} text=${frame.line || T(t, `l_${frame.preset}_${(frame.li ?? 0) + 1}`)} /></p>` : null}
     ${frame?.prompt ? html`<p class="vy-caption">${frame.prompt}</p>` : null}
   </div>`;
 }
 
 export function vydyvo({ t, S, screen, closeScreen }) {
   const opts = useStore($opts), frames = useStore($frames), stage = useStore($stage), gen = useStore($gen), loc = useStore(S.locale);
+  useStore(S.theme);   // the veil and the field follow the APPLIED mode, re-read off the document below
   const now = useTick();
   const show = screen === "show";
   const stageRef = useRef(null);
+  // the mode the DOCUMENT is in (`?theme=` overrides the atom without writing it)
+  const docMode = (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme")) === "signal-light" ? "light" : "dark";
+  const docModeRef = useRef(docMode); docModeRef.current = docMode;
+  const ambRef = useRef(0);
   const preset = presetOf(opts.preset);
   const byId = (id) => frames.find((f) => f.id === id) || null;
   const cur = byId(stage.cur);
   const next = unshown()[0];   // preloaded below, so the cross-fade never fades in a half-decoded picture
 
-  useEffect(() => { startLoop({ t }); }, []);
+  useEffect(() => { startLoop({ t, loc }); }, [t, loc]);
+
+  // THE VEIL (owner: a wrong-mode frame "виїдає очі"): when the collection holds no frame of the mode the
+  // page is in, the pictures give way to the waiting field below; when a matching frame exists but the
+  // stage shows the other side, switch at once instead of waiting out the timer.
+  const matched = frames.some((f) => f.mode === docMode);
+  const curMatches = !!cur && cur.mode === docMode;
+  const veiled = !curMatches;   // no frame at all, or the wrong side of the theme — the field takes the stage
+  useEffect(() => { if (!curMatches && matched) skip(); }, [docMode, curMatches, matched]);
+  useEffect(() => { if (!matched) nudge(); }, [docMode, matched]);
 
   // The show: fullscreen on the stage subtree + the screen kept awake, both released on the way out. The
   // browser leaving fullscreen on its own (ESC, the system gesture) closes the route so state and display
@@ -82,7 +102,7 @@ export function vydyvo({ t, S, screen, closeScreen }) {
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
-    <div data-stage ref=${stageRef} data-vy-preset=${opts.preset} data-vy-every=${opts.every} data-show=${show ? "1" : null}
+    <div data-stage ref=${stageRef} data-vy-preset=${opts.preset} data-vy-every=${opts.every} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
       class=${`vy-stage fixed inset-0 ${show ? "z-[60]" : "z-0"} bg-black overflow-hidden`}
       onClick=${show ? () => S.screen.set(null) : null}>
       ${[0, 1].map((slot) => {
@@ -90,8 +110,19 @@ export function vydyvo({ t, S, screen, closeScreen }) {
         return html`<img key=${slot} data-frame data-slot=${slot} data-on=${on ? "1" : null} src=${f?.url || ""} alt="" aria-hidden="true" decoding="async" class="vy-layer pointer-events-none" style=${`--vy-every:${opts.every}s`} />`;
       })}
       ${next ? html`<img src=${next.url} alt="" decoding="async" class="absolute w-px h-px opacity-0 pointer-events-none" aria-hidden="true" />` : null}
+      ${/* THE WAITING FIELD — shown while no frame of the page's mode exists (a wrong-mode frame burns the
+           eyes on a theme flip): the pre-generated ambient texture breathing under a quiet WebGL field
+           (vydyvo.frag — the texture rides in as GlStage's palette sampler; motes in the accent's tint).
+           Where WebGL2 is absent the texture breathes alone. */""}
+      ${veiled ? html`<div data-veiled class="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <img src=${new URL(`assets/amb-${docMode === "light" ? "d" : "n"}.webp`, import.meta.url).href} alt="" decoding="async" class="vy-amb" />
+        ${hasWebGL2() ? html`<${GlStage} shader=${new URL("vydyvo.frag", import.meta.url)} seed=${7} zClass="z-0"
+          ink=${() => (docModeRef.current === "dark" ? [0.95, 0.72, 0.29, 1] : [0.55, 0.42, 0.16, 1])}
+          vary=${() => [docModeRef.current === "dark" ? 1 : 0, ambRef.current, 0, 0]}
+          tex=${new URL(`assets/amb-${docMode === "light" ? "d" : "n"}.webp`, import.meta.url).href}
+          texReady=${(r) => { ambRef.current = r ? 1 : 0; }} />` : null}
+      </div>` : null}
       <div class="vy-vignette" aria-hidden="true"></div>
-      ${!cur ? html`<div class="absolute inset-0 grid place-items-center pointer-events-none" aria-hidden="true"><${Pixels} cls="w-36 h-60 rounded-[var(--ms-r)]" /></div>` : null}
       ${show ? html`<${ShowType} t=${t} loc=${loc} frame=${cur} />` : null}
       ${show ? html`<div class="absolute right-[clamp(1rem,5vw,2.5rem)] top-[max(env(safe-area-inset-top),clamp(1rem,4vh,2rem))] text-white/85" style="text-shadow:0 1px 2px rgba(0,0,0,.5)"><${Battery} force=${true} /></div>` : null}
       ${show ? html`<span class="sr-only">${T(t, "exitShow")}</span>` : null}
@@ -121,8 +152,22 @@ export function vydyvo({ t, S, screen, closeScreen }) {
     <${Sheet} id="vy-settings" open=${screen === "settings"} onClose=${closeScreen} title=${T(t, "settings")} icon="lucide:sliders-horizontal" locale=${loc}>
       <div class="flex flex-col gap-[var(--ms-gap)]">
         <div class=${label}>${T(t, "preset")}</div>
-        <${Segmented} attr="data-preset" scroll=${true} label=${T(t, "preset")} value=${opts.preset} onChange=${(id) => setOpts({ preset: id })}
-          items=${PRESETS.map((p) => ({ id: p.id, label: T(t, "p_" + p.id), dot: `hsl(${p.hue} 60% 60%)` }))} />
+        ${/* tiny preset cards with a LIVE preview — the newest collection frame painted in that preset
+             (self-updating, nothing canned); a hue wash until one exists. The chosen card's ring is a
+             head.html rule — a ring-[var(--…)] utility never survives the build's class scanner. */""}
+        <div class="grid grid-cols-3 gap-2">
+          ${PRESETS.map((p) => {
+            const on = opts.preset === p.id;
+            const pv = [...frames].reverse().find((f) => f.preset === p.id);
+            return html`<button key=${p.id} type="button" data-preset=${p.id} data-preset-card aria-pressed=${on}
+              class="flex flex-col items-center gap-1.5 p-1.5 rounded-[var(--ms-r-in)] sf-inset" onClick=${() => setOpts({ preset: p.id })}>
+              ${pv
+                ? html`<img src=${pv.url} alt="" loading="lazy" decoding="async" class="vy-pv w-full aspect-[3/4] object-cover rounded-[0.55rem] bg-black" />`
+                : html`<span class="vy-pv w-full aspect-[3/4] block rounded-[0.55rem]" style=${`background:radial-gradient(120% 100% at 35% 25%, hsl(${p.hue} 55% 46%) 0%, hsl(${p.hue} 45% 22%) 55%, hsl(${(p.hue + 200) % 360} 40% 10%) 100%)`}></span>`}
+              <span class=${`text-[0.68rem] leading-tight truncate max-w-full ${on ? "" : "text-muted"}`}>${T(t, "p_" + p.id)}</span>
+            </button>`;
+          })}
+        </div>
         <div class=${label}>${T(t, "every")}</div>
         <${Segmented} attr="data-every" label=${T(t, "every")} value=${String(opts.every)} onChange=${(v) => setOpts({ every: Number(v) })}
           items=${EVERY.map((s) => ({ id: String(s), label: T(t, "s" + s) }))} />
