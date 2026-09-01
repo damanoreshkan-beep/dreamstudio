@@ -85,4 +85,21 @@ export default [
       h.expect((await h.prop("#install", "open")) !== true, "Back не закрив модалку");
     },
   },
+  {
+    // the material picker (core material.js + rt/themes.json): a real browser proves the link swap — the
+    // page's one theme <link> is rewritten, the root is stamped, and Back closes the sheet
+    name: "матеріал: профіль → картки → «Просто» перемикає лист стилів, «Сяйво» повертає", run: async (h) => {
+      await h.click('[data-tab="me"]'); await h.wait(300);
+      h.expect((await h.count("#p-material")) === 1, "немає ряду «Матеріал»");
+      await h.click("#p-material"); await h.wait(250);
+      h.expect((await h.count('[data-material-id="plain"]')) === 1, "у листі немає картки «Просто»");
+      await h.click('[data-material-id="plain"]'); await h.wait(300);
+      h.expect((await h.attr("html", "data-material")) === "plain", "html[data-material] не став plain");
+      h.expect(/theme-plain\.css$/.test(await h.attr('link[rel="stylesheet"][href*="theme"]', "href")), "лінк теми не переключився на theme-plain.css");
+      await h.click("#p-material"); await h.wait(250);
+      await h.click('[data-material-id="lum"]'); await h.wait(300);
+      h.expect((await h.attr("html", "data-material")) === "lum", "повернення до «Сяйва» не спрацювало");
+      h.expect(/theme-lum\.css$/.test(await h.attr('link[rel="stylesheet"][href*="theme"]', "href")), "лінк теми не повернувся до theme-lum.css");
+    },
+  },
 ];
