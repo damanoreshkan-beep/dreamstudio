@@ -173,15 +173,22 @@ async function generate() {
   // into a NEW concrete scene, told what has already been painted; the scene carries NO style words, so the
   // preset's material block keeps the series consistent while the subject moves. The scene persists with
   // the frame and feeds the next race's avoid-list. Fail-open: no scene → the standing subject runs.
+  // THE OWNER'S WORDS WIN (2026-09-01: «зорі» never reached the picture — the preset's fog buried them):
+  // typed words go to the scene mode as the SUBJECT it must depict, and composePrompt drops the preset's
+  // scene block for its mood tint alone — 70/30, the text stronger.
   let subject = o.prompt.trim(), scene = "";
+  const userDriven = !!subject;
   const painted = $frames.get().map((f) => f.subject).filter(Boolean).slice(-8);
-  const spark = [`У дусі: ${subject || preset.subject}.`, painted.length ? `Вже було: ${painted.join(" | ")}` : ""].filter(Boolean).join("\n");
+  const spark = [
+    userDriven ? `Сюжет власника (зобрази саме це): ${subject}.` : `У дусі: ${preset.subject}.`,
+    painted.length ? `Вже було: ${painted.join(" | ")}` : "",
+  ].filter(Boolean).join("\n");
   try { scene = jsonField(await suggest("scene", spark, ctxRef?.loc || "uk"), "scene").slice(0, 300); } catch { /* */ }
   if (run !== runs) return;
   if (scene) subject = scene;
   if (subject) { try { subject = await toEnglish(subject); } catch { /* the Spaces prefer English; the original still runs */ } }
   if (run !== runs) return;
-  const prompt = composePrompt(subject, preset, mode);
+  const prompt = composePrompt(subject, preset, mode, userDriven);
   // The SCREEN's ratio, not the window's: the show covers the whole panel (0:0 — fullscreen manifests, the
   // fullscreen show), and innerHeight lies whenever the keyboard is open (a near-square frame that cover
   // then zooms to death) or system bars are up. screen.width/height is the panel the picture must fill.

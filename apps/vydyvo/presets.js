@@ -39,15 +39,29 @@ export const SYSTEM = {
   light: "daylight, high-key, airy, bright and soft, pale tones, gentle haze",
 };
 
+// the preset's MOOD alone — what survives of it when the owner's own words drive the picture (70/30:
+// the subject is the owner's, the preset only tints; its full night/day scene block would fight the words)
+export const TINTS = {
+  still: "hushed and calm, vast negative space, muted tones",
+  threshold: "intimate, a quiet contrast of warm light and darkness",
+  memory: "nostalgic, faded, soft, like an old photograph",
+  depth: "deep, submerged, weightless, silent",
+  time: "ancient, patient, overgrown, still",
+  glow: "drawn with thin glowing light filaments and luminous nodes, translucent, volumetric bloom",
+};
+
 export const presetOf = (id) => PRESETS.find((p) => p.id === id) || PRESETS[0];
 
 /**
- * The whole prompt for one race. `subject` is the user's prompt in English (or empty → the preset's own).
+ * The whole prompt for one race. `subject` is the scene in English; `userDriven` says the owner's own words
+ * are behind it — then the subject leads and the preset contributes only its mood tint (owner, 2026-09-01:
+ * "70% на 30%, де текст юзера сильніший" — the full scene block buried «зорі» under the preset's fog).
  * Kept under the edge's 800-character slice.
  */
-export function composePrompt(subject, preset, mode) {
+export function composePrompt(subject, preset, mode, userDriven = false) {
   const m = mode === "light" ? "light" : "dark";
-  return [subject?.trim() || preset.subject, preset[m === "light" ? "day" : "night"], SYSTEM[m], SYSTEM.base].join(", ").slice(0, 800);
+  const style = userDriven ? (TINTS[preset.id] || "") : preset[m === "light" ? "day" : "night"];
+  return [subject?.trim() || preset.subject, style, SYSTEM[m], SYSTEM.base].filter(Boolean).join(", ").slice(0, 800);
 }
 
 // A deterministic frame for the gate: the preset's hue, portrait, no network (mirage's mockArt shape).

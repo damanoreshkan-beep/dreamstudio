@@ -38,12 +38,12 @@ export default [
     },
   },
   {
-    name: "далі: наступний кадр стає на сцену", run: async (h) => {
+    name: "паличка: явна генерація негайно поповнює колекцію", run: async (h) => {
       await ready(h);
-      for (let i = 0; i < 20 && (await h.count("[data-frame][src]")) < 2; i++) await h.wait(300);
-      const before = await h.attr("[data-frame][data-on]", "data-slot");
-      await h.click("[data-skip]"); await h.wait(300);
-      h.expect((await h.attr("[data-frame][data-on]", "data-slot")) !== before, "кадр не змінився");
+      const count = async () => { await h.click("[data-settings]"); await h.wait(250); const n = Number(await h.text("[data-collection]")); await h.back(); await h.wait(250); return n; };
+      const before = await count();
+      await h.tap("[data-gen-now]"); await h.wait(1500);
+      h.expect((await count()) > before, "колекція не виросла після явної генерації");
     },
   },
   {
