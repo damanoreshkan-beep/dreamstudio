@@ -62,6 +62,17 @@ function addFrame(f) {
 // every landed frame asks /feed/ai (mode "line", uncached, hot) for ONE fresh thought in the preset's
 // spirit, telling it what has already been shown so nothing repeats. The i18n lines remain only as the
 // OFFLINE/gate fallback — a collection frame without a line still speaks. The line persists with the frame.
+// The modes answer STRICT JSON ({"line":…} / {"scene":…}) — free text once echoed the prompt back onto the
+// screen («Прозвучали…»); a keyed field either parses or is discarded, never shown raw. Markdown fences and
+// stray prose around the object are tolerated; a missing key is a miss.
+function jsonField(raw, key) {
+  try {
+    const m = String(raw || "").match(/\{[\s\S]*\}/);
+    const v = m ? JSON.parse(m[0])?.[key] : null;
+    return typeof v === "string" ? v.trim() : "";
+  } catch { return ""; }
+}
+
 async function lineFor(id, preset, userWords, loc) {
   if (gate) return;
   const avoid = $frames.get().map((f) => f.line).filter(Boolean).slice(-12);
@@ -72,7 +83,7 @@ async function lineFor(id, preset, userWords, loc) {
   ].filter(Boolean).join("\n");
   try {
     const out = await suggest("line", spark, loc || "uk");
-    const line = String(out || "").split("\n")[0].trim().replace(/^["«—–\-\s]+/, "").replace(/["»\s]+$/, "").slice(0, 90);
+    const line = jsonField(out, "line").replace(/^["«—–\-\s]+/, "").replace(/["»\s]+$/, "").slice(0, 90);
     if (!line || !$frames.get().some((f) => f.id === id)) return;
     $frames.set($frames.get().map((f) => (f.id === id ? { ...f, line } : f)));
     if (idbSupported) {
@@ -155,7 +166,7 @@ async function generate() {
   let subject = o.prompt.trim(), scene = "";
   const painted = $frames.get().map((f) => f.subject).filter(Boolean).slice(-8);
   const spark = [`У дусі: ${subject || preset.subject}.`, painted.length ? `Вже було: ${painted.join(" | ")}` : ""].filter(Boolean).join("\n");
-  try { scene = String(await suggest("scene", spark, ctxRef?.loc || "uk") || "").trim().slice(0, 300); } catch { /* */ }
+  try { scene = jsonField(await suggest("scene", spark, ctxRef?.loc || "uk"), "scene").slice(0, 300); } catch { /* */ }
   if (run !== runs) return;
   if (scene) subject = scene;
   if (subject) { try { subject = await toEnglish(subject); } catch { /* the Spaces prefer English; the original still runs */ } }
