@@ -49,6 +49,8 @@ Deno.test("themes · the registry: every module exists, imports the structure fi
     assert(/^[a-z][a-z0-9-]*$/.test(m.id), `${m.id}: an id is a css-safe token`);
     assert(m.name?.en && m.name?.uk, `${m.id}: a name in both locales`);
     assert(/^@import "\.\/(runtime|theme-[\w-]+)\.css";/m.test(themes[m.id]), `${m.id}: a module @imports runtime.css (or another module) FIRST`);
+    // the card's round picture is the mascot in that theme — a named thumb that is not in rt/ is a broken image on every profile
+    if (m.thumb) assert((await Deno.stat(new URL(m.thumb, RT))).size > 0, `${m.id}: thumb ${m.thumb} missing from rt/`);
   }
 });
 

@@ -1,4 +1,25 @@
-# The mascot — a feline that does not exist (proposal, 2026-09-01)
+# The mascot — a feline that does not exist (DECIDED 2026-09-01: Kotyk-Zirka)
+
+**Owner's pick: Котик-Зірка (candidate 3).** Shipped the same day as the five picker thumbnails
+(`rt/theme-<id>.webp`, 384², webp q80 — the same subject through every theme's material, Z-Image-Turbo on
+the edge pods via the RAW generator). The prompt contract that produced them:
+
+    a small imaginary chubby cat sitting like a loaf with its paws tucked in, two five-pointed star shaped
+    ears on top of its head, a very short tail, a small crescent mark on its chest, eyes shut, faintly
+    smiling, full body, centred, plenty of empty space around it, <material block>
+
+where the material block is mirage's style block rephrased so the material FORMS the cat ("…the ink itself
+forms the cat, no real cat…" — without it the model puts a photo cat next to the material). Blocks used:
+lum / paper / ink / chrome (Mercury) from `apps/mirage/styles.js`; Просто = "a simple smooth matte pale grey
+clay figurine, the clay itself forms the cat, no real cat, soft even studio light, minimal, plain dark grey
+void". Two takes per theme, picked by eye on a contact sheet (lum a · paper a · ink a · mercury a · plain b).
+Known drift: the star ears hold unevenly (Сяйво renders plain ears with stars around; Ртуть one star ear) —
+at a 96px round thumb the silhouette + material carry it; a hero-size render (1024) will want a re-roll
+with the ears weighted ("ears that ARE five-pointed stars").
+
+---
+
+Original proposal, kept for the record:
 
 Owner: "замість лисички вигадаємо свого персонажа, якого не існує в природі, але із сімейства котячих".
 The mascot is the ONE subject rendered through every material (mirage's fox, replaced): the thumbnail of

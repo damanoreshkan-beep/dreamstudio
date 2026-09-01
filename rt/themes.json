@@ -1,7 +1,7 @@
 [
-  { "id": "lum", "name": { "en": "Glow", "uk": "Сяйво" }, "css": "theme-lum.css", "swatch": { "dark": ["#000000", "#F2B84B"], "light": ["#F6F4EE", "#6F4800"] } },
-  { "id": "paper", "name": { "en": "Paper", "uk": "Папір" }, "css": "theme-paper.css", "swatch": { "dark": ["#1A1714", "#E1B56A"], "light": ["#F3EEE4", "#7A4A0E"] } },
-  { "id": "ink", "name": { "en": "Ink", "uk": "Туш" }, "css": "theme-ink.css", "swatch": { "dark": ["#0B0B0C", "#FF8A6A"], "light": ["#F7F5F0", "#A82B14"] } },
-  { "id": "mercury", "name": { "en": "Mercury", "uk": "Ртуть" }, "css": "theme-mercury.css", "swatch": { "dark": ["#0E1012", "#A8B8C8"], "light": ["#F2F4F6", "#3E5568"] } },
-  { "id": "plain", "name": { "en": "Plain", "uk": "Просто" }, "css": "theme-plain.css", "swatch": { "dark": ["#111114", "#8DB8FF"], "light": ["#FAFAFA", "#1F5FBF"] } }
+  { "id": "lum", "name": { "en": "Glow", "uk": "Сяйво" }, "css": "theme-lum.css", "thumb": "theme-lum.webp", "swatch": { "dark": ["#000000", "#F2B84B"], "light": ["#F6F4EE", "#6F4800"] } },
+  { "id": "paper", "name": { "en": "Paper", "uk": "Папір" }, "css": "theme-paper.css", "thumb": "theme-paper.webp", "swatch": { "dark": ["#1A1714", "#E1B56A"], "light": ["#F3EEE4", "#7A4A0E"] } },
+  { "id": "ink", "name": { "en": "Ink", "uk": "Туш" }, "css": "theme-ink.css", "thumb": "theme-ink.webp", "swatch": { "dark": ["#0B0B0C", "#FF8A6A"], "light": ["#F7F5F0", "#A82B14"] } },
+  { "id": "mercury", "name": { "en": "Mercury", "uk": "Ртуть" }, "css": "theme-mercury.css", "thumb": "theme-mercury.webp", "swatch": { "dark": ["#0E1012", "#A8B8C8"], "light": ["#F2F4F6", "#3E5568"] } },
+  { "id": "plain", "name": { "en": "Plain", "uk": "Просто" }, "css": "theme-plain.css", "thumb": "theme-plain.webp", "swatch": { "dark": ["#111114", "#8DB8FF"], "light": ["#FAFAFA", "#1F5FBF"] } }
 ]

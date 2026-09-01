@@ -71,7 +71,9 @@ style thumbnail must go through the raw generator or every material glows).
   `[data-materials] [aria-pressed=true]` — a Tailwind `ring-[var(--app-accent)]` utility is dropped by the
   build's class scanner and never reaches dist (green gates, no ring on the phone); and the swatch's mode
   reads `html[data-theme]`, because a `?theme=` override (the gate, the eye) never writes the theme atom.
-- Phase 2 waits on the owner's pick (docs/research/mascot.md); phases 3–4 follow.
+- **Phase 2 SHIPPED** (2026-09-01): the mascot is Котик-Зірка (docs/research/mascot.md carries the prompt
+  contract); `rt/theme-<id>.webp` for all five themes, `thumb` in themes.json, the registry test proves each
+  named thumb exists. Phases 3–4 (the other mirage materials, textures per theme) follow.
 
 ## Decision log
 
