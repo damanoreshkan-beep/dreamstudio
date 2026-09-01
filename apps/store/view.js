@@ -165,18 +165,20 @@ export function store({ S, openScreen, closeScreen }) {
       ${shot ? html`<div class="shrink-0 self-center w-[4.7rem] aspect-[384/832] rounded-[0.6rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>` : null}
     </div>
   </article>`; };
+  // TINY and whole (owner, 2026-09-01: "картинки … повністю пропорційні маленькі, картки акуратно
+  // крихітно"): the capture is never cropped — a small phone at its own 384:832 aspect on the left, the
+  // words in a quiet column beside it. No tagline here; the hero and the app page carry the prose.
   const FeaturedTall = (a) => { const shot = firstShot(a); return html`<article key=${a.id} class="relative h-full rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
     <button data-featured data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
-    <div class="relative h-full flex flex-col pointer-events-none">
-      ${shot ? html`<div class="aspect-[5/4] overflow-hidden bg-black border-b border-base-300/40"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full object-cover object-top" /></div>` : null}
-      <div class="flex-1 flex flex-col gap-1 p-3">
-        <div class="text-[0.55rem] font-mono uppercase tracking-[.14em] text-secondary truncate">${T(t, "premium")} · ${T(t, catKey(a.category))}</div>
-        <div class="flex items-center gap-2 min-w-0">
-          ${Tile(a, "w-7 h-7")}
-          <span class="font-bold text-[0.92rem] leading-tight truncate">${nameOf(a)}</span>
+    <div class="relative h-full flex items-stretch gap-2.5 p-3 pointer-events-none">
+      ${shot ? html`<div class="shrink-0 self-center w-14 aspect-[384/832] rounded-[0.55rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>` : null}
+      <div class="min-w-0 flex-1 flex flex-col gap-1 py-0.5">
+        <div class="text-[0.52rem] font-mono uppercase tracking-[.12em] text-secondary truncate">${T(t, catKey(a.category))}</div>
+        <div class="flex items-center gap-1.5 min-w-0">
+          ${Tile(a, "w-6 h-6")}
+          <span class="font-bold text-[0.85rem] leading-tight line-clamp-2">${nameOf(a)}</span>
         </div>
-        <p class="text-[0.72rem] text-muted leading-snug line-clamp-2">${subtitleOf(a)}</p>
-        <div class="mt-auto pt-1.5">${pill(a, "pointer-events-auto")}</div>
+        <div class="mt-auto pt-1">${pill(a, "pointer-events-auto")}</div>
       </div>
     </div>
   </article>`; };
