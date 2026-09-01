@@ -13,6 +13,10 @@ forms the cat, no real cat…" — without it the model puts a photo cat next to
 lum / paper / ink / chrome (Mercury) from `apps/mirage/styles.js`; Просто = "a simple smooth matte pale grey
 clay figurine, the clay itself forms the cat, no real cat, soft even studio light, minimal, plain dark grey
 void". Two takes per theme, picked by eye on a contact sheet (lum a · paper a · ink a · mercury a · plain b).
+The recipe is in `docs/research/mascot-tools/`: `jobs.mjs` prints the JOBS json, `genraw.mjs` runs it on the
+four pods (`docker exec -i -e JOBS="$J" microspec-edge deno run -A - < genraw.mjs > out`), `collect.mjs`
+writes the PNG masters, `thumbs.mjs` cuts the 384px webp into `rt/`. A new theme = one more block in
+`jobs.mjs` and one more pick.
 Known drift: the star ears hold unevenly (Сяйво renders plain ears with stars around; Ртуть one star ear) —
 at a 96px round thumb the silhouette + material carry it; a hero-size render (1024) will want a re-roll
 with the ears weighted ("ears that ARE five-pointed stars").
