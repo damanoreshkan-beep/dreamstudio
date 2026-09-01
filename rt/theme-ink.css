@@ -1,0 +1,86 @@
+/* INK (Туш) — mirage's "black and vermilion ink blooming in clear water": near-black and off-white, one
+   vermilion pole and one cool water-blue pole, a hairline of ink on every edge, no bloom. The pair of
+   marks: vermilion + water blue. No sprites yet (docs/research/themes.md, phase 4). */
+@import "./runtime.css";
+
+:root {
+  --app-accent: #E04A2B;
+  --app-accent-2: #4FA3E3;
+  --app-tint: color-mix(in oklch, var(--app-accent) 14%, transparent);
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+}
+
+[data-theme="signal"] {
+  color-scheme: dark;
+  --color-base-100: #0B0B0C; --color-base-200: #0B0B0C; --color-base-300: #1A1A1C;
+  --color-base-content: #F4F1EC;
+  --color-primary: #F4F1EC;   --color-primary-content: #0B0B0C;
+  --color-secondary: #FF8A6A; --color-secondary-content: #2A0A04;
+  --color-accent: #9FD4FF;    --color-accent-content: #04192A;
+  --color-neutral: #1C1C1F;   --color-neutral-content: #F4F1EC;
+  --color-success: #7FCF9B;   --color-success-content: #06180E;
+  --color-error: #F08A82;     --color-error-content: #2A0A08;
+  --color-warning: #E0B057;   --color-warning-content: #241904;
+  --color-info: #9FD4FF;      --color-info-content: #04192A;
+  --color-base-muted: #A5A3A0;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(244, 241, 236, .12);
+  --lm-rim-hi: rgba(244, 241, 236, .2);
+  --lm-rim-lo: rgba(244, 241, 236, .07);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--app-accent) 60%, transparent);
+  --nm-cast:   rgba(0, 0, 0, .55);
+  --lm-lip:      rgba(244, 241, 236, .3);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(0, 0, 0, .7);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 6px rgba(0, 0, 0, .8);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(0, 0, 0, .8);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 8px rgba(0, 0, 0, .6);
+  --sf-inset-face: #101011;
+  --sf-inset-top:  rgba(0, 0, 0, .7);
+  --sf-press-face: #101011;
+  --sf-press-top:  rgba(0, 0, 0, .6);
+  --sf-track-face: #232326;
+}
+[data-theme="signal-light"] {
+  color-scheme: light;
+  --color-base-100: #F7F5F0; --color-base-200: #F7F5F0; --color-base-300: #E9E6DF;
+  --color-base-content: #141414;
+  --color-primary: #141414;   --color-primary-content: #F7F5F0;
+  --color-secondary: #A82B14; --color-secondary-content: #FFFFFF;
+  --color-accent: #185E9B;    --color-accent-content: #FFFFFF;
+  --color-neutral: #262626;   --color-neutral-content: #F7F5F0;
+  --color-success: #1F6B42;   --color-success-content: #FFFFFF;
+  --color-error: #A3302A;     --color-error-content: #FFFFFF;
+  --color-warning: #6B4A12;   --color-warning-content: #FFFFFF;
+  --color-info: #185E9B;      --color-info-content: #FFFFFF;
+  --color-base-muted: #5A5A58;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(20, 20, 20, .14);
+  --lm-rim-hi: rgba(255, 255, 255, .95);
+  --lm-rim-lo: rgba(20, 20, 20, .1);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
+  --nm-cast:   rgba(20, 20, 20, .18);
+  --lm-lip:      rgba(20, 20, 20, .28);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(20, 20, 20, .16);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 5px rgba(20, 20, 20, .14);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(20, 20, 20, .12);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 6px rgba(20, 20, 20, .16);
+  --sf-inset-face: #EDEAE3;
+  --sf-inset-top:  rgba(20, 20, 20, .14);
+  --sf-press-face: #EDEAE3;
+  --sf-press-top:  rgba(20, 20, 20, .16);
+  --sf-track-face: #DBD7CE;
+}

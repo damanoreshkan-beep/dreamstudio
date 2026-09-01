@@ -1,0 +1,87 @@
+/* MERCURY (Ртуть) — mirage's "molten liquid mirror-chrome": cold steel greys, a cool white ink, the cyan
+   pole kept from the luminous pair and a steel pole beside it; the rim is a hairline of chrome (brighter
+   than the luminous one, cooler), a tight cyan bloom on the pressed state only. The pair of marks: steel +
+   cyan. No sprites yet (docs/research/themes.md, phase 4). */
+@import "./runtime.css";
+
+:root {
+  --app-accent: #B9C6D2;
+  --app-accent-2: #5CE4DC;
+  --app-tint: color-mix(in oklch, var(--app-accent) 14%, transparent);
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+}
+
+[data-theme="signal"] {
+  color-scheme: dark;
+  --color-base-100: #0E1012; --color-base-200: #0E1012; --color-base-300: #1C2024;
+  --color-base-content: #E8ECF0;
+  --color-primary: #E8ECF0;   --color-primary-content: #0E1012;
+  --color-secondary: #A8B8C8; --color-secondary-content: #0E1620;
+  --color-accent: #5CE4DC;    --color-accent-content: #002321;
+  --color-neutral: #1E2328;   --color-neutral-content: #E8ECF0;
+  --color-success: #7FCF9B;   --color-success-content: #06180E;
+  --color-error: #F08A82;     --color-error-content: #2A0A08;
+  --color-warning: #E0B057;   --color-warning-content: #241904;
+  --color-info: #5CE4DC;      --color-info-content: #002321;
+  --color-base-muted: #98A2AC;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(220, 230, 240, .16);
+  --lm-rim-hi: rgba(240, 246, 252, .34);
+  --lm-rim-lo: rgba(220, 230, 240, .08);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--app-accent-2) 55%, transparent);
+  --nm-cast:   rgba(0, 0, 0, .5);
+  --lm-lip:      rgba(240, 246, 252, .5);
+  --lm-lip-glow: color-mix(in oklch, var(--app-accent-2) 18%, transparent);
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(0, 0, 0, .7);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 6px rgba(0, 0, 0, .8);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(0, 0, 0, .8);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), 0 0 var(--lm-gp) var(--lm-gps) color-mix(in oklch, var(--app-accent-2) 22%, transparent), inset 0 2px 8px rgba(0, 0, 0, .6);
+  --sf-inset-face: #131619;
+  --sf-inset-top:  rgba(0, 0, 0, .7);
+  --sf-press-face: #131619;
+  --sf-press-top:  rgba(0, 0, 0, .6);
+  --sf-track-face: #262C33;
+}
+[data-theme="signal-light"] {
+  color-scheme: light;
+  --color-base-100: #F2F4F6; --color-base-200: #F2F4F6; --color-base-300: #E2E6EA;
+  --color-base-content: #12161A;
+  --color-primary: #12161A;   --color-primary-content: #F2F4F6;
+  --color-secondary: #3E5568; --color-secondary-content: #FFFFFF;
+  --color-accent: #0B5F58;    --color-accent-content: #FFFFFF;
+  --color-neutral: #262C33;   --color-neutral-content: #F2F4F6;
+  --color-success: #1F6B42;   --color-success-content: #FFFFFF;
+  --color-error: #A3302A;     --color-error-content: #FFFFFF;
+  --color-warning: #6B4A12;   --color-warning-content: #FFFFFF;
+  --color-info: #0B5F58;      --color-info-content: #FFFFFF;
+  --color-base-muted: #566068;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(18, 22, 26, .12);
+  --lm-rim-hi: rgba(255, 255, 255, 1);
+  --lm-rim-lo: rgba(18, 22, 26, .08);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
+  --nm-cast:   rgba(18, 22, 26, .18);
+  --lm-lip:      rgba(18, 22, 26, .2);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(18, 22, 26, .16);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 5px rgba(18, 22, 26, .14);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(18, 22, 26, .12);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 6px rgba(18, 22, 26, .16);
+  --sf-inset-face: #E8EBEE;
+  --sf-inset-top:  rgba(18, 22, 26, .14);
+  --sf-press-face: #E8EBEE;
+  --sf-press-top:  rgba(18, 22, 26, .16);
+  --sf-track-face: #D3D8DD;
+}

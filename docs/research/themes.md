@@ -58,6 +58,16 @@ style thumbnail must go through the raw generator or every material glows).
 5. Docs: this spec's status, the README's theme section, a `themes.svg` diagram (docart reads
    `rt/themes.json`), the skill.
 
+## Status
+
+- **Phase 1 SHIPPED** (core 1.2.0–1.2.2, product b04fbcf+): the registry, the picker (mirage's grid —
+  three to a row, a round picture, the chosen card ringed; titled "Тема"), the link swap, `S.material`,
+  the picker e2e in a real browser (store). Five themes live: Сяйво (lum, the luminous default), Папір,
+  Туш, Ртуть (palettes in both modes, no sprites yet — the hooks stay empty until phase 4) and Просто (the
+  core's neutral look). Until the mascot exists a card shows the theme's SWATCH (base + accent for the
+  current mode, `swatch` in themes.json).
+- Phase 2 waits on the owner's pick (docs/research/mascot.md); phases 3–4 follow.
+
 ## Decision log
 
 - Files in `rt/`, not `themes/<id>/`: the overlay is flat by design; a directory would need the build,
