@@ -29,7 +29,6 @@
   "s300": "5 min",
   "collection": "Collection",
   "working": "Painting the next one",
-  "waiting": "Next in",
   "resting": "Showing the collection",
   "eNetwork": "No connection. The show goes on from the collection",
   "eRate": "Too many requests. Pausing a few minutes",

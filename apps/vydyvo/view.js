@@ -76,10 +76,8 @@ export function vydyvo({ t, S, screen, closeScreen }) {
 
   // what the status line says: painting · next in m:ss · showing the collection · the last refusal
   const left = opts.every * 1000 - (now - stage.since);
-  const status = gen.phase === "working" ? T(t, "working")
-    : gen.error ? T(t, gen.error)
-    : frames.length > 1 && stage.cur ? `${T(t, "waiting")} ${mmss(left)}`
-    : T(t, "resting");
+  const counting = gen.phase !== "working" && !gen.error && frames.length > 1 && stage.cur;
+  const status = gen.phase === "working" ? T(t, "working") : gen.error ? T(t, gen.error) : counting ? mmss(left) : T(t, "resting");
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
@@ -110,7 +108,7 @@ export function vydyvo({ t, S, screen, closeScreen }) {
           <button data-settings class=${`flex items-center gap-2 min-w-0 flex-1 text-left ${label}`} onClick=${() => S.screen.set("settings")}>
             <span class="size-2 rounded-full shrink-0" style=${`background:hsl(${preset.hue} 60% 60%)`}></span>
             <span class="shrink-0">${T(t, "p_" + opts.preset)}</span><span class="opacity-40">·</span>
-            <span data-status class="truncate normal-case tracking-normal tabular-nums">${status}</span>
+            <span data-status class=${`truncate ${counting ? "tabular-nums" : "font-sans normal-case tracking-normal text-sm"}`}>${status}</span>
             ${Icon("lucide:sliders-horizontal", "ml-auto text-base shrink-0")}
           </button>
           <button data-skip class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "skip")} disabled=${frames.length < 2} onClick=${skip}>${Icon("lucide:skip-forward", "text-base")}</button>
