@@ -4,7 +4,7 @@
   "description": "Справжні транзити до твоєї натальної карти — точна мить народження, доми і момент, коли аспект стає точним",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

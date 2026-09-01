@@ -4,7 +4,7 @@
   "description": "Дивись і декодуй LoRa у діапазоні 868 МГц своїм HackRF",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

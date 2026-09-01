@@ -4,7 +4,7 @@
   "description": "Геомагнітна активність онлайн — індекс Kp, шкала штормів G, прогноз і сонячний вітер",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

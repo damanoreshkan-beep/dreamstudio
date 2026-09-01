@@ -4,7 +4,7 @@
   "description": "Фронтир OSS — свіжі проривні проєкти з GitHub: мова, зорі, форки й опис українською",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

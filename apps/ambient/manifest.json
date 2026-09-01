@@ -4,7 +4,7 @@
   "description": "20 ambient-звуків для сну й фокусу — вода, погода, природа, тони, шум, машини — усе синтезується наживо, без файлів, офлайн",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

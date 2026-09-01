@@ -4,7 +4,7 @@
   "description": "Малюй рухом — твій жест лишає світло і звук",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

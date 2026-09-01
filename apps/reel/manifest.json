@@ -4,7 +4,7 @@
   "description": "Встав будь-який URL сторінки — і кожне відео на ній стає повноекранною стрічкою, що гортається сама; наступні сторінки підвантажуються, поки ти свайпаєш.",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

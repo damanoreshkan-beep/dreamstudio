@@ -4,7 +4,7 @@
   "description": "Живі течії звуку за WebGL-полем, що несе палітру кожної станції й дихає разом із сигналом. Шість течій — Deep, Groove, Signal, Bass, Україна, Roots — шістдесят станцій, плавні переходи, керування з екрана блокування.",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

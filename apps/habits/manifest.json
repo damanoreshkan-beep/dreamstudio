@@ -4,7 +4,7 @@
   "description": "Трекер звичок — серії, календарний heatmap і повний офлайн; дані лишаються на пристрої",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

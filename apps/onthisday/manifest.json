@@ -4,7 +4,7 @@
   "description": "Що сталося в цей день — події, народження та свята з історії",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

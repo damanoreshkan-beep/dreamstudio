@@ -4,7 +4,7 @@
   "description": "Компас, що показує ІСТИННУ північ, а не магнітну. Схилення рахується на пристрої за World Magnetic Model 2025 (NGA/NOAA) — 90 коефіцієнтів, звірених зі 100 еталонами NOAA. Без інтернету, без ключів",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

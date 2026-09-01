@@ -4,7 +4,7 @@
   "description": "GPS-лінійка — вимірюй відстані й площі ламаною по координатах: сегменти, загальна довжина, площа, точність GPS",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

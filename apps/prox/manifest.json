@@ -4,7 +4,7 @@
   "description": "Побач, що кожен телефон навколо тихо транслює, щоб спаруватись",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

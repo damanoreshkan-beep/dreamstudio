@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Sheet, Segmented, Island } from "/_rt/ui.js";
+import { Battery } from "/_rt/render.js";
 import { wakeLock } from "/_rt/sensors.js";
 import { Pixels } from "/_rt/skeleton.js";
 import { PRESETS, presetOf } from "./presets.js";
@@ -92,6 +93,7 @@ export function vydyvo({ t, S, screen, closeScreen }) {
       <div class="vy-vignette" aria-hidden="true"></div>
       ${!cur ? html`<div class="absolute inset-0 grid place-items-center pointer-events-none" aria-hidden="true"><${Pixels} cls="w-36 h-60 rounded-[var(--ms-r)]" /></div>` : null}
       ${show ? html`<${ShowType} t=${t} loc=${loc} frame=${cur} />` : null}
+      ${show ? html`<div class="absolute right-[clamp(1rem,5vw,2.5rem)] top-[max(env(safe-area-inset-top),clamp(1rem,4vh,2rem))] text-white/85" style="text-shadow:0 1px 2px rgba(0,0,0,.5)"><${Battery} force=${true} /></div>` : null}
       ${show ? html`<span class="sr-only">${T(t, "exitShow")}</span>` : null}
     </div>
 

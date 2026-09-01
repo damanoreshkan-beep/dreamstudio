@@ -4,7 +4,7 @@
   "description": "Перевір, чи пароль у витоку — не надсилаючи його (k-анонімність)",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",
