@@ -1,0 +1,281 @@
+/* DREAMSTUDIO — the LUMINOUS material: light IS the structure (docs/research/luminous-icons.md,
+   docs/research/dreamstudio-style.md). This file is the product's theme MODULE: the core's runtime.css
+   brings the structure and a neutral default; everything below is the brand — the pair of light, the two
+   palettes, the material's token values, the portal chrome's sprites and geometry, the enclosure, the type.
+   The overlay replaces the core's /_rt/theme.css by name (the gate's server and the build both let rt/ win),
+   so every page keeps its one <link> and gets this. Contract: the core's docs/research/theme-split.md.
+
+   THE MATERIAL, in one line: the page is true black; a surface is not a lighter panel and not an extrusion —
+   it is an EDGE OF LIGHT (a 1px warm rim, brighter along the top where the light lands) and, when it is
+   lifted or pressed, a soft amber BLOOM. Depth is glow, never a shadow pair — on #000 there is nothing to
+   darken toward, which is exactly why the neumorphic pair this replaced had to keep the page at #2A2A2E. */
+@import "./runtime.css";
+
+/* THE PAIR OF LIGHT — amber and cyan, the two temperature poles of the owner's style (2026-08-31). Farm-wide,
+   never per app (spec.accent survives only as an icon-generator input). --app-accent is the warm pole and
+   the MARK colour every component reads for fills, rings, glows and the bloom; --app-accent-2 is the cool
+   pole for a second mark where one is needed (a live dot beside a value, the far end of a range). Both are
+   hexes, not var(--color-*), so getComputedStyle("--app-accent") (render.js) reads a real colour. */
+:root {
+  --app-accent: #F2B84B;
+  --app-accent-2: #5CE4DC;
+  --app-tint: color-mix(in oklch, var(--app-accent) 16%, transparent);
+  /* Type system = the Geist superfamily (loaded per app in the head): Geist for body/UI, Geist Mono for every
+     mono role — one designed superfamily instead of Inter + an unrelated system-mono stack. Both carry
+     Cyrillic, so the uk locale keeps its own type. The stack keeps ui-monospace/-sans fallbacks for offline. */
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+}
+
+/* LUMINOUS — dark, the farm's native mode. TRUE BLACK. The owner's reference frames are #000 to the corners
+   and the 75 app icons carry that ground; any grey page under them turned every tile into an island. The
+   material needs no headroom below the base (nothing is darkened — depth is light), so the page can be the
+   black the icons live on. The ink is WARM white, not cold: on black a neutral #EDEDF0 reads blue beside
+   amber light. Every value is checked by rt/tests/theme_test.js against the contrast floors, including the
+   two accents AS TEXT (text-secondary / badge-secondary) — the CI-only trap the noir pass fell into. */
+[data-theme="signal"] {
+  color-scheme: dark;
+  /* base-100 === base-200 ON PURPOSE, still: a raised surface is the page with a lit edge, not a lighter panel
+     laid on it. base-300 is the one tone step, for tracks, dividers and the deepest wells. */
+  --color-base-100: #000000; --color-base-200: #000000; --color-base-300: #141418;
+  --color-base-content: #F2EEE6;
+  --color-primary: #F2EEE6;   --color-primary-content: #000000;   /* ink = brand */
+  /* THE PAIR AS TEXT. DaisyUI's text-secondary / badge-secondary put these on TEXT, so they are tuned per theme:
+     on black the warm pole is a bright amber (11:1) and the cool pole a bright cyan (13:1). The vivid marks
+     stay --app-accent / --app-accent-2 above. */
+  --color-secondary: #F2B84B; --color-secondary-content: #1A1000;
+  --color-accent: #5CE4DC;    --color-accent-content: #002321;
+  --color-neutral: #1C1C21;   --color-neutral-content: #F2EEE6;
+  --color-success: #7FCF9B;   --color-success-content: #06180E;
+  --color-error: #F08A82;     --color-error-content: #2A0A08;
+  --color-warning: #E0B057;   --color-warning-content: #241904;
+  --color-info: #5CE4DC;      --color-info-content: #002321;
+  --color-base-muted: #A39E94; /* muted ink — a DESIGNED colour, not an alpha (warm grey, 8:1 on black). */
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+}
+
+/* LUMINOUS — light: PAPER. The glow language is dark-native (a bloom on white composites to a pastel smear —
+   measured on the icons), so the light mode keeps the STRUCTURE of the material — a surface is an edge, a
+   press is a ring of accent — and drops the bloom to a faint tint. Warm off-white, warm near-black ink, and
+   both poles deepened until they clear 4.5:1 AS TEXT on every bed (a bright amber on white is 1.9:1). */
+[data-theme="signal-light"] {
+  color-scheme: light;
+  --color-base-100: #F6F4EE; --color-base-200: #F6F4EE; --color-base-300: #E3DFD4;
+  --color-base-content: #141210;
+  --color-primary: #141210;   --color-primary-content: #F6F4EE;
+  --color-secondary: #6F4800; --color-secondary-content: #FFFFFF;   /* 6.0:1 on base-300, the worst bed */
+  --color-accent: #0B5C57;    --color-accent-content: #FFFFFF;   /* 5.9:1 on base-300 */
+  --color-neutral: #262320;   --color-neutral-content: #F6F4EE;
+  /* deepened past the 4.5 line on purpose: at their "natural" lightness these land at ~4.6 on base-100,
+     and any component that puts opacity on the text eats that margin and fails axe. */
+  --color-success: #1F6B42;   --color-success-content: #FFFFFF;
+  --color-error: #A3302A;     --color-error-content: #FFFFFF;
+  --color-warning: #6B4A12;   --color-warning-content: #FFFFFF;
+  --color-info: #0B5C57;      --color-info-content: #FFFFFF;
+  --color-base-muted: #5E5A52; /* muted ink — a DESIGNED colour, not an alpha. See .text-muted in runtime.css. */
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+}
+
+/* THE PORTAL'S LIP — the header's lower edge is WOVEN from light, not drawn as a line: the theme's horizon
+   sprite (--ds-lip — night: the filament arc; day: none, gold on paper is drawn by the hairline alone)
+   straddles the lower edge, under the wordmark's baseline and never under it. Measured off ds-n-arc.webp:
+   the band's core is rows 187–239 of 384 (peak 194), so `center 52%` lands the peak in the window; the
+   masks fade it out sideways and top/bottom so the strip has no cut edge. z-index −1 paints it above the
+   pane, below the controls. A THREAD, not a band: a 10px window on the weave's core reads as one filament
+   of light hugging the edge (the 26px band weighed on the header, 2026-09-01). 150%, not 100%: at the
+   viewport's width the weave is too fine and its threads average into a brown stripe (eye, 2026-09-01).
+   STATIC by rule — a translated full-width lip was viewport overflow on every app (the tilt engine, removed
+   2026-08-31); the verify gate reads chrome pseudo transforms. The hairline itself (runtime.css) takes its
+   light from --lm-lip / --lm-lip-glow below. */
+header.navbar::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -4px; height: 10px;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--ds-lip) center 52% / 150% auto no-repeat;
+  opacity: var(--ds-lip-a, 0);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent), linear-gradient(180deg, transparent, #000 38%, #000 62%, transparent);
+  mask-composite: intersect;
+}
+
+/* The garland hangs inside the dock zone: the sprite tiles at half the width (one seam, hidden behind the
+   dock pill), and its bulbs END on the screen's bottom edge — `100% + N` pushes the sprite's empty lower
+   part below the viewport. N is measured off the alpha: ds-n-strand's art stops at row 271 of 512 (47.1%
+   blank × half-width tile = 23.5vw), the day suns at row 279 (45.5% → 22.75vw). Past 640px the tile is
+   pinned to 192px so a desktop does not get a 3× garland. */
+[data-garland] {
+  background: var(--ds-strand) center var(--ds-strand-y) / 50% auto repeat-x;
+  opacity: var(--ds-strand-a);
+}
+@media (min-width: 640px) { [data-garland] { background-size: 192px auto; background-position: center calc(100% + 89px); } }
+
+/* The corner curls — the enclosure's own decor, in the two corners nothing else claims: the bottom ones,
+   either side of the centred dock pill. The 150px sprite sits mostly OUTSIDE the viewport (−42px sideways,
+   −58px down) and the dock zone clips it, so what shows is the swirl's inner arc climbing out of the
+   corner, never a whole pasted picture. Night's curl opens to the right; the left one is mirrored so both
+   curl inward. A scaleX carries no translation, which is what the chrome-decor gate reads. */
+[data-dock-fade]::before, [data-dock-fade]::after {
+  content: "";
+  position: absolute;
+  bottom: -58px;
+  width: 150px; height: 150px;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--ds-corner) center / contain no-repeat;
+  opacity: var(--ds-corner-a);
+}
+[data-dock-fade]::before { left: -42px; transform: scaleX(-1); }
+[data-dock-fade]::after { right: -42px; }
+@media (max-width: 300px) { [data-dock-fade]::before, [data-dock-fade]::after { display: none; } }
+
+/* An empty state sits on scattered light — fireflies at night, gold motes by day — centred on the glyph:
+   the sprite's dense core is at 48% of its height (ds-n-scatter rows 173–200 of 384; ds-d-scatter 225–271
+   of 512), so on a 260px sprite it lands 125px down; the glyph's centre is 82px below the box top
+   (py-16 + half of text-4xl). Behind the text only the sparse tail remains. */
+[data-empty]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--ds-scatter) center -44px / 260px auto no-repeat;
+  opacity: var(--ds-scatter-a);
+}
+
+/* At night the wordmark is a filament: the same amber bloom the icons glow with, faint enough that the ink
+   stays ink. Paper gets none — a glow on white is a smear (measured on the icons). */
+[data-theme="signal"] [data-title] { text-shadow: 0 0 10px color-mix(in oklch, var(--app-accent) 32%, transparent); }
+
+/* THE MATERIAL'S VALUES — the three terms (rim, top edge, bloom) composed into the surface tokens
+   runtime.css consumes, per mode. */
+[data-theme="signal"] {
+  /* The light. WARM, always — the same amber-white the icons are drawn with. A neutral white rim on black
+     reads as a chrome bevel; a warm one reads as an edge catching the room's light. */
+  --lm-rim:    rgba(255, 232, 196, .11);   /* the ring around every surface */
+  --lm-rim-hi: rgba(255, 238, 208, .20);   /* the top edge, where the light lands */
+  --lm-rim-lo: rgba(255, 232, 196, .06);   /* the rim of a well — dimmer, the light barely reaches in */
+  --lm-bloom:  color-mix(in oklch, var(--app-accent) 22%, transparent);
+  --lm-bloom-hi: color-mix(in oklch, var(--app-accent) 55%, transparent);
+  /* NIGHT drops NO black cast (the portal separates floating things with light — rim + bloom; a black smear
+     under a sheet on a black page was the "банальна тінь" the repaint removes). Paper keeps its warm cast. */
+  --nm-cast:   rgba(0, 0, 0, 0);
+  /* ABSOLUTE on purpose: a url() inside a custom property is resolved against the DOCUMENT base at the point
+     of use (Chrome's long-standing behaviour), so a relative name resolved to /<app>/ds-…webp and 404'd in
+     every app of the built site. The farm serves at the domain root (the subpath origin retired 2026-08-16). */
+  --ds-strand: url("/_rt/ds-n-strand.webp");   /* the night garland — the dock's edge decor */
+  --ds-strand-y: calc(100% + 23.5vw);          /* bulbs end on the bottom edge — see [data-garland] */
+  --ds-strand-a: .85;
+  --ds-lip: url("/_rt/ds-n-arc.webp");         /* the header's woven-light band */
+  --ds-lip-a: .6;
+  --ds-scatter: url("/_rt/ds-n-scatter.webp"); /* fireflies behind an empty state */
+  --ds-scatter-a: .8;
+  --ds-corner: url("/_rt/ds-n-corner.webp");   /* the curl of light in the portal's bottom corners */
+  --ds-corner-a: .55;
+  --ds-theme-art: url("/_rt/ds-n-ring.webp");  /* the theme toggle's moon — a ring of woven light */
+  --lm-lip:      rgba(255, 238, 208, .58);     /* the header's lit hairline — a real line of light */
+  --lm-lip-glow: color-mix(in oklch, var(--app-accent) 26%, transparent);
+
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(0, 0, 0, .85);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--lm-bloom);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 6px rgba(0, 0, 0, .9);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(0, 0, 0, .9);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), 0 0 var(--lm-gp) var(--lm-gps) var(--lm-bloom), inset 0 2px 8px rgba(0, 0, 0, .7);
+  /* A well is where light POOLS: the recessed face sits one step above black rather than below the page,
+     because below black does not exist. Still the same colour family as the page, still not a panel. */
+  --sf-inset-face: #0A0A0D;
+  --sf-inset-top:  rgba(0, 0, 0, .9);
+  --sf-press-face: #0A0A0D;
+  --sf-press-top:  rgba(0, 0, 0, .7);
+  --sf-track-face: #1B1B21;   /* a track is too thin for a rim — a real tone step, see .sf-track in runtime.css */
+
+  --ms-vol-key:    rgba(255, 238, 208, .035);   /* key light entering the top of the box — warm */
+  --ms-vol-bounce: color-mix(in oklch, var(--app-accent) 12%, transparent);
+  --ms-vol-rim:    rgba(255, 232, 196, .07);    /* where the wall catches the light */
+  --ms-vol-sheen:  rgba(255, 238, 208, .05);
+  --ms-vol-shade:  rgba(0, 0, 0, .34);          /* the wall's own occlusion — an edge, never a black band */
+}
+[data-theme="signal-light"] {
+  /* Paper: the same three terms, with the rim a hairline of INK (light on light is invisible) and the bloom
+     reduced to a tint — a glow on white is a smear, measured on the icons. The top edge stays a white line,
+     which on off-white paper is the one lit edge that still reads. */
+  --lm-rim:    rgba(20, 18, 16, .10);
+  --lm-rim-hi: rgba(255, 255, 255, .9);
+  --lm-rim-lo: rgba(20, 18, 16, .08);
+  --lm-bloom:  color-mix(in oklch, var(--app-accent) 12%, transparent);
+  --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
+  --nm-cast:   rgba(40, 32, 20, .22);
+  --ds-strand: url("/_rt/ds-d-strand.webp");   /* the day garland of little suns (absolute — see the night token) */
+  --ds-strand-y: calc(100% + 22.75vw);
+  --ds-strand-a: .9;
+  --ds-lip: none;                              /* gold on paper is the hairline's job; a band would be a smear */
+  --ds-lip-a: 0;
+  --ds-scatter: url("/_rt/ds-d-scatter.webp"); /* gold motes behind an empty state */
+  --ds-scatter-a: .9;
+  --ds-corner: url("/_rt/ds-d-corner.webp");   /* a gilded thread curling out of the corner */
+  --ds-corner-a: .8;
+  --ds-theme-art: url("/_rt/ds-d-sun.webp");   /* the theme toggle's sun */
+  --lm-lip:      rgba(20, 18, 16, .18);        /* the lip on paper: a hairline of ink */
+  --lm-lip-glow: transparent;
+
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(40, 32, 20, .18);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 5px rgba(40, 32, 20, .16);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(40, 32, 20, .14);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), 0 0 var(--lm-gp) var(--lm-gps) var(--lm-bloom), inset 0 2px 6px rgba(40, 32, 20, .18);
+  --sf-inset-face: #ECE9E1;
+  --sf-inset-top:  rgba(40, 32, 20, .16);
+  --sf-press-face: #ECE9E1;
+  --sf-press-top:  rgba(40, 32, 20, .18);
+  --sf-track-face: #D8D3C7;   /* a track is too thin for a rim — a real tone step */
+
+  /* A paper room is lit the other way round: the wash is white and the walls are a warm grey. Weaker than the
+     dark theme on purpose — a dark band over dark text is the one place a wash eats legibility. */
+  --ms-vol-key:    rgba(255, 255, 255, .85);
+  --ms-vol-bounce: color-mix(in oklch, var(--app-accent) 8%, transparent);
+  --ms-vol-rim:    rgba(40, 32, 20, .08);
+  --ms-vol-sheen:  rgba(255, 255, 255, .9);
+  --ms-vol-shade:  rgba(40, 32, 20, .12);
+}
+
+/* THE ENCLOSURE — the screen is a lit VOLUME, not a flat sheet. The viewport itself becomes a shallow box
+   with walls, lit from above; every surface inside it is then RAISED or RECESSED against that light. Three
+   limits, because this is the one style that fails LOUDLY when overdone: the light never touches type; the
+   walls are EDGE-only (big negative spread), so the middle of the screen keeps the contrast axe measured;
+   the bottom bounce is tinted with --app-accent and never animates. Painted as body's own background rather
+   than a layer, so it is underneath every app's content by construction; `fixed` anchors it to the VIEWPORT,
+   so the light stays where the eye is while the page scrolls past it. */
+body {
+  background-image:
+    radial-gradient(140% 88% at 50% -18%, var(--ms-vol-key), transparent 62%),
+    radial-gradient(125% 72% at 50% 116%, var(--ms-vol-bounce), transparent 64%);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+}
+/* The walls. A fixed overlay that draws ONLY at the edges (blur 30 against spread −24 keeps it off the
+   middle) and never takes a tap. z-45 puts it over the dock and the detail overlay — a bezel is in front
+   of the screen, not behind it — while <dialog> lives in the top layer and stays crisp above it. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px var(--ms-vol-rim),
+    inset 0 1px 0 0 var(--ms-vol-sheen),
+    inset 0 20px 30px -24px var(--ms-vol-shade),
+    inset 0 -22px 34px -24px var(--ms-vol-shade),
+    inset 16px 0 26px -24px var(--ms-vol-shade),
+    inset -16px 0 26px -24px var(--ms-vol-shade);
+}
+
+/* The game console's plastic. A warm near-black in the dark theme (a device body on a black page reads
+   through its lit rim, not through a tone step) and a warm grey on paper. */
+[data-theme="signal"]       .ms-shell { --sh-body: #14120E; }
+[data-theme="signal-light"] .ms-shell { --sh-body: #DCD8CC; }

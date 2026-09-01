@@ -1,0 +1,4 @@
+[
+  { "id": "lum", "name": { "en": "Glow", "uk": "Сяйво" }, "css": "theme-lum.css" },
+  { "id": "plain", "name": { "en": "Plain", "uk": "Просто" }, "css": "theme-plain.css" }
+]

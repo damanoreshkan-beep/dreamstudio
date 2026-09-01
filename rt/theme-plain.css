@@ -1,0 +1,4 @@
+/* PLAIN — the core's neutral material as a selectable module: no sprites, no bloom, a 1px rim of ink and a
+   soft cast. It is exactly what @microspec/core renders for a product with no brand, offered here so the
+   quiet look is a choice rather than an absence. Spec: docs/research/themes.md. */
+@import "./runtime.css";
