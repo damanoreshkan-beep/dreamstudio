@@ -144,11 +144,12 @@ export function store({ S, openScreen, closeScreen }) {
     </div>`; })() : null}
   <//>`;
 
-  // ── the shapes: FEATURED card, list ROW ──
-  // A featured card is SMALL and tidy (owner, 2026-08-31): text on the left, the capture on the right as a
-  // proportional thumbnail — the box carries the capture's own 384:832 aspect, so nothing is ever stretched
-  // or cropped, and no text sits on the picture. A full-bleed tap layer sits under the content and the pill
-  // above it — never a button inside a button (axe: nested-interactive).
+  // ── the shapes: FEATURED cards, list ROW ──
+  // Today's stack is a HERO + a two-column grid (owner, 2026-09-01: "картки зроби на мобі в 2 колонки але
+  // гарно"): the first card keeps the wide layout — text left, the capture as a proportional thumbnail —
+  // and every other featured app is a vertical card, its capture on top cropped from the app's own head
+  // (object-top: the header and the first content, never a stretched middle). A full-bleed tap layer sits
+  // under the content and the pill above it — never a button inside a button (axe: nested-interactive).
   const Featured = (a) => { const shot = firstShot(a); return html`<article key=${a.id} class="relative rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
     <button data-featured data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
     <div class="relative flex items-stretch gap-3 p-[var(--ms-pad)] pointer-events-none">
@@ -162,6 +163,21 @@ export function store({ S, openScreen, closeScreen }) {
         <div class="mt-auto pt-1">${pill(a, "pointer-events-auto")}</div>
       </div>
       ${shot ? html`<div class="shrink-0 self-center w-[4.7rem] aspect-[384/832] rounded-[0.6rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>` : null}
+    </div>
+  </article>`; };
+  const FeaturedTall = (a) => { const shot = firstShot(a); return html`<article key=${a.id} class="relative h-full rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
+    <button data-featured data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
+    <div class="relative h-full flex flex-col pointer-events-none">
+      ${shot ? html`<div class="aspect-[5/4] overflow-hidden bg-black border-b border-base-300/40"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full object-cover object-top" /></div>` : null}
+      <div class="flex-1 flex flex-col gap-1 p-3">
+        <div class="text-[0.55rem] font-mono uppercase tracking-[.14em] text-secondary truncate">${T(t, "premium")} · ${T(t, catKey(a.category))}</div>
+        <div class="flex items-center gap-2 min-w-0">
+          ${Tile(a, "w-7 h-7")}
+          <span class="font-bold text-[0.92rem] leading-tight truncate">${nameOf(a)}</span>
+        </div>
+        <p class="text-[0.72rem] text-muted leading-snug line-clamp-2">${subtitleOf(a)}</p>
+        <div class="mt-auto pt-1.5">${pill(a, "pointer-events-auto")}</div>
+      </div>
     </div>
   </article>`; };
   const Row = (a) => { const b = badgeOf(a); return html`<div data-app=${a.id} key=${a.id} class="flex items-center gap-3 py-2">
@@ -204,7 +220,7 @@ export function store({ S, openScreen, closeScreen }) {
       <div class="text-[0.62rem] font-mono uppercase tracking-[.14em] text-muted">${dateLine}</div>
       <h2 class="text-[2rem] font-bold leading-none tracking-tight">${T(t, "today")}</h2>
     </div>
-    ${FEATURED.length ? html`<div class="ms-stagger flex flex-col gap-3">${FEATURED.map((a, i) => html`<div style=${`--i:${i}`} key=${a.id}>${Featured(a)}</div>`)}</div>` : null}
+    ${FEATURED.length ? html`<div class="ms-stagger grid grid-cols-2 md:grid-cols-3 gap-3">${FEATURED.map((a, i) => html`<div style=${`--i:${i}`} key=${a.id} class=${i === 0 ? "col-span-2 md:col-span-3" : "min-h-0"}>${i === 0 ? Featured(a) : FeaturedTall(a)}</div>`)}</div>` : null}
     ${CATS.map((c) => {
       const items = apps.filter((a) => a.category === c).sort(byName);
       if (!items.length) return null;

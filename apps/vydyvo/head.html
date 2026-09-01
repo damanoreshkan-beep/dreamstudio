@@ -2,11 +2,16 @@
     /* The picture layers: two slots cross-fade (opacity only — the compositor takes it), and the one on
        carries a slow drift over the whole display period. 108 % oversize so the drift never shows an edge;
        the two slots drift in opposite directions so consecutive frames never move the same way. */
-    .vy-layer{position:absolute;inset:-4%;width:108%;height:108%;object-fit:cover;opacity:0;transition:opacity 1.6s ease;will-change:opacity,transform;transform-origin:50% 50%}
+    /* The layer is EXACTLY the stage box (inset 0, 100%): the drift's headroom lives in the TRANSFORM alone
+       (a resting scale(1.08) = 4% margin each side), so whatever happens to the animation — reduced motion,
+       a dropped keyframe, the fullscreen top layer's UA rules — the picture still covers edge to edge and
+       stays centred. The negative-inset + oversize box it replaces left a bar when its percentages resolved
+       oddly in real fullscreen (owner's phone, 2026-09-01). */
+    .vy-layer{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 50%;opacity:0;transition:opacity 1.6s ease;will-change:opacity,transform;transform-origin:50% 50%;transform:scale(1.08)}
     .vy-layer[data-on]{opacity:1;animation:vy-drift var(--vy-every,120s) linear forwards}
     .vy-layer[data-slot="1"][data-on]{animation-name:vy-drift-b}
-    @keyframes vy-drift{from{transform:scale(1) translate(0,0)}to{transform:scale(1.06) translate(-1.4%,1%)}}
-    @keyframes vy-drift-b{from{transform:scale(1.06) translate(1.2%,-.8%)}to{transform:scale(1) translate(0,0)}}
+    @keyframes vy-drift{from{transform:scale(1.08)}to{transform:scale(1.14) translate(-1.3%,.9%)}}
+    @keyframes vy-drift-b{from{transform:scale(1.14) translate(1.1%,-.7%)}to{transform:scale(1.08)}}
     .vy-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(120% 90% at 50% 38%,transparent 58%,rgba(0,0,0,.42))}
     /* The show's words: a scrim rising from the foot, white ink with a soft cast — legible over any frame */
     .vy-type{position:absolute;left:0;right:0;bottom:0;pointer-events:none;color:#fff;padding:30vh clamp(1.25rem,6vw,3rem) calc(env(safe-area-inset-bottom) + clamp(1.5rem,7vh,4rem));text-shadow:0 1px 2px rgba(0,0,0,.55),0 0 24px rgba(0,0,0,.35);background:linear-gradient(to top,rgba(0,0,0,.62),rgba(0,0,0,.28) 50%,transparent)}
