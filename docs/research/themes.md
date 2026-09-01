@@ -71,9 +71,31 @@ style thumbnail must go through the raw generator or every material glows).
   `[data-materials] [aria-pressed=true]` — a Tailwind `ring-[var(--app-accent)]` utility is dropped by the
   build's class scanner and never reaches dist (green gates, no ring on the phone); and the swatch's mode
   reads `html[data-theme]`, because a `?theme=` override (the gate, the eye) never writes the theme atom.
-- **Phase 2 SHIPPED** (2026-09-01): the mascot is Котик-Зірка (docs/research/mascot.md carries the prompt
-  contract); `rt/theme-<id>.webp` for all five themes, `thumb` in themes.json, the registry test proves each
-  named thumb exists. Phases 3–4 (the other mirage materials, textures per theme) follow.
+- **Phase 2 SHIPPED, then re-decided** (2026-09-01): the picker's pictures are mirage's curled FOX (the
+  owner's pick over the cat after seeing both: "зроби замість кота все таки ту лисичку") — `rt/theme-<id>.webp`
+  cut from mirage's 1024 masters (`docs/research/mascot-tools/fox-thumbs.mjs`), a clay fox for Просто;
+  `thumb` in themes.json, the registry test proves each named thumb exists.
+- **Phase 4 SHIPPED for Папір · Туш · Ртуть** (product d6a26c6, 2026-09-01; owner: "тема папір зовсім не
+  передає атмосферу папіру. немає текстур"): five sprites per mode per theme (lip, garland, corner, empty-state
+  scatter, mode art — a ring at night, a sun by day), generated on the pods with mirage's material blocks
+  (`mascot-tools/jobs2.mjs` shape), imported with exact alpha as `rt/ds-<theme>-<n|d>-<hook>.webp`
+  (`ds-import --prefix=<theme> --out=rt`), every offset MEASURED off the alpha (`mascot-tools/measure.mjs`:
+  lip = the band's peak row, garland = the blank lower part × the half-width tile, scatter = the core on the
+  glyph). The shared geometry left theme-lum for **`rt/decor.css`** (rules on tokens; a theme imports it after
+  runtime.css and sets sprites + offsets + opacities per mode); each page also carries its material's GRAIN
+  as an SVG fractal-noise tile the browser draws (paper fibres, rice-paper mottle, brushed steel) — no file.
+  The theme suite proves every named hook carries its offsets and both mode arts exist. Weight: ~300 KB of
+  sprites per theme, loaded only when that theme is chosen (the picker's thumbs are 5–22 KB each).
+  Просто stays untextured by definition. Trap: a bright chrome on pure white has no alpha to extract — the
+  day mercury corner is a gunmetal take.
+- **The theme WIDGET** (core 1.2.5, owner: "поєднай картки темна тема та тема в один дійсно якісний віджет,
+  одразу з мікрокартинками та сонцем та місяцем"): one profile card — a day/night radio whose faces are the
+  theme's `--ds-art-day` / `--ds-art-night` (both pictures whatever mode the page is in; glyphs when a theme
+  sets none) and a strip of round micro-pictures, the chosen one ringed, a tap applying at once. The sheet
+  is gone; the store e2e drives the strip and the radio.
+- Phase 3 (smoke, thread, circuit, veil, ferro, porcelain, sand) is open: a theme = a css module with both
+  palettes (the suite reds any contrast miss), one block in `jobs2.mjs`, `ds-import --prefix`, a measure
+  pass, a fox master through the raw generator.
 
 ## Decision log
 

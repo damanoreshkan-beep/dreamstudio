@@ -1,6 +1,15 @@
-# The mascot — a feline that does not exist (DECIDED 2026-09-01: Kotyk-Zirka)
+# The mascot — a feline that does not exist (2026-09-01: Kotyk-Zirka shipped, then the FOX won)
 
-**Owner's pick: Котик-Зірка (candidate 3).** Shipped the same day as the five picker thumbnails
+**Final decision, the same evening: mirage's curled fox.** The owner saw the cat in the picker and
+preferred the fox from mirage's style cards ("мені вона більше подобається"), so the picker's pictures are
+the fox masters mirage already had (lum, paper, ink, chrome → mercury) plus a clay fox for Просто, cut by
+`docs/research/mascot-tools/fox-thumbs.mjs`. The fox prompt, for the next material: "a fox curled into a
+circle, <material block>, the <material> itself forms the fox, no real fox". Kotyk-Zirka stays below as a
+record; nothing in the product references it.
+
+---
+
+**Earlier pick: Котик-Зірка (candidate 3).** Shipped the same day as the five picker thumbnails
 (`rt/theme-<id>.webp`, 384², webp q80 — the same subject through every theme's material, Z-Image-Turbo on
 the edge pods via the RAW generator). The prompt contract that produced them:
 
