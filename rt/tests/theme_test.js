@@ -93,8 +93,29 @@ Deno.test("themes · lum — the LUMINOUS contract: true black, a bloom on the l
   assert(/--nm-cast/.test(value(light, "--sf-drop")), "paper's raised surface casts instead of glowing");
   assert(!/--lm-bloom\b/.test(value(dark, "--sf-sink")), "a well does not glow");
   assert(/--app-accent:\s*#F2B84B/i.test(themes.lum) && /--app-accent-2:\s*#5CE4DC/i.test(themes.lum), "the pair is amber #F2B84B + cyan #5CE4DC");
-  for (const v of ["--ds-strand", "--ds-scatter", "--ds-corner", "--ds-theme-art"]) {
+  for (const v of ["--ds-strand", "--ds-scatter", "--ds-corner"]) {
     assert(/url\("\/_rt\/ds-n-[a-z]+\.webp"\)/.test(value(dark, v)), `night ${v} names a sprite`);
     assert(/url\("\/_rt\/ds-d-[a-z]+\.webp"\)/.test(value(light, v)), `day ${v} names a sprite`);
+  }
+  assert(/--ds-art-day:\s*url\("\/_rt\/ds-d-sun\.webp"\)/.test(themes.lum) && /--ds-art-night:\s*url\("\/_rt\/ds-n-ring\.webp"\)/.test(themes.lum), "the widget's sun and moon are the gilded sun and the woven ring");
+});
+
+Deno.test("themes · a textured theme measures its decor: every hook that names a sprite carries the offsets decor.css reads, and both mode arts exist", async () => {
+  for (const m of registry) {
+    const css = await expand(themes[m.id]);
+    const root = /:root\s*{([^}]*)}/.exec(themes[m.id])?.[1] || "";
+    for (const theme of ["signal", "signal-light"]) {
+      const b = themeBlock(css, theme);
+      const named = (v) => /url\(/.test(value(b, v));
+      if (named("--ds-lip")) for (const v of ["--ds-lip-pos", "--ds-lip-size", "--ds-lip-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-lip without ${v} — decor.css would paint nothing`);
+      if (named("--ds-strand")) for (const v of ["--ds-strand-y", "--ds-strand-y-wide", "--ds-strand-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-strand without ${v}`);
+      if (named("--ds-scatter")) for (const v of ["--ds-scatter-pos", "--ds-scatter-size", "--ds-scatter-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-scatter without ${v}`);
+      if (named("--ds-corner")) assert(b.includes("--ds-corner-a:"), `${m.id}/${theme}: --ds-corner without --ds-corner-a`);
+      // a hook with a sprite needs decor.css in the chain, or the token is a value nobody reads
+      if (named("--ds-lip") || named("--ds-strand")) assert(/@import "\.\/decor\.css";/.test(themes[m.id]), `${m.id}: names sprites but does not import decor.css`);
+    }
+    for (const u of root.matchAll(/--ds-art-(?:day|night):\s*url\("\/_rt\/([\w.-]+\.webp)"\)/g)) {
+      assert(await Deno.stat(new URL(u[1], RT)).then((s) => s.isFile, () => false), `${m.id}: mode art ${u[1]} is not in rt/`);
+    }
   }
 });

@@ -10,6 +10,7 @@
    lifted or pressed, a soft amber BLOOM. Depth is glow, never a shadow pair — on #000 there is nothing to
    darken toward, which is exactly why the neumorphic pair this replaced had to keep the page at #2A2A2E. */
 @import "./runtime.css";
+@import "./decor.css";
 
 /* THE PAIR OF LIGHT — amber and cyan, the two temperature poles of the owner's style (2026-08-31). Farm-wide,
    never per app (spec.accent survives only as an icon-generator input). --app-accent is the warm pole and
@@ -24,6 +25,9 @@
      mono role — one designed superfamily instead of Inter + an unrelated system-mono stack. Both carry
      Cyrillic, so the uk locale keeps its own type. The stack keeps ui-monospace/-sans fallbacks for offline. */
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  /* The mode art the theme widget shows side by side — both modes' pictures, whatever mode the page is in. */
+  --ds-art-day: url("/_rt/ds-d-sun.webp");      /* the sun woven from gilded thread */
+  --ds-art-night: url("/_rt/ds-n-ring.webp");   /* the moon — a ring of woven light */
 }
 
 /* LUMINOUS — dark, the farm's native mode. TRUE BLACK. The owner's reference frames are #000 to the corners
@@ -77,72 +81,15 @@
   --border: 0; --depth: 0;
 }
 
-/* THE PORTAL'S LIP — the header's lower edge is WOVEN from light, not drawn as a line: the theme's horizon
-   sprite (--ds-lip — night: the filament arc; day: none, gold on paper is drawn by the hairline alone)
-   straddles the lower edge, under the wordmark's baseline and never under it. Measured off ds-n-arc.webp:
-   the band's core is rows 187–239 of 384 (peak 194), so `center 52%` lands the peak in the window; the
-   masks fade it out sideways and top/bottom so the strip has no cut edge. z-index −1 paints it above the
-   pane, below the controls. A THREAD, not a band: a 10px window on the weave's core reads as one filament
-   of light hugging the edge (the 26px band weighed on the header, 2026-09-01). 150%, not 100%: at the
-   viewport's width the weave is too fine and its threads average into a brown stripe (eye, 2026-09-01).
-   STATIC by rule — a translated full-width lip was viewport overflow on every app (the tilt engine, removed
-   2026-08-31); the verify gate reads chrome pseudo transforms. The hairline itself (runtime.css) takes its
-   light from --lm-lip / --lm-lip-glow below. */
-header.navbar::before {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: -4px; height: 10px;
-  z-index: -1;
-  pointer-events: none;
-  background: var(--ds-lip) center 52% / 150% auto no-repeat;
-  opacity: var(--ds-lip-a, 0);
-  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent), linear-gradient(180deg, transparent, #000 38%, #000 62%, transparent);
-  mask-composite: intersect;
-}
-
-/* The garland hangs inside the dock zone: the sprite tiles at half the width (one seam, hidden behind the
-   dock pill), and its bulbs END on the screen's bottom edge — `100% + N` pushes the sprite's empty lower
-   part below the viewport. N is measured off the alpha: ds-n-strand's art stops at row 271 of 512 (47.1%
-   blank × half-width tile = 23.5vw), the day suns at row 279 (45.5% → 22.75vw). Past 640px the tile is
-   pinned to 192px so a desktop does not get a 3× garland. */
-[data-garland] {
-  background: var(--ds-strand) center var(--ds-strand-y) / 50% auto repeat-x;
-  opacity: var(--ds-strand-a);
-}
-@media (min-width: 640px) { [data-garland] { background-size: 192px auto; background-position: center calc(100% + 89px); } }
-
-/* The corner curls — the enclosure's own decor, in the two corners nothing else claims: the bottom ones,
-   either side of the centred dock pill. The 150px sprite sits mostly OUTSIDE the viewport (−42px sideways,
-   −58px down) and the dock zone clips it, so what shows is the swirl's inner arc climbing out of the
-   corner, never a whole pasted picture. Night's curl opens to the right; the left one is mirrored so both
-   curl inward. A scaleX carries no translation, which is what the chrome-decor gate reads. */
-[data-dock-fade]::before, [data-dock-fade]::after {
-  content: "";
-  position: absolute;
-  bottom: -58px;
-  width: 150px; height: 150px;
-  z-index: 0;
-  pointer-events: none;
-  background: var(--ds-corner) center / contain no-repeat;
-  opacity: var(--ds-corner-a);
-}
-[data-dock-fade]::before { left: -42px; transform: scaleX(-1); }
-[data-dock-fade]::after { right: -42px; }
-@media (max-width: 300px) { [data-dock-fade]::before, [data-dock-fade]::after { display: none; } }
-
-/* An empty state sits on scattered light — fireflies at night, gold motes by day — centred on the glyph:
-   the sprite's dense core is at 48% of its height (ds-n-scatter rows 173–200 of 384; ds-d-scatter 225–271
-   of 512), so on a 260px sprite it lands 125px down; the glyph's centre is 82px below the box top
-   (py-16 + half of text-4xl). Behind the text only the sparse tail remains. */
-[data-empty]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: var(--ds-scatter) center -44px / 260px auto no-repeat;
-  opacity: var(--ds-scatter-a);
-}
+/* THE PORTAL'S DECOR — the lip, the garland, the corner curls and the empty-state scatter are the shared
+   geometry in rt/decor.css; this module only says WHICH sprite hangs on each hook and the numbers measured
+   off that sprite's alpha (in the palette blocks below). The luminous measurements: ds-n-arc's band is rows
+   187–239 of 384 (peak 194 → `center 52%`, zoomed 150% because at 100% the weave averages into a brown
+   stripe); ds-n-strand's art stops at row 271 of 512 (47.1% blank × half-width tile = 23.5vw), the day suns
+   at row 279 (45.5% → 22.75vw); the scatter's core sits at 48% of its height (rows 173–200 of 384 at night,
+   225–271 of 512 by day), so on a 260px sprite `-44px` lands it on the glyph. A THREAD, not a band: the
+   26px lip weighed on the header (2026-09-01). The hairline itself (runtime.css) takes its light from
+   --lm-lip / --lm-lip-glow. */
 
 /* At night the wordmark is a filament: the same amber bloom the icons glow with, faint enough that the ink
    stays ink. Paper gets none — a glow on white is a smear (measured on the icons). */
@@ -165,15 +112,17 @@ header.navbar::before {
      of use (Chrome's long-standing behaviour), so a relative name resolved to /<app>/ds-…webp and 404'd in
      every app of the built site. The farm serves at the domain root (the subpath origin retired 2026-08-16). */
   --ds-strand: url("/_rt/ds-n-strand.webp");   /* the night garland — the dock's edge decor */
-  --ds-strand-y: calc(100% + 23.5vw);          /* bulbs end on the bottom edge — see [data-garland] */
+  --ds-strand-y: calc(100% + 23.5vw);          /* bulbs end on the bottom edge — see decor.css */
+  --ds-strand-y-wide: calc(100% + 89px);
   --ds-strand-a: .85;
   --ds-lip: url("/_rt/ds-n-arc.webp");         /* the header's woven-light band */
+  --ds-lip-pos: center 52%; --ds-lip-size: 150% auto;
   --ds-lip-a: .6;
   --ds-scatter: url("/_rt/ds-n-scatter.webp"); /* fireflies behind an empty state */
+  --ds-scatter-pos: center -44px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .8;
   --ds-corner: url("/_rt/ds-n-corner.webp");   /* the curl of light in the portal's bottom corners */
   --ds-corner-a: .55;
-  --ds-theme-art: url("/_rt/ds-n-ring.webp");  /* the theme toggle's moon — a ring of woven light */
   --lm-lip:      rgba(255, 238, 208, .58);     /* the header's lit hairline — a real line of light */
   --lm-lip-glow: color-mix(in oklch, var(--app-accent) 26%, transparent);
 
@@ -210,14 +159,16 @@ header.navbar::before {
   --nm-cast:   rgba(40, 32, 20, .22);
   --ds-strand: url("/_rt/ds-d-strand.webp");   /* the day garland of little suns (absolute — see the night token) */
   --ds-strand-y: calc(100% + 22.75vw);
+  --ds-strand-y-wide: calc(100% + 89px);
   --ds-strand-a: .9;
   --ds-lip: none;                              /* gold on paper is the hairline's job; a band would be a smear */
+  --ds-lip-pos: center 52%; --ds-lip-size: 150% auto;
   --ds-lip-a: 0;
   --ds-scatter: url("/_rt/ds-d-scatter.webp"); /* gold motes behind an empty state */
+  --ds-scatter-pos: center -44px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .9;
   --ds-corner: url("/_rt/ds-d-corner.webp");   /* a gilded thread curling out of the corner */
   --ds-corner-a: .8;
-  --ds-theme-art: url("/_rt/ds-d-sun.webp");   /* the theme toggle's sun */
   --lm-lip:      rgba(20, 18, 16, .18);        /* the lip on paper: a hairline of ink */
   --lm-lip-glow: transparent;
 

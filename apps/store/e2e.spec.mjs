@@ -86,20 +86,23 @@ export default [
     },
   },
   {
-    // the material picker (core material.js + rt/themes.json): a real browser proves the link swap — the
-    // page's one theme <link> is rewritten, the root is stamped, and Back closes the sheet
-    name: "матеріал: профіль → картки → «Просто» перемикає лист стилів, «Сяйво» повертає", run: async (h) => {
+    // the theme widget (core material.js + rt/themes.json): a real browser proves the link swap — a tap on
+    // a micro-picture rewrites the page's one theme <link> and stamps the root; the day/night radio flips
+    // html[data-theme] in the same card
+    name: "тема: профіль → віджет → «Просто» перемикає лист стилів, «Сяйво» повертає, день/ніч у тій же картці", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(300);
-      h.expect((await h.count("#p-material")) === 1, "немає ряду «Матеріал»");
-      await h.click("#p-material"); await h.wait(250);
-      h.expect((await h.count('[data-material-id="plain"]')) === 1, "у листі немає картки «Просто»");
+      h.expect((await h.count("#p-material")) === 1, "немає віджета «Тема»");
+      h.expect((await h.count('#p-material [data-material-id="plain"]')) === 1, "у стрічці немає картинки «Просто»");
       await h.click('[data-material-id="plain"]'); await h.wait(300);
       h.expect((await h.attr("html", "data-material")) === "plain", "html[data-material] не став plain");
       h.expect(/theme-plain\.css$/.test(await h.attr('link[rel="stylesheet"][href*="theme"]', "href")), "лінк теми не переключився на theme-plain.css");
-      await h.click("#p-material"); await h.wait(250);
       await h.click('[data-material-id="lum"]'); await h.wait(300);
       h.expect((await h.attr("html", "data-material")) === "lum", "повернення до «Сяйва» не спрацювало");
       h.expect(/theme-lum\.css$/.test(await h.attr('link[rel="stylesheet"][href*="theme"]', "href")), "лінк теми не повернувся до theme-lum.css");
+      await h.click('#p-theme [data-mode="day"]'); await h.wait(200);
+      h.expect((await h.attr("html", "data-theme")) === "signal-light", "«День» не перемкнув html[data-theme]");
+      await h.click('#p-theme [data-mode="night"]'); await h.wait(200);
+      h.expect((await h.attr("html", "data-theme")) === "signal", "«Ніч» не повернула html[data-theme]");
     },
   },
 ];

@@ -1,14 +1,24 @@
 /* INK (Туш) — mirage's "black and vermilion ink blooming in clear water": near-black and off-white, one
    vermilion pole and one cool water-blue pole, a hairline of ink on every edge, no bloom. The pair of
-   marks: vermilion + water blue. No sprites yet (docs/research/themes.md, phase 4). */
+   marks: vermilion + water blue. The sprites are ink in water (docs/research/themes.md, phase 4):
+   blooms along the lip, a string of blossoms / a plum branch as the garland, a plume curling from the
+   corners, splatter behind an empty state; an enso ring (night) and a brushed sun (day) as the mode art.
+   Every offset is measured off the sprite's alpha (docs/research/mascot-tools/measure.mjs). */
 @import "./runtime.css";
+@import "./decor.css";
 
 :root {
   --app-accent: #E04A2B;
   --app-accent-2: #4FA3E3;
   --app-tint: color-mix(in oklch, var(--app-accent) 14%, transparent);
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  --ds-art-day: url("/_rt/ds-ink-d-art.webp");     /* the brushed sun */
+  --ds-art-night: url("/_rt/ds-ink-n-art.webp");   /* the enso */
 }
+
+/* RICE PAPER — a soft mottle over the page (fractal noise the browser draws, no file): ink-grey at 7% on
+   the day sheet, a faint bone-white at 4% on the night page. */
+body { background-image: var(--ds-grain); background-size: 260px 260px; }
 
 [data-theme="signal"] {
   color-scheme: dark;
@@ -46,6 +56,22 @@
   --sf-press-face: #101011;
   --sf-press-top:  rgba(0, 0, 0, .6);
   --sf-track-face: #232326;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.96 0 0 0 0 0.95 0 0 0 0 0.92 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* night sprites — vermilion in dark water. ds-ink-n-lip: peak row 367/512 (72%); n-strand art ends at
+     row 326 (36.3% blank → 18.2vw, 70px wide); n-scatter core rows 210–305 (centre 50% → −49px). */
+  --ds-lip: url("/_rt/ds-ink-n-lip.webp");
+  --ds-lip-pos: center 72%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .7;
+  --ds-strand: url("/_rt/ds-ink-n-strand.webp");
+  --ds-strand-y: calc(100% + 18.2vw);
+  --ds-strand-y-wide: calc(100% + 70px);
+  --ds-strand-a: .85;
+  --ds-corner: url("/_rt/ds-ink-n-corner.webp");
+  --ds-corner-a: .6;
+  --ds-scatter: url("/_rt/ds-ink-n-scatter.webp");
+  --ds-scatter-pos: center -49px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .75;
 }
 [data-theme="signal-light"] {
   color-scheme: light;
@@ -83,4 +109,20 @@
   --sf-press-face: #EDEAE3;
   --sf-press-top:  rgba(20, 20, 20, .16);
   --sf-track-face: #DBD7CE;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* day sprites — black and vermilion on the white sheet. ds-ink-d-lip: peak row 282/512 (55%); d-strand
+     art ends at row 360 (29.7% blank → 14.8vw, 57px wide); d-scatter core rows 213–295 (centre 50% → −47px). */
+  --ds-lip: url("/_rt/ds-ink-d-lip.webp");
+  --ds-lip-pos: center 55%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .8;
+  --ds-strand: url("/_rt/ds-ink-d-strand.webp");
+  --ds-strand-y: calc(100% + 14.8vw);
+  --ds-strand-y-wide: calc(100% + 57px);
+  --ds-strand-a: .9;
+  --ds-corner: url("/_rt/ds-ink-d-corner.webp");
+  --ds-corner-a: .7;
+  --ds-scatter: url("/_rt/ds-ink-d-scatter.webp");
+  --ds-scatter-pos: center -47px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .8;
 }

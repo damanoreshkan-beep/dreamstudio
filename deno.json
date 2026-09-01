@@ -2,14 +2,15 @@
   "//": "Farm workspace root. The farm IS its own monorepo framework — Deno workspaces + a tiny affected orchestrator (tools/affected.mjs) — so there is NO Turborepo/Nx and NO node_modules. Packages below are workspace members; apps stay pure Deno (resolved at serve time by each index.html import map); CI verifies only the apps a change actually reaches.",
   "nodeModulesDir": "auto",
   "minimumDependencyAge": 0,
-  "//core": "THE dependency. Execution rides the jsr: pin below (deno realm — the registry cache); the FILE tree for /_rt serving and the build rides the npm-compat tarball in package.json. Bump = the version here + in package.json, then deno task install.",
+  "//core": "THE dependency. Execution rides the jsr: range below (deno realm — the registry cache); the FILE tree for /_rt serving and the build rides the npm-compat tarball in package.json. `@1` = every 1.x release (owner, 2026-09-01: no version to edit by hand); deno.lock records what resolved, `deno task install` takes the newest.",
   "imports": {
-    "@microspec/core": "jsr:@microspec/core@1.2.4",
-    "@microspec/core/": "jsr:@microspec/core@1.2.4/"
+    "@microspec/core": "jsr:@microspec/core@1",
+    "@microspec/core/": "jsr:@microspec/core@1/"
   },
   "//tasks": "Every core tool runs through .microspec/core.mjs, the committed dispatcher: it resolves @microspec/core/<tool> through the import map above (a CLI arg is never import-mapped, so no task carries a version) and executes the pinned jsr: URL in a child — the registry realm by construction. .microspec/ is written once by rtmap when missing, then owned and committed.",
   "tasks": {
-    "install": "deno install --minimum-dependency-age 0",
+    "install": "deno outdated --update --lockfile-only && deno install --minimum-dependency-age 0",
+    "sw": "deno run -A .microspec/core.mjs sw",
     "test": "deno test -A .microspec/tests/unit_test.js rt/rt_test.js",
     "affected": "deno run -A .microspec/core.mjs affected",
     "verify": "deno run -A .microspec/verify.mjs",

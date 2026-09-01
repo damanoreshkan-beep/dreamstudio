@@ -1,0 +1,68 @@
+/* THE PORTAL'S DECOR — the geometry every textured theme shares, on the hooks runtime.css declares
+   (docs/research/themes.md, phase 4). A theme module imports this right after runtime.css and sets the
+   TOKENS: which sprite hangs on each hook, how far it is shifted so its art lands where the eye expects,
+   and how strong it is. Nothing here names a file or a colour — a theme with no sprite leaves a token at
+   `none` and the hook renders nothing. Every position is MEASURED off the sprite's alpha (per-row mass,
+   docs/research/mascot-tools/measure.mjs), never guessed: the same rule serves a woven filament, a stack
+   of cut paper and a bead of chrome only because the numbers travel with the sprite.
+
+   STATIC by rule — a translated full-width lip was viewport overflow on every app (the tilt engine, removed
+   2026-08-31); the verify gate reads chrome pseudo transforms. */
+
+/* THE LIP — the header's lower edge, woven from the material rather than drawn as a line: a 10px window on
+   the sprite's dense band (`--ds-lip-pos` puts that band's peak in the window; `--ds-lip-size` zooms it so
+   its texture reads instead of averaging into a stripe), masked at both ends and top/bottom so the strip
+   has no cut edge. z-index −1 paints it above the page, below the controls. */
+header.navbar::before {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -4px; height: 10px;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--ds-lip) var(--ds-lip-pos) / var(--ds-lip-size) no-repeat;
+  opacity: var(--ds-lip-a, 0);
+  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent), linear-gradient(180deg, transparent, #000 38%, #000 62%, transparent);
+  mask-composite: intersect;
+}
+
+/* THE GARLAND hangs inside the dock zone: the sprite tiles at half the width (one seam, hidden behind the
+   dock pill), and its art ENDS on the screen's bottom edge — `--ds-strand-y` is `calc(100% + Nvw)`, N the
+   sprite's blank lower part × the half-width tile. Past 640px the tile is pinned so a desktop does not get a
+   3× garland (`--ds-strand-y-wide` is the same N in px at a 192px tile). */
+[data-garland] {
+  background: var(--ds-strand) center var(--ds-strand-y) / 50% auto repeat-x;
+  opacity: var(--ds-strand-a);
+}
+@media (min-width: 640px) { [data-garland] { background-size: 192px auto; background-position: center var(--ds-strand-y-wide); } }
+
+/* THE CORNERS — the enclosure's own decor, in the two corners nothing else claims: the bottom ones, either
+   side of the centred dock pill. The 150px sprite sits mostly OUTSIDE the viewport (−42px sideways, −58px
+   down) and the dock zone clips it, so what shows is the curl's inner arc climbing out of the corner, never
+   a whole pasted picture. The left one is mirrored so both curl inward; a scaleX carries no translation,
+   which is what the chrome-decor gate reads. */
+[data-dock-fade]::before, [data-dock-fade]::after {
+  content: "";
+  position: absolute;
+  bottom: -58px;
+  width: 150px; height: 150px;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--ds-corner) center / contain no-repeat;
+  opacity: var(--ds-corner-a);
+}
+[data-dock-fade]::before { left: -42px; transform: scaleX(-1); }
+[data-dock-fade]::after { right: -42px; }
+@media (max-width: 300px) { [data-dock-fade]::before, [data-dock-fade]::after { display: none; } }
+
+/* THE SCATTER — an empty state sits on the material's motes, centred on the glyph: `--ds-scatter-pos`
+   lifts the sprite so its dense core (measured) lands on the glyph's centre, 82px below the box top
+   (py-16 + half of text-4xl); behind the text only the sparse tail remains. */
+[data-empty]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--ds-scatter) var(--ds-scatter-pos) / var(--ds-scatter-size) no-repeat;
+  opacity: var(--ds-scatter-a);
+}

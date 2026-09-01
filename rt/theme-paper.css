@@ -1,15 +1,25 @@
 /* PAPER (Папір) — mirage's "layered white paper bas-relief" as a theme: warm paper by day, dark card by
    night, ink in gold and deep teal, depth from raking side light (a soft warm cast, no bloom). The pair of
-   marks: old gold + teal. No sprites yet — the hooks stay empty until the textures are generated
-   (docs/research/themes.md, phase 4). */
+   marks: old gold + teal. The sprites are cut paper (docs/research/themes.md, phase 4): a stack of cream
+   sheets as the lip, papel-picado bunting as the garland, a paper curl in the corners, a spill of paper
+   strips behind an empty state; a paper ring (night) and a gilded paper sun (day) as the mode art. Every
+   offset is measured off the sprite's alpha (docs/research/mascot-tools/measure.mjs). */
 @import "./runtime.css";
+@import "./decor.css";
 
 :root {
   --app-accent: #C9A15A;
   --app-accent-2: #6FBFAE;
   --app-tint: color-mix(in oklch, var(--app-accent) 16%, transparent);
   --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  --ds-art-day: url("/_rt/ds-paper-d-art.webp");     /* the gilded paper sun */
+  --ds-art-night: url("/_rt/ds-paper-n-art.webp");   /* the paper ring */
 }
+
+/* THE PAPER ITSELF — fibre grain over the whole page, a tile of fractal noise the browser draws (no file,
+   no request, tiles seamlessly): dark fibres at 9% on the day sheet, cream fibres at 5% on the night card.
+   Painted as body's own background so it is under every app's content by construction. */
+body { background-image: var(--ds-grain); background-size: 220px 220px; }
 
 [data-theme="signal-light"] {
   color-scheme: light;
@@ -47,6 +57,23 @@
   --sf-press-face: #EAE3D6;
   --sf-press-top:  rgba(60, 44, 20, .18);
   --sf-track-face: #D9D0C0;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* day sprites — white paper with gilded edges on the paper page. ds-paper-d-lip: peak row 353/512 (69%);
+     d-strand art ends at row 324 (36.7% blank × half-width tile = 18.4vw, 70px at the 192px tile);
+     d-scatter core rows 215–321 (centre 52% → −54px lands it on the glyph). */
+  --ds-lip: url("/_rt/ds-paper-d-lip.webp");
+  --ds-lip-pos: center 69%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .85;
+  --ds-strand: url("/_rt/ds-paper-d-strand.webp");
+  --ds-strand-y: calc(100% + 18.4vw);
+  --ds-strand-y-wide: calc(100% + 70px);
+  --ds-strand-a: .9;
+  --ds-corner: url("/_rt/ds-paper-d-corner.webp");
+  --ds-corner-a: .8;
+  --ds-scatter: url("/_rt/ds-paper-d-scatter.webp");
+  --ds-scatter-pos: center -54px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .85;
 }
 [data-theme="signal"] {
   color-scheme: dark;
@@ -84,4 +111,20 @@
   --sf-press-face: #141210;
   --sf-press-top:  rgba(0, 0, 0, .5);
   --sf-track-face: #2F2A24;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.94 0 0 0 0 0.9 0 0 0 0 0.82 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* night sprites — cream paper on the dark card. ds-paper-n-lip: peak row 217/512 (42%); n-strand art ends
+     at row 361 (29.5% blank → 14.7vw, 57px wide); n-scatter core rows 160–339 (centre 49% → −45px). */
+  --ds-lip: url("/_rt/ds-paper-n-lip.webp");
+  --ds-lip-pos: center 42%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .75;
+  --ds-strand: url("/_rt/ds-paper-n-strand.webp");
+  --ds-strand-y: calc(100% + 14.7vw);
+  --ds-strand-y-wide: calc(100% + 57px);
+  --ds-strand-a: .9;
+  --ds-corner: url("/_rt/ds-paper-n-corner.webp");
+  --ds-corner-a: .65;
+  --ds-scatter: url("/_rt/ds-paper-n-scatter.webp");
+  --ds-scatter-pos: center -45px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .7;
 }
