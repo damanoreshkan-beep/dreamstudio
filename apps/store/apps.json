@@ -55,11 +55,13 @@
         "Screensaver"
       ]
     },
-    "shots": [],
+    "shots": [
+      "stage"
+    ],
     "bg": "#000000",
     "fg": "#B9C8F2",
     "href": "./vydyvo/",
-    "version": "1.5",
+    "version": "1.7",
     "category": "creative",
     "needs": [
       "wakeLock"
