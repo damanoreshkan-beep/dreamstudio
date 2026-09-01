@@ -60,12 +60,17 @@ style thumbnail must go through the raw generator or every material glows).
 
 ## Status
 
-- **Phase 1 SHIPPED** (core 1.2.0–1.2.2, product b04fbcf+): the registry, the picker (mirage's grid —
+- **Phase 1 SHIPPED** (core 1.2.0–1.2.3, product d4facfe): the registry, the picker (mirage's grid —
   three to a row, a round picture, the chosen card ringed; titled "Тема"), the link swap, `S.material`,
   the picker e2e in a real browser (store). Five themes live: Сяйво (lum, the luminous default), Папір,
   Туш, Ртуть (palettes in both modes, no sprites yet — the hooks stay empty until phase 4) and Просто (the
   core's neutral look). Until the mascot exists a card shows the theme's SWATCH (base + accent for the
-  current mode, `swatch` in themes.json).
+  current mode, `swatch` in themes.json). Verified with the eye on the live store in both modes and with
+  Папір chosen (the whole screen re-inks, the row reads the chosen name).
+- Two traps from 1.2.3, for anyone touching the picker: the chosen card's ring is a `runtime.css` RULE on
+  `[data-materials] [aria-pressed=true]` — a Tailwind `ring-[var(--app-accent)]` utility is dropped by the
+  build's class scanner and never reaches dist (green gates, no ring on the phone); and the swatch's mode
+  reads `html[data-theme]`, because a `?theme=` override (the gate, the eye) never writes the theme atom.
 - Phase 2 waits on the owner's pick (docs/research/mascot.md); phases 3–4 follow.
 
 ## Decision log
