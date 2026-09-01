@@ -1,0 +1,33 @@
+{
+  "id": "vydyvo",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#B9C8F2",
+  "tabs": [
+    {
+      "id": "stage",
+      "type": "tool",
+      "icon": "lucide:moon-star",
+      "label": "tabStage",
+      "view": "vydyvo",
+      "fit": true,
+      "needs": [
+        "wakeLock"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:moon-star",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any"
+  }
+}
