@@ -5,7 +5,7 @@
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
-    "npm:@jsr/microspec__core@1.0.9": "1.0.9",
+    "npm:@jsr/microspec__core@1.1.0": "1.1.0",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:d3-geo@3": "3.1.1",
@@ -61,6 +61,18 @@
     },
     "@microspec/core@1.0.9": {
       "integrity": "271623f1417c1fb722abc7dc6e0c21fbde1b578b527085d7d2a05082695941a0",
+      "dependencies": [
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:d3-geo",
+        "npm:htm",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:topojson-client"
+      ]
+    },
+    "@microspec/core@1.1.0": {
+      "integrity": "16b47e2b46b0674deece4dba1037097156888c84592c8e68d5cd33db2da33b9e",
       "dependencies": [
         "npm:@nanostores/persistent",
         "npm:@nanostores/preact",
@@ -144,8 +156,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.0.9": {
-      "integrity": "sha512-pWl7nCK0+yysArFTTgpfwlWGWeBPS3XWyYbr3AUzIiZcZJMBcJMQXqG4QcX1Zugy/cHTcppdrIsbybpQnMorIA==",
+    "@jsr/microspec__core@1.1.0": {
+      "integrity": "sha512-SoyUJkdFpW4+hynl41EuS8cOvhuMzCIEgeRoExdNt042KYyjcMgrm0n51rwOBm6C2rLuJyESK3j+FP/7rJ0pMA==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -167,7 +179,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.0.9.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.1.0.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",
@@ -477,11 +489,28 @@
     }
   },
   "redirects": {
-    "https://esm.sh/astronomy-engine@2": "https://esm.sh/astronomy-engine@2.1.19"
+    "https://esm.sh/astronomy-engine@2": "https://esm.sh/astronomy-engine@2.1.19",
+    "https://esm.sh/d3-array@^3.2.4?target=denonext": "https://esm.sh/d3-array@3.2.4?target=denonext",
+    "https://esm.sh/d3-geo@3": "https://esm.sh/d3-geo@3.1.1",
+    "https://esm.sh/internmap@^2.0.3?target=denonext": "https://esm.sh/internmap@2.0.3?target=denonext",
+    "https://esm.sh/topojson-client@3": "https://esm.sh/topojson-client@3.1.0"
   },
   "remote": {
+    "https://esm.sh/@nanostores/persistent@0.10.2/X-ZW5hbm9zdG9yZXM/denonext/persistent.mjs": "4755f1857c16d69f678729535a440aaba8ea17217b4b822c28ac51a38bd0dbdb",
+    "https://esm.sh/@nanostores/persistent@0.10.2?external=nanostores": "d9cb444852f3ea8016242dffaf86afc4985dc802c1e0b85afd45fd31dc454496",
+    "https://esm.sh/@nanostores/preact@0.5.2/X-ZW5hbm9zdG9yZXMscHJlYWN0/denonext/preact.mjs": "712efdcec54dcda04b6ed9bd23bc42be49bc599572a3ce60a5d1818662dccbb1",
+    "https://esm.sh/@nanostores/preact@0.5.2?external=preact,nanostores": "5de7ccdc3780d9409ca77b2165e16fede03b73fc92fb8b1e1f65756df2fe5117",
     "https://esm.sh/astronomy-engine@2.1.19": "0845bc2bcf5ec83f9b7cc75f70f91ec2c528e2cffeed8ae937532c28e619a714",
     "https://esm.sh/astronomy-engine@2.1.19/denonext/astronomy-engine.mjs": "5fb0e08d37f541a104b440744a2bffcc7943b5e95db15b0c780ee0a03b11dfcd",
+    "https://esm.sh/d3-array@3.2.4/denonext/d3-array.mjs": "a8659e76cce11138f6be2fb8636a1f74d8cfa7831605967b6970238b80d04d8b",
+    "https://esm.sh/d3-array@3.2.4?target=denonext": "4266074d204ab57fcfbe3b73d6259dd41e56d864ca72d20b13e159414fe8c5f5",
+    "https://esm.sh/d3-geo@3.1.1": "67851d96be856de5fc4629f04304599d0632e5f9eaaa04501a70c01c58e59828",
+    "https://esm.sh/d3-geo@3.1.1/denonext/d3-geo.mjs": "c98c715c798ead807108505d44119407cc2c574bd9fd94c1d7594d4dfe1972d5",
+    "https://esm.sh/htm@3.1.1/X-ZXByZWFjdA/denonext/htm.mjs": "6c0d0967b9cc95f4f7db768425d3992757d814f95b0a7fc963a904b25bd7b873",
+    "https://esm.sh/htm@3.1.1/X-ZXByZWFjdA/denonext/preact.mjs": "05ceb25f6cbf57496f56c4faf790f844682baf834574ccce091f5ab439690ed6",
+    "https://esm.sh/htm@3.1.1/preact?external=preact": "09c74748bf2d7739e4ab1e9367c6e79a642b25e134c42e28dcaac0c41016e4df",
+    "https://esm.sh/internmap@2.0.3/denonext/internmap.mjs": "09707265c3a24383ca1b71aa6d97ab980e91ad4e804f55dec34de6d24a9900b4",
+    "https://esm.sh/internmap@2.0.3?target=denonext": "235fe2491d38df4060d092e8b8e882891b7bcb595435dcf9f52d7d38b6d2c534",
     "https://esm.sh/lodash-es@4.17.21": "1252ccd86311d14f2dd05282cf3e40e1ff76bfa79c71ca49b903e902129944cb",
     "https://esm.sh/lodash-es@4.17.21/denonext/lodash-es.mjs": "6f7d7db2f829218b6a787d9652b7e90333a1b89e5eb3a8b4c4b9eb6de3b062ec",
     "https://esm.sh/motion@11.18.2": "70cf7abfc1e78194026247e40906350a6878815da52fdab9cc6a06e394fa0bc4",
@@ -627,16 +656,27 @@
     "https://esm.sh/motion@11.18.2/denonext/dist/es/motion-utils/dist/es/progress.mjs": "4ce3391e84c5d8a1c07207e14110c7720499626555915c90d2f6d31d7072915c",
     "https://esm.sh/motion@11.18.2/denonext/dist/es/motion-utils/dist/es/time-conversion.mjs": "4d00bde34c002bf8198a0b1509635ddc5829ba08bc2ca0fcd50c58b11f6fd901",
     "https://esm.sh/motion@11.18.2/denonext/motion.mjs": "3e30d2d634efcd3a7da21eab8bf15363d7ebfb021f5a68f1b85fd8cb28b59ca4",
+    "https://esm.sh/nanostores@0.11.4": "090eb82118635dd654d2bd983741bd6dc2a809af96ea175c896da7fc1a34ebd8",
+    "https://esm.sh/nanostores@0.11.4/denonext/nanostores.mjs": "0f3a82d0a93671bbb67887a02d3b1eff7fb93654add5e3d654d2278265902539",
+    "https://esm.sh/preact@10.27.1": "7c7102a74853dd331525b7eb8f165714d783f2638bf7bd3f1fc9b7480cc4e1e0",
+    "https://esm.sh/preact@10.27.1/denonext/hooks.mjs": "b863367befe25a10375385e3ca6b162697d3678821464fbb02e0c71f2fffd5e3",
+    "https://esm.sh/preact@10.27.1/denonext/preact.mjs": "7c2bf3093184c94176c3ae4dafd0aa801cb15f37f6907779064c4190456eb9c0",
+    "https://esm.sh/preact@10.27.1/hooks": "22a4babd13029422488ffe89f1fa9c82bf335f6fc8930d2707da855177b2d265",
     "https://esm.sh/suncalc@1.9.0": "c656e61c3f35d9f67f7c6ad4c5230763e440a5581ea59e319227f4ab89e474fd",
-    "https://esm.sh/suncalc@1.9.0/denonext/suncalc.mjs": "fc244ac1674f9738f3dd420ede62562af498b658498bf3f495bce432c49adb10"
+    "https://esm.sh/suncalc@1.9.0/denonext/suncalc.mjs": "fc244ac1674f9738f3dd420ede62562af498b658498bf3f495bce432c49adb10",
+    "https://esm.sh/three@0.171.0": "f41f3abd21353444a8444a32c3d7ebb0cbce7481fa6d8e20da4f1695b9c0c54d",
+    "https://esm.sh/three@0.171.0/denonext/build/three.core.mjs": "3d45d212539dd3d0cc29239bead9ddc7caa0e8bc54f4ce563761609436ebd837",
+    "https://esm.sh/three@0.171.0/denonext/three.mjs": "ed8848bfc6a241f1b2a52a755fb274ba136de0c65cf29fdc9fd2226f22a3fd4d",
+    "https://esm.sh/topojson-client@3.1.0": "e664d697a59fcfdaf0bae03ea35fef8aa44351fc02631c5ccfa9354df03fff5e",
+    "https://esm.sh/topojson-client@3.1.0/denonext/topojson-client.mjs": "56ef2b146e10a1b99b0fc42f2f96bd41931d42e256efd1954724aeee505a7010"
   },
   "workspace": {
     "dependencies": [
-      "jsr:@microspec/core@1.0.9"
+      "jsr:@microspec/core@1.1.0"
     ],
     "packageJson": {
       "dependencies": [
-        "npm:@jsr/microspec__core@1.0.9"
+        "npm:@jsr/microspec__core@1.1.0"
       ]
     }
   }

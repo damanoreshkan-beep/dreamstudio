@@ -66,6 +66,20 @@ filaments on true black, one warm amber + one electric cyan, volume told by bloo
 same contract draws the 73 icons, the store, the chrome and the diagrams on this page. It is enforced, not
 documented: an app-authored shadow fails the gate.
 
+### The theme module
+
+The material is this product's, not the core's: **`rt/theme.css`** (`@import "./runtime.css";` first, then
+the pair of light, the two palettes, the material's token values, the portal chrome's geometry, the
+enclosure, Geist) and its sprites `rt/ds-*.webp` are a module the overlay lays over the core's neutral
+`theme.css` by name — in the gate's server and in the build alike — so every page keeps its one
+`<link href="/_rt/theme.css">`. The brand's own tests (`rt/tests/theme_test.js`: the true-black page, a rim
+on every surface, the poles text-safe in both modes, every hook reaching a sprite that exists) run in the
+same `unit` gate as the core's. Another product on the same core brings its own `rt/theme.css`.
+
+<div align="center">
+<img src="https://cdn.jsdelivr.net/gh/damanoreshkan-beep/microspec@main/docs/art/theme-split.svg" width="880" alt="runtime.css (structure, neutral) → rt/theme.css (this product's brand) → the page's one link">
+</div>
+
 <div align="center">
 <sub>Built on <a href="https://github.com/damanoreshkan-beep/microspec">microspec</a> — the appless core this product proves.</sub>
 </div>

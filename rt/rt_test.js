@@ -63,3 +63,4 @@ import "./tests/urlsafe_test.js";
 import "./tests/v2m_test.js";
 import "./tests/wind_test.js";
 import "./tests/wish_test.js";
+import "./tests/theme_test.js";

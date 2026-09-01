@@ -4,8 +4,8 @@
   "minimumDependencyAge": 0,
   "//core": "THE dependency. Execution rides the jsr: pin below (deno realm — the registry cache); the FILE tree for /_rt serving and the build rides the npm-compat tarball in package.json. Bump = the version here + in package.json, then deno task install.",
   "imports": {
-    "@microspec/core": "jsr:@microspec/core@1.0.9",
-    "@microspec/core/": "jsr:@microspec/core@1.0.9/"
+    "@microspec/core": "jsr:@microspec/core@1.1.0",
+    "@microspec/core/": "jsr:@microspec/core@1.1.0/"
   },
   "//tasks": "Every core tool runs through .microspec/core.mjs, the committed dispatcher: it resolves @microspec/core/<tool> through the import map above (a CLI arg is never import-mapped, so no task carries a version) and executes the pinned jsr: URL in a child — the registry realm by construction. .microspec/ is written once by rtmap when missing, then owned and committed.",
   "tasks": {
