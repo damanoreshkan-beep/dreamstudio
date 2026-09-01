@@ -88,11 +88,11 @@ export function vydyvo({ t, S, screen, closeScreen }) {
       onClick=${show ? () => S.screen.set(null) : null}>
       ${[0, 1].map((slot) => {
         const f = stage.slot === slot ? cur : byId(stage.prev), on = !!f && f.id === stage.cur;
-        return html`<img key=${slot} data-frame data-slot=${slot} data-on=${on ? "1" : null} src=${f?.url || ""} alt="" decoding="async" class="vy-layer" style=${`--vy-every:${opts.every}s`} />`;
+        return html`<img key=${slot} data-frame data-slot=${slot} data-on=${on ? "1" : null} src=${f?.url || ""} alt="" aria-hidden="true" decoding="async" class="vy-layer pointer-events-none" style=${`--vy-every:${opts.every}s`} />`;
       })}
       ${next ? html`<img src=${next.url} alt="" decoding="async" class="absolute w-px h-px opacity-0 pointer-events-none" aria-hidden="true" />` : null}
       <div class="vy-vignette" aria-hidden="true"></div>
-      ${!cur ? html`<div class="absolute inset-0 grid place-items-center"><${Pixels} cls="w-36 h-60 rounded-[var(--ms-r)]" /></div>` : null}
+      ${!cur ? html`<div class="absolute inset-0 grid place-items-center pointer-events-none" aria-hidden="true"><${Pixels} cls="w-36 h-60 rounded-[var(--ms-r)]" /></div>` : null}
       ${show ? html`<${ShowType} t=${t} loc=${loc} frame=${cur} />` : null}
       ${show ? html`<span class="sr-only">${T(t, "exitShow")}</span>` : null}
     </div>
