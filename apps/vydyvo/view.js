@@ -4,12 +4,14 @@
 // gone and the clock, the line and the exit tap live inside it; where fullscreen is denied the stage
 // simply rises over the chrome (fixed, z-60). Contract and precedents: apps/vydyvo/RESEARCH.md.
 import { html } from "htm/preact";
+import { Fragment } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Sheet, Segmented, Island } from "/_rt/ui.js";
 import { Battery } from "/_rt/render.js";
 import { wakeLock } from "/_rt/sensors.js";
+import { gate } from "/_rt/gate.js";
 import { GlStage, hasWebGL2 } from "/_rt/glstage.js";
 import { PRESETS, presetOf } from "./presets.js";
 import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge } from "./state.js";
@@ -29,8 +31,14 @@ const mmss = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); return `${M
 // A text that arrives as a WAVE: one span per character, each a beat later (owner: "моушн анімація зміни
 // тексту хвилями"). Keyed by the text, so a change remounts and the wave replays; the delay is capped so a
 // long line never takes seconds to finish. Used only inside the show's aria-hidden layer.
-const Waved = ({ text, cls = "" }) => html`<span key=${text} class=${cls}>${[...String(text)].map((ch, i) =>
-  html`<span key=${i} class="vy-ch" style=${`--ci:${i}`}>${ch === " " ? " " : ch}</span>`)}</span>`;
+// Characters are grouped into UNBREAKABLE word spans — a bare run of inline-block letters wraps mid-word
+// ("до бе / рега", eye 2026-09-01); the real spaces between word spans keep line breaks where words end.
+const Waved = ({ text, cls = "" }) => {
+  let i = 0;
+  return html`<span key=${text} class=${cls}>${String(text).split(" ").map((w, wi) =>
+    html`<${Fragment} key=${wi}>${wi ? " " : ""}<span class="vy-w">${[...w].map((ch) =>
+      html`<span key=${i} class="vy-ch" style=${`--ci:${i++}`}>${ch}</span>`)}</span><//>`)}</span>`;
+};
 
 // The typographic layer of the show: the clock, the date, the preset's line for THIS frame, the words it
 // grew from. Fixed white on a scrim on purpose — it sits on a photograph, not on a farm surface, and must
@@ -69,7 +77,9 @@ export function vydyvo({ t, S, screen, closeScreen }) {
   // stage shows the other side, switch at once instead of waiting out the timer.
   const matched = frames.some((f) => f.mode === docMode);
   const curMatches = !!cur && cur.mode === docMode;
-  const veiled = !curMatches;   // no frame at all, or the wrong side of the theme — the field takes the stage
+  // `?mock&veil=1` forces the field for the eye: the gate always paints frames in the CURRENT mode and
+  // `?theme=` pins the document, so the real mismatch can never be arranged in a headless shot
+  const veiled = !curMatches || (gate && typeof location !== "undefined" && new URLSearchParams(location.search).get("veil") === "1");
   useEffect(() => { if (!curMatches && matched) skip(); }, [docMode, curMatches, matched]);
   useEffect(() => { if (!matched) nudge(); }, [docMode, matched]);
 
