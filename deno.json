@@ -4,20 +4,20 @@
   "minimumDependencyAge": 0,
   "//core": "THE dependency. Execution rides the jsr: pin below (deno realm — the registry cache); the FILE tree for /_rt serving and the build rides the npm-compat tarball in package.json. Bump = the version here + in package.json, then deno task install.",
   "imports": {
-    "@microspec/core": "jsr:@microspec/core@1.0.6",
-    "@microspec/core/": "jsr:@microspec/core@1.0.6/"
+    "@microspec/core": "jsr:@microspec/core@1.0.7",
+    "@microspec/core/": "jsr:@microspec/core@1.0.7/"
   },
-  "//tasks": "Tools run via explicit jsr: specifiers — the registry realm by construction. (A CLI arg is never import-mapped, and a bare @microspec/core/* arg byonm-resolves into node_modules — the npm realm, where jsr:/https imports are refused.) The version appears in imports, package.json and these tasks; deno task install after a bump.",
+  "//tasks": "Every core tool runs through .microspec/core.mjs, the committed dispatcher: it resolves @microspec/core/<tool> through the import map above (a CLI arg is never import-mapped, so no task carries a version) and executes the pinned jsr: URL in a child — the registry realm by construction. .microspec/ is written once by rtmap when missing, then owned and committed.",
   "tasks": {
     "install": "deno install --minimum-dependency-age 0",
     "test": "deno test -A .microspec/tests/unit_test.js rt/rt_test.js",
-    "affected": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@1.0.6/affected",
+    "affected": "deno run -A .microspec/core.mjs affected",
     "verify": "deno run -A .microspec/verify.mjs",
-    "gates": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@1.0.6/8n8 gates",
-    "8n8": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@1.0.6/8n8",
-    "rtmap": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@1.0.6/rtmap",
-    "dist-eye": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@1.0.6/dist-eye",
-    "build": "deno run -A --minimum-dependency-age 0 jsr:@microspec/core@1.0.6/build",
+    "gates": "deno run -A .microspec/core.mjs 8n8 gates",
+    "8n8": "deno run -A .microspec/core.mjs 8n8",
+    "rtmap": "deno run -A .microspec/core.mjs rtmap",
+    "dist-eye": "deno run -A .microspec/core.mjs dist-eye",
+    "build": "deno run -A .microspec/core.mjs build",
     "red": "gh run view $(gh run list --workflow=verify.yml --limit 1 --json databaseId --jq '.[0].databaseId') --log-failed | sed 's/\\x1b\\[[0-9;]*m//g' | grep -E '✗'"
   },
   "lint": {
