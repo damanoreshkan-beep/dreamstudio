@@ -5,7 +5,7 @@
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/internal@^1.0.12": "1.0.14",
-    "npm:@jsr/microspec__core@1.2.3": "1.2.3",
+    "npm:@jsr/microspec__core@1.2.4": "1.2.4",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:d3-geo@3": "3.1.1",
@@ -131,6 +131,18 @@
         "npm:topojson-client"
       ]
     },
+    "@microspec/core@1.2.4": {
+      "integrity": "7e5f1150c7d2e0c9d9d77f4f06e87f2c5e41e6f9cc4e2772e4796dd85c20415d",
+      "dependencies": [
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:d3-geo",
+        "npm:htm",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:topojson-client"
+      ]
+    },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
@@ -204,8 +216,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.3": {
-      "integrity": "sha512-KillNqnU0TaKO554gZeddDkA3i+DUdkP3H/mXJMQGWETqOYSXuLNXc3dIUP+0O6gr9uRIL4xYdV0QkDmGnQCRg==",
+    "@jsr/microspec__core@1.2.4": {
+      "integrity": "sha512-MMb/61x8ztgnfEYdYnJBHsOLa2so2oEOYCYsY9e8e8KWy3CUgvMlyobgOKLivJYL2cxEfIkX9LgZ/RjaGHRnSQ==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -227,7 +239,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.3.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.4.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",
@@ -720,11 +732,11 @@
   },
   "workspace": {
     "dependencies": [
-      "jsr:@microspec/core@1.2.3"
+      "jsr:@microspec/core@1.2.4"
     ],
     "packageJson": {
       "dependencies": [
-        "npm:@jsr/microspec__core@1.2.3"
+        "npm:@jsr/microspec__core@1.2.4"
       ]
     }
   }

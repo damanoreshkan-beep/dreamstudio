@@ -146,7 +146,7 @@ header.navbar::before {
 
 /* At night the wordmark is a filament: the same amber bloom the icons glow with, faint enough that the ink
    stays ink. Paper gets none — a glow on white is a smear (measured on the icons). */
-[data-theme="signal"] [data-title] { text-shadow: 0 0 10px color-mix(in oklch, var(--app-accent) 32%, transparent); }
+[data-theme="signal"] [data-title] { text-shadow: 0 1px 2px var(--color-base-100), 0 0 14px var(--color-base-100), 0 0 10px color-mix(in oklch, var(--app-accent) 32%, transparent); }
 
 /* THE MATERIAL'S VALUES — the three terms (rim, top edge, bloom) composed into the surface tokens
    runtime.css consumes, per mode. */
