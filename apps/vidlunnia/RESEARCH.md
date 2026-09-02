@@ -87,6 +87,15 @@ whole 150 s deadline (now it fails fast on any textarea that starts with "Error"
 Young Adult · Middle-aged · Elderly · Very Low/Low/Moderate/High/Very High Pitch · Whisper · the English
 accents. The edge validates against that list (`edge/voice.js cleanInstruct`); the app offers six.
 
+## Preset voices (owner, 2026-09-02: "а чому я не можу без свого голосу просто текст написать для озвучки")
+
+The clone tab REFUSES a run without a reference ("Please upload a reference audio") and the Voice Design tab is
+dropdown-driven, so "just text" still needs a clip: the app ships two public-domain LibriTTS references
+(the sopro Space's own examples, CC BY 4.0 LibriTTS) as `assets/voice-m.wav` (7.0 s, YIN pitch 125 Hz) and
+`assets/voice-f.wav` (4.6 s, 175 Hz), conditioned to 24 kHz mono PCM16 by `rt/wav.js referenceWav` (335 KB +
+220 KB). The voice strip = Female · Male · Mine (Mine appears with a take and is selected by recording);
+Say it needs words and a voice, and a voice always exists. Decision 6 in the log.
+
 ## UNVERIFIED (do not build on)
 
 - Ukrainian OUTPUT quality of OmniVoice with a Ukrainian reference — only the language map was read; the

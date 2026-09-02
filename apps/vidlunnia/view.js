@@ -8,8 +8,8 @@ import { T } from "/_rt/i18n.js";
 import { Sheet, Segmented, Island, Stage, Transport } from "/_rt/ui.js";
 import { MicPrime } from "/_rt/camprime.js";
 import { permRequest } from "/_rt/permissions.js";
-import { $take, $rec, $words, $manner, $primed, $gen, $echo, $echoes, $player, MANNERS, BARS, TAKE_MAX, mannerOf,
-  boot, startRecord, stopRecord, playTake, generate, toggle, seek, selectEcho, share, save, removeEcho } from "./state.js";
+import { $take, $rec, $words, $manner, $primed, $gen, $echo, $echoes, $player, $voice, $presetView, MANNERS, VOICES, BARS, TAKE_MAX, mannerOf,
+  boot, startRecord, stopRecord, playTake, generate, toggle, seek, selectEcho, selectVoice, share, save, removeEcho } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const LOCALE = { uk: "uk-UA", en: "en-GB" };
@@ -36,14 +36,19 @@ function Ring({ bars, live, sealed, idle }) {
 export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
   const take = useStore($take), rec = useStore($rec), words = useStore($words), manner = useStore($manner), primed = useStore($primed);
   const gen = useStore($gen), echo = useStore($echo), echoes = useStore($echoes), player = useStore($player), loc = useStore(S.locale);
+  const voice = useStore($voice), pv = useStore($presetView);
   useEffect(() => { boot(); }, []);
   const recording = rec.state === "recording", decoding = rec.state === "decoding", working = gen.phase === "working";
   const bad = rec.err === "denied" || rec.err === "unavailable" || rec.err === "unsupported";
-  // the priming screen ONCE, before the first getUserMedia — never a cold prompt; a blocked mic keeps it up with its own words
-  const prime = !take && (!primed || bad);
-  const bars = recording ? rec.bars : take ? take.bars : [];
+  // the priming screen only when the mic was ASKED for and is blocked — the presets speak without it
+  const prime = !take && bad;
+  const mine = voice === "mine";
+  // the ring wears the voice that will speak: the take's seal, or the preset's; live levels while recording
+  const sealed = !recording && (mine ? !!take : !!pv);
+  const bars = recording ? rec.bars : mine ? (take?.bars || []) : (pv?.bars || []);
+  const dur = mine ? take?.dur : pv?.dur;
   const since = recording ? Math.min(TAKE_MAX, (Date.now() - rec.since) / 1000) : 0;
-  const canSay = !!take && !!words.trim() && !working && !recording && !decoding;
+  const canSay = !!words.trim() && (mine ? !!take : true) && !working && !recording && !decoding;
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   const fmt = new Intl.DateTimeFormat(LOCALE[loc] || LOCALE.en, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const takeNote = rec.err === "short" ? T(t, "short") : take?.quiet ? T(t, "quiet") : take?.clipped ? T(t, "clipped") : "";
@@ -59,18 +64,18 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
       ${prime ? html`<${MicPrime} loc=${loc} reason=${T(t, "micReason")} privacy=${T(t, "micPrivacy")} privacyIcon="lucide:cloud-upload"
         denied=${rec.err === "denied"} unavailable=${rec.err === "unavailable" || rec.err === "unsupported"}
         onEnable=${() => { $primed.set("1"); startRecord(); }} onSettings=${() => permRequest("microphone")} />` : null}
-      <div data-take=${take ? "" : null} data-live=${take ? "" : null} class="relative h-full w-full max-w-[min(100%,26rem)] mx-auto">
-        <${Ring} bars=${bars} live=${recording} sealed=${!!take && !recording} idle=${!take && !recording} />
-        <div class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 pointer-events-none">
+      <div data-take=${take ? "" : null} data-live=${take ? "" : null} class="vd-box relative h-full w-full max-w-[min(100%,26rem)] mx-auto">
+        <${Ring} bars=${bars} live=${recording} sealed=${sealed} idle=${!sealed && !recording} />
+        <div class="vd-centre absolute inset-0 flex flex-col items-center justify-center gap-1.5 pointer-events-none">
           ${recording
             ? html`<button data-record data-state="recording" class="btn btn-circle btn-lg btn-error pointer-events-auto" aria-label=${T(t, "stop")} onClick=${stopRecord}>${Icon("lucide:square", "text-2xl")}</button>`
             : html`<button data-record data-state=${take ? "again" : "idle"} disabled=${decoding || working} class=${`btn btn-circle btn-lg pointer-events-auto ${take ? "btn-ghost" : "btn-primary"}`}
                 aria-label=${T(t, take ? "rerecord" : "record")} onClick=${() => { $primed.set("1"); startRecord(); }}>${Icon(take ? "lucide:mic" : "lucide:mic", "text-2xl")}</button>`}
           <div data-take-status class=${`${label} tabular-nums text-center`}>
-            ${recording ? html`<span class="text-error">${T(t, "recording")}</span> · ${mmss(since)}`
-              : take ? html`${T(t, "yourVoice")} · ${mmss(take.dur)}` : T(t, "record")}
+            ${recording ? html`<span class="vd-name"><span class="text-error">${T(t, "recording")}</span> · </span>${mmss(since)}`
+              : sealed ? html`<span class="vd-name">${T(t, mine ? "yourVoice" : VOICES.find((v) => v.id === voice)?.key || "vF")} · </span>${mmss(dur || 0)}` : T(t, "record")}
           </div>
-          ${take && !recording ? html`<button data-play-take class="btn btn-ghost btn-xs rounded-full gap-1 pointer-events-auto" onClick=${playTake} aria-label=${T(t, "playTake")}>${Icon("lucide:play", "text-sm")}</button>` : null}
+          ${sealed ? html`<button data-play-take class="btn btn-ghost btn-xs rounded-full gap-1 pointer-events-auto" onClick=${playTake} aria-label=${T(t, "playTake")}>${Icon("lucide:play", "text-sm")}</button>` : null}
         </div>
       </div>
     <//>
@@ -80,6 +85,8 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
         <textarea data-words rows="2" value=${words} spellcheck="false" aria-label=${T(t, "wordsLabel")} placeholder=${T(t, "wordsPlaceholder")}
           onInput=${(e) => $words.set(e.currentTarget.value.slice(0, 400))}
           class="w-full min-w-0 resize-none bg-transparent text-[0.95rem] leading-snug focus:outline-none placeholder:text-base-content/45"></textarea>
+        <${Segmented} attr="data-voice" variant="outline" size="sm" label=${T(t, "voice")} value=${voice} onChange=${selectVoice}
+          items=${VOICES.filter((v) => v.id !== "mine" || take).map((v) => ({ id: v.id, label: T(t, v.key), icon: v.id === "mine" ? "lucide:mic" : undefined }))} />
         <${Segmented} attr="data-manner" variant="outline" size="sm" scroll=${true} label=${T(t, "manner")} value=${manner} onChange=${(v) => $manner.set(v)}
           items=${MANNERS.map((m) => ({ id: m.id, label: T(t, m.key) }))} />
         ${takeNote ? html`<div data-take-note class="text-sm text-warning">${takeNote}</div>` : null}

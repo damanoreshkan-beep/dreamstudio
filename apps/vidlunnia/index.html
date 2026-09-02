@@ -53,6 +53,16 @@
     /* the ring: bars move with the level (transform-free — the SVG re-draws), and the mark colour is the app's
        accent only while the voice is live or sealed; a resting ring is ink at low opacity */
     .vd-ring-on{color:var(--app-accent)}
+    /* the ring's centre must fit its INNER circle (r 60 of 200 = 60 % of the ring): in a split window the
+       stage is 38 % wide and the ring ~230 px, so the word goes and the buttons shrink (eye 2026-09-02:
+       the mic sat on the bars, the caption wrapped outside the ring at 412×430 and 360×340) */
+    .vd-box{container-type:size}
+    @container (max-width:300px){
+      .vd-centre .vd-name{display:none}
+      .vd-centre{gap:.25rem}
+      .vd-centre .btn-lg{--size:calc(var(--size-field,.25rem) * 9)}
+      .vd-centre .btn-lg iconify-icon{font-size:1.25rem}
+    }
     .vd-ring line{transition:opacity .25s ease}
     /* the working state breathes through three staggered dots — a typographic pulse, never a spinner */
     .vd-st{animation:vd-stin .35s ease}

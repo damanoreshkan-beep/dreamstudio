@@ -21,6 +21,28 @@ export function resample(x, from, to) {
 /** Mono PCM16 WAV bytes at {@link REF_RATE} from a conditioned take at any rate. */
 export const referenceWav = (pcm, sr) => encodeWav([resample(pcm, sr, REF_RATE)], REF_RATE);
 
+/** The inverse for a PCM WAV (8/16-bit, any channel count → mono): `{ pcm, sr }`; throws on anything else. */
+export function decodeWav(bytes) {
+  const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const tag = (o) => String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3));
+  if (tag(0) !== "RIFF" || tag(8) !== "WAVE") throw new Error("not a WAV");
+  let o = 12, fmt = null, data = null;
+  while (o + 8 <= v.byteLength) {
+    const id = tag(o), len = v.getUint32(o + 4, true);
+    if (id === "fmt ") fmt = { code: v.getUint16(o + 8, true), ch: v.getUint16(o + 10, true), sr: v.getUint32(o + 12, true), bits: v.getUint16(o + 22, true) };
+    if (id === "data") { data = { at: o + 8, len: Math.min(len, v.byteLength - o - 8) }; break; }
+    o += 8 + len + (len & 1);
+  }
+  if (!fmt || !data || fmt.code !== 1 || (fmt.bits !== 16 && fmt.bits !== 8)) throw new Error("not PCM 8/16-bit WAV");
+  const bps = fmt.bits / 8, frames = Math.floor(data.len / (fmt.ch * bps)), pcm = new Float32Array(frames);
+  for (let i = 0; i < frames; i++) {
+    let s = 0;
+    for (let c = 0; c < fmt.ch; c++) { const p = data.at + (i * fmt.ch + c) * bps; s += bps === 2 ? v.getInt16(p, true) / 32768 : (v.getUint8(p) - 128) / 128; }
+    pcm[i] = s / fmt.ch;
+  }
+  return { pcm, sr: fmt.sr };
+}
+
 /** `data:audio/wav;base64,…` from WAV bytes (chunked btoa — a 20 s clip is ~1 MB). */
 export function wavDataUrl(bytes) {
   let s = "";

@@ -14,6 +14,20 @@ export default [
     },
   },
   {
+    // the presets speak without a microphone: a preset voice + words is enough for Say it
+    name: "голос-пресет: жіночий/чоловічий доступні без запису, Скажи активна зі словами", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count('[data-voice="f"]')) === 1 && (await h.count('[data-voice="m"]')) === 1, "немає пресетів голосу");
+      await h.click('[data-voice="m"]'); await h.wait(400);
+      h.expect((await h.attr('[data-voice="m"]', "aria-pressed")) === "true", "пресет не вибрався");
+      await h.type("[data-words]", "Голос без запису"); await h.wait(150);
+      h.expect((await h.prop("[data-generate]", "disabled")) === false, "Скажи вимкнена з пресетом і словами");
+      h.expect(/\d:\d\d/.test(await h.text("[data-take-status]")), "кільце не показує тривалість пресета");
+      await h.click('[data-voice="mine"]'); await h.wait(150);
+      h.expect((await h.attr('[data-voice="mine"]', "aria-pressed")) === "true", "свій голос не повернувся");
+    },
+  },
+  {
     name: "слова + манера → відлуння на транспорті, слова збережені", run: async (h) => {
       await ready(h);
       await h.type("[data-words]", "Привіт, світе"); await h.wait(150);

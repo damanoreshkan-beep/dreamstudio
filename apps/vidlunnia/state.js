@@ -11,7 +11,25 @@ import { collection, idbSupported } from "/_rt/db.js";
 import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { conditionSample, encodeWav } from "/_rt/grain.js";
-import { referenceWav, wavDataUrl, mockVoice, envelope, REF_RATE } from "/_rt/wav.js";
+import { referenceWav, wavDataUrl, decodeWav, mockVoice, envelope, REF_RATE } from "/_rt/wav.js";
+
+// THE VOICE IS NEVER MISSING (owner: "а чому я не можу без свого голосу просто текст написать"): two
+// public-domain LibriTTS references ship with the app (24 kHz mono PCM16, RESEARCH.md), "mine" is the take.
+export const VOICES = [
+  { id: "f", key: "vF", asset: "voice-f.wav" },
+  { id: "m", key: "vM", asset: "voice-m.wav" },
+  { id: "mine", key: "vMine" },
+];
+const presets = new Map();   // id → { bytes, url, bars, dur }
+async function preset(id) {
+  const v = VOICES.find((x) => x.id === id && x.asset); if (!v) return null;
+  if (!presets.has(id)) {
+    const bytes = new Uint8Array(await (await fetch(new URL(`./assets/${v.asset}`, import.meta.url).href)).arrayBuffer());
+    const { pcm, sr } = decodeWav(bytes);
+    presets.set(id, { bytes, url: URL.createObjectURL(new Blob([bytes], { type: "audio/wav" })), bars: Array.from(envelope(pcm, BARS)), dur: pcm.length / sr });
+  }
+  return presets.get(id);
+}
 
 const BASE = `${VPS_PROXY}/voice`;
 export const TAKE_MAX = 10;     // seconds — OmniVoice clones from 5–20 s; ten keeps the body under 1 MB
@@ -39,6 +57,15 @@ export const $rec = atom({ state: "idle", bars: [], since: 0, err: null });
 export const $words = persistentAtom("ms:vidlunnia:words", "");
 export const $manner = persistentAtom("ms:vidlunnia:manner", "asis");
 export const $primed = persistentAtom("ms:vidlunnia:primed", "");
+/** Which voice says the words: "f" | "m" | "mine" (mine only with a take; recording selects it). */
+export const $voice = persistentAtom("ms:vidlunnia:voice", "f");
+/** The selected preset's `{ url, bars, dur }` for the ring and the preview; null for "mine" or until loaded. */
+export const $presetView = atom(null);
+export async function selectVoice(id) {
+  if (!VOICES.some((v) => v.id === id) || (id === "mine" && !$take.get())) return;
+  $voice.set(id);
+  $presetView.set(id === "mine" ? null : await preset(id).catch(() => null));
+}
 /** The job: phase idle | working | done | error; `error` an i18n key; eta/pct/elapsed mirrored from the edge. */
 export const $gen = atom({ phase: "idle", error: null, eta: null, pct: null, elapsed: 0 });
 /** The echo on the transport: `{ id, url, blob, words, manner, by, ts }` or null. */
@@ -57,6 +84,7 @@ function setTake(t, persist = true) {
   revoke($take.get()?.url);
   const take = { ...t, bars: Array.from(envelope(t.pcm, BARS)), url: URL.createObjectURL(wavBlob(t.pcm, t.sr)) };
   $take.set(take);
+  $voice.set("mine"); $presetView.set(null);   // a fresh take is the voice you meant to use
   if (persist && idbSupported && !gate) takeStore.put("take", { pcm: t.pcm, sr: t.sr, dur: t.dur, quiet: t.quiet, clipped: t.clipped }).catch(() => {});
 }
 // The gate has no microphone: a voice-shaped synthetic take stands in, marked `seeded` so the view says data-live
@@ -128,8 +156,8 @@ const hashOf = (s) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt
 
 /** Say it: the take + the words + the manner → one clone through the edge. Supersedes a running job. */
 export async function generate() {
-  const take = $take.get(), words = $words.get().trim(), manner = mannerOf($manner.get());
-  if (!take || !words) return;
+  const take = $take.get(), words = $words.get().trim(), manner = mannerOf($manner.get()), voice = $voice.get();
+  if (!words || (voice === "mine" && !take)) return;
   const run = ++runs;
   if (job) cancelJob(BASE, job); job = null;
   $gen.set({ phase: "working", error: null, eta: null, pct: null, elapsed: 0 });
@@ -139,8 +167,12 @@ export async function generate() {
     return;
   }
   let id;
-  try { id = await startJob(BASE, { text: words, audio: wavDataUrl(referenceWav(take.pcm, take.sr)), instruct: manner.instruct, seed: 0 }); }
-  catch (e) { if (run === runs) $gen.set({ phase: "error", error: e?.code || "eFailed", eta: null, pct: null, elapsed: 0 }); return; }
+  try {
+    const ref = voice === "mine" ? referenceWav(take.pcm, take.sr) : (await preset(voice))?.bytes;
+    if (!ref) throw { code: "eFailed" };
+    if (run !== runs) return;
+    id = await startJob(BASE, { text: words, audio: wavDataUrl(ref), instruct: manner.instruct, seed: 0 });
+  } catch (e) { if (run === runs) $gen.set({ phase: "error", error: e?.code || "eFailed", eta: null, pct: null, elapsed: 0 }); return; }
   if (run !== runs) { cancelJob(BASE, id); return; }
   job = id;
   const r = await followOne({ base: BASE, job: id, alive: () => run === runs,
@@ -170,8 +202,13 @@ export function selectEcho(id) {
   const e = $echoes.get().find((x) => x.id === id); if (!e) return;
   $echo.set(e); load(e.url); toggle();
 }
-/** Play the reference take once (a preview, not a transport). */
-export function playTake() { const t = $take.get(), a = audio(); if (!t || !a) return; if (a.src !== t.url) { a.src = t.url; a.load(); } a.currentTime = 0; a.play().catch(() => {}); }
+/** Play the selected voice once — the take or the preset (a preview, not a transport). */
+export function playTake() {
+  const url = $voice.get() === "mine" ? $take.get()?.url : $presetView.get()?.url, a = audio();
+  if (!url || !a) return;
+  if (a.src !== url) { a.src = url; a.load(); }
+  a.currentTime = 0; a.play().catch(() => {});
+}
 
 // ---- share / save / the collection --------------------------------------------------------------------------
 const nameOf = (e) => `vidlunnia-${new Date(e.ts).toISOString().slice(0, 16).replace(/[:T]/g, "-")}.wav`;
@@ -192,11 +229,16 @@ let booted = false;
 export async function boot() {
   if (booted) return; booted = true;
   if (gate) { seedTake(); return; }
+  const wanted = $voice.get();
+  if (idbSupported) {
+    try {
+      const t = await takeStore.get("take");
+      if (t?.pcm?.length) setTake({ pcm: t.pcm, sr: t.sr, dur: t.dur, quiet: !!t.quiet, clipped: !!t.clipped }, false);
+    } catch { /* no take yet */ }
+  }
+  // the remembered voice, or the first preset when "mine" has no take behind it any more
+  await selectVoice(wanted === "mine" && !$take.get() ? VOICES[0].id : wanted);
   if (!idbSupported) return;
-  try {
-    const t = await takeStore.get("take");
-    if (t?.pcm?.length) setTake({ pcm: t.pcm, sr: t.sr, dur: t.dur, quiet: !!t.quiet, clipped: !!t.clipped }, false);
-  } catch { /* no take yet */ }
   try {
     const rows = await echoStore.all();
     $echoes.set(rows.slice(0, CAP).map((r) => ({ id: r.id, url: URL.createObjectURL(r.blob), blob: r.blob, words: r.words, manner: r.manner, by: r.by || "", ts: r._ts })));

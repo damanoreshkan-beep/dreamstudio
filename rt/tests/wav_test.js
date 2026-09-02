@@ -1,6 +1,17 @@
 // rt/wav.js — the reference clip's shape: rate, resampler, WAV bytes, data: URL, the gate's voice.
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { REF_RATE, resample, referenceWav, wavDataUrl, mockVoice, envelope } from "../wav.js";
+import { REF_RATE, resample, referenceWav, wavDataUrl, mockVoice, envelope, decodeWav } from "../wav.js";
+
+Deno.test("decodeWav: the encoder's own bytes come back within one LSB; junk is refused", () => {
+  const take = mockVoice(0.3, 24000, 4);
+  const { pcm, sr } = decodeWav(referenceWav(take, 24000));
+  assertEquals(sr, REF_RATE);
+  assertEquals(pcm.length, take.length);
+  let worst = 0; for (let i = 0; i < pcm.length; i++) worst = Math.max(worst, Math.abs(pcm[i] - take[i]));
+  assert(worst <= 1 / 32768 + 1e-6, "round-trip error " + worst);
+  let threw = false; try { decodeWav(new Uint8Array(64)); } catch { threw = true; }
+  assert(threw, "64 zero bytes are not a WAV");
+});
 
 Deno.test("envelope: n windows, loudest is 1, silence is all zero, a burst lands in its window", () => {
   const x = new Float32Array(4800);
