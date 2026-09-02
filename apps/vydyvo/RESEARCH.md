@@ -63,20 +63,24 @@ depend on them.
   whole display period, direction alternating per slot; `prefers-reduced-motion` disables it. CSS only —
   no rAF, no WebGL: a screensaver runs for hours on a battery.
 - "Not the bare image": a black bottom scrim under a typographic layer — the clock (Geist Mono, tabular),
-  the date, the preset's LINE (the deep-meaning half, three lines per preset, one chosen per frame), the
+  the date, the frame's LINE (AI-fresh per frame; offline a generic `l_1..l_6` fallback), the
   prompt as a small caption. Fixed white on purpose (wall's precedent, `apps/wall/view.js:178-180`): the
   layer sits on a photograph, not on a farm surface, and reads the same in both themes.
 - Loading, never a spinner: `Pixels` + `Scramble` from `/_rt/skeleton.js` until the first frame exists.
 
-## Presets — material of meaning, and the theme in the prompt
+## The world IS the theme (presets removed, owner 2026-09-02)
 
-Six presets, each a subject (used when the prompt is empty), a NIGHT block and a DAY block, a hue for its
-dot, and three lines in both locales (i18n keys `l_<id>_1..3`). The client composes:
-`[user prompt → English | preset.subject], preset[mode], SYSTEM[mode], SYSTEM.base` — where `mode` is read
+There is no preset UI: "в пресети прибери, то зайве, у нас все тема рішає … закласти це у систему самої
+апки". `worlds.js` carries one WORLD per farm theme (`rt/themes.json` ids) — a default subject (used when
+the prompt is empty), a NIGHT and a DAY light block, and a short mood TINT used when the owner's own words
+drive the picture (70/30). The active world is `html[data-material]` (the profile's theme picker), read at
+race time; before a registry loads, `lum`. The client composes:
+`[user prompt → English | world.subject], world[mode], SYSTEM[mode], SYSTEM.base` — where `mode` is read
 off `html[data-theme]` at the moment the race starts (the light/dark theme drives the light in the picture,
 which is the owner's "система промпт на клієнті"). `SYSTEM.base` is the wallpaper contract (full-bleed, no
 text, off-centre subject, breathing space). The whole prompt is ≤ 800 chars (the edge slices there,
-`edge/image.js:473`).
+`edge/image.js:473`). The island's second row names the active theme; frames keep the world id in their
+old `preset` IDB field, so a collection painted before the change still restores.
 
 ## The collection
 
@@ -89,9 +93,9 @@ rate-limited the screensaver still has something to show. Two fresh (unshown) fr
 ## Under the gate
 
 `gate` (`/_rt/gate.js`) → no network: a race is a 90 ms wait that yields two deterministic gradient
-frames in the preset's hue (data URIs, not persisted), throttled to one race per 3 s so the collection
-fills without hammering. The e2e drives: a frame on stage, settings (preset + timer) and Back, show mode
-(fullscreen fallback + clock + line) and Back, the prompt persisting.
+frames (seed-derived hue data URIs, not persisted), throttled to one race per 3 s so the collection
+fills without hammering. The e2e drives: a frame on stage (world named, no preset cards), settings
+(timer + quality) and Back, show mode (fullscreen fallback + clock + line) and Back, the prompt persisting.
 
 ## Decisions (closed)
 

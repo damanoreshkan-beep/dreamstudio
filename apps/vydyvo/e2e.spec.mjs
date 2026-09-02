@@ -8,20 +8,22 @@ export default [
       await ready(h);
       h.expect((await h.count("[data-frame][data-on]")) === 1, "немає кадру на сцені");
       h.expect(/\S/.test(await h.text("[data-status]")), "порожній рядок статусу");
+      // the THEME is the world: the island names it, the stage carries its id — no preset UI anywhere
+      h.expect(/\S/.test(await h.attr("[data-stage]", "data-vy-world") || ""), "сцена не знає світу теми");
+      h.expect(/\S/.test(await h.text("[data-world]")), "острів не називає тему");
+      h.expect((await h.count("[data-preset-card]")) === 0, "пресети мали зникнути");
     },
   },
   {
-    name: "налаштування: пресет, таймер, якість перемикаються, Back закриває", run: async (h) => {
+    name: "налаштування: таймер і якість перемикаються, Back закриває", run: async (h) => {
       await ready(h);
       await h.click("[data-settings]"); await h.wait(250);
       h.expect((await h.prop("#vy-settings", "open")) === true, "sheet налаштувань не відкрився");
-      await h.click('[data-preset="depth"]'); await h.wait(150);
-      h.expect((await h.attr("[data-stage]", "data-vy-preset")) === "depth", "пресет не змінився");
       await h.click('[data-every="30"]'); await h.wait(150);
       h.expect((await h.attr("[data-stage]", "data-vy-every")) === "30", "таймер не змінився");
       await h.click('[data-q="fast"]'); await h.wait(150);
       h.expect((await h.attr('[data-q="fast"]', "aria-pressed")) === "true", "якість не перемкнулась");
-      await h.click('[data-preset="still"]'); await h.click('[data-every="120"]'); await h.click('[data-q="2k"]'); await h.wait(100);
+      await h.click('[data-every="120"]'); await h.click('[data-q="2k"]'); await h.wait(100);
       await h.back(); await h.wait(300);
       h.expect((await h.prop("#vy-settings", "open")) !== true, "Back не закрив sheet");
     },

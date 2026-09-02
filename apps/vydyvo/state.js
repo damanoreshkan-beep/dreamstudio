@@ -10,7 +10,7 @@ import { holdBackground } from "/_rt/bghold.js";
 import { collection, idbSupported } from "/_rt/db.js";
 import { suggest } from "/_rt/ai-text.js";
 import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
-import { LINES, presetOf, composePrompt, mockFrame } from "./presets.js";
+import { LINES, worldOf, activeWorld, composePrompt, mockFrame } from "./worlds.js";
 
 const OPTS_KEY = "ms:vydyvo:opts";
 const BASE = `${VPS_PROXY}/image`;
@@ -19,7 +19,8 @@ const AHEAD = 2;     // fresh frames kept ready before the next race starts
 const K = 2;         // pictures per race — a steady trickle, half the races of mirage's 4 for the same spend per race
 // how long to leave the GPU alone after each refusal; the collection carries the show meanwhile
 const BACKOFF = { eRate: 120_000, eBusy: 300_000, eTimeout: 300_000, eFailed: 180_000, eNetwork: 60_000, eSignIn: 600_000 };
-const DEFAULT = { preset: "still", prompt: "", every: 120, quality: "2k" };
+// no preset lives here — the farm THEME is the world (owner 2026-09-02: "у нас все тема рішає")
+const DEFAULT = { prompt: "", every: 120, quality: "2k" };
 export const EVERY = [30, 60, 120, 300];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -73,11 +74,11 @@ function jsonField(raw, key) {
   } catch { return ""; }
 }
 
-async function lineFor(id, preset, userWords, loc) {
+async function lineFor(id, world, userWords, loc) {
   if (gate) return;
   const avoid = $frames.get().map((f) => f.line).filter(Boolean).slice(-12);
   const spark = [
-    `Суть: ${preset.subject}.`,
+    `Суть: ${world.subject}.`,
     userWords ? `Слова власника: ${userWords}.` : "",
     avoid.length ? `Вже прозвучало: ${avoid.join(" | ")}` : "",
   ].filter(Boolean).join("\n");
@@ -158,13 +159,14 @@ export function generateNow() {
 }
 
 async function generate() {
-  const run = ++runs, o = $opts.get(), preset = presetOf(o.preset);
+  // the WORLD is whatever theme the owner runs, read off the document at race time — no app-side choice
+  const run = ++runs, o = $opts.get(), wid = activeWorld(), world = worldOf(wid);
   const mode = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
   const seed = Math.floor(Math.random() * 1e9);
   patchGen({ phase: "working", error: null, live: null });
   if (gate) {
     await sleep(90); if (run !== runs) return;
-    for (let n = 0; n < K; n++) addFrame({ url: mockFrame(seed + n, preset.hue, mode), preset: preset.id, prompt: o.prompt, mode, w: 90, h: 160 });
+    for (let n = 0; n < K; n++) addFrame({ url: mockFrame(seed + n, mode), preset: wid, prompt: o.prompt, mode, w: 90, h: 160 });
     patchGen({ phase: "idle", until: Date.now() + 3000 });
     return;
   }
@@ -180,7 +182,7 @@ async function generate() {
   const userDriven = !!subject;
   const painted = $frames.get().map((f) => f.subject).filter(Boolean).slice(-8);
   const spark = [
-    userDriven ? `Сюжет власника (зобрази саме це): ${subject}.` : `У дусі: ${preset.subject}.`,
+    userDriven ? `Сюжет власника (зобрази саме це): ${subject}.` : `У дусі: ${world.subject}.`,
     painted.length ? `Вже було: ${painted.join(" | ")}` : "",
   ].filter(Boolean).join("\n");
   try { scene = jsonField(await suggest("scene", spark, ctxRef?.loc || "uk"), "scene").slice(0, 300); } catch { /* */ }
@@ -188,7 +190,7 @@ async function generate() {
   if (scene) subject = scene;
   if (subject) { try { subject = await toEnglish(subject); } catch { /* the Spaces prefer English; the original still runs */ } }
   if (run !== runs) return;
-  const prompt = composePrompt(subject, preset, mode, userDriven);
+  const prompt = composePrompt(subject, world, mode, userDriven);
   // The SCREEN's ratio, not the window's: the show covers the whole panel (0:0 — fullscreen manifests, the
   // fullscreen show), and innerHeight lies whenever the keyboard is open (a near-square frame that cover
   // then zooms to death) or system bars are up. screen.width/height is the panel the picture must fill.
@@ -203,7 +205,7 @@ async function generate() {
   const status = await follow({
     base: BASE, job, alive: () => run === runs,
     onLive: (live) => patchGen({ live }),
-    onSlide: (s) => { got++; const fid = addFrame({ url: s.url, blob: s.blob, preset: preset.id, prompt: o.prompt, subject: scene || null, mode, w: s.w, h: s.h }); lineFor(fid, preset, o.prompt, ctxRef?.loc); },
+    onSlide: (s) => { got++; const fid = addFrame({ url: s.url, blob: s.blob, preset: wid, prompt: o.prompt, subject: scene || null, mode, w: s.w, h: s.h }); lineFor(fid, world, o.prompt, ctxRef?.loc); },
   });
   if (status === "stale") return;
   hold?.(); hold = null; job = null;

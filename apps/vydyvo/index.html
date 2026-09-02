@@ -73,8 +73,6 @@
     .vy-stage:fullscreen,.vy-stage:-webkit-full-screen{width:100vw;height:100vh}
     .vy-stage::backdrop{background:#000}
     @media(prefers-reduced-motion:reduce){.vy-layer[data-on]{animation:none}}
-    /* the chosen preset card's ring, with a gap of sheet between — a rule, never a ring-[var()] utility */
-    [data-preset-card][aria-pressed="true"] .vy-pv{box-shadow:0 0 0 2px var(--color-base-100),0 0 0 4px var(--app-accent)}
     /* the waiting field: the veiled stage hides its picture layers; the ambient texture breathes slowly */
     .vy-stage[data-veil] .vy-layer{opacity:0;animation:none}
     .vy-amb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:vy-breathe 26s ease-in-out infinite alternate}

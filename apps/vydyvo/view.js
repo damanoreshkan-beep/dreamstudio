@@ -14,7 +14,7 @@ import { wakeLock } from "/_rt/sensors.js";
 import { downloadBlob } from "/_rt/apk.js";
 import { gate } from "/_rt/gate.js";
 import { GlStage, hasWebGL2 } from "/_rt/glstage.js";
-import { PRESETS, presetOf } from "./presets.js";
+import { LINES, activeWorld } from "./worlds.js";
 import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge, generateNow } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -41,7 +41,7 @@ const Waved = ({ text, cls = "" }) => {
       html`<span key=${i} class="vy-ch" style=${`--ci:${i++}`}>${ch}</span>`)}</span><//>`)}</span>`;
 };
 
-// The typographic layer of the show: the clock, the date, the preset's line for THIS frame, the words it
+// The typographic layer of the show: the clock, the date, the line born with THIS frame, the words it
 // grew from. Fixed white on a scrim on purpose — it sits on a photograph, not on a farm surface, and must
 // read the same in both themes (wall's precedent).
 function ShowType({ t, loc, frame }) {
@@ -51,7 +51,7 @@ function ShowType({ t, loc, frame }) {
   return html`<div class="vy-type" aria-hidden="true">
     <div data-clock class="vy-clock"><${Waved} text=${time} /></div>
     <div class="vy-date"><${Waved} text=${date} /></div>
-    ${frame ? html`<p data-line class="vy-line"><${Waved} text=${frame.line || T(t, `l_${frame.preset}_${(frame.li ?? 0) + 1}`)} /></p>` : null}
+    ${frame ? html`<p data-line class="vy-line"><${Waved} text=${frame.line || T(t, `l_${((frame.li ?? 0) % LINES) + 1}`)} /></p>` : null}
     ${frame?.prompt ? html`<p class="vy-caption">${frame.prompt}</p>` : null}
   </div>`;
 }
@@ -66,7 +66,11 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
   const docMode = (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme")) === "signal-light" ? "light" : "dark";
   const docModeRef = useRef(docMode); docModeRef.current = docMode;
   const ambRef = useRef(0);
-  const preset = presetOf(opts.preset);
+  // THE THEME IS THE WORLD (owner: "у нас все тема рішає"): no preset of vydyvo's own — the island names
+  // the farm theme the pictures grow in; the picker in the profile is the only place it changes.
+  const materials = useStore(S.materials); useStore(S.material);
+  const wid = activeWorld();
+  const worldName = (materials.find((m) => m.id === wid)?.name || {})[loc] || wid;
   const byId = (id) => frames.find((f) => f.id === id) || null;
   const cur = byId(stage.cur);
   const next = unshown()[0];   // preloaded below, so the cross-fade never fades in a half-decoded picture
@@ -113,7 +117,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
-    <div data-stage ref=${stageRef} data-vy-preset=${opts.preset} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
+    <div data-stage ref=${stageRef} data-vy-world=${wid} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
       class=${`vy-stage fixed inset-0 ${show ? "z-[60]" : "z-0"} bg-black overflow-hidden`}
       onClick=${show ? () => S.screen.set(null) : null}>
       ${[0, 1].map((slot) => {
@@ -151,8 +155,8 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
         </div>
         <div class="flex items-center gap-2 min-w-0">
           <button data-settings class=${`flex items-center gap-2 min-w-0 flex-1 text-left ${label}`} onClick=${() => S.screen.set("settings")}>
-            <span class="size-2 rounded-full shrink-0" style=${`background:hsl(${preset.hue} 60% 60%)`}></span>
-            <span class="shrink-0">${T(t, "p_" + opts.preset)}</span><span class="opacity-40">·</span>
+            <span class="size-2 rounded-full shrink-0" style="background:var(--app-accent)"></span>
+            <span data-world class="shrink-0">${worldName}</span><span class="opacity-40">·</span>
             <span data-status class=${`truncate ${counting ? "tabular-nums" : "font-sans normal-case tracking-normal text-sm"}`}>${status}</span>
             ${Icon("lucide:sliders-horizontal", "ml-auto text-base shrink-0")}
           </button>
@@ -168,23 +172,6 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
 
     <${Sheet} id="vy-settings" open=${screen === "settings"} onClose=${closeScreen} title=${T(t, "settings")} icon="lucide:sliders-horizontal" locale=${loc}>
       <div class="flex flex-col gap-[var(--ms-gap)]">
-        <div class=${label}>${T(t, "preset")}</div>
-        ${/* tiny preset cards with a LIVE preview — the newest collection frame painted in that preset
-             (self-updating, nothing canned); a hue wash until one exists. The chosen card's ring is a
-             head.html rule — a ring-[var(--…)] utility never survives the build's class scanner. */""}
-        <div class="grid grid-cols-3 gap-2">
-          ${PRESETS.map((p) => {
-            const on = opts.preset === p.id;
-            const pv = [...frames].reverse().find((f) => f.preset === p.id);
-            return html`<button key=${p.id} type="button" data-preset=${p.id} data-preset-card aria-pressed=${on}
-              class="flex flex-col items-center gap-1.5 p-1.5 rounded-[var(--ms-r-in)] sf-inset" onClick=${() => setOpts({ preset: p.id })}>
-              ${pv
-                ? html`<img src=${pv.url} alt="" loading="lazy" decoding="async" class="vy-pv w-full aspect-[3/4] object-cover rounded-[0.55rem] bg-black" />`
-                : html`<span class="vy-pv w-full aspect-[3/4] block rounded-[0.55rem]" style=${`background:radial-gradient(120% 100% at 35% 25%, hsl(${p.hue} 55% 46%) 0%, hsl(${p.hue} 45% 22%) 55%, hsl(${(p.hue + 200) % 360} 40% 10%) 100%)`}></span>`}
-              <span class=${`text-[0.68rem] leading-tight truncate max-w-full ${on ? "" : "text-muted"}`}>${T(t, "p_" + p.id)}</span>
-            </button>`;
-          })}
-        </div>
         <div class=${label}>${T(t, "every")}</div>
         <${Segmented} attr="data-every" label=${T(t, "every")} value=${String(opts.every)} onChange=${(v) => setOpts({ every: Number(v) })}
           items=${EVERY.map((s) => ({ id: String(s), label: T(t, "s" + s) }))} />
