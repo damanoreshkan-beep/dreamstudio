@@ -77,9 +77,20 @@ voice never spend a second admission.
 5. Under the gate the job yields a synthetic WAV from `rt/wav.js` (a vowel-shaped tone burst) in 90 ms —
    no network, no GPU; the mic is seeded (`gate` → a synthetic take), `data-live` marks the take.
 
+## The manner is a vocabulary, not prose (measured 2026-09-02, pods p3/p4)
+
+`Instruct` = "speak softly, almost a whisper" → the run ends in ~2 s with the Status box reading
+`Error: ValueError: Unsupported instruct items found in …` — no toast, so the worker used to wait out its
+whole 150 s deadline (now it fails fast on any textarea that starts with "Error"). `Instruct` = "Whisper" →
+226 604 B of WAV in 15.2 s. The accepted items are the demo's own Voice Design options
+(`omnivoice/cli/demo.py` `_CATEGORIES`, English half, joined by ", "): Male · Female · Child · Teenager ·
+Young Adult · Middle-aged · Elderly · Very Low/Low/Moderate/High/Very High Pitch · Whisper · the English
+accents. The edge validates against that list (`edge/voice.js cleanInstruct`); the app offers six.
+
 ## UNVERIFIED (do not build on)
 
-- Ukrainian OUTPUT quality of OmniVoice with a Ukrainian reference — only the language map was read.
-- Whether OmniVoice honours `instruct` for a cloned voice (the code path exists: `kw["instruct"]` in app.py).
+- Ukrainian OUTPUT quality of OmniVoice with a Ukrainian reference — only the language map was read; the
+  first Ukrainian clone (197 804 B, 15.3 s, pod p2) has not been listened to yet.
+- Whether a manner other than Whisper is audible over a cloned voice (Whisper is the one run).
 - The WebView (APK) mic: `MediaRecorder` exists in Android WebView ≥ 5; the shell's RECORD_AUDIO permission
   is the `microphone` row in `permissions.js`.

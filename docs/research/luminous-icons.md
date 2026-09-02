@@ -47,6 +47,10 @@ The product is **DreamStudio** (`dreamstudio.mooo.com`). **microspec** is the na
       no floor, no ground, no reflection, no shadow, warm amber gold light with clearly visible electric
       cyan accents on the outer nodes, cinematic, no text, no letters
 
+  **The block is CODE, not a paste: `docs/research/mascot-tools/iconjobs.mjs` (`ICON_STYLE`, `iconPrompt`)**
+  builds the JOBS json for `genraw.mjs` from `<name>=<subject>` arguments (2026-09-02, after a hand-pasted
+  block drifted per app). A subject phrase never carries style words; the block never changes per app.
+
 - **The subject phrase decides legibility, not the style.** Round 1 ("a radio antenna emitting waves", "a
   camera lens") produced blobs; round 2 ("the silhouette of a tall radio mast with three concentric arcs of
   radio waves above it", "…camera lens seen from the front, concentric aperture rings") read at 512 px.
@@ -65,6 +69,16 @@ Measured geometry of the delivered frames (`geom.mjs`, luminance > 30, 2 px stri
 centre except floor-bearing frames (books/kalimba: +60…+130 px low). So: **no auto-crop** — the full frame
 IS the "any" tile; the maskable tile scales the frame to 0.74 so an 82 %-wide subject stays inside Android's
 80 % safe circle.
+
+**The contract is a committed gate now — `docs/research/mascot-tools/icongeom.mjs <png>…` (2026-09-02).**
+It measures two extents: the GLOW (luminance > 30, what the tile shows) and the CORE (luminance > 110, the
+filaments and nodes the eye reads). OK = corners ≤ 13/255 AND core 60–92 % AND core centre within ±30 px;
+`floor` = how far the glow reaches below the core (> 60 px is flagged FLOOR). Measured on vidlunnia, four
+rounds, 11 takes: Z-Image painted a reflective band under 5 of them (floor 206–310 px) even with the round-3
+block — by the old glow-only geom those read "+73…+123 px low" while their subjects sat within ±27 px; two
+takes were the reverse (a floorless head whose faint arcs left the core +44/+53 px off-centre). Symmetric
+compositions ("… with rings of sound expanding outward around it, centred") passed 3 of 4 in one round;
+profile-plus-arcs passed 0 of 5. A NO take is never rescued by the eye; a FLOOR take is a last resort.
 
 ## The asset pipeline (VERIFIED spikes, no new toolchain)
 
