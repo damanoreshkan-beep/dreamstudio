@@ -104,6 +104,39 @@
     "needs": []
   },
   {
+    "id": "vidlunnia",
+    "title": "Відлуння",
+    "titles": {
+      "en": "Vidlunnia",
+      "uk": "Відлуння"
+    },
+    "tagline": "Твій голос будь-якою мовою: запиши десять секунд, напиши фразу, почуй, як ти її кажеш.",
+    "taglines": {
+      "en": "Your voice, any language: record ten seconds, type a line, hear yourself say it.",
+      "uk": "Твій голос будь-якою мовою: запиши десять секунд, напиши фразу, почуй, як ти її кажеш."
+    },
+    "glyph": "lucide:audio-lines",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M2 10v3\"/><path d=\"M6 6v11\"/><path d=\"M10 3v18\"/><path d=\"M14 8v7\"/><path d=\"M18 5v13\"/><path d=\"M22 10v3\"/></svg>",
+    "icon": false,
+    "screens": {
+      "en": [
+        "Voice"
+      ],
+      "uk": [
+        "Голос"
+      ]
+    },
+    "shots": [],
+    "bg": "#000000",
+    "fg": "#F0B27A",
+    "href": "./vidlunnia/",
+    "version": "1.0",
+    "category": "creative",
+    "needs": [
+      "microphone"
+    ]
+  },
+  {
     "id": "wiki",
     "title": "Вікіпедія",
     "titles": {
@@ -386,7 +419,7 @@
     "bg": "#000000",
     "fg": "#F2B84B",
     "href": "./spirit/",
-    "version": "1.7",
+    "version": "1.8",
     "category": "esoterica",
     "needs": []
   },

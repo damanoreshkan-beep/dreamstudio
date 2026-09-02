@@ -1,0 +1,33 @@
+{
+  "id": "vidlunnia",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#F0B27A",
+  "tabs": [
+    {
+      "id": "voice",
+      "type": "tool",
+      "icon": "lucide:audio-lines",
+      "label": "tabVoice",
+      "view": "vidlunnia",
+      "fit": true,
+      "needs": [
+        "microphone"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:audio-lines",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any"
+  }
+}
