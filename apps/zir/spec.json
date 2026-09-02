@@ -1,0 +1,36 @@
+{
+  "id": "zir",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#8FE3D8",
+  "tabs": [
+    {
+      "id": "stage",
+      "type": "tool",
+      "icon": "lucide:scan-eye",
+      "label": "tabStage",
+      "view": "zir",
+      "fit": true,
+      "needs": [
+        "camera"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:scan-eye",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "permissions": [
+      "camera"
+    ],
+    "account": "any"
+  }
+}
