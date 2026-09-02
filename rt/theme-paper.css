@@ -59,12 +59,9 @@ body { background-image: var(--ds-grain); background-size: 220px 220px; }
   --sf-track-face: #D9D0C0;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.12 0 0 0 0 0.06 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* day sprites — white paper with gilded edges on the paper page. ds-paper-d-lip: peak row 353/512 (69%);
+  /* day sprites — white paper with gilded edges on the paper page.
      d-strand art ends at row 324 (36.7% blank × half-width tile = 18.4vw, 70px at the 192px tile);
      d-scatter core rows 215–321 (centre 52% → −54px lands it on the glyph). */
-  --ds-lip: url("/_rt/ds-paper-d-lip.webp");
-  --ds-lip-pos: center 69%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .85;
   --ds-strand: url("/_rt/ds-paper-d-strand.webp");
   --ds-strand-y: calc(100% + 18.4vw);
   --ds-strand-y-wide: calc(100% + 70px);
@@ -113,11 +110,8 @@ body { background-image: var(--ds-grain); background-size: 220px 220px; }
   --sf-track-face: #2F2A24;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.94 0 0 0 0 0.9 0 0 0 0 0.82 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* night sprites — cream paper on the dark card. ds-paper-n-lip: peak row 217/512 (42%); n-strand art ends
+  /* night sprites — cream paper on the dark card. n-strand art ends
      at row 361 (29.5% blank → 14.7vw, 57px wide); n-scatter core rows 160–339 (centre 49% → −45px). */
-  --ds-lip: url("/_rt/ds-paper-n-lip.webp");
-  --ds-lip-pos: center 42%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .75;
   --ds-strand: url("/_rt/ds-paper-n-strand.webp");
   --ds-strand-y: calc(100% + 14.7vw);
   --ds-strand-y-wide: calc(100% + 57px);

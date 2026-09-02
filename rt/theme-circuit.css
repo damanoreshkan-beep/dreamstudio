@@ -54,11 +54,8 @@ body { background-image: var(--ds-grain); background-size: 180px 180px; }
   --sf-track-face: #1E241E;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.95 0 0 0 0 0.85 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* night sprites: lip peak 213/512 (42%); strand art ends 282 (44.9% blank → 22.5vw, 86px); scatter core
+  /* night sprites: strand art ends 282 (44.9% blank → 22.5vw, 86px); scatter core
      171–323 (centre 48% → −43px). */
-  --ds-lip: url("/_rt/ds-circuit-n-lip.webp");
-  --ds-lip-pos: center 42%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .7;
   --ds-strand: url("/_rt/ds-circuit-n-strand.webp");
   --ds-strand-y: calc(100% + 22.5vw);
   --ds-strand-y-wide: calc(100% + 86px);
@@ -107,10 +104,6 @@ body { background-image: var(--ds-grain); background-size: 180px 180px; }
   --sf-track-face: #D6DCD2;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.95' numOctaves='2' stitchTiles='stitch' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.16 0 0 0 0 0.1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* day sprites: lip peak 389/512 (76%); the strand and scatter ride the rerun. */
-  --ds-lip: url("/_rt/ds-circuit-d-lip.webp");
-  --ds-lip-pos: center 76%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .8;
   --ds-corner: url("/_rt/ds-circuit-d-corner.webp");
   --ds-corner-a: .7;
   /* day strand art ends 289 (43.6% blank → 21.8vw, 84px); scatter core 232–287 (centre 51% → −50px) */

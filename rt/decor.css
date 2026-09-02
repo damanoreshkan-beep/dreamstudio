@@ -18,21 +18,9 @@
   --ds-mascot-s: 6.5rem;
 }
 
-/* THE LIP — the header's lower edge, woven from the material rather than drawn as a line: a 10px window on
-   the sprite's dense band (`--ds-lip-pos` puts that band's peak in the window; `--ds-lip-size` zooms it so
-   its texture reads instead of averaging into a stripe), masked at both ends and top/bottom so the strip
-   has no cut edge. z-index −1 paints it above the page, below the controls. */
-header.navbar::before {
-  content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: -4px; height: 10px;
-  z-index: -1;
-  pointer-events: none;
-  background: var(--ds-lip) var(--ds-lip-pos) / var(--ds-lip-size) no-repeat;
-  opacity: var(--ds-lip-a, 0);
-  mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent), linear-gradient(180deg, transparent, #000 38%, #000 62%, transparent);
-  mask-composite: intersect;
-}
+/* THE HEADER CARRIES NO TEXTURE — the woven lip and its hook were removed farm-wide (owner 2026-09-02:
+   "прибери текстури з хедеру системно, вони заважають"); the header's only light is the runtime hairline
+   (--lm-lip / --lm-lip-glow). The theme suite bans --ds-lip so it cannot creep back. */
 
 /* THE GARLAND hangs inside the dock zone: the sprite tiles at half the width (one seam, hidden behind the
    dock pill), and its art ENDS on the screen's bottom edge — `--ds-strand-y` is `calc(100% + Nvw)`, N the

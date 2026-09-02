@@ -58,11 +58,8 @@ body { background-image: var(--ds-grain); background-size: 260px 260px; }
   --sf-track-face: #232326;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.96 0 0 0 0 0.95 0 0 0 0 0.92 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* night sprites — vermilion in dark water. ds-ink-n-lip: peak row 367/512 (72%); n-strand art ends at
+  /* night sprites — vermilion in dark water. n-strand art ends at
      row 326 (36.3% blank → 18.2vw, 70px wide); n-scatter core rows 210–305 (centre 50% → −49px). */
-  --ds-lip: url("/_rt/ds-ink-n-lip.webp");
-  --ds-lip-pos: center 72%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .7;
   --ds-strand: url("/_rt/ds-ink-n-strand.webp");
   --ds-strand-y: calc(100% + 18.2vw);
   --ds-strand-y-wide: calc(100% + 70px);
@@ -111,11 +108,8 @@ body { background-image: var(--ds-grain); background-size: 260px 260px; }
   --sf-track-face: #DBD7CE;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* day sprites — black and vermilion on the white sheet. ds-ink-d-lip: peak row 282/512 (55%); d-strand
+  /* day sprites — black and vermilion on the white sheet. d-strand
      art ends at row 360 (29.7% blank → 14.8vw, 57px wide); d-scatter core rows 213–295 (centre 50% → −47px). */
-  --ds-lip: url("/_rt/ds-ink-d-lip.webp");
-  --ds-lip-pos: center 55%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .8;
   --ds-strand: url("/_rt/ds-ink-d-strand.webp");
   --ds-strand-y: calc(100% + 14.8vw);
   --ds-strand-y-wide: calc(100% + 57px);

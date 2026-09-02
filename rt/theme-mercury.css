@@ -59,11 +59,8 @@ body { background-image: var(--ds-grain); background-size: 320px 160px; }
   --sf-track-face: #262C33;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='160'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.7' numOctaves='3' stitchTiles='stitch' seed='5'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.93 0 0 0 0 0.97 0 0 0 0.08 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* night sprites — chrome in the void. ds-mercury-n-lip: peak row 391/512 (76%); n-strand art ends at row
+  /* night sprites — chrome in the void. n-strand art ends at row
      250 (51.2% blank → 25.6vw, 98px wide); n-scatter core rows 203–316 (centre 51% → −50px). */
-  --ds-lip: url("/_rt/ds-mercury-n-lip.webp");
-  --ds-lip-pos: center 76%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .75;
   --ds-strand: url("/_rt/ds-mercury-n-strand.webp");
   --ds-strand-y: calc(100% + 25.6vw);
   --ds-strand-y-wide: calc(100% + 98px);
@@ -112,12 +109,9 @@ body { background-image: var(--ds-grain); background-size: 320px 160px; }
   --sf-track-face: #D3D8DD;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='160'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.7' numOctaves='3' stitchTiles='stitch' seed='5'/%3E%3CfeColorMatrix values='0 0 0 0 0.08 0 0 0 0 0.1 0 0 0 0 0.12 0 0 0 0.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* day sprites — chrome on the light plate. ds-mercury-d-lip: peak row 417/512 (81%); d-strand art ends
+  /* day sprites — chrome on the light plate. d-strand art ends
      at row 275 (46.3% blank → 23.1vw, 89px wide); d-scatter core rows 186–310 (centre 48% → −44px). The
      day corner is the darker gunmetal take (a bright chrome on white has no alpha to extract). */
-  --ds-lip: url("/_rt/ds-mercury-d-lip.webp");
-  --ds-lip-pos: center 81%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .8;
   --ds-strand: url("/_rt/ds-mercury-d-strand.webp");
   --ds-strand-y: calc(100% + 23.1vw);
   --ds-strand-y-wide: calc(100% + 89px);

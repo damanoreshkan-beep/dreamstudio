@@ -54,11 +54,8 @@ body { background-image: var(--ds-grain); background-size: 160px 160px; }
   --sf-track-face: #2F2820;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch' seed='13'/%3E%3CfeColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.88 0 0 0 0 0.74 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* night sprites: lip peak 303/512 (59%); strand art ends 430 (16% blank → 8vw, 31px); scatter core
+  /* night sprites: strand art ends 430 (16% blank → 8vw, 31px); scatter core
      230–384 (centre 60% → −74px). */
-  --ds-lip: url("/_rt/ds-sand-n-lip.webp");
-  --ds-lip-pos: center 59%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .7;
   --ds-strand: url("/_rt/ds-sand-n-strand.webp");
   --ds-strand-y: calc(100% + 8vw);
   --ds-strand-y-wide: calc(100% + 31px);
@@ -107,11 +104,8 @@ body { background-image: var(--ds-grain); background-size: 160px 160px; }
   --sf-track-face: #DCD1BB;
 
   --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='2' stitchTiles='stitch' seed='13'/%3E%3CfeColorMatrix values='0 0 0 0 0.28 0 0 0 0 0.2 0 0 0 0 0.08 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
-  /* day sprites: lip hugs the very bottom (peak 508/512 → 99%); strand art ends 400 (21.9% blank →
+  /* day sprites: strand art ends 400 (21.9% blank →
      10.9vw, 42px); scatter core 246–403 (centre 63% → −83px). */
-  --ds-lip: url("/_rt/ds-sand-d-lip.webp");
-  --ds-lip-pos: center 99%; --ds-lip-size: 150% auto;
-  --ds-lip-a: .8;
   --ds-strand: url("/_rt/ds-sand-d-strand.webp");
   --ds-strand-y: calc(100% + 10.9vw);
   --ds-strand-y-wide: calc(100% + 42px);

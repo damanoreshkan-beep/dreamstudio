@@ -101,6 +101,10 @@ style thumbnail must go through the raw generator or every material glows).
 - **The mascot is THE BLACK SMOKE FOX** (owner 2026-09-02, mascot.md): one character, alpha-imported once
   as `rt/ds-n-mascot.webp`; her tokens (`--ds-mascot`, `--ds-mascot-s`) live in `rt/decor.css` (the one
   named-file exception there) and the core's `[data-mascot]` (1.2.10) draws her in every empty state.
+- **THE HEADER CARRIES NO TEXTURE** (owner 2026-09-02: "прибери текстури з хедеру системно, вони
+  заважають"): the woven-lip hook is REMOVED from decor.css, every theme's `--ds-lip*` tokens and all 21
+  lip sprites (incl. lum's retired ds-n-arc) are gone; the suite bans the token so it cannot creep back.
+  The header's only light is the runtime hairline (`--lm-lip` / `--lm-lip-glow`) — a line, not a texture.
 
 ## Decision log
 

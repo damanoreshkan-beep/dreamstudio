@@ -107,12 +107,14 @@ Deno.test("themes · a textured theme measures its decor: every hook that names 
     for (const theme of ["signal", "signal-light"]) {
       const b = themeBlock(css, theme);
       const named = (v) => /url\(/.test(value(b, v));
-      if (named("--ds-lip")) for (const v of ["--ds-lip-pos", "--ds-lip-size", "--ds-lip-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-lip without ${v} — decor.css would paint nothing`);
+      // the header carries NO texture (owner 2026-09-02: "прибери текстури з хедеру системно") — the lip
+      // hook is gone from decor.css, so a theme naming the token would set a value nobody reads
+      assert(!b.includes("--ds-lip:"), `${m.id}/${theme}: --ds-lip is banned — the header carries no texture`);
       if (named("--ds-strand")) for (const v of ["--ds-strand-y", "--ds-strand-y-wide", "--ds-strand-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-strand without ${v}`);
       if (named("--ds-scatter")) for (const v of ["--ds-scatter-pos", "--ds-scatter-size", "--ds-scatter-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-scatter without ${v}`);
       if (named("--ds-corner")) assert(b.includes("--ds-corner-a:"), `${m.id}/${theme}: --ds-corner without --ds-corner-a`);
       // a hook with a sprite needs decor.css in the chain, or the token is a value nobody reads
-      if (named("--ds-lip") || named("--ds-strand")) assert(/@import "\.\/decor\.css";/.test(themes[m.id]), `${m.id}: names sprites but does not import decor.css`);
+      if (named("--ds-strand")) assert(/@import "\.\/decor\.css";/.test(themes[m.id]), `${m.id}: names sprites but does not import decor.css`);
     }
     for (const u of root.matchAll(/--ds-art-(?:day|night):\s*url\("\/_rt\/([\w.-]+\.webp)"\)/g)) {
       assert(await Deno.stat(new URL(u[1], RT)).then((s) => s.isFile, () => false), `${m.id}: mode art ${u[1]} is not in rt/`);
