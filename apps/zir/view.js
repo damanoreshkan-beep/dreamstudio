@@ -35,13 +35,16 @@ const CSS = `.zr-scan{position:absolute;left:0;right:0;height:2px;background:lin
 // into it in px — CSS alone cannot do it (an aspect-ratio box under a percentage max-height inside a flex
 // centre collapses or breaks the ratio), and object-contain on a full-size box left letterbox bands that
 // read as a frame on the shot (2026-09-02, both themes).
-function Compare({ before, after, ratio, t, onOpen }) {
+// The full-size button and the readout are SIBLINGS of the slider, never children: axe's nested-interactive
+// failed the box in CI the first time (a button inside role="slider", 2026-09-02).
+const CAPTION_H = 22;
+function Compare({ before, after, ratio, caption, t, onOpen }) {
   const box = useRef(), stage = useRef(); const [x, setX] = useState(0.5); const [drag, setDrag] = useState(false);
   const [fit, setFit] = useState({ w: 0, h: 0 }); const [r, setR] = useState(ratio || 0);
   useEffect(() => { if (ratio) setR(ratio); }, [ratio]);
   useEffect(() => {
     const el = stage.current; if (!el) return;
-    const measure = () => { const b = el.getBoundingClientRect(); if (!b.width || !b.height || !r) return; const k = Math.min(b.width / r, b.height); setFit({ w: Math.round(k * r), h: Math.round(k) }); };
+    const measure = () => { const b = el.getBoundingClientRect(); if (!b.width || !b.height || !r) return; const k = Math.min(b.width / r, Math.max(40, b.height - (caption ? CAPTION_H : 0))); setFit({ w: Math.round(k * r), h: Math.round(k) }); };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null; ro?.observe(el);
     return () => ro?.disconnect();
@@ -53,10 +56,10 @@ function Compare({ before, after, ratio, t, onOpen }) {
   const onKey = (e) => { if (e.key === "ArrowLeft") setX((v) => Math.max(0, v - 0.05)); else if (e.key === "ArrowRight") setX((v) => Math.min(1, v + 0.05)); };
   const pct = `${(x * 100).toFixed(1)}%`;
   const onLoad = (e) => { const i = e.currentTarget; if (!r && i.naturalWidth && i.naturalHeight) setR(i.naturalWidth / i.naturalHeight); };
-  return html`<div ref=${stage} class="absolute inset-0 flex items-center justify-center">
+  return html`<div ref=${stage} class="absolute inset-0 flex flex-col items-center justify-center">
+  <div class="relative shrink-0" style=${fit.w ? `width:${fit.w}px;height:${fit.h}px` : "width:100%;height:100%"}>
   <div ref=${box} data-compare role="slider" tabindex="0" aria-label=${T(t, "compare")} aria-valuemin="0" aria-valuemax="100" aria-valuenow=${Math.round(x * 100)}
-      class="relative rounded-[var(--ms-r)] overflow-hidden sf-raised select-none touch-none cursor-ew-resize outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
-      style=${fit.w ? `width:${fit.w}px;height:${fit.h}px` : "width:100%;height:100%"}
+      class="absolute inset-0 rounded-[var(--ms-r)] overflow-hidden sf-raised select-none touch-none cursor-ew-resize outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onKeyDown=${onKey} onDblClick=${onOpen}>
     <img data-before src=${before} alt=${T(t, "before")} draggable="false" onLoad=${onLoad} class="absolute inset-0 w-full h-full object-cover" />
     <img data-result data-after src=${after} alt=${T(t, "after")} draggable="false" class="absolute inset-0 w-full h-full object-cover" style=${`clip-path: inset(0 ${(100 - x * 100).toFixed(2)}% 0 0)`} />
@@ -64,8 +67,10 @@ function Compare({ before, after, ratio, t, onOpen }) {
     <div aria-hidden="true" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center pointer-events-none" style=${`left:${pct}`}>${Icon("lucide:chevrons-left-right", "text-base")}</div>
     <span aria-hidden="true" class="absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 font-mono uppercase tracking-wide text-[0.62rem] text-white pointer-events-none">${T(t, "after")}</span>
     <span aria-hidden="true" class="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 font-mono uppercase tracking-wide text-[0.62rem] text-white pointer-events-none">${T(t, "before")}</span>
-    <button data-view aria-label=${T(t, "view")} class="absolute bottom-2 right-2 btn btn-circle btn-xs bg-black/50 text-white border-0" onPointerDown=${(e) => e.stopPropagation()} onClick=${(e) => { e.stopPropagation(); onOpen(); }}>${Icon("lucide:maximize-2", "text-sm")}</button>
   </div>
+  <button data-view aria-label=${T(t, "view")} class="absolute bottom-2 right-2 btn btn-circle btn-xs bg-black/50 text-white border-0" onClick=${onOpen}>${Icon("lucide:maximize-2", "text-sm")}</button>
+  </div>
+  ${caption ? html`<div data-px class="shrink-0 pointer-events-none" style=${`height:${CAPTION_H}px`}><span class="font-mono text-[0.68rem] leading-[22px] uppercase tracking-[0.14em] tabular-nums whitespace-nowrap text-base-content/70">${caption}</span></div>` : null}
   </div>`;
 }
 
@@ -108,9 +113,8 @@ export function zir({ S, toast }) {
   const stage = () => {
     if (st.phase === "empty") return html`<${Chooser} t=${t} onPick=${M.setSource} onCamera=${() => M.patch({ phase: "camera" })} />`;
     if (st.phase === "camera") return html`<${Camera} t=${t} loc=${loc} S=${S} reason=${T(t, "primeReason")} onCapture=${M.setSource} onClose=${() => M.patch({ phase: "empty" })} />`;
-    if (hasResult) return html`<div class="absolute inset-0 p-[var(--ms-gap)] pb-7">
-      <div class="relative w-full h-full"><${Compare} before=${st.src} after=${st.out.url} ratio=${st.inW && st.inH ? st.inW / st.inH : 0} t=${t} onOpen=${() => S.screen.set("view")} /></div>
-      ${px ? html`<div data-px class="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none"><span class="font-mono text-[0.68rem] uppercase tracking-[0.14em] tabular-nums whitespace-nowrap text-base-content/70">${px}</span></div>` : null}
+    if (hasResult) return html`<div class="absolute inset-0 p-[var(--ms-gap)]">
+      <div class="relative w-full h-full"><${Compare} before=${st.src} after=${st.out.url} ratio=${st.inW && st.inH ? st.inW / st.inH : 0} caption=${px} t=${t} onOpen=${() => S.screen.set("view")} /></div>
     </div>`;
     return html`<div class="absolute inset-0 flex items-center justify-center p-[var(--ms-gap)] pb-6">
       <div class="relative max-w-full max-h-full">
