@@ -119,7 +119,9 @@ export const activeWorld = () =>
 // The wallpaper contract and the light of each mode — the client's "system prompt". The theme is read off
 // the document when a race starts, so a light-mode phone gets pictures lit for paper, a dark one for black.
 export const SYSTEM = {
-  base: "a full-bleed wallpaper, cinematic, extremely detailed, the subject off-centre with generous empty space around it, no text, no letters, no watermark, no logo, no frame, no border",
+  // the no-writing clause is spelled out hard (owner 2026-09-02: "заборони тексти … або лого чи ієрогліфи")
+  // and the edge appends its own canonical ban to every generation prompt as the second net
+  base: "a full-bleed wallpaper, cinematic, extremely detailed, the subject off-centre with generous empty space around it, no text, no letters, no words, no writing, no signage, no hieroglyphs, no logo, no watermark, no signature, no frame, no border",
   dark: "night, deep darkness, low-key lighting, one source of light, luminous details, black shadows",
   light: "daylight, high-key, airy, bright and soft, pale tones, gentle haze",
 };
