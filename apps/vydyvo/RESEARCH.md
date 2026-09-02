@@ -74,7 +74,13 @@ There is no preset UI: "в пресети прибери, то зайве, у н
 апки". `worlds.js` carries one WORLD per farm theme (`rt/themes.json` ids) — a default subject (used when
 the prompt is empty), a NIGHT and a DAY light block, and a short mood TINT used when the owner's own words
 drive the picture (70/30). The active world is `html[data-material]` (the profile's theme picker), read at
-race time; before a registry loads, `lum`. The client composes:
+race time; before a registry loads, `lum`. Each world also carries a VOICE per mode (owner: "нехай це
+говорить так як говорить будда вдень … і вночі дух луни") — a persona (`voiceDay`/`voiceNight`,
+`voiceOf(world, mode)`) that leads the line spark as «Голос: …»; the edge's line mode holds its manner in
+plain human words without naming it. Сяйво: Будда by day, дух луни by night; every theme continues the
+idea (орігаміст/літописець, хайку-поет/каліграф, алхімік/двійник у дзеркалі, вітер/шаман,
+вишивальниця/пряля долі, інженер/машина-що-снить, небо/сторож сяйва, скульптор/чорна вода,
+гончар/хранитель крихкого, мандрівник/море, стоїк/тиша). The client composes:
 `[user prompt → English | world.subject], world[mode], SYSTEM[mode], SYSTEM.base` — where `mode` is read
 off `html[data-theme]` at the moment the race starts (the light/dark theme drives the light in the picture,
 which is the owner's "система промпт на клієнті"). `SYSTEM.base` is the wallpaper contract (full-bleed, no

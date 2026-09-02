@@ -1,83 +1,115 @@
 // THE THEME DECIDES (owner, 2026-09-02: "у нас все тема рішає … закласти це у систему самої апки"):
 // vydyvo has no preset UI — the farm theme the owner already picked IS the world every picture grows in.
 // One entry per theme module (rt/themes.json): a default subject (used when the prompt is empty), the
-// material's NIGHT and DAY light (rides with the mode read off html[data-theme]), and a short mood TINT
-// that replaces the full block when the owner's own words drive the picture (70/30 — the words stronger).
+// material's NIGHT and DAY light (rides with the mode read off html[data-theme]), a short mood TINT
+// that replaces the full block when the owner's own words drive the picture (70/30 — the words stronger),
+// and a VOICE per mode — WHO speaks the line under the picture (owner 2026-09-02: "нехай це говорить так
+// як говорить будда вдень … і вночі дух луни" — the persona rides the spark as «Голос: …», the edge's
+// line mode holds its manner without naming it). Voices are Ukrainian: the spark's language, whatever
+// locale the answer lands in.
 export const WORLDS = {
   lum: {
     subject: "a lone tree drawn only with thin glowing light filaments and luminous nodes, a hollow wireframe plexus of bright threads, translucent, nothing solid",
     night: "floating alone in an empty pure black void, no floor, warm amber gold light with clearly visible electric cyan accents, volumetric bloom",
     day: "gilded golden threads on pure white paper, a few teal sparks, delicate fine linework, soft warm glow",
     tint: "luminous, woven of light, glowing filaments, deep and quiet",
+    voiceDay: "Будда: ясний, добрий, простий; говорить про увагу, світло і серединний шлях — без повчань",
+    voiceNight: "Дух луни: тихий нічний голос, що відповідає, як відлуння під місяцем; говорить про тишу, відображення і те, що чути лише в темряві",
   },
   paper: {
     subject: "a quiet valley with a small house and hills, built as a layered cut-paper diorama, stacked paper bas-relief",
     night: "cream paper layers in warm candlelight, deep soft shadows between the sheets",
     day: "white paper layers with gilded gold edges, raking morning light, papercut lightbox art",
     tint: "cut paper, layered, delicate, softly lit",
+    voiceDay: "Майстер орігамі: обережний і точний; говорить про згини, легкість і те, як з простого аркуша постає світ",
+    voiceNight: "Літописець при свічці: неквапливий, теплий; говорить про памʼять, сторінки і те, що варте запису",
   },
   ink: {
     subject: "a mountain shoreline formed by ink blooming in clear water, fine tendrils arrested mid-bloom",
     night: "vermilion and coral ink glowing in dark water, high-speed photograph",
     day: "black and vermilion ink in bright water, sumi-e restraint, white air",
     tint: "ink in water, fine tendrils, calligraphic, restrained",
+    voiceDay: "Поет хайку: прозорий, спостережливий; кілька простих слів, у яких видно ціле",
+    voiceNight: "Нічний каліграф: зосереджений; говорить про один рух пензля, чорне й біле, незворотність написаного",
   },
   mercury: {
     subject: "a slow river of liquid mirror-chrome winding through a plain, molten metal beads along its banks",
     night: "flowing liquid chrome with sharp studio reflections in a black void, one soft key light",
     day: "molten mirror-chrome with soft silver reflections in pale bright air",
     tint: "liquid chrome, mirror reflections, cold and precise",
+    voiceDay: "Алхімік: допитливий і точний; говорить про перетворення і те, що тече, лишаючись собою",
+    voiceNight: "Двійник у дзеркалі: спокійний і ледь інакший; говорить про відображення і те, що бачить дзеркало, коли ніхто не дивиться",
   },
   smoke: {
     subject: "a mountain ridge sculpted from dense smoke frozen mid-swirl, fine volumetric tendrils",
     night: "white smoke against pure darkness, a single hard side light, high-speed photograph look",
     day: "soft pale grey smoke in bright airy light, delicate translucent wisps",
     tint: "made of smoke, volumetric, frozen mid-swirl, hushed",
+    voiceDay: "Вітер: легкий і вільний; говорить про рух, форму без форми і те, чого не втримати",
+    voiceNight: "Шаман біля багаття: глибокий, образний; говорить про дим, знаки і межу між видимим і невидимим",
   },
   thread: {
     subject: "a rolling landscape embroidered in silk thread on linen, visible individual stitches",
     night: "gold and crimson silk on dark linen, subtle sheen, macro photograph, moody single light",
     day: "gilded gold and crimson silk on white linen, delicate even light",
     tint: "embroidered in silk thread, visible stitches, handmade",
+    voiceDay: "Вишивальниця: тепла й уважна; говорить про стібки, терпіння і візерунок, що збирається з малого",
+    voiceNight: "Пряля долі: спокійна і певна; говорить про нитки, вузли і те, як усе повʼязане",
   },
   circuit: {
     subject: "a city skyline etched as fine gold circuit traces and pads with a few tiny glowing green LEDs",
     night: "macro of a matte black circuit board, thin luminous traces, subtle depth",
     day: "fine dark copper traces etched on a pale board, macro, even light",
     tint: "etched circuit traces, precise, geometric, quietly technical",
+    voiceDay: "Інженер-мрійник: ясний і цікавий; говорить про сигнали, звʼязки і красу того, що працює",
+    voiceNight: "Машина, якій сняться сни: ніжна і дивна; говорить про струм, памʼять і сни зі світла",
   },
   veil: {
     subject: "a still lake under folds of a translucent aurora curtain, drapery of light with faint stars",
     night: "green and violet aurora light over darkness, long-exposure look",
     day: "pale watercolour aurora ribbons in a bright morning sky, airy",
     tint: "aurora light, translucent drapery, vast and silent",
+    voiceDay: "Небо: широке і привітне; говорить про світло, повітря і те, що видно здалека",
+    voiceNight: "Сторож полярного сяйва: тихий, зачарований; говорить про завісу світла і терпіння довгої ночі",
   },
   ferro: {
     subject: "a garden of glossy black ferrofluid blooms with sharp magnetic spikes, liquid metal sheen",
     night: "glossy black ferrofluid, strong specular highlights, one rim light, studio black",
     day: "dark ferrofluid spikes in pale studio light, sharp and clean",
     tint: "ferrofluid, magnetic spikes, glossy liquid metal",
+    voiceDay: "Скульптор: точний і стриманий; говорить про форму, силу і те, що тримає притягання",
+    voiceNight: "Чорна вода: глибока і повільна; говорить про глибину, блиск і те, що під поверхнею",
   },
   porcelain: {
     subject: "a shoreline of thin backlit porcelain relief, light glowing through translucent bone china",
     night: "warm light through bone china in a dark room, embossed detail",
     day: "white porcelain with delicate cobalt blue painted edges, soft bright light",
     tint: "translucent porcelain, backlit, fragile and calm",
+    voiceDay: "Гончар: спокійний і вдячний; говорить про глину, руки і недосконале, що стає рідним",
+    voiceNight: "Хранитель крихкого: обережний і ніжний; говорить про світло крізь тонкі стіни і цінність ламкого",
   },
   sand: {
     subject: "long dunes drawn as deep incised lines in sand, long shadows inside the grooves",
     night: "wet dark sand catching low golden light, tide foam at the far edge",
     day: "pale dry sand, a low sun raking across, soft long shadows, photograph",
     tint: "incised sand, raking light, long shadows, patient",
+    voiceDay: "Мандрівник пустелі: терплячий і ясний; говорить про шлях, вітер і сліди",
+    voiceNight: "Море, що пише по піску: розмірене; говорить про припливи, стирання і початок заново",
   },
   plain: {
     subject: "a minimal still landscape of soft matte clay forms, simple geometry, generous empty space",
     night: "neutral grey-black matte clay in even dim studio light, minimal",
     day: "pale matte clay in soft even daylight, minimal, clean",
     tint: "minimal, matte, neutral, quiet",
+    voiceDay: "Стоїк: простий і прямий; коротко про головне, без прикрас",
+    voiceNight: "Тиша: майже безсловесна; найпростіші слова про спокій і достатність",
   },
 };
 export const worldOf = (id) => WORLDS[id] || WORLDS.lum;
+
+/** WHO speaks the line under a picture of this world in this mode — Buddha by day in Сяйво, the echo's
+ * spirit by night; every theme carries its own pair. */
+export const voiceOf = (world, mode) => (mode === "light" ? world.voiceDay : world.voiceNight);
 
 /** The active theme = the world: applyMaterial stamps `html[data-material]`; before the registry loads
  * (or with no registry at all) the farm's default — lum — speaks. */
