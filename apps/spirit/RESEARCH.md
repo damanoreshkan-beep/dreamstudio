@@ -59,7 +59,22 @@ Every load-bearing claim names where it was read. UNVERIFIED items are at the en
   (`packages/runtime/authwall.js`), `profile.account: "any"` shows the account card.
 - Under the gate: a fixed `GATE_SPIRIT` text per locale (tarot's `GATE_SUMMARY` precedent) — no network.
 
-## The screen
+## The screen — v2, a STUDY (owner, same day: "суть апки у вивченні колоди, а не угадуванні")
+
+- The draw is gone. The main tab scrolls the whole deck BY STRUCTURE (`SECTIONS`: Major Arcana, then
+  Wands · Cups · Swords · Pentacles — DECK indices, so the page's prev/next walk the same order), a grid of
+  lazy thumbnails with names. Every card is a PAGE: an opaque full-screen `dialog.modal` in the page's own
+  material (`S.screen === "card"`, `$sel` = the DECK index), the scan in a 48dvh box (`.sp-stage`, floor
+  12rem), **flip** (the button or a tap on the art; `rotate` transitions .55s) toggles upright ↔ reversed
+  and the spirit's words re-warm for that orientation; Waite's meaning for it sits beneath; chevrons or a
+  swipe move through the deck, a new card opens upright. The dialog body is the one scroll.
+- Trap met: `[&_*]:!shadow-none` copied from the night veil killed the material on the page's own kit
+  buttons and the card's rim — a page in the page's material must not carry it.
+- Store: spirit leads Today with the editorial slogan «Кожна карта має голос.» / "Every card has a voice."
+  (`apps/store/i18n slogan_<id>`); the hero grows by a container query in `apps/store/head.html` (≥ 34rem of
+  card: display slogan + both themes' captures side by side).
+
+## The screen — v1 (superseded the same day)
 
 - One `fit` tool tab: `h-full min-h-0 flex flex-col` — a name row (shrink-0), the art in the `flex-1
   min-h-0` void (`object-contain`, the 350×600 scan never cropped; reversed = `rotate-180`, the tradition
