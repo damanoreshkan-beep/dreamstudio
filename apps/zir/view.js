@@ -40,11 +40,13 @@ const CSS = `.zr-scan{position:absolute;left:0;right:0;height:2px;background:lin
 const CAPTION_H = 22;
 function Compare({ before, after, ratio, caption, t, onOpen }) {
   const box = useRef(), stage = useRef(); const [x, setX] = useState(0.5); const [drag, setDrag] = useState(false);
-  const [fit, setFit] = useState({ w: 0, h: 0 }); const [r, setR] = useState(ratio || 0);
+  const [fit, setFit] = useState({ w: 0, h: 0, narrow: false }); const [r, setR] = useState(ratio || 0);
   useEffect(() => { if (ratio) setR(ratio); }, [ratio]);
   useEffect(() => {
     const el = stage.current; if (!el) return;
-    const measure = () => { const b = el.getBoundingClientRect(); if (!b.width || !b.height || !r) return; const k = Math.min(b.width / r, Math.max(40, b.height - (caption ? CAPTION_H : 0))); setFit({ w: Math.round(k * r), h: Math.round(k) }); };
+    // narrow = the split column (360×340 showed the full "768×1024 → 3072×4096" clipped on the left): the
+    // readout demotes to the result alone, which is the number that matters
+    const measure = () => { const b = el.getBoundingClientRect(); if (!b.width || !b.height || !r) return; const k = Math.min(b.width / r, Math.max(40, b.height - (caption ? CAPTION_H : 0))); setFit({ w: Math.round(k * r), h: Math.round(k), narrow: b.width < 300 }); };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null; ro?.observe(el);
     return () => ro?.disconnect();
@@ -70,7 +72,7 @@ function Compare({ before, after, ratio, caption, t, onOpen }) {
   </div>
   <button data-view aria-label=${T(t, "view")} class="absolute bottom-2 right-2 btn btn-circle btn-xs bg-black/50 text-white border-0" onClick=${onOpen}>${Icon("lucide:maximize-2", "text-sm")}</button>
   </div>
-  ${caption ? html`<div data-px class="shrink-0 pointer-events-none" style=${`height:${CAPTION_H}px`}><span class="font-mono text-[0.68rem] leading-[22px] uppercase tracking-[0.14em] tabular-nums whitespace-nowrap text-base-content/70">${caption}</span></div>` : null}
+  ${caption ? html`<div data-px class="shrink-0 pointer-events-none" style=${`height:${CAPTION_H}px`}><span class="font-mono text-[0.68rem] leading-[22px] uppercase tracking-[0.14em] tabular-nums whitespace-nowrap text-base-content/70">${fit.narrow ? caption.split("→").pop().trim() : caption}</span></div>` : null}
   </div>`;
 }
 
