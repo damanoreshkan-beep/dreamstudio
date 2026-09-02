@@ -23,6 +23,8 @@
   "prevCard": "Previous card",
   "nextCard": "Next card",
   "shuffle": "Shuffle",
+  "deckOpen": "Whole deck",
+  "deckTitle": "Deck",
   "spiritOpen": "Hear the card's spirit",
   "spiritTitle": "Card spirit",
   "spiritFail": "The spirit is silent. Check your connection.",

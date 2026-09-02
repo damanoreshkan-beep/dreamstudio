@@ -46,6 +46,22 @@ export default [
     },
   },
   {
+    name: "колода: сітка всіх 78 карт, поточна позначена, тап переносить до карти, Back закриває", run: async (h) => {
+      await h.click("[data-deck]"); await h.wait(300);
+      h.expect((await h.prop("#deck", "open")) === true, "аркуш колоди не відкрився");
+      h.expect((await h.count("[data-deck-card]")) === 78, "у сітці не 78 карт");
+      h.expect((await h.count('[data-deck-card][aria-pressed="true"]')) === 1, "поточна карта не позначена");
+      await h.back(); await h.wait(300);
+      h.expect((await h.prop("#deck", "open")) !== true, "Back не закрив колоду");
+      const before = (await h.text("[data-count]")).trim();
+      await h.click("[data-deck]"); await h.wait(300);
+      await h.click('[data-deck-card="ar10"]'); await h.wait(300);
+      h.expect((await h.prop("#deck", "open")) !== true, "тап по карті не закрив колоду");
+      h.expect(/Колесо|Wheel/i.test(await h.text("[data-name]")), "не перейшло до обраної карти");
+      h.expect((await h.text("[data-count]")).trim() !== before || before === "1/78", "лічильник не змінився");
+    },
+  },
+  {
     name: "i18n EN/UA", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);

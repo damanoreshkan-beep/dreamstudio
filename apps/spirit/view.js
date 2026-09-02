@@ -19,6 +19,7 @@ import { DECK } from "/_rt/tarotdeck.js";
 import { gate } from "/_rt/gate.js";
 import { animate } from "motion";
 import { usePanX, useSheetDrag } from "/_rt/gesture.js";
+import { Sheet } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const imgURL = (file) => new URL(`./assets/${file}`, import.meta.url).href;
@@ -88,12 +89,33 @@ export function spirit({ S, screen, openScreen, closeScreen }) {
       <div class="shrink-0 flex items-center justify-center gap-[var(--ms-gap)]">
         <button data-prev aria-label=${T(t, "prevCard")} class="btn btn-sm btn-circle" onClick=${() => go(-1)}>${Icon("lucide:chevron-left", "text-lg")}</button>
         <button data-shuffle aria-label=${T(t, "shuffle")} class="btn btn-sm btn-circle" onClick=${shuffle}>${Icon("lucide:shuffle", "text-base")}</button>
+        <button data-deck aria-label=${T(t, "deckOpen")} class="btn btn-sm btn-circle" onClick=${() => openScreen("deck")}>${Icon("lucide:layout-grid", "text-base")}</button>
         <button data-next aria-label=${T(t, "nextCard")} class="btn btn-sm btn-circle" onClick=${() => go(1)}>${Icon("lucide:chevron-right", "text-lg")}</button>
       </div>
     </div>
 
     <${SpiritAct} open=${screen === "spirit"} onClose=${closeScreen} onNext=${() => { closeScreen(); go(1); }} d=${d} c=${c} t=${t} loc=${loc} />
+    <${DeckSheet} open=${screen === "deck"} onClose=${closeScreen} order=${order} idx=${idx} t=${t} loc=${loc}
+      onPick=${(i) => { setIdx(i); closeScreen(); }} />
   </${Fragment}>`;
+}
+
+// The whole deck in its CANONICAL order (majors 0–21, then the suits) so a card can be found, each tile
+// in the orientation this shuffle gave it; the current card carries the accent ring. A tap goes to that
+// card's place in the shuffled order. The kit Sheet owns the scroll — 78 lazy thumbnails, no page scroll.
+function DeckSheet({ open, onClose, order, idx, t, loc, onPick }) {
+  const at = useMemo(() => { const m = new Array(order.length); order.forEach((d, i) => { m[d.card] = i; }); return m; }, [order]);
+  return html`<${Sheet} id="deck" open=${open} onClose=${onClose} locale=${loc} title=${T(t, "deckTitle")} subtitle=${String(DECK.length)} icon="lucide:layout-grid">
+    ${open ? html`<div class="grid gap-2" style="grid-template-columns:repeat(auto-fill,minmax(4.25rem,1fr))">
+      ${DECK.map((c, ci) => { const i = at[ci], rev = order[i].reversed, on = i === idx; return html`<button key=${c.id} data-deck-card=${c.id} aria-pressed=${on} aria-label=${cardName(c, loc)} onClick=${() => onPick(i)}
+          class="flex flex-col items-center gap-1 min-w-0 active:scale-95 transition-transform">
+          <span class=${`block w-full aspect-[350/600] rounded-[var(--ms-r-in)] overflow-hidden sf-e1 ${rev ? "rotate-180" : ""}`} style=${on ? "box-shadow:0 0 0 2px var(--app-accent)" : ""}>
+            <img src=${imgURL(c.img)} alt="" loading="lazy" class="sp-art" />
+          </span>
+          <span class="w-full truncate text-center font-mono text-[0.55rem] uppercase tracking-wide text-muted leading-tight">${cardName(c, loc)}</span>
+        </button>`; })}
+    </div>` : null}
+  </${Sheet}>`;
 }
 
 // The spirit's words for one card: cached per (card, orientation, locale) under the signature groundCard
