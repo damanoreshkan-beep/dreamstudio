@@ -49,9 +49,11 @@ export default [
     name: "i18n EN/UA", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);
-      h.expect(/Card|Upright|Reversed/.test(await h.bodyText()), "не EN");
+      // the profile is what is on screen here: its title/tagline carry the word in either language
+      // (the dock caption may be hidden at a short height, so it is not the marker)
+      h.expect(/Card Spirit|One card/i.test(await h.bodyText()), "не EN");
       await h.click('[data-loc="uk"]'); await h.wait(250);
-      h.expect(/Карта|Пряма|Перевернута/.test(await h.bodyText()), "не UA");
+      h.expect(/Дух карти|Одна карта/i.test(await h.bodyText()), "не UA");
       await h.click('[data-tab="card"]'); await h.wait(120);
     },
   },
