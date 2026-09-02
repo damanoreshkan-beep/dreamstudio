@@ -59,13 +59,15 @@
     .st-hero-shot{width:4.7rem}
     .st-hero-shot2{display:none}
     .st-hero-slogan{font-size:1.15rem;line-height:1.15;text-wrap:balance}
+    /* Wide: the words fill the card up to the captures — no max-width and no auto margin, which left an empty
+       middle between a short text column and pictures pushed to the far edge (the owner's phone, landscape). */
     @container (min-width:34rem){
-      .st-hero-body{padding:1.25rem 1.5rem;gap:1.25rem}
-      .st-hero-text{gap:.5rem;max-width:24rem}
-      .st-hero-name{font-size:1.3rem}
-      .st-hero-slogan{font-size:1.75rem;line-height:1.08}
-      .st-hero-shots{margin-left:auto;gap:.75rem}
-      .st-hero-shot{width:6.25rem}
+      .st-hero-body{padding:1.1rem 1.35rem;gap:1.25rem}
+      .st-hero-text{gap:.45rem}
+      .st-hero-name{font-size:1.25rem}
+      .st-hero-slogan{font-size:1.6rem;line-height:1.08;text-wrap:pretty}
+      .st-hero-shots{gap:.6rem}
+      .st-hero-shot{width:5.4rem}
       .st-hero-shot2{display:block}
     }
   </style>
