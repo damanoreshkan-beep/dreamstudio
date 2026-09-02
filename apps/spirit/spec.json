@@ -5,12 +5,11 @@
   "accent": "#F2B84B",
   "tabs": [
     {
-      "id": "card",
+      "id": "deck",
       "type": "tool",
-      "icon": "lucide:rectangle-vertical",
-      "label": "tabCard",
-      "view": "spirit",
-      "fit": true
+      "icon": "lucide:layout-grid",
+      "label": "tabDeck",
+      "view": "spirit"
     },
     {
       "id": "me",

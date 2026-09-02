@@ -5,9 +5,11 @@
        page itself is drawn on; a theme without one — lum, plain — paints nothing). The rim + bloom around the
        card come from sf-e3. "Злегка": saturation never below .4, contrast within ±16 %. */
     .sp-void{container-type:size}
-    /* height from BOTH limits at once: the void's height, or the width the 350×600 scan needs at that height —
+    /* the page's art box: half the viewport, never under 12rem (the frame inside stays legible at 340px) */
+    .sp-stage{height:clamp(12rem,48dvh,34rem)}
+    /* height from BOTH limits at once: the box's height, or the width the 350×600 scan needs at that height —
        so the frame is always exactly the picture's shape and the overlays never cover a letterbox */
-    .sp-frame{position:relative;display:block;height:min(100cqh,calc(100cqw * 600 / 350));aspect-ratio:350/600;border-radius:var(--ms-r);overflow:hidden;line-height:0;transition:transform .35s ease,filter .5s ease}
+    .sp-frame{position:relative;display:block;height:min(100cqh,calc(100cqw * 600 / 350));aspect-ratio:350/600;border-radius:var(--ms-r);overflow:hidden;line-height:0;transition:rotate .55s cubic-bezier(.4,0,.2,1),filter .5s ease}
     .sp-art{display:block;width:100%;height:100%;object-fit:cover;transition:filter .5s ease}
     .sp-frame::before{content:"";position:absolute;inset:0;pointer-events:none;background:color-mix(in oklch,var(--app-accent) 14%,transparent);mix-blend-mode:soft-light}
     .sp-frame::after{content:"";position:absolute;inset:0;pointer-events:none;background-image:var(--ds-grain,none);background-size:220px 220px;mix-blend-mode:multiply;opacity:.55}
@@ -22,8 +24,6 @@
     html[data-material="porcelain"] .sp-art{filter:saturate(.8) contrast(.9) brightness(1.06)}
     html[data-material="sand"] .sp-art{filter:sepia(.42) saturate(.95) contrast(.97)}
     html[data-material="plain"] .sp-frame::before{display:none}
-    /* the small card inside the spirit's veil: same ink, a fixed short height */
-    .sp-mini{position:relative;display:block;height:clamp(5rem,18vh,8rem);aspect-ratio:350/600;border-radius:var(--ms-r-in);overflow:hidden;line-height:0;flex:none}
     /* the words arrive as film subtitles: one beat per character, capped so a long line lands within a second */
     .sp-caret{display:inline-block;width:2px;height:1em;vertical-align:-.12em;background:var(--app-accent);animation:sp-blink 1s steps(2) infinite}
     @keyframes sp-blink{to{opacity:0}}

@@ -4,7 +4,7 @@
 
 # Дух карти
 
-**Одна карта на весь екран — і її дух говорить: розсудлива порада на сьогодні від кожної з 78 карт Райдера-Вейта.**
+**Вивчай колоду: усі 78 карт Райдера-Вейта за структурою, кожна на весь екран — переверни її, і дух карти дасть розсудливу пораду для обох положень.**
 
 ![](https://img.shields.io/badge/-esoterica-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 
@@ -12,7 +12,7 @@
 
 ---
 
-**Screens** Карта  ·  **Capabilities** —  ·  **Offline** yes  ·  **Installable** yes
+**Screens** Колода  ·  **Capabilities** —  ·  **Offline** yes  ·  **Installable** yes
 
 Part of the **[microspec farm](../../)** — an AI-authored, gated micro-PWA. Every screen is accessible,
 responsive, installable and offline by construction. Browse the whole set from the **[store](../store/)**.
