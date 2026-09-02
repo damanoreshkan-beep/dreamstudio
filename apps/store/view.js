@@ -253,7 +253,7 @@ export function store({ S, openScreen, closeScreen }) {
       <span class="text-[0.72rem] text-muted leading-snug line-clamp-2">${subtitleOf(a)}</span>
     </span>
   </button>`; };
-  const freshSection = SLIDES.length ? html`<section data-fresh class="st-fresh-wrap flex flex-col gap-2">
+  const freshSection = SLIDES.length ? html`<section data-fresh class="flex flex-col gap-2">
     <div class="flex items-baseline justify-between gap-3 px-0.5">
       <span class="font-bold text-[1.15rem] leading-tight tracking-tight">${T(t, "fresh")}</span>
       ${SLIDES.length > 1
