@@ -48,10 +48,13 @@ export default [
     },
   },
   {
-    name: "промпт зберігається між запусками", run: async (h) => {
+    name: "промпт зберігається, хрестик стирає і зникає", run: async (h) => {
       await h.type("[data-prompt]", "туман над рікою"); await h.wait(200);
       h.expect(((await h.storage("ms:vydyvo:opts")) || "").includes("туман"), "промпт не збережено");
-      await h.type("[data-prompt]", ""); await h.wait(100);
+      h.expect((await h.count("[data-clear]")) === 1, "немає хрестика біля введених слів");
+      await h.click("[data-clear]"); await h.wait(200);
+      h.expect(!((await h.storage("ms:vydyvo:opts")) || "").includes("туман"), "хрестик не стер слова");
+      h.expect((await h.count("[data-clear]")) === 0, "хрестик лишився над порожнім полем");
     },
   },
   {

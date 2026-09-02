@@ -123,8 +123,9 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
 
   // what the status line says: painting · next in m:ss · showing the collection · the last refusal
   const left = opts.every * 1000 - (now - stage.since);
-  const counting = gen.phase !== "working" && !gen.error && frames.length > 1 && stage.cur;
-  const status = gen.phase === "working" ? T(t, "working") : gen.error ? T(t, gen.error) : counting ? mmss(left) : T(t, "resting");
+  const working = gen.phase === "working";
+  const counting = !working && !gen.error && frames.length > 1 && stage.cur;
+  const status = working ? T(t, "working") : gen.error ? T(t, gen.error) : counting ? mmss(left) : T(t, "resting");
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
@@ -159,14 +160,25 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
         <div class="flex items-center gap-2">
           <input data-prompt type="text" value=${opts.prompt} spellcheck="false" autocomplete="off"
             aria-label=${T(t, "promptLabel")} placeholder=${T(t, "promptPlaceholder")}
-            onInput=${(e) => setOpts({ prompt: e.currentTarget.value })}
+            onInput=${(e) => {
+              const v = e.currentTarget.value, had = opts.prompt;
+              setOpts({ prompt: v });
+              // erased to empty while the old words were still painting → those words are WITHDRAWN
+              // (owner: "я стер промпт але генерується він"): supersede the race, the world speaks again
+              if (!v && had && gen.phase === "working") generateNow();
+            }}
             onKeyDown=${(e) => { if (e.key === "Enter") { e.currentTarget.blur(); generateNow(); } }}
             class="flex-1 min-w-0 h-[var(--ms-ctl)] bg-transparent text-[0.95rem] focus:outline-none placeholder:text-base-content/45" />
+          ${opts.prompt ? html`<button data-clear class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "clearPrompt")}
+            onClick=${() => { setOpts({ prompt: "" }); generateNow(); }}>${Icon("lucide:x", "text-base")}</button>` : null}
           <button data-show-btn class="btn btn-sm btn-primary rounded-full gap-1.5 shrink-0" onClick=${() => S.screen.set("show")}>${Icon("lucide:expand", "text-base")}${T(t, "show")}</button>
         </div>
         <div class="flex items-center gap-2 min-w-0">
           <button data-settings class=${`flex items-center gap-2 min-w-0 flex-1 text-left ${label}`} onClick=${() => S.screen.set("settings")}>
-            <span data-status class=${`truncate ${counting ? "tabular-nums" : "font-sans normal-case tracking-normal text-sm"}`}>${status}</span>
+            ${/* the state ARRIVES (owner: "стани з анімацією") — a remount per state change replays the
+                 entrance; the countdown keys once so the ticking seconds never re-run it. Working breathes
+                 through animated dots, never a spinner. */""}
+            <span data-status key=${counting ? "count" : status} class=${`vy-st truncate ${counting ? "tabular-nums" : "font-sans normal-case tracking-normal text-sm"}`}>${status}${working ? html`<span class="vy-dots" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>` : null}</span>
             ${Icon("lucide:sliders-horizontal", "ml-auto text-base shrink-0")}
           </button>
           ${/* the explicit "paint NOW" (owner: "я ввів текст і хочу одразу запустити") — supersedes the

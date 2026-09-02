@@ -14,6 +14,7 @@
   "close": "Close",
   "promptLabel": "What the picture is about",
   "promptPlaceholder": "Words the picture grows from",
+  "clearPrompt": "Clear the words",
   "show": "Show",
   "skip": "Next frame",
   "genNow": "Generate now",
