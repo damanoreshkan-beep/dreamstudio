@@ -89,7 +89,15 @@ writes `icon.webp` + the `icon.svg` wrapper; scaffold keeps an owned icon.svg.
   transit's ruler/house confusion).
 - No deck browser/grid in v1: the whole deck is one swipeable draw; a grid is a later ask.
 
+## Shipped and seen (2026-09-02, product 874da30, verify + deploy green)
+
+The eye reaches a material by a TAP CHAIN (`shot.mjs` runs comma-separated taps 600 ms apart):
+`bash vps/eye.sh spirit --tap '[data-tab="me"],[data-material-id="paper"],[data-tab="card"]'`. Read on the
+live build: lum dark + paper mode, the veil open, split-sm 360×340 (the card shrinks, every control and the
+dock survive), Папір (warm sepia + grain) and Туш on paper (near-monochrome, the red orientation mark) —
+each reads as the same picture under that theme's light, never a new picture.
+
 ## UNVERIFIED
 
-- The eye cannot switch materials from the URL (`?theme=` exists, no `?material=`); per-material shots need
-  a tap chain through the profile strip or the owner's phone. Filters are judged on lum + paper mode first.
+- The other nine materials' filter lines are set by the same rule but were not shot; judge them on the
+  phone when the theme is switched.
