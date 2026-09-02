@@ -87,7 +87,11 @@ writes `icon.webp` + the `icon.svg` wrapper; scaffold keeps an owned icon.svg.
 - No text input, no question: closed by design (no injection surface, every answer cacheable forever).
 - The other orientation's meaning is NOT sent to the model (contrast reads as presence — measured on
   transit's ruler/house confusion).
-- No deck browser/grid in v1: the whole deck is one swipeable draw; a grid is a later ask.
+- The deck grid (owner, same day: "додай сітку всіх 78 карт") is a kit Sheet in CANONICAL order (majors,
+  then suits — for finding a card), each tile in this shuffle's orientation, the current card ringed by an
+  inline `box-shadow` on `--app-accent` (a `ring-[var(--app-accent)]` utility is dropped by the build's
+  scanner); a tap jumps to that card's place in the shuffled order. 78 lazy thumbnails; seen on the eye
+  (`--tap '[data-deck]'`) in both themes: four columns at 384px, names beneath.
 
 ## Shipped and seen (2026-09-02, product 874da30, verify + deploy green)
 
