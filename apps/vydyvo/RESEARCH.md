@@ -85,8 +85,9 @@ idea (орігаміст/літописець, хайку-поет/калігр�
 off `html[data-theme]` at the moment the race starts (the light/dark theme drives the light in the picture,
 which is the owner's "система промпт на клієнті"). `SYSTEM.base` is the wallpaper contract (full-bleed, no
 text, off-centre subject, breathing space). The whole prompt is ≤ 800 chars (the edge slices there,
-`edge/image.js:473`). The island's second row names the active theme; frames keep the world id in their
-old `preset` IDB field, so a collection painted before the change still restores. A frame FITS the page
+`edge/image.js:473`). The island stays MINIMAL (owner: "залиш лише те що реально потрібно"): words + Показ,
+then status/settings + save + wand — no theme label, the whole page already wears the theme. Frames keep
+the world id in their old `preset` IDB field, so a collection painted before the change still restores. A frame FITS the page
 only when its mode AND world match the document (2026-09-02, owner: a theme change shows the waiting
 field, never the old world's picture): the veil, `advance`'s preference and the scheduler's `ahead` all
 compare both, the veil fades in over the retiring picture, and its motes take the active theme's

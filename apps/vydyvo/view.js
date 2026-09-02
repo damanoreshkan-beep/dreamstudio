@@ -66,11 +66,10 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
   const docMode = (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme")) === "signal-light" ? "light" : "dark";
   const docModeRef = useRef(docMode); docModeRef.current = docMode;
   const ambRef = useRef(0);
-  // THE THEME IS THE WORLD (owner: "у нас все тема рішає"): no preset of vydyvo's own — the island names
-  // the farm theme the pictures grow in; the picker in the profile is the only place it changes.
-  const materials = useStore(S.materials); useStore(S.material);
+  // THE THEME IS THE WORLD (owner: "у нас все тема рішає"): no preset of vydyvo's own, and the island does
+  // not name the theme either (owner 2026-09-02: "прибери все зайве") — the whole page already wears it.
+  useStore(S.material);   // a picker change re-renders, so the veil re-checks the world below
   const wid = activeWorld();
-  const worldName = (materials.find((m) => m.id === wid)?.name || {})[loc] || wid;
   const byId = (id) => frames.find((f) => f.id === id) || null;
   const cur = byId(stage.cur);
   const next = unshown()[0];   // preloaded below, so the cross-fade never fades in a half-decoded picture
@@ -167,8 +166,6 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
         </div>
         <div class="flex items-center gap-2 min-w-0">
           <button data-settings class=${`flex items-center gap-2 min-w-0 flex-1 text-left ${label}`} onClick=${() => S.screen.set("settings")}>
-            <span class="size-2 rounded-full shrink-0" style="background:var(--app-accent)"></span>
-            <span data-world class="shrink-0">${worldName}</span><span class="opacity-40">·</span>
             <span data-status class=${`truncate ${counting ? "tabular-nums" : "font-sans normal-case tracking-normal text-sm"}`}>${status}</span>
             ${Icon("lucide:sliders-horizontal", "ml-auto text-base shrink-0")}
           </button>
