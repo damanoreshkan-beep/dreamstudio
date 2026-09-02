@@ -28,27 +28,44 @@ const CSS = `.zr-scan{position:absolute;left:0;right:0;height:2px;background:lin
 @keyframes zrSweep{from{background-position:200% 0}to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.zr-scan,.zr-sh{animation:none}}`;
 
-// The compare: both pictures fill the SAME box (object-contain, identical aspect), the enlarged one on top
-// clipped to the left of the divider. Dragging moves the clip; the pictures never move, so the eye reads the
-// difference at one spot. Pointer capture keeps the drag alive past the divider's own 2px.
-function Compare({ before, after, t, onOpen }) {
-  const box = useRef(); const [x, setX] = useState(0.5); const [drag, setDrag] = useState(false);
+// The compare: both pictures fill the SAME box (identical aspect), the enlarged one on top clipped to the
+// left of the divider. Dragging moves the clip; the pictures never move, so the eye reads the difference at
+// one spot. Pointer capture keeps the drag alive past the divider's own 2px.
+// The box is SIZED to the picture: its stage is measured (ResizeObserver) and the picture's ratio fitted
+// into it in px — CSS alone cannot do it (an aspect-ratio box under a percentage max-height inside a flex
+// centre collapses or breaks the ratio), and object-contain on a full-size box left letterbox bands that
+// read as a frame on the shot (2026-09-02, both themes).
+function Compare({ before, after, ratio, t, onOpen }) {
+  const box = useRef(), stage = useRef(); const [x, setX] = useState(0.5); const [drag, setDrag] = useState(false);
+  const [fit, setFit] = useState({ w: 0, h: 0 }); const [r, setR] = useState(ratio || 0);
+  useEffect(() => { if (ratio) setR(ratio); }, [ratio]);
+  useEffect(() => {
+    const el = stage.current; if (!el) return;
+    const measure = () => { const b = el.getBoundingClientRect(); if (!b.width || !b.height || !r) return; const k = Math.min(b.width / r, b.height); setFit({ w: Math.round(k * r), h: Math.round(k) }); };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null; ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [r]);
   const at = (e) => { const r = box.current?.getBoundingClientRect(); if (!r || !r.width) return; setX(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width))); };
   const down = (e) => { e.currentTarget.setPointerCapture?.(e.pointerId); setDrag(true); at(e); };
   const move = (e) => { if (drag) at(e); };
   const up = () => setDrag(false);
   const onKey = (e) => { if (e.key === "ArrowLeft") setX((v) => Math.max(0, v - 0.05)); else if (e.key === "ArrowRight") setX((v) => Math.min(1, v + 0.05)); };
   const pct = `${(x * 100).toFixed(1)}%`;
-  return html`<div ref=${box} data-compare role="slider" tabindex="0" aria-label=${T(t, "compare")} aria-valuemin="0" aria-valuemax="100" aria-valuenow=${Math.round(x * 100)}
-      class="relative w-full h-full rounded-[var(--ms-r)] overflow-hidden sf-raised select-none touch-none cursor-ew-resize outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+  const onLoad = (e) => { const i = e.currentTarget; if (!r && i.naturalWidth && i.naturalHeight) setR(i.naturalWidth / i.naturalHeight); };
+  return html`<div ref=${stage} class="absolute inset-0 flex items-center justify-center">
+  <div ref=${box} data-compare role="slider" tabindex="0" aria-label=${T(t, "compare")} aria-valuemin="0" aria-valuemax="100" aria-valuenow=${Math.round(x * 100)}
+      class="relative rounded-[var(--ms-r)] overflow-hidden sf-raised select-none touch-none cursor-ew-resize outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-accent)]"
+      style=${fit.w ? `width:${fit.w}px;height:${fit.h}px` : "width:100%;height:100%"}
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up} onKeyDown=${onKey} onDblClick=${onOpen}>
-    <img data-before src=${before} alt=${T(t, "before")} draggable="false" class="absolute inset-0 w-full h-full object-contain" />
-    <img data-result data-after src=${after} alt=${T(t, "after")} draggable="false" class="absolute inset-0 w-full h-full object-contain" style=${`clip-path: inset(0 ${(100 - x * 100).toFixed(2)}% 0 0)`} />
+    <img data-before src=${before} alt=${T(t, "before")} draggable="false" onLoad=${onLoad} class="absolute inset-0 w-full h-full object-cover" />
+    <img data-result data-after src=${after} alt=${T(t, "after")} draggable="false" class="absolute inset-0 w-full h-full object-cover" style=${`clip-path: inset(0 ${(100 - x * 100).toFixed(2)}% 0 0)`} />
     <div aria-hidden="true" class="absolute inset-y-0 w-px bg-white/90 shadow-[0_0_8px_rgba(0,0,0,.6)] pointer-events-none" style=${`left:${pct}`}></div>
     <div aria-hidden="true" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-black/55 text-white flex items-center justify-center pointer-events-none" style=${`left:${pct}`}>${Icon("lucide:chevrons-left-right", "text-base")}</div>
     <span aria-hidden="true" class="absolute top-2 left-2 rounded-full bg-black/50 px-2 py-0.5 font-mono uppercase tracking-wide text-[0.62rem] text-white pointer-events-none">${T(t, "after")}</span>
     <span aria-hidden="true" class="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 font-mono uppercase tracking-wide text-[0.62rem] text-white pointer-events-none">${T(t, "before")}</span>
     <button data-view aria-label=${T(t, "view")} class="absolute bottom-2 right-2 btn btn-circle btn-xs bg-black/50 text-white border-0" onPointerDown=${(e) => e.stopPropagation()} onClick=${(e) => { e.stopPropagation(); onOpen(); }}>${Icon("lucide:maximize-2", "text-sm")}</button>
+  </div>
   </div>`;
 }
 
@@ -92,8 +109,8 @@ export function zir({ S, toast }) {
     if (st.phase === "empty") return html`<${Chooser} t=${t} onPick=${M.setSource} onCamera=${() => M.patch({ phase: "camera" })} />`;
     if (st.phase === "camera") return html`<${Camera} t=${t} loc=${loc} S=${S} reason=${T(t, "primeReason")} onCapture=${M.setSource} onClose=${() => M.patch({ phase: "empty" })} />`;
     if (hasResult) return html`<div class="absolute inset-0 p-[var(--ms-gap)] pb-7">
-      <${Compare} before=${st.src} after=${st.out.url} t=${t} onOpen=${() => S.screen.set("view")} />
-      ${px ? html`<div data-px class="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none"><span class="font-mono text-[0.68rem] uppercase tracking-[0.14em] tabular-nums text-base-content/70">${px}</span></div>` : null}
+      <div class="relative w-full h-full"><${Compare} before=${st.src} after=${st.out.url} ratio=${st.inW && st.inH ? st.inW / st.inH : 0} t=${t} onOpen=${() => S.screen.set("view")} /></div>
+      ${px ? html`<div data-px class="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none"><span class="font-mono text-[0.68rem] uppercase tracking-[0.14em] tabular-nums whitespace-nowrap text-base-content/70">${px}</span></div>` : null}
     </div>`;
     return html`<div class="absolute inset-0 flex items-center justify-center p-[var(--ms-gap)] pb-6">
       <div class="relative max-w-full max-h-full">
@@ -145,7 +162,10 @@ export function zir({ S, toast }) {
             items=${[{ id: "hd", label: T(t, "qHd"), icon: "lucide:gem" }, { id: "fast", label: T(t, "qFast"), icon: "lucide:zap" }]} />
           <button data-opts aria-label=${T(t, "options")} class=${`${tool} ${modelSel !== "auto" ? "ring-1 ring-[var(--app-accent)]" : ""}`} onClick=${() => { M.loadModels(); S.screen.set("opts"); }}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
         </div>
-        <div class="flex items-center gap-1.5">
+        ${/* The action row: `.btn` never shrinks, so in the side-by-side shapes the island cannot fit four circles
+             AND a worded pill — the word demotes below 20rem of island (the icon is the eye, the same one the
+             tab wears), which is what the 412×430 and 360×340 shots showed clipped (2026-09-02). */""}
+        <div class="@container flex items-center gap-1.5 min-w-0">
           ${st.src ? html`<button data-new aria-label=${T(t, "newPhoto")} class=${tool} disabled=${working} onClick=${M.clearSource}>${Icon("lucide:image-plus", "text-lg")}</button>` : null}
           ${hasResult ? html`<${Fragment}>
             ${act("again", "lucide:repeat", T(t, "again"), M.again)}
@@ -153,8 +173,8 @@ export function zir({ S, toast }) {
             ${act("share", "lucide:share-2", T(t, "share"), share)}
           </${Fragment}>` : null}
           <div class="flex-1"></div>
-          <button data-go aria-label=${working ? T(t, "stop") : T(t, "go")} aria-busy=${working ? "true" : null} class="btn btn-primary rounded-full gap-2 px-5 shrink-0" disabled=${!st.src || st.phase === "camera"} onClick=${go}>
-            ${Icon(working ? "lucide:square" : "lucide:scan-eye", "text-xl")}<span>${working ? T(t, "stop") : T(t, "go")}</span>
+          <button data-go aria-label=${working ? T(t, "stop") : T(t, "go")} aria-busy=${working ? "true" : null} class="btn btn-primary rounded-full gap-2 px-4 @max-[20rem]:btn-circle @max-[20rem]:px-0 shrink-0" disabled=${!st.src || st.phase === "camera"} onClick=${go}>
+            ${Icon(working ? "lucide:square" : "lucide:scan-eye", "text-xl")}<span class="@max-[20rem]:hidden">${working ? T(t, "stop") : T(t, "go")}</span>
           </button>
         </div>
         ${st.error ? html`<p data-error role="alert" class="text-sm text-error px-1">${T(t, st.error)}</p>` : null}
