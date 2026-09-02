@@ -12,24 +12,7 @@ import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { conditionSample, encodeWav } from "/_rt/grain.js";
 import { referenceWav, wavDataUrl, decodeWav, mockVoice, envelope, REF_RATE } from "/_rt/wav.js";
-
-// THE VOICE IS NEVER MISSING (owner: "а чому я не можу без свого голосу просто текст написать"): two
-// public-domain LibriTTS references ship with the app (24 kHz mono PCM16, RESEARCH.md), "mine" is the take.
-export const VOICES = [
-  { id: "f", key: "vF", asset: "voice-f.wav" },
-  { id: "m", key: "vM", asset: "voice-m.wav" },
-  { id: "mine", key: "vMine" },
-];
-const presets = new Map();   // id → { bytes, url, bars, dur }
-async function preset(id) {
-  const v = VOICES.find((x) => x.id === id && x.asset); if (!v) return null;
-  if (!presets.has(id)) {
-    const bytes = new Uint8Array(await (await fetch(new URL(`./assets/${v.asset}`, import.meta.url).href)).arrayBuffer());
-    const { pcm, sr } = decodeWav(bytes);
-    presets.set(id, { bytes, url: URL.createObjectURL(new Blob([bytes], { type: "audio/wav" })), bars: Array.from(envelope(pcm, BARS)), dur: pcm.length / sr });
-  }
-  return presets.get(id);
-}
+import { CHARACTERS, characterOf } from "./characters.js";
 
 const BASE = `${VPS_PROXY}/voice`;
 export const TAKE_MAX = 10;     // seconds — OmniVoice clones from 5–20 s; ten keeps the body under 1 MB
@@ -38,40 +21,69 @@ export const BARS = 48;
 const CAP = 40;                 // echoes kept in IndexedDB
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The manner is OmniVoice's own vocabulary (the edge refuses anything else): the Space's Voice Design items
-// that make sense OVER a cloned voice. `key` is the i18n label.
-export const MANNERS = [
-  { id: "asis", key: "mAsIs", instruct: "" },
-  { id: "whisper", key: "mWhisper", instruct: "Whisper" },
-  { id: "low", key: "mLow", instruct: "Low Pitch" },
-  { id: "high", key: "mHigh", instruct: "High Pitch" },
-  { id: "child", key: "mChild", instruct: "Child" },
-  { id: "elderly", key: "mElderly", instruct: "Elderly" },
+// THE VOICE IS NEVER MISSING (owner: "а чому я не можу без свого голосу просто текст написать"): two
+// public-domain LibriTTS references ship with the app (24 kHz mono PCM16, RESEARCH.md), "mine" is the take.
+// These three are CLONE voices: OmniVoice says the words in that voice in ANY language, and a character
+// STYLE (a vocabulary recipe) applies over them. The NAMED voices (`$catalog`, from the edge) are a language's
+// own TTS speakers — they speak their language only and take no style.
+export const CLONES = [
+  { id: "f", key: "vF", asset: "voice-f.wav" },
+  { id: "m", key: "vM", asset: "voice-m.wav" },
+  { id: "mine", key: "vMine" },
 ];
-export const mannerOf = (id) => MANNERS.find((m) => m.id === id) || MANNERS[0];
+export const isClone = (id) => CLONES.some((v) => v.id === id);
+const presets = new Map();   // id → { bytes, url, bars, dur }
+async function preset(id) {
+  const v = CLONES.find((x) => x.id === id && x.asset); if (!v) return null;
+  if (!presets.has(id)) {
+    const bytes = new Uint8Array(await (await fetch(new URL(`./assets/${v.asset}`, import.meta.url).href)).arrayBuffer());
+    const { pcm, sr } = decodeWav(bytes);
+    presets.set(id, { bytes, url: URL.createObjectURL(new Blob([bytes], { type: "audio/wav" })), bars: Array.from(envelope(pcm, BARS)), dur: pcm.length / sr });
+  }
+  return presets.get(id);
+}
 
 /** The reference take: `{ pcm, sr, dur, quiet, clipped, bars, url, seeded }` or null. */
 export const $take = atom(null);
 /** The recorder: state idle | recording | decoding; `bars` the live level ring; `err` the last mic reason. */
 export const $rec = atom({ state: "idle", bars: [], since: 0, err: null });
 export const $words = persistentAtom("ms:vidlunnia:words", "");
-export const $manner = persistentAtom("ms:vidlunnia:manner", "asis");
+/** The character style id ("" = as is); a recipe from OmniVoice's vocabulary, applied to a clone voice only. */
+export const $style = persistentAtom("ms:vidlunnia:style", "");
 export const $primed = persistentAtom("ms:vidlunnia:primed", "");
-/** Which voice says the words: "f" | "m" | "mine" (mine only with a take; recording selects it). */
+/** Which voice says the words: "f" | "m" | "mine" (a clone) or a catalogue id like "uk-tetiana" (named). */
 export const $voice = persistentAtom("ms:vidlunnia:voice", "f");
-/** The selected preset's `{ url, bars, dur }` for the ring and the preview; null for "mine" or until loaded. */
+/** The selected preset's `{ url, bars, dur }` for the ring and the preview; null for "mine" or a named voice. */
 export const $presetView = atom(null);
-export async function selectVoice(id) {
-  if (!VOICES.some((v) => v.id === id) || (id === "mine" && !$take.get())) return;
-  $voice.set(id);
-  $presetView.set(id === "mine" ? null : await preset(id).catch(() => null));
-}
+/** The named-voice catalogue from the edge: `{ langs, voices:[{id, lang, gender, name, accent?}] }`. */
+export const $catalog = atom({ langs: [], voices: [] });
+/** The language the voice sheet lists — set from the app locale on boot, then by the user. */
+export const $voiceLang = atom("uk");
 /** The job: phase idle | working | done | error; `error` an i18n key; eta/pct/elapsed mirrored from the edge. */
 export const $gen = atom({ phase: "idle", error: null, eta: null, pct: null, elapsed: 0 });
-/** The echo on the transport: `{ id, url, blob, words, manner, by, ts }` or null. */
+/** The echo on the transport: `{ id, url, blob, words, voice, style, by, ts }` or null. */
 export const $echo = atom(null);
 export const $echoes = atom([]);
 export const $player = atom({ playing: false, pos: 0, dur: 0 });
+
+export const namedOf = (id) => $catalog.get().voices.find((v) => v.id === id) || null;
+export async function selectVoice(id) {
+  if (id === "mine" && !$take.get()) return;
+  if (!isClone(id) && !namedOf(id)) return;
+  $voice.set(id);
+  $presetView.set(id === "f" || id === "m" ? await preset(id).catch(() => null) : null);
+}
+export function selectStyle(id) { $style.set(id && characterOf(id) ? id : ""); }
+
+// the gate never sees the edge: a four-voice mock catalogue keeps the sheet populated
+const MOCK_CATALOG = { langs: ["uk", "en"], voices: [
+  { id: "uk-tetiana", lang: "uk", gender: "f", name: "Тетяна" }, { id: "uk-mykyta", lang: "uk", gender: "m", name: "Микита" },
+  { id: "en-heart", lang: "en", gender: "f", name: "Heart", accent: "us" }, { id: "en-george", lang: "en", gender: "m", name: "George", accent: "gb" },
+] };
+async function loadCatalog() {
+  if (gate) { $catalog.set(MOCK_CATALOG); return; }
+  try { const r = await fetch(`${BASE}/voices`); if (r.ok) { const j = await r.json(); if (Array.isArray(j?.voices)) $catalog.set(j); } } catch { /* offline: no named voices this time */ }
+}
 
 const takeStore = collection("vidlunnia-take");
 const echoStore = collection("vidlunnia");
@@ -131,7 +143,7 @@ export function removeTake() {
   const t = $take.get(); if (!t) return () => {};
   $take.set(null); revoke(t.url);
   if (idbSupported && !gate) takeStore.remove("take").catch(() => {});
-  selectVoice(VOICES[0].id);
+  selectVoice(CLONES[0].id);
   return () => setTake({ pcm: t.pcm, sr: t.sr, dur: t.dur, quiet: t.quiet, clipped: t.clipped, seeded: t.seeded });
 }
 
@@ -151,36 +163,41 @@ async function adopt(blob) {
 
 // ---- the echo ----------------------------------------------------------------------------------------------
 let runs = 0, job = null;
-function land({ blob, url, by, words, manner }) {
-  const id = newId(), ts = Date.now(), echo = { id, url: url || URL.createObjectURL(blob), blob, words, manner, by: by || "", ts };
+function land({ blob, url, by, words, voice, style }) {
+  const id = newId(), ts = Date.now(), echo = { id, url: url || URL.createObjectURL(blob), blob, words, voice, style, by: by || "", ts };
   $echo.set(echo);
   let list = [echo, ...$echoes.get()];
   while (list.length > CAP) { const gone = list.pop(); revoke(gone.url); echoStore.remove(gone.id).catch(() => {}); }
   $echoes.set(list);
-  if (idbSupported && !gate) echoStore.put(id, { blob, words, manner, by: echo.by }).catch(() => {});
+  if (idbSupported && !gate) echoStore.put(id, { blob, words, voice, style, by: echo.by }).catch(() => {});
   $gen.set({ phase: "done", error: null, eta: null, pct: null, elapsed: 0 });
   load(echo.url);
 }
 const hashOf = (s) => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h; };
 
-/** Say it: the take + the words + the manner → one clone through the edge. Supersedes a running job. */
+/** Say it: the voice + the words (+ the style over a clone) → one job through the edge. Supersedes a running job. */
 export async function generate() {
-  const take = $take.get(), words = $words.get().trim(), manner = mannerOf($manner.get()), voice = $voice.get();
-  if (!words || (voice === "mine" && !take)) return;
+  const take = $take.get(), words = $words.get().trim(), voice = $voice.get();
+  const clone = isClone(voice), style = clone ? characterOf($style.get()) : null;
+  if (!words || (voice === "mine" && !take) || (!clone && !namedOf(voice))) return;
   const run = ++runs;
   if (job) cancelJob(BASE, job); job = null;
   $gen.set({ phase: "working", error: null, eta: null, pct: null, elapsed: 0 });
   if (gate) {
     await sleep(90); if (run !== runs) return;
-    land({ blob: wavBlob(mockVoice(1.6, REF_RATE, hashOf(words + manner.id)), REF_RATE), words, manner: manner.id, by: "mock" });
+    land({ blob: wavBlob(mockVoice(1.6, REF_RATE, hashOf(words + voice + (style?.id || ""))), REF_RATE), words, voice, style: style?.id || "", by: "mock" });
     return;
   }
   let id;
   try {
-    const ref = voice === "mine" ? referenceWav(take.pcm, take.sr) : (await preset(voice))?.bytes;
-    if (!ref) throw { code: "eFailed" };
+    let body;
+    if (clone) {
+      const ref = voice === "mine" ? referenceWav(take.pcm, take.sr) : (await preset(voice))?.bytes;
+      if (!ref) throw { code: "eFailed" };
+      body = { text: words, audio: wavDataUrl(ref), instruct: style?.recipe || "", seed: 0 };
+    } else body = { text: words, voice, seed: 0 };
     if (run !== runs) return;
-    id = await startJob(BASE, { text: words, audio: wavDataUrl(ref), instruct: manner.instruct, seed: 0 });
+    id = await startJob(BASE, body);
   } catch (e) { if (run === runs) $gen.set({ phase: "error", error: e?.code || "eFailed", eta: null, pct: null, elapsed: 0 }); return; }
   if (run !== runs) { cancelJob(BASE, id); return; }
   job = id;
@@ -188,7 +205,7 @@ export async function generate() {
     onLive: (m) => { if (run === runs) $gen.set({ ...$gen.get(), eta: m.eta ?? null, pct: m.pct ?? null, elapsed: m.elapsed || 0 }); } });
   if (run !== runs) return;
   job = null;
-  if (r.status === "done") land({ blob: r.blob, url: r.url, by: r.by, words, manner: manner.id });
+  if (r.status === "done") land({ blob: r.blob, url: r.url, by: r.by, words, voice, style: style?.id || "" });
   else $gen.set({ phase: "error", error: r.status === "busy" ? "eBusy" : r.status === "timeout" ? "eTimeout" : "eFailed", eta: null, pct: null, elapsed: 0 });
 }
 
@@ -211,7 +228,7 @@ export function selectEcho(id) {
   const e = $echoes.get().find((x) => x.id === id); if (!e) return;
   $echo.set(e); load(e.url); toggle();
 }
-/** Play the selected voice once — the take or the preset (a preview, not a transport). */
+/** Play the selected clone voice once — the take or the preset (a preview, not a transport). */
 export function playTake() {
   const url = $voice.get() === "mine" ? $take.get()?.url : $presetView.get()?.url, a = audio();
   if (!url || !a) return;
@@ -230,13 +247,15 @@ export function removeEcho(id) {
   $echoes.set($echoes.get().filter((x) => x.id !== id));
   if ($echo.get()?.id === id) $echo.set(null);
   echoStore.remove(id).catch(() => {});
-  return () => { $echoes.set([e, ...$echoes.get()].sort((a, b) => b.ts - a.ts)); if (idbSupported && !gate) echoStore.put(e.id, { blob: e.blob, words: e.words, manner: e.manner, by: e.by }).catch(() => {}); };
+  return () => { $echoes.set([e, ...$echoes.get()].sort((a, b) => b.ts - a.ts)); if (idbSupported && !gate) echoStore.put(e.id, { blob: e.blob, words: e.words, voice: e.voice, style: e.style, by: e.by }).catch(() => {}); };
 }
 
 let booted = false;
-/** Restore the take and the collection once. */
-export async function boot() {
+/** Restore the take and the collection once; `locale` picks the voice sheet's language. */
+export async function boot(locale) {
   if (booted) return; booted = true;
+  $voiceLang.set(locale === "en" ? "en" : "uk");
+  await loadCatalog();
   if (gate) { seedTake(); return; }
   const wanted = $voice.get();
   if (idbSupported) {
@@ -245,11 +264,13 @@ export async function boot() {
       if (t?.pcm?.length) setTake({ pcm: t.pcm, sr: t.sr, dur: t.dur, quiet: !!t.quiet, clipped: !!t.clipped }, false);
     } catch { /* no take yet */ }
   }
-  // the remembered voice, or the first preset when "mine" has no take behind it any more
-  await selectVoice(wanted === "mine" && !$take.get() ? VOICES[0].id : wanted);
+  // the remembered voice; the first preset when "mine" has no take behind it or a named voice is gone
+  const ok = wanted === "mine" ? !!$take.get() : (isClone(wanted) || !!namedOf(wanted));
+  await selectVoice(ok ? wanted : CLONES[0].id);
   if (!idbSupported) return;
   try {
     const rows = await echoStore.all();
-    $echoes.set(rows.slice(0, CAP).map((r) => ({ id: r.id, url: URL.createObjectURL(r.blob), blob: r.blob, words: r.words, manner: r.manner, by: r.by || "", ts: r._ts })));
+    $echoes.set(rows.slice(0, CAP).map((r) => ({ id: r.id, url: URL.createObjectURL(r.blob), blob: r.blob, words: r.words, voice: r.voice || r.manner || "", style: r.style || "", by: r.by || "", ts: r._ts })));
   } catch { /* empty */ }
 }
+export { CHARACTERS, characterOf };
