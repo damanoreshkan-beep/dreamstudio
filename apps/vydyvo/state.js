@@ -111,13 +111,15 @@ function present(id, now) {
   $stage.set({ cur: id, prev: st.cur, since: now, slot: 1 - st.slot });
 }
 // the next frame: the oldest fresh one; else the one shown longest ago (a collection cycles, never stops).
-// THE THEME IS RESPECTED HERE TOO: every frame remembers the mode it was painted for, and a frame of the
-// document's current mode always wins over one from the other side — a paper theme never shows a night
-// frame while a day one exists (owner: "тема точно враховується … це дуже важливо").
+// THE THEME IS RESPECTED HERE TOO: every frame remembers the mode AND the world it was painted for, and a
+// frame of the document's current mode+world always wins, then same mode — a paper theme never shows a
+// night frame while a day one exists, and a switched theme never keeps the old world's pictures on stage
+// (owner 2026-09-02: "зміна теми або режиму має бути якісне").
 function advance(now) {
   const cur = $stage.get().cur;
   const mode = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
-  const pick = (list) => list.find((f) => f.mode === mode) || list[0];
+  const wid = activeWorld();
+  const pick = (list) => list.find((f) => f.mode === mode && f.preset === wid) || list.find((f) => f.mode === mode) || list[0];
   const next = pick(unshown()) || pick($frames.get().filter((f) => f.id !== cur).sort((a, b) => a.shownAt - b.shownAt));
   if (next) present(next.id, now);
 }
@@ -138,10 +140,12 @@ function tick() {
   else if (now - st.since >= o.every * 1000) advance(now);
   const g = $gen.get();
   const online = gate || (typeof navigator === "undefined" || navigator.onLine !== false);
-  // "ahead" counts fresh frames OF THE MODE THE PAGE IS IN — a theme flip makes the other side's stock
-  // worthless, so the next race starts at once instead of waiting out a full stock of wrong-mode frames
+  // "ahead" counts fresh frames OF THE MODE AND WORLD THE PAGE IS IN — a theme flip (either the mode or
+  // the material) makes the old stock worthless, so the next race starts at once instead of waiting out a
+  // full stock of wrong-side frames
   const m = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
-  const ahead = $frames.get().filter((f) => !f.shown && f.mode === m).length;
+  const w = activeWorld();
+  const ahead = $frames.get().filter((f) => !f.shown && f.mode === m && f.preset === w).length;
   if (g.phase !== "working" && now >= g.until && ahead < AHEAD && online) generate();
 }
 

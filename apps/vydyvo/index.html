@@ -73,8 +73,12 @@
     .vy-stage:fullscreen,.vy-stage:-webkit-full-screen{width:100vw;height:100vh}
     .vy-stage::backdrop{background:#000}
     @media(prefers-reduced-motion:reduce){.vy-layer[data-on]{animation:none}}
-    /* the waiting field: the veiled stage hides its picture layers; the ambient texture breathes slowly */
+    /* the waiting field: the veiled stage hides its picture layers; the ambient texture breathes slowly.
+       The field FADES IN over the retiring picture (a theme change must read as a soft hand-off, never a
+       cut to black) — the layers below take their own 1.6s opacity transition out. */
     .vy-stage[data-veil] .vy-layer{opacity:0;animation:none}
+    [data-veiled]{animation:vy-veilin .8s ease both}
+    @keyframes vy-veilin{from{opacity:0}to{opacity:1}}
     .vy-amb{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;animation:vy-breathe 26s ease-in-out infinite alternate}
     @keyframes vy-breathe{from{transform:scale(1.03)}to{transform:scale(1.1)}}
     /* text arrives as a wave — one beat per character, capped so long lines land within a second;
@@ -82,7 +86,7 @@
     .vy-w{display:inline-block;white-space:nowrap}
     .vy-ch{display:inline-block;opacity:0;animation:vy-ch .7s cubic-bezier(.2,.7,.2,1) forwards;animation-delay:min(calc(var(--ci)*.035s),.9s)}
     @keyframes vy-ch{from{opacity:0;transform:translateY(.35em)}to{opacity:1;transform:none}}
-    @media(prefers-reduced-motion:reduce){.vy-ch{animation-duration:.01s;animation-delay:0s}.vy-amb{animation:none}}
+    @media(prefers-reduced-motion:reduce){.vy-ch{animation-duration:.01s;animation-delay:0s}.vy-amb{animation:none}[data-veiled]{animation:none}}
   </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
