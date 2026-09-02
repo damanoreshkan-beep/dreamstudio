@@ -5,6 +5,7 @@
 // plants beside the real files — rt/ is a complete mirror of the runtime, half real, half linked.
 //   deno test -A rt/rt_test.js
 import "./tests/acts_test.js";
+import "./tests/ai_tarot_test.js";
 import "./tests/air_test.js";
 import "./tests/ambient_test.js";
 import "./tests/aspects_test.js";

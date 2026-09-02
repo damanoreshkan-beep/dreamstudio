@@ -61,7 +61,7 @@
     "bg": "#000000",
     "fg": "#B9C8F2",
     "href": "./vydyvo/",
-    "version": "1.7",
+    "version": "1.20",
     "category": "creative",
     "needs": [
       "wakeLock"
@@ -355,6 +355,37 @@
     "href": "./arc/",
     "version": "1.11",
     "category": "feeds",
+    "needs": []
+  },
+  {
+    "id": "spirit",
+    "title": "Дух карти",
+    "titles": {
+      "uk": "Дух карти",
+      "en": "Card Spirit"
+    },
+    "tagline": "Одна карта на весь екран — і її дух говорить: розсудлива порада на сьогодні від кожної з 78 карт Райдера-Вейта.",
+    "taglines": {
+      "uk": "Одна карта на весь екран — і її дух говорить: розсудлива порада на сьогодні від кожної з 78 карт Райдера-Вейта.",
+      "en": "One card fills the screen and its spirit speaks: sober advice for today from each of the 78 Rider-Waite cards."
+    },
+    "glyph": "lucide:sparkles",
+    "art": "<rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"1.8\"/>\n<path d=\"M12 14.5c-1.6 0-2.3-1.2-2.3-2.2 0-1.3 1-2.1 2.3-3.3 1.3 1.2 2.3 2 2.3 3.3 0 1-.7 2.2-2.3 2.2Z\"/>\n<path d=\"M12 14.5v2.5\"/>",
+    "icon": false,
+    "screens": {
+      "uk": [
+        "Карта"
+      ],
+      "en": [
+        "Card"
+      ]
+    },
+    "shots": [],
+    "bg": "#000000",
+    "fg": "#F2B84B",
+    "href": "./spirit/",
+    "version": "1.0",
+    "category": "esoterica",
     "needs": []
   },
   {
@@ -2407,7 +2438,7 @@
     "bg": "#221C29",
     "fg": "#C9A7E0",
     "href": "./mirage/",
-    "version": "1.9",
+    "version": "1.10",
     "category": "creative",
     "needs": [
       "camera"

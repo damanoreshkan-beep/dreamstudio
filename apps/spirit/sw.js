@@ -2,11 +2,10 @@
 // Scope comes from this file's own path, so every app needs its own worker; the logic lives once in
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
-  app: "tarot",
-  version: "eda9249064",
+  app: "spirit",
+  version: "e6cb3d24f7",
   precache: [
     "./",
-    "./hero.wgsl",
     "./i18n/en.json",
     "./i18n/uk.json",
     "./icon.svg",
@@ -17,7 +16,6 @@ self.MS = {
     "./view.js",
     "/_rt/account.js",
     "/_rt/ai-core.js",
-    "/_rt/ai-text.js",
     "/_rt/apk.js",
     "/_rt/auth.js",
     "/_rt/authwall.js",

@@ -1,7 +1,8 @@
-// The tarot deck — 78 Rider-Waite-Smith cards. Meanings are the canonical A. E. Waite upright/reversed
-// (public domain, via tarotapi.dev); Ukrainian names are hand-authored; images are the public-domain RWS
-// scans vendored same-origin under ./assets/ (offline). Generated — see /tmp/gen-deck.mjs. English 'up'/'rev'
-// prose is translated to the active locale at runtime by /_rt/translate.js.
+// The tarot deck — 78 Rider-Waite-Smith cards, the product's domain DATA (one deck for apps/tarot and
+// apps/spirit; it lived in apps/tarot/deck.js until the second reader arrived). Meanings are the canonical
+// A. E. Waite upright/reversed (public domain, via tarotapi.dev); Ukrainian names are hand-authored; `img`
+// names the public-domain RWS scan each consuming app vendors under its own ./assets/ (offline). English
+// 'up'/'rev' prose is translated to the active locale at runtime by /_rt/translate.js.
 export const DECK = [{"id":"ar00","arcana":"major","suit":null,"num":0,"name":"The Fool","uk":"Дурень","img":"m00.jpg","up":"Folly, mania, extravagance, intoxication, delirium, frenzy, bewrayment.","rev":"Negligence, absence, distribution, carelessness, apathy, nullity, vanity."},
 {"id":"ar01","arcana":"major","suit":null,"num":1,"name":"The Magician","uk":"Маг","img":"m01.jpg","up":"Skill, diplomacy, address, subtlety; sickness, pain, loss, disaster, snares of enemies; self-confidence, will; the Querent, if male.","rev":"Physician, Magus, mental disease, disgrace, disquiet."},
 {"id":"ar02","arcana":"major","suit":null,"num":2,"name":"The High Priestess","uk":"Верховна Жриця","img":"m02.jpg","up":"Secrets, mystery, the future as yet unrevealed; the woman who interests the Querent, if male; the Querent herself, if female; silence, tenacity; mystery, wisdom, science.","rev":"Passion, moral or physical ardour, conceit, surface knowledge."},

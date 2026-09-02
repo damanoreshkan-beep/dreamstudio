@@ -4,7 +4,7 @@
 // Soul Pyramid, and the ten-card Celtic Cross. Every multi-card spread renders through `FitReading`, which
 // scales the cards so the WHOLE spread and its structure fit the screen at once (no page scroll); tapping a
 // card opens the full meaning. The deck (78 cards + canonical Waite meanings + the
-// public-domain 1909 scans) is app-owned in ./deck.js with images vendored same-origin under ./assets/ —
+// public-domain 1909 scans) is the product's /_rt/tarotdeck.js with images vendored same-origin under ./assets/ —
 // fully offline. The draw math is the SYSTEMIC /_rt/tarot.js (seeded, unit-tested): the card of the day is
 // seeded by the date so it's stable through the day; other spreads reshuffle. English meanings are
 // translated to the active locale by /_rt/translate.js (fail-open to the original). No emoji: the only
@@ -18,7 +18,7 @@ import { tr, warm, trTick } from "/_rt/translate.js";
 import { summary, warmSummary, isSummarized, aiTick } from "/_rt/ai-text.js";
 import { Scramble } from "/_rt/skeleton.js";
 import { SPREADS, spreadById, hashSeed, draw } from "/_rt/tarot.js";
-import { DECK } from "./deck.js";
+import { DECK } from "/_rt/tarotdeck.js";
 import { gate } from "/_rt/gate.js";
 import { animate, stagger } from "motion";
 import { useSheetDrag, usePanX } from "/_rt/gesture.js";
