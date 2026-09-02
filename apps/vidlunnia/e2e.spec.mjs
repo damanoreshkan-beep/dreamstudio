@@ -57,6 +57,21 @@ export default [
     },
   },
   {
+    // the take can be thrown away (owner: "я не можу видалити свій запис"): the voice falls back to a preset
+    name: "видалення запису: печатка зникає, голос стає пресетом, Мій зникає зі смужки", run: async (h) => {
+      await ready(h);
+      await h.click('[data-voice="mine"]'); await h.wait(150);
+      h.expect((await h.count("[data-delete-take]")) === 1, "немає кнопки видалення запису");
+      await h.tap("[data-delete-take]"); await h.wait(400);
+      h.expect((await h.count("[data-take]")) === 0, "запис не зник");
+      h.expect((await h.count('[data-voice="mine"]')) === 0, "Мій лишився без запису");
+      h.expect((await h.attr('[data-voice="f"]', "aria-pressed")) === "true", "голос не перейшов на пресет");
+      h.expect((await h.count('[data-record][data-state="idle"]')) === 1, "мікрофон не повернувся в стан запису");
+      await h.tap("[data-record]"); await h.wait(300);   // the gate seeds a fresh take at once
+      h.expect((await h.count("[data-take][data-live]")) === 1, "новий запис не зʼявився");
+    },
+  },
+  {
     name: "i18n EN/UA міняє текст", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);

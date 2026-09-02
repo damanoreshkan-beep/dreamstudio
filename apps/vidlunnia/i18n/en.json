@@ -18,6 +18,8 @@
   "yourVoice": "Your voice",
   "rerecord": "Record again",
   "playTake": "Play the take",
+  "deleteTake": "Delete the take",
+  "takeDeleted": "Take deleted",
   "quiet": "Too quiet. Speak closer to the phone",
   "clipped": "Too loud. Hold the phone a little further",
   "short": "Too short. Speak for a few seconds",

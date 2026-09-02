@@ -125,6 +125,15 @@ export function startRecord() {
 }
 /** Stop the take early (the tap on the square); the audio so far is kept. */
 export function stopRecord() { rec?.stop(); }
+/** Delete the take (owner: "я не можу видалити свій запис"); the voice falls back to the first preset.
+ * Returns the restore function for the undo toast. */
+export function removeTake() {
+  const t = $take.get(); if (!t) return () => {};
+  $take.set(null); revoke(t.url);
+  if (idbSupported && !gate) takeStore.remove("take").catch(() => {});
+  selectVoice(VOICES[0].id);
+  return () => setTake({ pcm: t.pcm, sr: t.sr, dur: t.dur, quiet: t.quiet, clipped: t.clipped, seeded: t.seeded });
+}
 
 async function adopt(blob) {
   $rec.set({ ...$rec.get(), state: "decoding" });

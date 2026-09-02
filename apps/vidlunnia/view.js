@@ -9,7 +9,7 @@ import { Sheet, Segmented, Island, Stage, Transport } from "/_rt/ui.js";
 import { MicPrime } from "/_rt/camprime.js";
 import { permRequest } from "/_rt/permissions.js";
 import { $take, $rec, $words, $manner, $primed, $gen, $echo, $echoes, $player, $voice, $presetView, MANNERS, VOICES, BARS, TAKE_MAX, mannerOf,
-  boot, startRecord, stopRecord, playTake, generate, toggle, seek, selectEcho, selectVoice, share, save, removeEcho } from "./state.js";
+  boot, startRecord, stopRecord, playTake, removeTake, generate, toggle, seek, selectEcho, selectVoice, share, save, removeEcho } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const LOCALE = { uk: "uk-UA", en: "en-GB" };
@@ -75,7 +75,11 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
             ${recording ? html`<span class="vd-name"><span class="text-error">${T(t, "recording")}</span> · </span>${mmss(since)}`
               : sealed ? html`<span class="vd-name">${T(t, mine ? "yourVoice" : VOICES.find((v) => v.id === voice)?.key || "vF")} · </span>${mmss(dur || 0)}` : T(t, "record")}
           </div>
-          ${sealed ? html`<button data-play-take class="btn btn-ghost btn-xs rounded-full gap-1 pointer-events-auto" onClick=${playTake} aria-label=${T(t, "playTake")}>${Icon("lucide:play", "text-sm")}</button>` : null}
+          ${sealed ? html`<div class="flex items-center gap-1">
+            <button data-play-take class="btn btn-ghost btn-xs rounded-full gap-1 pointer-events-auto" onClick=${playTake} aria-label=${T(t, "playTake")}>${Icon("lucide:play", "text-sm")}</button>
+            ${mine && take ? html`<button data-delete-take data-haptic="bump" class="btn btn-ghost btn-xs rounded-full pointer-events-auto text-base-content/70" aria-label=${T(t, "deleteTake")}
+              onClick=${() => { const restore = removeTake(); undo && undo(restore, T(t, "takeDeleted")); }}>${Icon("lucide:trash-2", "text-sm")}</button>` : null}
+          </div>` : null}
         </div>
       </div>
     <//>
