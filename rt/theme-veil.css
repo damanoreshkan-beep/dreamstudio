@@ -1,0 +1,124 @@
+/* VEIL (Аврора) — mirage's "translucent aurora curtain in a night sky": indigo night, aurora-green and
+   violet marks, drapery light as the rim. Sprites arrive with the phase-3 batch (docs/research/themes.md);
+   offsets measured before they are named. */
+@import "./runtime.css";
+@import "./decor.css";
+
+:root {
+  --app-accent: #86E3AF;
+  --app-accent-2: #B98CF0;
+  --app-tint: color-mix(in oklch, var(--app-accent) 14%, transparent);
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  --ds-art-day: url("/_rt/ds-veil-d-art.webp");     /* the watercolour aurora sun */
+  --ds-art-night: url("/_rt/ds-veil-n-art.webp");   /* the aurora ring */
+}
+
+/* the softest sky wash — a huge slow noise, no file */
+body { background-image: var(--ds-grain); background-size: 420px 420px; }
+
+[data-theme="signal"] {
+  color-scheme: dark;
+  --color-base-100: #0B0D14; --color-base-200: #0B0D14; --color-base-300: #161A26;
+  --color-base-content: #ECEFF7;
+  --color-primary: #ECEFF7;   --color-primary-content: #0B0D14;
+  --color-secondary: #7FE0A8; --color-secondary-content: #032512;
+  --color-accent: #C9A6F2;    --color-accent-content: #26094A;
+  --color-neutral: #191D2B;   --color-neutral-content: #ECEFF7;
+  --color-success: #7FE0A8;   --color-success-content: #032512;
+  --color-error: #F08A82;     --color-error-content: #2A0A08;
+  --color-warning: #E0B057;   --color-warning-content: #241904;
+  --color-info: #C9A6F2;      --color-info-content: #26094A;
+  --color-base-muted: #9EA3B4;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(236, 239, 247, .12);
+  --lm-rim-hi: rgba(236, 239, 247, .22);
+  --lm-rim-lo: rgba(236, 239, 247, .07);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--app-accent) 55%, transparent);
+  --nm-cast:   rgba(0, 0, 0, .55);
+  --lm-lip:      rgba(236, 239, 247, .3);
+  --lm-lip-glow: color-mix(in oklch, var(--app-accent-2) 18%, transparent);
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(0, 0, 0, .7);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 6px rgba(0, 0, 0, .8);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(0, 0, 0, .8);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 8px rgba(0, 0, 0, .6);
+  --sf-inset-face: #080A10;
+  --sf-inset-top:  rgba(0, 0, 0, .7);
+  --sf-press-face: #080A10;
+  --sf-press-top:  rgba(0, 0, 0, .6);
+  --sf-track-face: #1E2333;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='3' stitchTiles='stitch' seed='6'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.85 0 0 0 0 0.75 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* night sprites: lip peak 294/512 (57%); strand art ends 425 (17% blank → 8.5vw, 33px); scatter core
+     218–412 (centre 62% → −78px). */
+  --ds-lip: url("/_rt/ds-veil-n-lip.webp");
+  --ds-lip-pos: center 57%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .7;
+  --ds-strand: url("/_rt/ds-veil-n-strand.webp");
+  --ds-strand-y: calc(100% + 8.5vw);
+  --ds-strand-y-wide: calc(100% + 33px);
+  --ds-strand-a: .8;
+  --ds-corner: url("/_rt/ds-veil-n-corner.webp");
+  --ds-corner-a: .55;
+  --ds-scatter: url("/_rt/ds-veil-n-scatter.webp");
+  --ds-scatter-pos: center -78px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .7;
+}
+[data-theme="signal-light"] {
+  color-scheme: light;
+  --color-base-100: #F1F2F7; --color-base-200: #F1F2F7; --color-base-300: #E1E3EC;
+  --color-base-content: #14161F;
+  --color-primary: #14161F;   --color-primary-content: #F1F2F7;
+  --color-secondary: #1E6B45; --color-secondary-content: #FFFFFF;
+  --color-accent: #6B3FA6;    --color-accent-content: #FFFFFF;
+  --color-neutral: #23273A;   --color-neutral-content: #F1F2F7;
+  --color-success: #1F6B42;   --color-success-content: #FFFFFF;
+  --color-error: #A3302A;     --color-error-content: #FFFFFF;
+  --color-warning: #6B4A12;   --color-warning-content: #FFFFFF;
+  --color-info: #6B3FA6;      --color-info-content: #FFFFFF;
+  --color-base-muted: #595D6C;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(20, 22, 31, .13);
+  --lm-rim-hi: rgba(255, 255, 255, .95);
+  --lm-rim-lo: rgba(20, 22, 31, .09);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
+  --nm-cast:   rgba(20, 22, 31, .18);
+  --lm-lip:      rgba(20, 22, 31, .24);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(20, 22, 31, .16);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 5px rgba(20, 22, 31, .14);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(20, 22, 31, .12);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 6px rgba(20, 22, 31, .16);
+  --sf-inset-face: #EAEBF1;
+  --sf-inset-top:  rgba(20, 22, 31, .14);
+  --sf-press-face: #EAEBF1;
+  --sf-press-top:  rgba(20, 22, 31, .16);
+  --sf-track-face: #D7D9E3;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008' numOctaves='3' stitchTiles='stitch' seed='6'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.5 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* day sprites: lip peak 427/512 (83%); strand art ends 320 (37.5% blank → 18.7vw, 72px); scatter core
+     229–273 (centre 49% → −45px). */
+  --ds-lip: url("/_rt/ds-veil-d-lip.webp");
+  --ds-lip-pos: center 83%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .8;
+  --ds-strand: url("/_rt/ds-veil-d-strand.webp");
+  --ds-strand-y: calc(100% + 18.7vw);
+  --ds-strand-y-wide: calc(100% + 72px);
+  --ds-strand-a: .85;
+  --ds-corner: url("/_rt/ds-veil-d-corner.webp");
+  --ds-corner-a: .6;
+  --ds-scatter: url("/_rt/ds-veil-d-scatter.webp");
+  --ds-scatter-pos: center -45px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .8;
+}

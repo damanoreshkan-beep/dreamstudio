@@ -9,6 +9,15 @@
    STATIC by rule — a translated full-width lip was viewport overflow on every app (the tilt engine, removed
    2026-08-31); the verify gate reads chrome pseudo transforms. */
 
+/* THE MASCOT — the one exception to "nothing here names a file": the black smoke fox is the BRAND's
+   figure, one image across every theme (each theme only lights her its own way in the picker thumbs), so
+   her tokens live once here rather than twelve times in the modules. The core's [data-mascot] draws her in
+   every empty state; alpha derived from the pure-black master by ds-import. */
+:root {
+  --ds-mascot: url("/_rt/ds-n-mascot.webp");
+  --ds-mascot-s: 6.5rem;
+}
+
 /* THE LIP — the header's lower edge, woven from the material rather than drawn as a line: a 10px window on
    the sprite's dense band (`--ds-lip-pos` puts that band's peak in the window; `--ds-lip-size` zooms it so
    its texture reads instead of averaging into a stripe), masked at both ends and top/bottom so the strip

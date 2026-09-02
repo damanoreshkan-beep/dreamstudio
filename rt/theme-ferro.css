@@ -1,0 +1,123 @@
+/* FERRO (Ферофлюїд) — mirage's "glossy black ferrofluid with magnetic spikes": near-black gloss, a steel
+   violet and an electric blue as the marks, specular highlights as the rim. Sprites arrive with the
+   phase-3 batch (docs/research/themes.md); offsets measured before they are named. */
+@import "./runtime.css";
+@import "./decor.css";
+
+:root {
+  --app-accent: #8F7FE8;
+  --app-accent-2: #6FA8F5;
+  --app-tint: color-mix(in oklch, var(--app-accent) 14%, transparent);
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  --ds-art-night: url("/_rt/ds-ferro-n-art.webp");   /* the ferrofluid ring; the day sun rides the rerun */
+}
+
+/* the gloss — a barely-there fine sheen, no file */
+body { background-image: var(--ds-grain); background-size: 260px 260px; }
+
+[data-theme="signal"] {
+  color-scheme: dark;
+  --color-base-100: #0A0A0C; --color-base-200: #0A0A0C; --color-base-300: #16161B;
+  --color-base-content: #EFEFF3;
+  --color-primary: #EFEFF3;   --color-primary-content: #0A0A0C;
+  --color-secondary: #B9AFF0; --color-secondary-content: #1B1042;
+  --color-accent: #93C2FF;    --color-accent-content: #04223F;
+  --color-neutral: #18181E;   --color-neutral-content: #EFEFF3;
+  --color-success: #7FCF9B;   --color-success-content: #06180E;
+  --color-error: #F08A82;     --color-error-content: #2A0A08;
+  --color-warning: #E0B057;   --color-warning-content: #241904;
+  --color-info: #93C2FF;      --color-info-content: #04223F;
+  --color-base-muted: #A2A2AA;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(239, 239, 243, .14);
+  --lm-rim-hi: rgba(239, 239, 243, .3);
+  --lm-rim-lo: rgba(239, 239, 243, .07);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--app-accent) 55%, transparent);
+  --nm-cast:   rgba(0, 0, 0, .55);
+  --lm-lip:      rgba(239, 239, 243, .34);
+  --lm-lip-glow: color-mix(in oklch, var(--app-accent-2) 16%, transparent);
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(0, 0, 0, .7);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 6px rgba(0, 0, 0, .85);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(0, 0, 0, .85);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 8px rgba(0, 0, 0, .65);
+  --sf-inset-face: #08080A;
+  --sf-inset-top:  rgba(0, 0, 0, .75);
+  --sf-press-face: #08080A;
+  --sf-press-top:  rgba(0, 0, 0, .65);
+  --sf-track-face: #1F1F26;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch' seed='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.85 0 0 0 0 0.95 0 0 0 0.03 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* night sprites: lip peak 379/512 (74%); strand art ends 251 (51% blank → 25.5vw, 98px); scatter core
+     130–316 (centre 44% → −31px). */
+  --ds-lip: url("/_rt/ds-ferro-n-lip.webp");
+  --ds-lip-pos: center 74%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .75;
+  --ds-strand: url("/_rt/ds-ferro-n-strand.webp");
+  --ds-strand-y: calc(100% + 25.5vw);
+  --ds-strand-y-wide: calc(100% + 98px);
+  --ds-strand-a: .85;
+  --ds-corner: url("/_rt/ds-ferro-n-corner.webp");
+  --ds-corner-a: .6;
+  --ds-scatter: url("/_rt/ds-ferro-n-scatter.webp");
+  --ds-scatter-pos: center -31px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .65;
+}
+[data-theme="signal-light"] {
+  color-scheme: light;
+  --color-base-100: #F2F1F4; --color-base-200: #F2F1F4; --color-base-300: #E2E1E7;
+  --color-base-content: #141318;
+  --color-primary: #141318;   --color-primary-content: #F2F1F4;
+  --color-secondary: #5A4BB0; --color-secondary-content: #FFFFFF;
+  --color-accent: #17509F;    --color-accent-content: #FFFFFF;
+  --color-neutral: #232230;   --color-neutral-content: #F2F1F4;
+  --color-success: #1F6B42;   --color-success-content: #FFFFFF;
+  --color-error: #A3302A;     --color-error-content: #FFFFFF;
+  --color-warning: #6B4A12;   --color-warning-content: #FFFFFF;
+  --color-info: #17509F;      --color-info-content: #FFFFFF;
+  --color-base-muted: #5A5962;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(20, 19, 24, .13);
+  --lm-rim-hi: rgba(255, 255, 255, .98);
+  --lm-rim-lo: rgba(20, 19, 24, .09);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
+  --nm-cast:   rgba(20, 19, 24, .18);
+  --lm-lip:      rgba(20, 19, 24, .24);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(20, 19, 24, .16);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 5px rgba(20, 19, 24, .14);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(20, 19, 24, .12);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 6px rgba(20, 19, 24, .16);
+  --sf-inset-face: #EBEAEE;
+  --sf-inset-top:  rgba(20, 19, 24, .14);
+  --sf-press-face: #EBEAEE;
+  --sf-press-top:  rgba(20, 19, 24, .16);
+  --sf-track-face: #D8D7DE;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='2' stitchTiles='stitch' seed='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.1 0 0 0 0 0.16 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* day sprites: lip peak 356/512 (70%); strand art ends 313 (38.9% blank → 19.4vw, 75px); scatter core
+     164–346 (centre 50% → −47px). */
+  --ds-lip: url("/_rt/ds-ferro-d-lip.webp");
+  --ds-lip-pos: center 70%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .8;
+  --ds-strand: url("/_rt/ds-ferro-d-strand.webp");
+  --ds-strand-y: calc(100% + 19.4vw);
+  --ds-strand-y-wide: calc(100% + 75px);
+  --ds-strand-a: .9;
+  --ds-corner: url("/_rt/ds-ferro-d-corner.webp");
+  --ds-corner-a: .7;
+  --ds-scatter: url("/_rt/ds-ferro-d-scatter.webp");
+  --ds-scatter-pos: center -47px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .75;
+}

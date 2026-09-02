@@ -3,5 +3,12 @@
   { "id": "paper", "name": { "en": "Paper", "uk": "Папір" }, "css": "theme-paper.css", "thumb": "theme-paper.webp", "swatch": { "dark": ["#1A1714", "#E1B56A"], "light": ["#F3EEE4", "#7A4A0E"] } },
   { "id": "ink", "name": { "en": "Ink", "uk": "Туш" }, "css": "theme-ink.css", "thumb": "theme-ink.webp", "swatch": { "dark": ["#0B0B0C", "#FF8A6A"], "light": ["#F7F5F0", "#A82B14"] } },
   { "id": "mercury", "name": { "en": "Mercury", "uk": "Ртуть" }, "css": "theme-mercury.css", "thumb": "theme-mercury.webp", "swatch": { "dark": ["#0E1012", "#A8B8C8"], "light": ["#F2F4F6", "#3E5568"] } },
+  { "id": "smoke", "name": { "en": "Smoke", "uk": "Дим" }, "css": "theme-smoke.css", "thumb": "theme-smoke.webp", "swatch": { "dark": ["#131315", "#E8A66A"], "light": ["#F1F0EE", "#8A4E14"] } },
+  { "id": "thread", "name": { "en": "Thread", "uk": "Нитка" }, "css": "theme-thread.css", "thumb": "theme-thread.webp", "swatch": { "dark": ["#16130F", "#E3B963"], "light": ["#F4EFE6", "#7A5210"] } },
+  { "id": "circuit", "name": { "en": "Circuit", "uk": "Схема" }, "css": "theme-circuit.css", "thumb": "theme-circuit.webp", "swatch": { "dark": ["#0C0E0C", "#E5C15A"], "light": ["#F0F3EE", "#6E4F00"] } },
+  { "id": "veil", "name": { "en": "Aurora", "uk": "Аврора" }, "css": "theme-veil.css", "thumb": "theme-veil.webp", "swatch": { "dark": ["#0B0D14", "#7FE0A8"], "light": ["#F1F2F7", "#1E6B45"] } },
+  { "id": "ferro", "name": { "en": "Ferro", "uk": "Ферофлюїд" }, "css": "theme-ferro.css", "thumb": "theme-ferro.webp", "swatch": { "dark": ["#0A0A0C", "#B9AFF0"], "light": ["#F2F1F4", "#5A4BB0"] } },
+  { "id": "porcelain", "name": { "en": "Porcelain", "uk": "Порцеляна" }, "css": "theme-porcelain.css", "thumb": "theme-porcelain.webp", "swatch": { "dark": ["#141216", "#E9C489"], "light": ["#F7F4EE", "#7A5518"] } },
+  { "id": "sand", "name": { "en": "Sand", "uk": "Пісок" }, "css": "theme-sand.css", "thumb": "theme-sand.webp", "swatch": { "dark": ["#191510", "#E9B860"], "light": ["#F3EDE0", "#7A4D0E"] } },
   { "id": "plain", "name": { "en": "Plain", "uk": "Просто" }, "css": "theme-plain.css", "thumb": "theme-plain.webp", "swatch": { "dark": ["#111114", "#8DB8FF"], "light": ["#FAFAFA", "#1F5FBF"] } }
 ]

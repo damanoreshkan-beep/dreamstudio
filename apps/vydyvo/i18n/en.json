@@ -17,6 +17,8 @@
   "show": "Show",
   "skip": "Next frame",
   "genNow": "Generate now",
+  "saveFrame": "Save frame",
+  "savedFrame": "Saved",
   "exitShow": "Leave the show",
   "settings": "Settings",
   "preset": "Preset",

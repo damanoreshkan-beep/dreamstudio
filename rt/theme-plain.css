@@ -2,3 +2,5 @@
    soft cast. It is exactly what @microspec/core renders for a product with no brand, offered here so the
    quiet look is a choice rather than an absence. Spec: docs/research/themes.md. */
 @import "./runtime.css";
+/* decor's hooks all rest at none here — the import carries only the brand's mascot into empty states */
+@import "./decor.css";

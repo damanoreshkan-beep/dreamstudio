@@ -1,0 +1,124 @@
+/* THREAD (Нитка) — mirage's "embroidered in silk thread on dark linen": warm dark linen, silk-gold and
+   crimson-thread marks, the sheen of stitches as the rim. Sprites arrive with the phase-3 batch
+   (docs/research/themes.md); offsets measured before they are named. */
+@import "./runtime.css";
+@import "./decor.css";
+
+:root {
+  --app-accent: #D9B25C;
+  --app-accent-2: #C65B69;
+  --app-tint: color-mix(in oklch, var(--app-accent) 14%, transparent);
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  --ds-art-day: url("/_rt/ds-thread-d-art.webp");     /* the silk-thread sun on linen */
+  --ds-art-night: url("/_rt/ds-thread-n-art.webp");   /* the silk-thread ring */
+}
+
+/* the linen weave — two fine anisotropic passes crossed into cloth, no file */
+body { background-image: var(--ds-grain); background-size: 220px 220px; }
+
+[data-theme="signal"] {
+  color-scheme: dark;
+  --color-base-100: #16130F; --color-base-200: #16130F; --color-base-300: #241F18;
+  --color-base-content: #F0EAE0;
+  --color-primary: #F0EAE0;   --color-primary-content: #16130F;
+  --color-secondary: #E3B963; --color-secondary-content: #241804;
+  --color-accent: #F0A3AC;    --color-accent-content: #33060C;
+  --color-neutral: #2A241C;   --color-neutral-content: #F0EAE0;
+  --color-success: #7FCF9B;   --color-success-content: #06180E;
+  --color-error: #F08A82;     --color-error-content: #2A0A08;
+  --color-warning: #E0B057;   --color-warning-content: #241904;
+  --color-base-muted: #A89F92;
+  --color-info: #F0A3AC;      --color-info-content: #33060C;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(240, 234, 224, .12);
+  --lm-rim-hi: rgba(240, 234, 224, .24);
+  --lm-rim-lo: rgba(240, 234, 224, .07);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--app-accent) 55%, transparent);
+  --nm-cast:   rgba(0, 0, 0, .55);
+  --lm-lip:      rgba(240, 234, 224, .3);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(0, 0, 0, .7);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 6px rgba(0, 0, 0, .8);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(0, 0, 0, .8);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 8px rgba(0, 0, 0, .6);
+  --sf-inset-face: #110F0C;
+  --sf-inset-top:  rgba(0, 0, 0, .7);
+  --sf-press-face: #110F0C;
+  --sf-press-top:  rgba(0, 0, 0, .6);
+  --sf-track-face: #2C261E;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.9' numOctaves='2' stitchTiles='stitch' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.94 0 0 0 0 0.9 0 0 0 0 0.82 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* night sprites: lip peak 380/512 (74%); strand art ends 264 (48.4% blank → 24.2vw, 93px); scatter core
+     217–279 (centre 48% → −44px); the ring art landed, the day sun rides the rerun. */
+  --ds-lip: url("/_rt/ds-thread-n-lip.webp");
+  --ds-lip-pos: center 74%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .7;
+  --ds-strand: url("/_rt/ds-thread-n-strand.webp");
+  --ds-strand-y: calc(100% + 24.2vw);
+  --ds-strand-y-wide: calc(100% + 93px);
+  --ds-strand-a: .85;
+  --ds-corner: url("/_rt/ds-thread-n-corner.webp");
+  --ds-corner-a: .6;
+  --ds-scatter: url("/_rt/ds-thread-n-scatter.webp");
+  --ds-scatter-pos: center -44px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .75;
+}
+[data-theme="signal-light"] {
+  color-scheme: light;
+  --color-base-100: #F4EFE6; --color-base-200: #F4EFE6; --color-base-300: #E6DFD2;
+  --color-base-content: #1B1712;
+  --color-primary: #1B1712;   --color-primary-content: #F4EFE6;
+  --color-secondary: #7A5210; --color-secondary-content: #FFFFFF;
+  --color-accent: #9C2F3F;    --color-accent-content: #FFFFFF;
+  --color-neutral: #2B251D;   --color-neutral-content: #F4EFE6;
+  --color-success: #1F6B42;   --color-success-content: #FFFFFF;
+  --color-error: #A3302A;     --color-error-content: #FFFFFF;
+  --color-warning: #6B4A12;   --color-warning-content: #FFFFFF;
+  --color-info: #9C2F3F;      --color-info-content: #FFFFFF;
+  --color-base-muted: #5E574C;
+  --radius-box: 1.75rem; --radius-field: 1rem; --radius-selector: 0.75rem;
+  --border: 0; --depth: 0;
+
+  --lm-rim:    rgba(27, 23, 18, .13);
+  --lm-rim-hi: rgba(255, 255, 255, .95);
+  --lm-rim-lo: rgba(27, 23, 18, .09);
+  --lm-bloom:  transparent;
+  --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
+  --nm-cast:   rgba(60, 44, 20, .2);
+  --lm-lip:      rgba(27, 23, 18, .24);
+  --lm-lip-glow: transparent;
+  --sf-rim:        var(--lm-rim);
+  --sf-shadow:     rgba(60, 44, 20, .18);
+  --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
+  --sf-lift2:      0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi);
+  --sf-sink:       inset 0 0 0 1px var(--lm-rim-lo), inset 0 2px 5px rgba(60, 44, 20, .15);
+  --sf-sink2:      inset 0 0 0 1px var(--lm-rim-lo), inset 0 1px 3px rgba(60, 44, 20, .13);
+  --sf-press:      0 0 0 1px var(--lm-bloom-hi), inset 0 2px 6px rgba(60, 44, 20, .17);
+  --sf-inset-face: #ECE6DA;
+  --sf-inset-top:  rgba(60, 44, 20, .15);
+  --sf-press-face: #ECE6DA;
+  --sf-press-top:  rgba(60, 44, 20, .17);
+  --sf-track-face: #DCD4C4;
+
+  --ds-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.03 0.9' numOctaves='2' stitchTiles='stitch' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.18 0 0 0 0 0.14 0 0 0 0 0.08 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+  /* day sprites: lip peak 321/512 (63%); strand art ends 339 (33.8% blank → 16.9vw, 65px); scatter core
+     337–383 (centre 70% → −101px). */
+  --ds-lip: url("/_rt/ds-thread-d-lip.webp");
+  --ds-lip-pos: center 63%; --ds-lip-size: 150% auto;
+  --ds-lip-a: .8;
+  --ds-strand: url("/_rt/ds-thread-d-strand.webp");
+  --ds-strand-y: calc(100% + 16.9vw);
+  --ds-strand-y-wide: calc(100% + 65px);
+  --ds-strand-a: .9;
+  --ds-corner: url("/_rt/ds-thread-d-corner.webp");
+  --ds-corner-a: .7;
+  --ds-scatter: url("/_rt/ds-thread-d-scatter.webp");
+  --ds-scatter-pos: center -101px; --ds-scatter-size: 260px auto;
+  --ds-scatter-a: .8;
+}

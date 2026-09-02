@@ -93,9 +93,14 @@ style thumbnail must go through the raw generator or every material glows).
   theme's `--ds-art-day` / `--ds-art-night` (both pictures whatever mode the page is in; glyphs when a theme
   sets none) and a strip of round micro-pictures, the chosen one ringed, a tap applying at once. The sheet
   is gone; the store e2e drives the strip and the radio.
-- Phase 3 (smoke, thread, circuit, veil, ferro, porcelain, sand) is open: a theme = a css module with both
-  palettes (the suite reds any contrast miss), one block in `jobs2.mjs`, `ds-import --prefix`, a measure
-  pass, a fox master through the raw generator.
+- **Phase 3 SHIPPED** (2026-09-02): all seven remaining materials — Дим, Нитка, Схема, Аврора, Ферофлюїд,
+  Порцеляна, Пісок — full modules with both palettes (one contrast red across all 84 checks: ferro's light
+  accent), sprites via the one 77-job pod batch (`mascot-tools/jobs3.mjs`; stragglers rerun by name — two
+  never landed and their hooks stay unset: smoke's night corner, ferro's day sun), offsets measured, SVG
+  grains per material, the smoke fox in each theme's light as the thumb. TWELVE themes in the picker.
+- **The mascot is THE BLACK SMOKE FOX** (owner 2026-09-02, mascot.md): one character, alpha-imported once
+  as `rt/ds-n-mascot.webp`; her tokens (`--ds-mascot`, `--ds-mascot-s`) live in `rt/decor.css` (the one
+  named-file exception there) and the core's `[data-mascot]` (1.2.10) draws her in every empty state.
 
 ## Decision log
 
