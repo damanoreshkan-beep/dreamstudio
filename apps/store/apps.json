@@ -364,27 +364,29 @@
       "uk": "Дух карти",
       "en": "Card Spirit"
     },
-    "tagline": "Одна карта на весь екран — і її дух говорить: розсудлива порада на сьогодні від кожної з 78 карт Райдера-Вейта.",
+    "tagline": "Вивчай колоду: усі 78 карт Райдера-Вейта за структурою, кожна на весь екран — переверни її, і дух карти дасть розсудливу пораду для обох положень.",
     "taglines": {
-      "uk": "Одна карта на весь екран — і її дух говорить: розсудлива порада на сьогодні від кожної з 78 карт Райдера-Вейта.",
-      "en": "One card fills the screen and its spirit speaks: sober advice for today from each of the 78 Rider-Waite cards."
+      "uk": "Вивчай колоду: усі 78 карт Райдера-Вейта за структурою, кожна на весь екран — переверни її, і дух карти дасть розсудливу пораду для обох положень.",
+      "en": "Study the deck: all 78 Rider-Waite cards by structure, each full screen — flip it and the card's spirit gives sober advice for either orientation."
     },
     "glyph": "lucide:sparkles",
     "art": "<rect x=\"6\" y=\"3\" width=\"12\" height=\"18\" rx=\"1.8\"/>\n<path d=\"M12 14.5c-1.6 0-2.3-1.2-2.3-2.2 0-1.3 1-2.1 2.3-3.3 1.3 1.2 2.3 2 2.3 3.3 0 1-.7 2.2-2.3 2.2Z\"/>\n<path d=\"M12 14.5v2.5\"/>",
-    "icon": false,
+    "icon": true,
     "screens": {
       "uk": [
-        "Карта"
+        "Колода"
       ],
       "en": [
-        "Card"
+        "Deck"
       ]
     },
-    "shots": [],
+    "shots": [
+      "deck"
+    ],
     "bg": "#000000",
     "fg": "#F2B84B",
     "href": "./spirit/",
-    "version": "1.0",
+    "version": "1.7",
     "category": "esoterica",
     "needs": []
   },
@@ -1778,7 +1780,7 @@
     "bg": "#0A0A0F",
     "fg": "#C084FC",
     "href": "./tarot/",
-    "version": "1.10",
+    "version": "1.11",
     "category": "esoterica",
     "needs": [
       "orientation"

@@ -65,6 +65,8 @@ export default [
     name: "стор: добірка карток, сторінка апки з Install і скріном, категорія → рядки", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-featured]")) >= 2, "немає карток добірки");
+      h.expect((await h.count('[data-featured][data-app="spirit"]')) === 1, "Дух карти не в добірці");
+      h.expect((await h.text("[data-slogan]")).trim().length > 5, "герой без гасла");
       await h.click('[data-featured][data-app="tide"]'); await h.wait(300);
       h.expect((await h.prop("#appsheet", "open")) === true, "картка добірки не відкрила сторінку апки");
       h.expect((await h.count("#install-app")) === 1, "немає кнопки Встановити на сторінці апки");

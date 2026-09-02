@@ -150,19 +150,28 @@ export function store({ S, openScreen, closeScreen }) {
   // and every other featured app is a vertical card, its capture on top cropped from the app's own head
   // (object-top: the header and the first content, never a stretched middle). A full-bleed tap layer sits
   // under the content and the pill above it — never a button inside a button (axe: nested-interactive).
-  const Featured = (a) => { const shot = firstShot(a); return html`<article key=${a.id} class="relative rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
+  // The hero carries the store's EDITORIAL slogan for the app (i18n `slogan_<id>`, the App Store's own
+  // practice: the Today headline is the editors' line, not the developer's tagline) above the app's first
+  // sentence; with no slogan the line simply is not there. Its width answers itself — head.html's container
+  // query grows the words and stands the second capture (the other theme) beside the first past 34rem.
+  const sloganOf = (a) => t?.["slogan_" + a.id] || "";
+  const Featured = (a) => { const tab = a.shots?.[0]; const slogan = sloganOf(a); return html`<article key=${a.id} class="st-hero relative rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
     <button data-featured data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
-    <div class="relative flex items-stretch gap-3 p-[var(--ms-pad)] pointer-events-none">
-      <div class="min-w-0 flex-1 flex flex-col gap-1.5">
+    <div class="st-hero-body relative flex items-stretch gap-3 p-[var(--ms-pad)] pointer-events-none">
+      <div class="st-hero-text min-w-0 flex-1 flex flex-col gap-1.5">
         <div class="text-[0.58rem] font-mono uppercase tracking-[.14em] text-secondary">${T(t, "premium")} · ${T(t, catKey(a.category))}</div>
         <div class="flex items-center gap-2.5 min-w-0">
           ${Tile(a, "w-10 h-10")}
-          <span class="font-bold text-[1.05rem] leading-tight truncate">${nameOf(a)}</span>
+          <span class="st-hero-name font-bold text-[1.05rem] leading-tight truncate">${nameOf(a)}</span>
         </div>
+        ${slogan ? html`<div data-slogan class="st-hero-slogan font-bold tracking-tight">${slogan}</div>` : null}
         <p class="text-[0.8rem] text-muted leading-snug line-clamp-3">${subtitleOf(a)}</p>
         <div class="mt-auto pt-1">${pill(a, "pointer-events-auto")}</div>
       </div>
-      ${shot ? html`<div class="shrink-0 self-center w-[4.7rem] aspect-[384/832] rounded-[0.6rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>` : null}
+      ${tab ? html`<div class="st-hero-shots shrink-0 self-center flex items-center gap-2">
+        <div class="st-hero-shot aspect-[384/832] rounded-[0.6rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shotUrl(a, tab, light)} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>
+        <div class="st-hero-shot st-hero-shot2 aspect-[384/832] rounded-[0.6rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shotUrl(a, tab, !light)} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>
+      </div>` : null}
     </div>
   </article>`; };
   // TINY and whole (owner, 2026-09-01: "картинки … повністю пропорційні маленькі, картки акуратно
