@@ -32,7 +32,8 @@ export default [
     name: "роздільник посередині, «після» обрізане до нього", run: async (h) => {
       await ready(h);
       h.expect(await h.attr("[data-compare]", "aria-valuenow") === "50", "роздільник не посередині");
-      h.expect(/inset\(0 50/.test(await h.attr("[data-after]", "style")), "«після» не обрізане до роздільника");
+      // Chrome serialises the attribute as `inset(0px 50% 0px 0px)` — match the 50%, not the spelling (CI, 2026-09-02)
+      h.expect(/inset\([^)]*\b50(\.0+)?%/.test(await h.attr("[data-after]", "style")), "«після» не обрізане до роздільника");
     },
   },
   {
