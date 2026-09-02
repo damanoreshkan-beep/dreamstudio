@@ -19,4 +19,17 @@
       .st-hero-shot{width:5.4rem}
       .st-hero-shot2{display:block}
     }
+    /* FRESH ARRIVALS — a pager of slides, three cards each. A slide is the rail's width minus 2rem, so the
+       next slide peeks in past the .75rem gap by 1.25rem: the hint that there is more, without an arrow. A
+       lone slide takes the whole width. The rubric answers its own width like the hero: from 40rem of card
+       (landscape, a tablet) a slide is its three cards in a ROW and the pager has nothing left to page. */
+    .st-fresh-wrap{container-type:inline-size}
+    .st-slide{width:calc(100% - 2rem)}
+    .st-slide:only-child{width:100%}
+    /* The life light: a 2px filament down the card's left edge whose HEIGHT is the app's freshness (--life,
+       1 = born today, .12 = the window's last day), lit in the accent. Colour as meaning, no badge. */
+    .st-fresh-life{position:absolute;left:0;top:50%;width:2px;height:calc(var(--life,1) * 72%);transform:translateY(-50%);border-radius:1px;background:var(--color-secondary);box-shadow:0 0 6px var(--color-secondary)}
+    @container (min-width:40rem){
+      .st-slide{width:100%;grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
   </style>

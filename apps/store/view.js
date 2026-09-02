@@ -9,7 +9,7 @@
 // session tide and nova use. The store lives in its OWN scope (/store/), so opening an app is out-of-scope
 // → the app is independently installable even when the store PWA is installed. Apps are siblings at ../<id>/.
 import { html } from "htm/preact";
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Sheet } from "/_rt/ui.js";
@@ -45,6 +45,17 @@ const catKey = (c) => "cat" + c[0].toUpperCase() + c.slice(1);
 const FEATURED = (spec.featured || []).map((id) => apps.find((a) => a.id === id)).filter(Boolean);
 const isFeatured = (a) => FEATURED.some((f) => f.id === a.id);
 const ROWS_PER_SECTION = 3;
+// FRESH ARRIVALS (owner, 2026-09-02: "рубрика свіжі новинки … слайди по 3 … щоб оновлювалось автоматом, а
+// старі чистились"): a rubric nobody curates. An app carries `added` — its birthday, stamped into spec.json
+// by the core's scaffold on the FIRST scaffold and carried here by the manifest — and the rubric is that
+// field and a window: the apps born in the last FRESH_DAYS, newest first, at most three slides of three. A
+// new app joins by being scaffolded; an old one leaves by ageing. An app without `added` (the farm before
+// the split) is simply never fresh. Nothing is ever edited here to add or remove one.
+const FRESH_DAYS = 21, FRESH_MAX = 9, PER_SLIDE = 3;
+const ageDays = (a) => Math.max(0, Math.floor((Date.now() - Date.parse(a.added + "T00:00:00")) / 86400000));
+const FRESH = apps.filter((a) => a.added && ageDays(a) <= FRESH_DAYS)
+  .sort((x, y) => y.added.localeCompare(x.added) || x.title.localeCompare(y.title, "uk")).slice(0, FRESH_MAX);
+const SLIDES = Array.from({ length: Math.ceil(FRESH.length / PER_SLIDE) }, (_, i) => FRESH.slice(i * PER_SLIDE, i * PER_SLIDE + PER_SLIDE));
 
 export function store({ S, openScreen, closeScreen }) {
   const t = useStore(S.t), screen = useStore(S.screen), locale = useStore(S.locale);
@@ -213,6 +224,47 @@ export function store({ S, openScreen, closeScreen }) {
   </div>`;
   const dateLine = new Intl.DateTimeFormat(locale === "uk" ? "uk-UA" : "en-GB", { weekday: "long", day: "numeric", month: "long" }).format(new Date());
 
+  // ── FRESH ARRIVALS: a pager of slides, three tiny cards each ──
+  // The slide is the unit (owner: "слайди по 3 щоб вміщалось"): a horizontal pager with MANDATORY snap on
+  // whole slides, each slide a stack of three cards — never a rail of cards, which stops mid-card. The
+  // counter beside the title ("2 / 3", not dots) is read off the scroller itself and is a button: a tap
+  // turns the page — the one way to page without a touch screen. The next slide peeks in from the right
+  // (head.html: the slide is 2rem short of the rail), which is what says "there is more" without an arrow.
+  const railRef = useRef(null);
+  const [slide, setSlide] = useState(0);
+  const onRail = () => { const el = railRef.current; if (!el || el.children.length < 2) return; const step = el.children[1].offsetLeft - el.children[0].offsetLeft; setSlide(Math.max(0, Math.min(SLIDES.length - 1, Math.round(el.scrollLeft / step)))); };
+  const goSlide = (i) => { const el = railRef.current; if (!el?.children[i]) return; el.scrollTo({ left: el.children[i].offsetLeft - el.children[0].offsetLeft, behavior: "smooth" }); };
+  // WHEN, in words the reader already thinks in: "сьогодні" · "вчора" · "3 дні тому" · "2 тижні тому".
+  const rtf = new Intl.RelativeTimeFormat(locale === "uk" ? "uk" : "en", { numeric: "auto" });
+  const whenOf = (a) => { const d = ageDays(a); return d < 7 ? rtf.format(-d, "day") : rtf.format(-Math.round(d / 7), "week"); };
+  // A fresh card: tiny and whole — the icon tile, an eyebrow that says the category and WHEN, the name, two
+  // lines of the app's own first sentence. Down the left edge a 2px light whose height IS the app's
+  // freshness (born today = the full height, the window's last day = a spark): colour as meaning, no badge
+  // and no pill — the whole card is the button and the app page carries Open.
+  const Fresh = (a, i) => { const life = Math.max(0.12, 1 - ageDays(a) / FRESH_DAYS); return html`<button key=${a.id} data-app=${a.id} data-fresh-card aria-label=${nameOf(a)} onClick=${() => tap(a)} style=${`--life:${life.toFixed(2)};--i:${i}`} class="st-fresh relative w-full text-left rounded-[calc(var(--ms-r)*.8)] sf-raised sf-e2 overflow-hidden flex items-center gap-3 p-2.5 pl-3.5">
+    <span aria-hidden="true" class="st-fresh-life"></span>
+    ${Tile(a, "w-11 h-11")}
+    <span class="min-w-0 flex-1 flex flex-col gap-0.5">
+      <span class="flex items-baseline justify-between gap-2 text-[0.52rem] font-mono uppercase tracking-[.12em] leading-none">
+        <span class="text-secondary truncate">${T(t, catKey(a.category))}</span>
+        <span class="text-muted shrink-0 normal-case tracking-normal">${whenOf(a)}</span>
+      </span>
+      <span class="font-semibold text-[0.88rem] leading-tight truncate">${nameOf(a)}</span>
+      <span class="text-[0.72rem] text-muted leading-snug line-clamp-2">${subtitleOf(a)}</span>
+    </span>
+  </button>`; };
+  const freshSection = SLIDES.length ? html`<section data-fresh class="st-fresh-wrap flex flex-col gap-2">
+    <div class="flex items-baseline justify-between gap-3 px-0.5">
+      <span class="font-bold text-[1.15rem] leading-tight tracking-tight">${T(t, "fresh")}</span>
+      ${SLIDES.length > 1
+        ? html`<button data-fresh-page class="text-xs font-mono text-muted tabular-nums shrink-0 py-1 px-1.5 -mr-1.5 -my-1 rounded-md" aria-label=${`${T(t, "freshPage")} ${slide + 1} / ${SLIDES.length}`} onClick=${() => goSlide((slide + 1) % SLIDES.length)}><span class="text-base-content font-semibold">${slide + 1}</span> / ${SLIDES.length}</button>`
+        : html`<span class="text-xs text-muted tabular-nums shrink-0">${FRESH.length}</span>`}
+    </div>
+    <div ref=${railRef} onScroll=${onRail} class="st-rail relative flex gap-3 overflow-x-auto snap-x snap-mandatory [overscroll-behavior-x:contain] [scrollbar-width:none] [scroll-padding-inline:var(--ms-pad)] -mx-[var(--ms-pad)] px-[var(--ms-pad)] pb-1">
+      ${SLIDES.map((s, i) => html`<div key=${i} data-fresh-slide class="st-slide ms-stagger snap-start shrink-0 grid gap-2 content-start">${s.map(Fresh)}</div>`)}
+    </div>
+  </section>` : null;
+
   // search filters the one page in place — the list remounts (key) so the stagger plays
   const query = q.trim().toLowerCase();
   if (query) {
@@ -230,6 +282,7 @@ export function store({ S, openScreen, closeScreen }) {
       <h2 class="text-[2rem] font-bold leading-none tracking-tight">${T(t, "today")}</h2>
     </div>
     ${FEATURED.length ? html`<div class="ms-stagger grid grid-cols-2 md:grid-cols-3 gap-3">${FEATURED.map((a, i) => html`<div style=${`--i:${i}`} key=${a.id} class=${i === 0 ? "col-span-2 md:col-span-3" : "min-h-0"}>${i === 0 ? Featured(a) : FeaturedTall(a)}</div>`)}</div>` : null}
+    ${freshSection}
     ${CATS.map((c) => {
       const items = apps.filter((a) => a.category === c).sort(byName);
       if (!items.length) return null;

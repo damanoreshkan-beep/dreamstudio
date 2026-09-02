@@ -65,7 +65,8 @@
     "category": "creative",
     "needs": [
       "wakeLock"
-    ]
+    ],
+    "added": "2026-09-01"
   },
   {
     "id": "openapps",
@@ -132,11 +133,12 @@
     "bg": "#000000",
     "fg": "#F0B27A",
     "href": "./vidlunnia/",
-    "version": "1.4",
+    "version": "1.6",
     "category": "creative",
     "needs": [
       "microphone"
-    ]
+    ],
+    "added": "2026-09-02"
   },
   {
     "id": "wiki",
@@ -244,7 +246,8 @@
     "href": "./tgvoice/",
     "version": "1.10",
     "category": "tools",
-    "needs": []
+    "needs": [],
+    "added": "2026-08-21"
   },
   {
     "id": "homin",
@@ -423,7 +426,8 @@
     "href": "./spirit/",
     "version": "1.8",
     "category": "esoterica",
-    "needs": []
+    "needs": [],
+    "added": "2026-09-02"
   },
   {
     "id": "ether",
@@ -1160,7 +1164,8 @@
     "category": "creative",
     "needs": [
       "auth"
-    ]
+    ],
+    "added": "2026-08-16"
   },
   {
     "id": "pins",
@@ -1448,7 +1453,8 @@
       "compass",
       "orientation",
       "wakeLock"
-    ]
+    ],
+    "added": "2026-08-10"
   },
   {
     "id": "sigil",
@@ -1784,7 +1790,8 @@
     "category": "tools",
     "needs": [
       "wakeLock"
-    ]
+    ],
+    "added": "2026-08-13"
   },
   {
     "id": "tarot",
@@ -2479,7 +2486,8 @@
     "category": "creative",
     "needs": [
       "camera"
-    ]
+    ],
+    "added": "2026-08-20"
   },
   {
     "id": "nova",
@@ -2663,7 +2671,8 @@
     "needs": [
       "auth",
       "wakeLock"
-    ]
+    ],
+    "added": "2026-08-18"
   },
   {
     "id": "trail",
@@ -2769,10 +2778,11 @@
     "bg": "#17262A",
     "fg": "#8FE3D8",
     "href": "./zir/",
-    "version": "1.1",
+    "version": "1.4",
     "category": "creative",
     "needs": [
       "camera"
-    ]
+    ],
+    "added": "2026-09-02"
   }
 ]

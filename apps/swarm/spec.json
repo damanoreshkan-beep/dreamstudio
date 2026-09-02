@@ -28,5 +28,6 @@
     "lang": true,
     "install": true,
     "permissions": ["camera"]
-  }
+  },
+  "added": "2026-08-10"
 }
