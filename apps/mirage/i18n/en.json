@@ -73,6 +73,7 @@
   "askMore": "Ask more",
   "eNetwork": "The air went still. Try again.",
   "eFailed": "Nothing formed. Try different words.",
+  "eSignIn": "Sign in to generate.",
   "eRate": "Too many at once. Wait a moment.",
   "eTimeout": "Took too long. Try again.",
   "eBig": "That photo is too large.",

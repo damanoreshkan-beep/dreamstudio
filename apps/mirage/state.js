@@ -10,8 +10,8 @@ import { toEnglish } from "/_rt/translate.js";
 import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { mockArt, toDataURL } from "./bitmap.js";
-import { startJob, follow, cancelJob } from "./race.js";
+import { mockArt, toDataURL, extOf } from "./bitmap.js";
+import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
 import { styleOf } from "./styles.js";
 
 export const MODES = ["make", "edit", "read", "blend", "style"];
@@ -113,7 +113,9 @@ async function followJob(mode, job, run, ctx, seed) {
     base, job, alive,
     onLive: (live) => patch(mode, { live }),
     onSlide: (s) => {
-      mine.push({ ...s, seed: seed + s.n });
+      // the runtime's imagejob (core 1.2.8) replaced the local race.js; it hands the blob instead of an
+      // ext, and the blob must not live on in the slide — the object URL already keeps the bytes reachable
+      mine.push({ url: s.url, w: s.w, h: s.h, by: s.by, n: s.n, ext: extOf(s.blob), seed: seed + s.n });
       patch(mode, { slides: [...mine], more: true, ...(mine.length === 1 ? { idx: 0, phase: "done" } : {}) });
       if (mine.length === 1) {
         if (mode === "make") writeLastGen(s.url, $make.get().prompt).catch(() => {});

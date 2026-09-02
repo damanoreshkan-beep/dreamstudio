@@ -1,10 +1,30 @@
-# The mascot — a feline that does not exist (2026-09-01: Kotyk-Zirka shipped, then the FOX won)
+# The mascot — THE BLACK SMOKE FOX («чорна димова лисичка», owner 2026-09-02)
 
-**Final decision, the same evening: mirage's curled fox.** The owner saw the cat in the picker and
-preferred the fox from mirage's style cards ("мені вона більше подобається"), so the picker's pictures are
+**Final identity: one character — a small fox of black smoke.** Not a material-shifting shape (the cat,
+then mirage's per-material fox, both retired): she IS black smoke, and each theme only lights her its own
+way. The prompt contract (validated on the pods; the loose first cut let lum render a RED fox — the
+"sculpted ONLY from black smoke, dark charcoal monochrome body, no fur texture, no orange" wording is what
+holds her identity):
+
+    a small fox sculpted ONLY from black smoke, dark charcoal monochrome body, no fur texture, no orange,
+    frozen mid-swirl, fine volumetric tendrils, the smoke itself forms the fox, no real fox, sitting curled
+    with a long flowing smoke tail, calm, full body, centred, plenty of empty space around it, no text
+    + the theme's light: lum "on pure black, faint warm amber gold and electric cyan sparks WITHIN the
+    smoke" · paper "on pure white paper, charcoal ink-smoke, gilded gold edge glints" · ink "blooming like
+    ink in clear water on pure white, fine vermilion wisps" · mercury "on pure black, cold silver glints,
+    droplets of liquid chrome caught in the smoke" · plain "plain dark grey studio, neutral grey-black smoke"
+
+Picker thumbs cut by `mascot-tools/fox-thumbs.mjs` (2026-09-02 picks: lum c · paper a · ink a · mercury a ·
+plain b). She is also the face of empty states and the store's hero (the `--ds-mascot` hook). History below.
+
+---
+
+# (history) 2026-09-01: Kotyk-Zirka shipped, then the material fox
+
+**That evening: mirage's curled fox.** The owner saw the cat in the picker and
+preferred the fox from mirage's style cards ("мені вона більше подобається"), so the picker's pictures were
 the fox masters mirage already had (lum, paper, ink, chrome → mercury) plus a clay fox for Просто, cut by
-`docs/research/mascot-tools/fox-thumbs.mjs`. The fox prompt, for the next material: "a fox curled into a
-circle, <material block>, the <material> itself forms the fox, no real fox". Kotyk-Zirka stays below as a
+`docs/research/mascot-tools/fox-thumbs.mjs`. Kotyk-Zirka stays below as a
 record; nothing in the product references it.
 
 ---
