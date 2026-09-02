@@ -116,7 +116,7 @@ function CardPage({ open, onClose, idx, t, loc }) {
 
   const meaning = rev ? c.rev : c.up;
   return html`<dialog id="card" ref=${dref} class="modal" aria-label=${cardName(c, loc)} onClose=${onClose}>
-    <div ref=${boxRef} class="modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 overflow-hidden relative bg-base-100 text-base-content [&_*]:!shadow-none">
+    <div ref=${boxRef} class="modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 overflow-hidden relative bg-base-100 text-base-content">
       <div class="flex flex-col h-full" style="padding-top:calc(env(safe-area-inset-top) + 0.5rem);padding-bottom:env(safe-area-inset-bottom)">
         ${grip}
         <div class="shrink-0 flex items-start justify-between gap-3 px-[var(--ms-pad)] pb-2">
