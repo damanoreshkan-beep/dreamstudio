@@ -70,7 +70,7 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
     { id: "echoes", icon: "lucide:history", label: T(t, "echoes"), attr: { "data-echoes": "" }, onClick: () => S.screen.set("echoes") },
   ] : [];
 
-  return html`<div class="h-full min-h-0 flex flex-col ms-side" data-vd-take=${take ? (take.seeded ? "seeded" : "real") : null} data-vd-phase=${gen.phase} data-vd-voice=${voice}>
+  return html`<div class="vd-root h-full min-h-0 flex flex-col ms-side" data-vd-take=${take ? (take.seeded ? "seeded" : "real") : null} data-vd-phase=${gen.phase} data-vd-voice=${voice}>
     <${Stage} className="flex items-center justify-center p-[var(--ms-gap)]">
       ${prime ? html`<${MicPrime} loc=${loc} reason=${T(t, "micReason")} privacy=${T(t, "micPrivacy")} privacyIcon="lucide:cloud-upload"
         denied=${rec.err === "denied"} unavailable=${rec.err === "unavailable" || rec.err === "unsupported"}
@@ -100,7 +100,7 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
       <${Island} tone="glass" className="flex flex-col gap-2 min-w-0">
         <textarea data-words rows="2" value=${words} spellcheck="false" aria-label=${T(t, "wordsLabel")} placeholder=${T(t, "wordsPlaceholder")}
           onInput=${(e) => $words.set(e.currentTarget.value.slice(0, 400))}
-          class="w-full min-w-0 resize-none bg-transparent text-[0.95rem] leading-snug focus:outline-none placeholder:text-base-content/45"></textarea>
+          class="vd-words w-full min-w-0 resize-none bg-transparent text-[0.95rem] leading-snug focus:outline-none placeholder:text-base-content/45"></textarea>
         ${/* THE VOICE ROW — who speaks: a clone (yours / her / him, any language, styled) or a named speaker of a
              language; the sheet lists them all, the app locale's language first */""}
         <button data-voice-pick class="flex items-center gap-2 w-full min-w-0 text-left h-[var(--ms-ctl)]" onClick=${() => S.screen.set("voices")}>
@@ -147,7 +147,7 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
           <div class=${label}>${T(t, g.key)}</div>
           <div class="flex flex-wrap gap-1.5">
             ${g.voices.map((v) => html`<button key=${v.id} data-named=${v.id} aria-pressed=${voice === v.id}
-              class=${`btn btn-sm rounded-full gap-1 ${voice === v.id ? "btn-primary" : "btn-ghost sf-lift2"}`} onClick=${() => { selectVoice(v.id); closeScreen(); }}>
+              class=${`btn btn-sm rounded-full gap-1 ${voice === v.id ? "btn-primary" : "btn-ghost bg-base-content/5"}`} onClick=${() => { selectVoice(v.id); closeScreen(); }}>
               ${v.name}${v.accent ? html`<span class="font-mono text-[10px] uppercase opacity-70">${T(t, v.accent === "gb" ? "accGb" : "accUs")}</span>` : null}
             </button>`)}
           </div>
