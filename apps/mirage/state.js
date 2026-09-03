@@ -11,7 +11,7 @@ import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { mockArt, toDataURL, extOf } from "/_rt/intake.js";
-import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
+import { startJob, follow, followOne, cancelJob } from "/_rt/imagejob.js";
 import { report } from "/_rt/telemetry.js";
 import { styleOf } from "./styles.js";
 
@@ -257,6 +257,42 @@ export async function readPhoto(ctx) {
     patch("read", { text: out, phase: "done" });
     return true;
   } catch { fail("read", run, "eNetwork"); }
+}
+
+// ── enhance: the picture in view → 4× through zir's own route ────────────────────────────────────────────
+// Owner, 2026-09-03: "додати одразу в цю апку кнопку покращити і заюзати наше апі з апки зір". The same
+// /feed/image/upscale zir runs (the hd race + the quota-free CPU row), the same 1024 cap on the way in, the
+// same measured size on the way back; the slide is replaced IN PLACE (url · w · h · ext, `hd: true`), the
+// original stays alive until the slides are freed, so nothing the user made is lost to its own polish.
+const UPSCALE = `${VPS_PROXY}/image/upscale`;
+/** `{ mode, url, phase: idle|working|done|error, live, error }` — one enhance at a time, for the picture in view. */
+export const $enhance = atom({ mode: "", url: "", phase: "idle", live: null, error: null });
+let enhanceRun = 0, enhanceJob = null;
+export async function enhance(mode) {
+  const st = ATOM[mode]?.get(); const cur = st?.slides?.[st.idx] || st?.slides?.[0];
+  if (!cur || cur.hd || $enhance.get().phase === "working") return;
+  const r = ++enhanceRun;
+  if (enhanceJob) cancelJob(UPSCALE, enhanceJob); enhanceJob = null;
+  $enhance.set({ mode, url: cur.url, phase: "working", live: null, error: null });
+  const fail = (code) => { if (r === enhanceRun) { $enhance.set({ mode, url: cur.url, phase: "error", live: null, error: code }); report("enhance.fail", { reason: code, mode }); } };
+  const land = (out) => {
+    if (r !== enhanceRun) return;
+    const now = ATOM[mode].get();
+    patch(mode, { slides: now.slides.map((s) => (s.url === cur.url ? { ...s, url: out.url, w: out.w, h: out.h, ext: out.ext, by: out.by, hd: true, orig: s.url } : s)) });
+    $enhance.set({ mode, url: out.url, phase: "done", live: null, error: null });
+  };
+  if (gate) { await sleep(350); land({ url: mockArt(cur.seed || 3, 4), w: 3072, h: 4096, ext: "png", by: "gate" }); return; }
+  let sent;
+  try { sent = (await toDataURL(cur.url)).data; } catch { return fail("eFailed"); }
+  if (r !== enhanceRun) return;
+  try { enhanceJob = await startJob(UPSCALE, { image: sent, quality: "hd" }); } catch (e) { return fail(e?.code || "eNetwork"); }
+  if (r !== enhanceRun) { cancelJob(UPSCALE, enhanceJob); return; }
+  const res = await followOne({ base: UPSCALE, job: enhanceJob, alive: () => r === enhanceRun, onLive: (live) => { if (r === enhanceRun) $enhance.set({ ...$enhance.get(), live }); } });
+  enhanceJob = null;
+  if (r !== enhanceRun) return;
+  if (res.status !== "done") return fail(res.status === "busy" ? "eBusy" : res.status === "timeout" ? "eTimeout" : "eFailed");
+  const size = (await sizeOf(res.blob)) || { w: 0, h: 0 };
+  land({ url: res.url, w: size.w, h: size.h, ext: extOf(res.blob), by: res.by });
 }
 
 // ── cancel / sources / hand-offs ─────────────────────────────────────────────────────────────────────

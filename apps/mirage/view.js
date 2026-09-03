@@ -109,6 +109,7 @@ export function mirage({ S, toast }) {
   const elapsed = st.t0 ? Math.round((Date.now() - st.t0) / 1000) : 0;
   // the catalogue for this mode; a chosen model that is no longer offered falls back to auto on screen
   const models = useStore(M.$models);
+  const enh = useStore(M.$enhance);   // the 4× enhance of the picture in view (zir's route); one at a time
   const modelList = M.modelsFor(mode);
   const chosen = opts.model?.[mode] || "auto";
   const modelSel = chosen !== "auto" && !modelList.some((m) => m.id === chosen) && models.at && !models.error ? "auto" : chosen;
@@ -248,9 +249,15 @@ export function mirage({ S, toast }) {
 
         ${hasResult ? html`<div data-actions class="@container flex items-center gap-1.5">
           ${mode === "edit" ? handoff("keep", "lucide:wand-sparkles", T(t, "keep"), M.keepEditing) : handoff("to-edit", "lucide:wand-sparkles", T(t, "toEdit"), () => M.toEdit(cur.url))}
+          ${/* ENHANCE — the picture in view ×4 through zir's route; the pill says what it is doing (Покращую · N s)
+               and, once the slide is the enhanced one, that it is done (Покращено, off) — never a spinner */""}
+          ${(() => { const busy = enh.phase === "working" && enh.mode === mode; const hd = !!cur?.hd; const eta = busy && enh.live?.eta ? Math.max(0, Math.round(enh.live.eta - (enh.live.elapsed || 0))) : null;
+            return html`<button data-act="enhance" aria-busy=${busy ? "true" : null} aria-pressed=${hd ? "true" : "false"} disabled=${hd || busy || working} class="btn btn-sm rounded-full flex-1 min-w-0 gap-1.5"
+              aria-label=${T(t, hd ? "enhanced" : busy ? "enhancing" : "enhance")} onClick=${() => M.enhance(mode)}>${Icon(hd ? "lucide:check" : "lucide:scan-eye", "text-base shrink-0")}<span class="truncate @max-[15rem]:hidden">${T(t, hd ? "enhanced" : busy ? "enhancing" : "enhance")}${eta != null ? html` <span class="tabular-nums font-mono text-xs opacity-70">${eta} s</span>` : ""}</span></button>`; })()}
           ${act("save", "lucide:download", T(t, "save"), save)}
           ${act("share", "lucide:share-2", T(t, "share"), share)}
         </div>` : null}
+        ${enh.phase === "error" && enh.mode === mode ? html`<div data-enhance-error class="text-sm text-error">${T(t, enh.error || "eFailed")}</div>` : null}
 
         <div data-field class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-col gap-1 focus-within:ring-1 focus-within:ring-base-content/25">
           <textarea id="prompt" rows="2" aria-label=${placeholder}
