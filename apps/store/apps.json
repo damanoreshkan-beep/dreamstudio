@@ -606,7 +606,7 @@
     "bg": "#17262A",
     "fg": "#8FE3D8",
     "href": "./zir/",
-    "version": "1.7",
+    "version": "1.9",
     "category": "creative",
     "needs": [
       "camera"
@@ -1515,11 +1515,13 @@
         "Frame"
       ]
     },
-    "shots": [],
+    "shots": [
+      "frame"
+    ],
     "bg": "#1F120C",
     "fg": "#F2784B",
     "href": "./rukh/",
-    "version": "1.0",
+    "version": "1.2",
     "category": "creative",
     "needs": [
       "camera"
@@ -2552,7 +2554,7 @@
     "bg": "#221C29",
     "fg": "#C9A7E0",
     "href": "./mirage/",
-    "version": "1.11",
+    "version": "1.13",
     "category": "creative",
     "needs": [
       "camera"
