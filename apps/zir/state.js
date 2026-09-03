@@ -13,7 +13,7 @@ import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
-import { mockArt, toDataURL, sizeOf, extOf } from "./bitmap.js";
+import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";
 
 const BASE = `${VPS_PROXY}/image/upscale`;
 const OPTS_KEY = "ms:zir:opts";

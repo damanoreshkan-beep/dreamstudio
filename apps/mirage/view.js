@@ -20,7 +20,7 @@ import { suggest } from "/_rt/ai-text.js";
 import { downloadUrl, shareFile } from "/_rt/apk.js";
 import { Lightbox } from "./lightbox.js";
 import { usePromptHistory, HistorySheet } from "./history.js";
-import { Chooser, Camera } from "./source.js";
+import { Chooser, Camera } from "/_rt/intake.js";
 import { STYLES, styleOf, styleThumb } from "./styles.js";
 import * as M from "./state.js";
 
@@ -122,8 +122,8 @@ export function mirage({ S, toast }) {
   const frame = "max-w-full max-h-full rounded-[var(--ms-r)] object-contain sf-raised";
   const slot = (inner) => html`<div class="absolute inset-0 flex items-center justify-center p-[var(--ms-gap)] pb-6">${inner}</div>`;
   const stage = () => {
-    if (mode !== "make" && st.phase === "empty") return html`<${Chooser} t=${t} onPick=${(u) => M.setSource(mode, u)} onCamera=${() => M.patch(mode, { phase: "camera" })} />`;
-    if (mode !== "make" && st.phase === "camera") return html`<${Camera} t=${t} loc=${loc} S=${S} reason=${T(t, mode === "read" ? "primeReasonRead" : mode === "blend" ? "primeReasonBlend" : mode === "style" ? "primeReasonStyle" : "primeReason")}
+    if (mode !== "make" && st.phase === "empty") return html`<${Chooser} loc=${loc} onPick=${(u) => M.setSource(mode, u)} onCamera=${() => M.patch(mode, { phase: "camera" })} />`;
+    if (mode !== "make" && st.phase === "camera") return html`<${Camera} loc=${loc} privacy=${T(t, "primePrivacy")} onSettings=${() => S.screen.set("perms")} reason=${T(t, mode === "read" ? "primeReasonRead" : mode === "blend" ? "primeReasonBlend" : mode === "style" ? "primeReasonStyle" : "primeReason")}
       onCapture=${(u) => twoSlot ? M.setSlot(mode, st.cam || "a", u) : M.setSource(mode, u)} onClose=${() => M.patch(mode, { phase: twoSlot ? "ready" : "empty", cam: null })} />`;
     const dust = working && !slides.length ? html`<div class="absolute inset-0 rounded-[var(--ms-r)] overflow-hidden sf-raised"><${Dust} active=${true} progress=${live.pct ?? Math.min(0.9, elapsed / 40)} /></div>` : null;
     const caption = working ? html`<div data-working class="absolute inset-x-0 bottom-[var(--ms-pad)] flex flex-col items-center gap-1 pointer-events-none text-white">
@@ -153,7 +153,7 @@ export function mirage({ S, toast }) {
         ${st[sl] ? html`<${Fragment}>
           <img data-result src=${st[sl]} alt="" class=${frame} onClick=${() => S.screen.set("view")} />
           <button data-slot-clear=${sl} aria-label=${T(t, "clearSlot")} class="absolute top-2 left-2 btn btn-circle btn-xs bg-black/50 text-white border-0" onClick=${() => M.clearSlot(mode, sl)}>${Icon("lucide:x", "text-sm")}</button>
-        </${Fragment}>` : html`<${Chooser} t=${t} compact onPick=${(u) => M.setSlot(mode, sl, u)} onCamera=${() => M.patch(mode, { phase: "camera", cam: sl })} />`}
+        </${Fragment}>` : html`<${Chooser} loc=${loc} compact onPick=${(u) => M.setSlot(mode, sl, u)} onCamera=${() => M.patch(mode, { phase: "camera", cam: sl })} />`}
         ${mode === "style" ? html`<span data-slot-label=${sl} class="absolute top-2 right-2 rounded-full bg-black/50 px-2 py-0.5 font-mono uppercase tracking-wide text-[0.62rem] text-white">${T(t, sl === "a" ? "slotPhoto" : "slotStyle")}</span>` : null}
       </div>`)}
     </div>`;

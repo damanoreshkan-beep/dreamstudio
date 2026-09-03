@@ -3,17 +3,15 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "zir",
-  version: "7b5a465bc7",
+  version: "8a27d3f18c",
   precache: [
     "./",
-    "./bitmap.js",
     "./i18n/en.json",
     "./i18n/uk.json",
     "./icon.svg",
     "./icons/apple-touch-icon.png",
     "./index.html",
     "./manifest.json",
-    "./source.js",
     "./spec.json",
     "./state.js",
     "./view.js",
@@ -37,6 +35,7 @@ self.MS = {
     "/_rt/i18n.js",
     "/_rt/imagejob.js",
     "/_rt/index.js",
+    "/_rt/intake.js",
     "/_rt/lastgen.js",
     "/_rt/material.js",
     "/_rt/notify.js",

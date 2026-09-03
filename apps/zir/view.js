@@ -12,7 +12,7 @@ import { gate } from "/_rt/gate.js";
 import { GlStage } from "/_rt/glstage.js";
 import { Segmented, Island, Sheet, Stage } from "/_rt/ui.js";
 import { downloadUrl, shareFile } from "/_rt/apk.js";
-import { Chooser, Camera } from "./source.js";
+import { Chooser, Camera } from "/_rt/intake.js";
 import * as M from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -113,8 +113,8 @@ export function zir({ S, toast }) {
 
   const frame = "max-w-full max-h-full rounded-[var(--ms-r)] object-contain sf-raised";
   const stage = () => {
-    if (st.phase === "empty") return html`<${Chooser} t=${t} onPick=${M.setSource} onCamera=${() => M.patch({ phase: "camera" })} />`;
-    if (st.phase === "camera") return html`<${Camera} t=${t} loc=${loc} S=${S} reason=${T(t, "primeReason")} onCapture=${M.setSource} onClose=${() => M.patch({ phase: "empty" })} />`;
+    if (st.phase === "empty") return html`<${Chooser} loc=${loc} onPick=${M.setSource} onCamera=${() => M.patch({ phase: "camera" })} />`;
+    if (st.phase === "camera") return html`<${Camera} loc=${loc} reason=${T(t, "primeReason")} privacy=${T(t, "primePrivacy")} onSettings=${() => S.screen.set("perms")} onCapture=${M.setSource} onClose=${() => M.patch({ phase: "empty" })} />`;
     if (hasResult) return html`<div class="absolute inset-0 p-[var(--ms-gap)]">
       <div class="relative w-full h-full"><${Compare} before=${st.src} after=${st.out.url} ratio=${st.inW && st.inH ? st.inW / st.inH : 0} caption=${px} t=${t} onOpen=${() => S.screen.set("view")} /></div>
     </div>`;

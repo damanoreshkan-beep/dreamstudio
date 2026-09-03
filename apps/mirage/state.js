@@ -10,7 +10,7 @@ import { toEnglish } from "/_rt/translate.js";
 import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { mockArt, toDataURL, extOf } from "./bitmap.js";
+import { mockArt, toDataURL, extOf } from "/_rt/intake.js";
 import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
 import { styleOf } from "./styles.js";
 
