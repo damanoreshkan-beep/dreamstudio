@@ -149,14 +149,17 @@ export async function generate() {
   } catch (e) { fail(run, e?.code || "eFailed"); return; }
   if (run !== runs) { cancelJob(BASE, id); return; }
   job = id;
+  // the Space that is filming rides the pending JSON as `phase`; the sealed tunnel does not carry the x-video-by
+  // header back (the live drive showed by=""), so the last phase seen names the clip's maker
+  let by = "";
   const r = await followOne({ base: BASE, job: id, alive: () => run === runs,
-    onLive: (m) => { if (run === runs) setJob({ eta: m.eta ?? null, pct: m.pct ?? null, elapsed: m.elapsed || 0 }); } });
+    onLive: (m) => { if (run === runs) { if (m.phase) by = m.phase; setJob({ eta: m.eta ?? null, pct: m.pct ?? null, elapsed: m.elapsed || 0 }); } } });
   if (run !== runs) return;
   job = null;
   if (r.status !== "done") { fail(run, r.status === "busy" ? "eBusy" : r.status === "timeout" ? "eTimeout" : "eFailed"); return; }
   // the bytes must be a clip: the edge answers video/* with x-video-*; anything else is not a result
   if (!r.blob || !r.blob.type.startsWith("video/") || r.blob.size < MIN_CLIP_BYTES) { fail(run, "eFailed"); return; }
-  land({ blob: r.blob, url: r.url, by: r.by, words, pic: src });
+  land({ blob: r.blob, url: r.url, by: r.by || by, words, pic: src });
 }
 
 /** A clip from the collection goes on the stage (muted autoplay; the transport unmutes). */
