@@ -20,7 +20,7 @@ import { gate } from "/_rt/gate.js";
 import { CameraPrime } from "/_rt/camprime.js";
 import { readLastGen } from "/_rt/lastgen.js";
 import { toEnglish } from "/_rt/translate.js";
-import { suggest } from "/_rt/ai-text.js";
+import { suggestPrompt } from "/_rt/ai-text.js";
 import { downloadUrl } from "/_rt/apk.js";
 import { Lightbox } from "./lightbox.js";
 import { usePromptHistory, HistorySheet } from "./history.js";
@@ -173,13 +173,14 @@ export function retouch({ S, toast }) {
   const handed = useStore(editHandoff);
   useEffect(() => { if (handed?.url) { stopCam(); setEnabled(false); loadSource(handed.url); setPrompt(handed.prompt || ""); editHandoff.set(null); } }, [handed]);
 
-  // "Surprise me" — the AI writes a fresh edit instruction (in the active locale) from a random spark; toEnglish
-  // converts it for the model at edit() time. Fail-open: a miss leaves the field as-is. The gate uses a fixed line.
+  // "Surprise me" — the AI writes a fresh edit instruction from a random spark: English under the hood, the
+  // reader's language in the field (suggestPrompt seeds the pair, so edit() sends the model's own English).
+  // Fail-open: a miss leaves the field as-is. The gate uses a fixed line.
   const dream = async () => {
     if (suggesting || phase === "editing") return;
     if (gate) { setPrompt(gateDream); return; }
     setSuggesting(true);
-    try { const out = await suggest("edit", SPARKS[Math.floor(Math.random() * SPARKS.length)], loc); if (out) setPrompt(out); }
+    try { const p = await suggestPrompt("edit", SPARKS[Math.floor(Math.random() * SPARKS.length)], loc); if (p) setPrompt(p.local); }
     finally { setSuggesting(false); }
   };
 
@@ -197,7 +198,7 @@ export function retouch({ S, toast }) {
     try { image = await toEditableDataURL(srcUrl); } catch { return fail(run, "edFailed"); }
     if (run !== runRef.current) return;
     if (image.length > 9_000_000) return fail(run, "eBig");                       // ~6.7 MB decoded — over the proxy's body cap
-    let pEn = p; try { pEn = await toEnglish(p); } catch { /* fail-open: send the original — the edit models prefer English but a native instruction still runs */ }
+    let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail(run, e.code || "eTranslate"); }   // English or nothing: a native instruction at a Space is the defect (2026-09-03)
     if (run !== runRef.current) return;
     try {
       // Async job + poll, exactly like Уяви: POST starts the cascade, short polls never trip the proxy's 60s cap.

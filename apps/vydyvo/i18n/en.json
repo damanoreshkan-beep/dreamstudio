@@ -39,6 +39,7 @@
   "eTimeout": "The picture took too long. Trying later",
   "eFailed": "Nothing formed. Trying later",
   "eSignIn": "Sign in so new pictures can be painted",
+  "eTranslate": "The words would not translate. Trying later",
   "notifWorking": "Painting a new picture",
   "l_1": "Everything that matters arrives quietly",
   "l_2": "Light does not fight the dark; it simply is",

@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "hoard",
-  version: "abe0a3666e",
+  version: "22cb4dc5f2",
   precache: [
     "./",
     "./hoard.frag",
@@ -16,6 +16,7 @@ self.MS = {
     "./spec.json",
     "./view.js",
     "/_rt/account.js",
+    "/_rt/ai-core.js",
     "/_rt/apk.js",
     "/_rt/auth.js",
     "/_rt/authwall.js",

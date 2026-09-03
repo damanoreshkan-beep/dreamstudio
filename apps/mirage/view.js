@@ -16,7 +16,7 @@ import { gate } from "/_rt/gate.js";
 import { Dust } from "/_rt/dust.js";
 import { GlStage } from "/_rt/glstage.js";
 import { Segmented, Island, Sheet, Stage } from "/_rt/ui.js";
-import { suggest } from "/_rt/ai-text.js";
+import { suggestPrompt } from "/_rt/ai-text.js";
 import { downloadUrl, shareFile } from "/_rt/apk.js";
 import { Lightbox } from "./lightbox.js";
 import { usePromptHistory, HistorySheet } from "./history.js";
@@ -94,7 +94,8 @@ export function mirage({ S, toast }) {
     if (working) return;
     if (gate) { setText(mode === "make" ? M.GATE_PROMPT : GATE_EDIT); return; }
     const list = SPARKS[mode];
-    try { const out = await suggest(mode === "make" ? "dream" : "edit", list[Math.floor(Math.random() * list.length)], loc); if (out) setText(out); } catch { /* fail-open */ }
+    // the reader sees their language; the send is the model's own English (ai-text.js suggestPrompt, 2026-09-03)
+    try { const p = await suggestPrompt(mode === "make" ? "dream" : "edit", list[Math.floor(Math.random() * list.length)], loc); if (p) setText(p.local); } catch { /* fail-open */ }
   };
   const save = async () => { if (!shown) return; try { await downloadUrl(shown, `mirage-${cur?.seed || Date.now()}.${cur?.ext || "jpg"}`); toast?.(T(t, "saved")); } catch { toast?.(T(t, "eNetwork")); } };
   const share = async () => { if (!shown) return; try { const r = await shareFile(await (await fetch(shown)).blob(), `mirage-${cur?.seed || Date.now()}.${cur?.ext || "jpg"}`); if (r === "saved") toast?.(T(t, "saved")); } catch { toast?.(T(t, "eNetwork")); } };

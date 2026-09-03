@@ -18,7 +18,7 @@ const CAP = 24;      // frames kept (blobs in IndexedDB) — an hour of 2K at tw
 const AHEAD = 2;     // fresh frames kept ready before the next race starts
 const K = 2;         // pictures per race — a steady trickle, half the races of mirage's 4 for the same spend per race
 // how long to leave the GPU alone after each refusal; the collection carries the show meanwhile
-const BACKOFF = { eRate: 120_000, eBusy: 300_000, eTimeout: 300_000, eFailed: 180_000, eNetwork: 60_000, eSignIn: 600_000 };
+const BACKOFF = { eRate: 120_000, eBusy: 300_000, eTimeout: 300_000, eFailed: 180_000, eNetwork: 60_000, eSignIn: 600_000, eTranslate: 60_000 };
 // no preset lives here — the farm THEME is the world (owner 2026-09-02: "у нас все тема рішає")
 const DEFAULT = { prompt: "", every: 120, quality: "2k" };
 export const EVERY = [30, 60, 120, 300];
@@ -188,14 +188,18 @@ async function generate() {
   let subject = o.prompt.trim(), scene = "";
   const userDriven = !!subject;
   const painted = $frames.get().map((f) => f.subject).filter(Boolean).slice(-8);
+  // ENGLISH UNDER THE HOOD (owner, 2026-09-03: "під капотом має бути en"): the scene mode answers English
+  // in every locale (the labels are English too — the owner's words inside may be any language), and a
+  // scene that still is not English never runs: toEnglish either makes it English or throws, and the frame
+  // waits out a short backoff instead of painting "дуже дивні картинки" from a Ukrainian prompt.
   const spark = [
-    userDriven ? `Сюжет власника (зобрази саме це): ${subject}.` : `У дусі: ${world.subject}.`,
-    painted.length ? `Вже було: ${painted.join(" | ")}` : "",
+    userDriven ? `Owner's subject (depict exactly this): ${subject}.` : `In the spirit of: ${world.subject}.`,
+    painted.length ? `Already painted: ${painted.join(" | ")}` : "",
   ].filter(Boolean).join("\n");
   try { scene = jsonField(await suggest("scene", spark, ctxRef?.loc || "uk"), "scene").slice(0, 300); } catch { /* */ }
   if (run !== runs) return;
   if (scene) subject = scene;
-  if (subject) { try { subject = await toEnglish(subject); } catch { /* the Spaces prefer English; the original still runs */ } }
+  if (subject) { try { subject = await toEnglish(subject); } catch (e) { return fail(run, e.code || "eTranslate"); } }
   if (run !== runs) return;
   const prompt = composePrompt(subject, world, mode, userDriven);
   // The SCREEN's ratio, not the window's: the show covers the whole panel (0:0 — fullscreen manifests, the

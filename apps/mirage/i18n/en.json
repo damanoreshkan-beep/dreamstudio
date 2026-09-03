@@ -83,6 +83,7 @@
   "eBusy": "Every GPU is taken. Try again in a minute, or switch to Fast.",
   "eRead": "Could not read it. Try another photo.",
   "eReadBusy": "The reader is busy. The photo is fine — try again in a minute.",
+  "eTranslate": "The words would not translate. Try again.",
   "notifDone": "Your image is ready",
   "profTagline": "an image out of the air",
   "profTheme": "Dark theme",

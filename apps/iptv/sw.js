@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "iptv",
-  version: "1ac9fe71d7",
+  version: "18fe1fe6bb",
   precache: [
     "./",
     "./i18n/en.json",
@@ -15,6 +15,7 @@ self.MS = {
     "./spec.json",
     "./view.js",
     "/_rt/account.js",
+    "/_rt/ai-core.js",
     "/_rt/apk.js",
     "/_rt/auth.js",
     "/_rt/authwall.js",

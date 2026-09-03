@@ -152,7 +152,9 @@ export async function conjure(ctx) {
   if (gate) { await sleep(90); if (run === runs.make) patch("make", { slides: [seed, seed + 1, seed + 2, seed + 3].map((s) => ({ url: mockArt(s), seed: s })), phase: "done" }); return; }
   notifyAsk();
   patch("make", { live: { stage: "translate" } });
-  let pEn = p; try { pEn = await toEnglish(p); } catch { /* the Spaces prefer English; the original still runs */ }
+  // English under the hood (2026-09-03): the prompt becomes English or the run stops — a Ukrainian prompt at a
+  // Space is the defect, not a shortfall; a wand suggestion sends as the model's own English (translate.js)
+  let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail("make", run, e.code || "eTranslate"); }
   if (run !== runs.make) return;
   // The style card: its English block rides AFTER the subject, the same order the farm's own icons were
   // art-directed (subject first, then the material) — apps/mirage/styles.js.
@@ -178,7 +180,7 @@ export async function rework(ctx) {
   if (run !== runs.edit) return;
   if (image.length > 9_000_000) return fail("edit", run, "eBig");
   patch("edit", { live: { stage: "translate" } });
-  let pEn = p; try { pEn = await toEnglish(p); } catch { /* */ }
+  let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail("edit", run, e.code || "eTranslate"); }
   if (run !== runs.edit) return;
   await race("edit", { image, prompt: pEn, seed, k: K, model: modelFor("edit") }, run, ctx, seed);
 }
@@ -209,7 +211,7 @@ async function fuse(mode, ctx) {
   if (run !== runs[mode]) return;
   if (images.some((i) => i.length > 9_000_000)) return fail(mode, run, "eBig");
   patch(mode, { live: { stage: "translate" } });
-  let pEn = p; try { pEn = await toEnglish(p); } catch { /* */ }
+  let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail(mode, run, e.code || "eTranslate"); }
   if (run !== runs[mode]) return;
   await race(mode, { images, prompt: pEn, seed, k: K, model: modelFor(mode) }, run, ctx, seed);
 }
