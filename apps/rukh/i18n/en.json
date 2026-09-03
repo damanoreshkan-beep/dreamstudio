@@ -45,5 +45,6 @@
   "eTimeout": "The clip took too long. Try again",
   "eFailed": "Nothing came back. Try other words",
   "eBig": "The photo is too large. Pick a smaller one",
-  "eSignIn": "Sign in to shoot a clip"
+  "eSignIn": "Sign in to shoot a clip",
+  "eUnplayable": "This browser cannot play the clip. Save or share it — the file is intact"
 }

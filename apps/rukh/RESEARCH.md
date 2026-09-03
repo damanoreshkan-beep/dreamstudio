@@ -81,9 +81,14 @@ options sheet (`data-model`, `data-models-check`, `shortName`), the sources from
 
 ## UNVERIFIED — do not lean on
 
-- Whether LTX-2.3's clip carries an AUDIO track through the worker: the in-page `webkitAudioDecodedByteCount`
-  probe said `false` at metadata time, which proves nothing (no decode has happened yet). The phone plays
-  whatever track is there; the app claims nothing about sound.
+- ~~Whether LTX-2.3's clip carries an AUDIO track~~ — VERIFIED with ffprobe on the media container
+  (2026-09-03 evening): LTX-2.3 = h264 High yuv420p 1536×1024 24 fps **+ AAC LC**; Wan 2.2 5B = h264 High
+  yuv420p 896², no audio. Both play on Android Chrome; the eye's headless Chromium has no H.264 (its
+  `video.error.code = 4` in `vps/drive-rukh.mjs` is the build, not the file). Every clip is now re-encoded
+  by the media process (`edge/norm.js`: H.264 Main, yuv420p, AAC, faststart) so a Space switching its
+  writer (diffusers' `export_to_video` defaults to OpenCV `mp4v`) can never reach a phone.
+- The bytes behind the blob AFTER the sealed tunnel: `video/mp4`, 407 756 B, `ftypisom` (drive-rukh, live
+  app, sealed probe session) — the transport delivers the file intact.
 - `Upsampler/wan-2-2-5b-video` with an image (its `gr.Image` is optional and the code path is the same, but
   the i2v probe ran on the 14B Space and LTX only).
 - `hugging-apps/cmd-i2v-demo` (≤ 60 s declared, Cosmos-based) and `linoyts/wan2-2-i2v-rCM` — catalogued, not
