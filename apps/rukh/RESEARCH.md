@@ -87,6 +87,8 @@ options sheet (`data-model`, `data-models-check`, `shortName`), the sources from
   `video.error.code = 4` in `vps/drive-rukh.mjs` is the build, not the file). Every clip is now re-encoded
   by the media process (`edge/norm.js`: H.264 Main, yuv420p, AAC, faststart) so a Space switching its
   writer (diffusers' `export_to_video` defaults to OpenCV `mp4v`) can never reach a phone.
+- The re-encode, measured live: an LTX clip 810 057 B → 915 370 B (H.264 Main + AAC LC, faststart) in
+  872 ms on the media container; the whole request answered in 28 s.
 - The bytes behind the blob AFTER the sealed tunnel: `video/mp4`, 407 756 B, `ftypisom` (drive-rukh, live
   app, sealed probe session) — the transport delivers the file intact.
 - `Upsampler/wan-2-2-5b-video` with an image (its `gr.Image` is optional and the code path is the same, but
