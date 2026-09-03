@@ -10,7 +10,7 @@ import { toEnglish } from "/_rt/translate.js";
 import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { mockArt, toDataURL, extOf } from "/_rt/intake.js";
+import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";   // sizeOf: the enhanced slide's measured size (the client log caught its absence live, 2026-09-03)
 import { startJob, follow, followOne, cancelJob } from "/_rt/imagejob.js";
 import { report } from "/_rt/telemetry.js";
 import { styleOf } from "./styles.js";
@@ -291,8 +291,10 @@ export async function enhance(mode) {
   enhanceJob = null;
   if (r !== enhanceRun) return;
   if (res.status !== "done") return fail(res.status === "busy" ? "eBusy" : res.status === "timeout" ? "eTimeout" : "eFailed");
-  const size = (await sizeOf(res.blob)) || { w: 0, h: 0 };
-  land({ url: res.url, w: size.w, h: size.h, ext: extOf(res.blob), by: res.by });
+  try {
+    const size = (await sizeOf(res.blob)) || { w: 0, h: 0 };
+    land({ url: res.url, w: size.w, h: size.h, ext: extOf(res.blob), by: res.by });
+  } catch (e) { report("enhance.land", { msg: e?.message || String(e) }); fail("eFailed"); }   // a landing that throws is an error on the screen, never a silent rejection
 }
 
 // ── cancel / sources / hand-offs ─────────────────────────────────────────────────────────────────────
