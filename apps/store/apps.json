@@ -61,7 +61,7 @@
     "bg": "#000000",
     "fg": "#B9C8F2",
     "href": "./vydyvo/",
-    "version": "1.20",
+    "version": "1.21",
     "category": "creative",
     "needs": [
       "wakeLock"
@@ -133,7 +133,7 @@
     "bg": "#000000",
     "fg": "#F0B27A",
     "href": "./vidlunnia/",
-    "version": "1.6",
+    "version": "1.9",
     "category": "creative",
     "needs": [
       "microphone"
@@ -244,7 +244,7 @@
     "bg": "#0A0A0C",
     "fg": "#E0A458",
     "href": "./tgvoice/",
-    "version": "1.10",
+    "version": "1.11",
     "category": "tools",
     "needs": [],
     "added": "2026-08-21"
@@ -424,7 +424,7 @@
     "bg": "#000000",
     "fg": "#F2B84B",
     "href": "./spirit/",
-    "version": "1.8",
+    "version": "1.9",
     "category": "esoterica",
     "needs": [],
     "added": "2026-09-02"
@@ -576,6 +576,42 @@
       "orientation",
       "wakeLock"
     ]
+  },
+  {
+    "id": "zir",
+    "title": "Зір",
+    "titles": {
+      "en": "Zir",
+      "uk": "Зір"
+    },
+    "tagline": "зір для картинки",
+    "taglines": {
+      "en": "sight for a picture",
+      "uk": "зір для картинки"
+    },
+    "glyph": "lucide:scan-eye",
+    "art": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2\"/><path d=\"M17 3h2a2 2 0 0 1 2 2v2\"/><path d=\"M21 17v2a2 2 0 0 1-2 2h-2\"/><path d=\"M7 21H5a2 2 0 0 1-2-2v-2\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><path d=\"M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0\"/>",
+    "icon": true,
+    "screens": {
+      "en": [
+        "Stage"
+      ],
+      "uk": [
+        "Сцена"
+      ]
+    },
+    "shots": [
+      "stage"
+    ],
+    "bg": "#17262A",
+    "fg": "#8FE3D8",
+    "href": "./zir/",
+    "version": "1.6",
+    "category": "creative",
+    "needs": [
+      "camera"
+    ],
+    "added": "2026-09-02"
   },
   {
     "id": "pwned",
@@ -1160,7 +1196,7 @@
     "bg": "#1B1114",
     "fg": "#C4687A",
     "href": "./persona/",
-    "version": "1.11",
+    "version": "1.12",
     "category": "creative",
     "needs": [
       "auth"
@@ -1446,7 +1482,7 @@
     "bg": "#101014",
     "fg": "#FACC15",
     "href": "./swarm/",
-    "version": "1.10",
+    "version": "1.11",
     "category": "play",
     "needs": [
       "camera",
@@ -1786,7 +1822,7 @@
     "bg": "#0A0A0B",
     "fg": "#6EE7A0",
     "href": "./wall/",
-    "version": "1.10",
+    "version": "1.11",
     "category": "tools",
     "needs": [
       "wakeLock"
@@ -2482,7 +2518,7 @@
     "bg": "#221C29",
     "fg": "#C9A7E0",
     "href": "./mirage/",
-    "version": "1.10",
+    "version": "1.11",
     "category": "creative",
     "needs": [
       "camera"
@@ -2666,7 +2702,7 @@
     "bg": "#0B1424",
     "fg": "#5B8DEF",
     "href": "./tide/",
-    "version": "1.10",
+    "version": "1.11",
     "category": "sound",
     "needs": [
       "auth",
@@ -2750,39 +2786,5 @@
     "needs": [
       "wakeLock"
     ]
-  },
-  {
-    "id": "zir",
-    "title": "zir",
-    "titles": {
-      "en": "zir",
-      "uk": "zir"
-    },
-    "tagline": "зір для картинки",
-    "taglines": {
-      "en": "sight for a picture",
-      "uk": "зір для картинки"
-    },
-    "glyph": "lucide:scan-eye",
-    "art": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2\"/><path d=\"M17 3h2a2 2 0 0 1 2 2v2\"/><path d=\"M21 17v2a2 2 0 0 1-2 2h-2\"/><path d=\"M7 21H5a2 2 0 0 1-2-2v-2\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><path d=\"M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0\"/>",
-    "icon": true,
-    "screens": {
-      "en": [
-        "Stage"
-      ],
-      "uk": [
-        "Сцена"
-      ]
-    },
-    "shots": [],
-    "bg": "#17262A",
-    "fg": "#8FE3D8",
-    "href": "./zir/",
-    "version": "1.4",
-    "category": "creative",
-    "needs": [
-      "camera"
-    ],
-    "added": "2026-09-02"
   }
 ]

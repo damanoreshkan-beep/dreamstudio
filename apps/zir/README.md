@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="icon.svg" width="84" height="84" alt="zir">
+<img src="icon.svg" width="84" height="84" alt="Зір">
 
-# zir
+# Зір
 
 **зір для картинки**
 

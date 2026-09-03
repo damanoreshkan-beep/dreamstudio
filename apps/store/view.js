@@ -42,7 +42,18 @@ const shotUrl = (a, tab, light) => `./assets/shot-${a.id}--${tab}${light ? "--li
 // apps.json by the manifest), so the sections group themselves — the store never hard-codes where an app goes.
 const CATS = ["science", "feeds", "tools", "sound", "hackrf", "creative", "money", "wellness", "play", "esoterica"];
 const catKey = (c) => "cat" + c[0].toUpperCase() + c.slice(1);
-const FEATURED = (spec.featured || []).map((id) => apps.find((a) => a.id === id)).filter(Boolean);
+// TODAY (owner, 2026-09-03: "апки додаватись автоматом … створені впродовж 48 годин, а в цій рубриці
+// показується одна стара"): the stack is NEWBORN + CURATED. An app born in the last TODAY_DAYS (its `added`
+// stamp, see FRESH below — day granularity, so "48 hours" = today or yesterday) leads the stack by itself,
+// newest first, and becomes the hero; `spec.featured` is the editors' list and follows, minus any app the
+// birthday already placed. Nobody edits `featured` to announce a launch, and a launch leaves the top by
+// ageing into the curated order — or out of it. The hero's eyebrow says WHEN for a newborn, not "premium".
+const TODAY_DAYS = 2;
+const ageDays = (a) => Math.max(0, Math.floor((Date.now() - Date.parse(a.added + "T00:00:00")) / 86400000));
+const isNewborn = (a) => !!a.added && ageDays(a) < TODAY_DAYS;
+const NEWBORN = apps.filter(isNewborn).sort((x, y) => y.added.localeCompare(x.added) || x.title.localeCompare(y.title, "uk"));
+const CURATED = (spec.featured || []).map((id) => apps.find((a) => a.id === id)).filter((a) => a && !isNewborn(a));
+const FEATURED = [...NEWBORN, ...CURATED];
 const isFeatured = (a) => FEATURED.some((f) => f.id === a.id);
 const ROWS_PER_SECTION = 3;
 // FRESH ARRIVALS (owner, 2026-09-02: "рубрика свіжі новинки … слайди по 3 … щоб оновлювалось автоматом, а
@@ -52,7 +63,6 @@ const ROWS_PER_SECTION = 3;
 // new app joins by being scaffolded; an old one leaves by ageing. An app without `added` (the farm before
 // the split) is simply never fresh. Nothing is ever edited here to add or remove one.
 const FRESH_DAYS = 21, FRESH_MAX = 9, PER_SLIDE = 3;
-const ageDays = (a) => Math.max(0, Math.floor((Date.now() - Date.parse(a.added + "T00:00:00")) / 86400000));
 const FRESH = apps.filter((a) => a.added && ageDays(a) <= FRESH_DAYS)
   .sort((x, y) => y.added.localeCompare(x.added) || x.title.localeCompare(y.title, "uk")).slice(0, FRESH_MAX);
 const SLIDES = Array.from({ length: Math.ceil(FRESH.length / PER_SLIDE) }, (_, i) => FRESH.slice(i * PER_SLIDE, i * PER_SLIDE + PER_SLIDE));
@@ -166,11 +176,17 @@ export function store({ S, openScreen, closeScreen }) {
   // sentence; with no slogan the line simply is not there. Its width answers itself — head.html's container
   // query grows the words and stands the second capture (the other theme) beside the first past 34rem.
   const sloganOf = (a) => t?.["slogan_" + a.id] || "";
+  // WHEN, in words the reader already thinks in: "сьогодні" · "вчора" · "3 дні тому" · "2 тижні тому".
+  const rtf = new Intl.RelativeTimeFormat(locale === "uk" ? "uk" : "en", { numeric: "auto" });
+  const whenOf = (a) => { const d = ageDays(a); return d < 7 ? rtf.format(-d, "day") : rtf.format(-Math.round(d / 7), "week"); };
+  // The eyebrow of a Today card: a newborn says WHEN it was born (the reason it is here), a curated app says
+  // "premium" (the editors' reason) — both followed by the category.
+  const eyebrowOf = (a) => `${isNewborn(a) ? whenOf(a) : T(t, "premium")} · ${T(t, catKey(a.category))}`;
   const Featured = (a) => { const tab = a.shots?.[0]; const slogan = sloganOf(a); return html`<article key=${a.id} class="st-hero relative rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
-    <button data-featured data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
+    <button data-featured data-newborn=${isNewborn(a) ? "1" : null} data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
     <div class="st-hero-body relative flex items-stretch gap-3 p-[var(--ms-pad)] pointer-events-none">
       <div class="st-hero-text min-w-0 flex-1 flex flex-col gap-1.5">
-        <div class="text-[0.58rem] font-mono uppercase tracking-[.14em] text-secondary">${T(t, "premium")} · ${T(t, catKey(a.category))}</div>
+        <div class="text-[0.58rem] font-mono uppercase tracking-[.14em] text-secondary">${eyebrowOf(a)}</div>
         <div class="flex items-center gap-2.5 min-w-0">
           ${Tile(a, "w-10 h-10")}
           <span class="st-hero-name font-bold text-[1.05rem] leading-tight truncate">${nameOf(a)}</span>
@@ -189,11 +205,11 @@ export function store({ S, openScreen, closeScreen }) {
   // крихітно"): the capture is never cropped — a small phone at its own 384:832 aspect on the left, the
   // words in a quiet column beside it. No tagline here; the hero and the app page carry the prose.
   const FeaturedTall = (a) => { const shot = firstShot(a); return html`<article key=${a.id} class="relative h-full rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
-    <button data-featured data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
+    <button data-featured data-newborn=${isNewborn(a) ? "1" : null} data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)} class="absolute inset-0 w-full h-full rounded-[inherit] text-left"></button>
     <div class="relative h-full flex items-stretch gap-2.5 p-3 pointer-events-none">
       ${shot ? html`<div class="shrink-0 self-center w-14 aspect-[384/832] rounded-[0.55rem] overflow-hidden bg-black ring-1 ring-base-300/60"><img src=${shot} alt="" loading="lazy" decoding="async" class="w-full h-full block" /></div>` : null}
       <div class="min-w-0 flex-1 flex flex-col gap-1 py-0.5">
-        <div class="text-[0.52rem] font-mono uppercase tracking-[.12em] text-secondary truncate">${T(t, catKey(a.category))}</div>
+        <div class="text-[0.52rem] font-mono uppercase tracking-[.12em] text-secondary truncate">${isNewborn(a) ? whenOf(a) : T(t, catKey(a.category))}</div>
         ${/* no icon tile here — the capture already IS the app's face, and the 80px column belongs to the name */""}
         <span class="font-bold text-[0.88rem] leading-tight line-clamp-2 break-words">${nameOf(a)}</span>
         <div class="mt-auto pt-1">${pill(a, "pointer-events-auto")}</div>
@@ -234,9 +250,6 @@ export function store({ S, openScreen, closeScreen }) {
   const [slide, setSlide] = useState(0);
   const onRail = () => { const el = railRef.current; if (!el || el.children.length < 2) return; const step = el.children[1].offsetLeft - el.children[0].offsetLeft; setSlide(Math.max(0, Math.min(SLIDES.length - 1, Math.round(el.scrollLeft / step)))); };
   const goSlide = (i) => { const el = railRef.current; if (!el?.children[i]) return; el.scrollTo({ left: el.children[i].offsetLeft - el.children[0].offsetLeft, behavior: "smooth" }); };
-  // WHEN, in words the reader already thinks in: "сьогодні" · "вчора" · "3 дні тому" · "2 тижні тому".
-  const rtf = new Intl.RelativeTimeFormat(locale === "uk" ? "uk" : "en", { numeric: "auto" });
-  const whenOf = (a) => { const d = ageDays(a); return d < 7 ? rtf.format(-d, "day") : rtf.format(-Math.round(d / 7), "week"); };
   // A fresh card: tiny and whole — the icon tile, an eyebrow that says the category and WHEN, the name, two
   // lines of the app's own first sentence. Down the left edge a 2px light whose height IS the app's
   // freshness (born today = the full height, the window's last day = a spark): colour as meaning, no badge
