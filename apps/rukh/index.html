@@ -52,13 +52,25 @@
   <style>
     /* THE FRAME — a well the light does not reach (sf-inset), the clip letterboxed on black inside it. The
        chooser island and the picture's controls sit over it; the island's frost needs the black to read. */
-    .rk-frame{background:#000}
+    .rk-frame{background:#000;outline:1px solid rgba(255,232,196,.16);outline-offset:-1px}
+    /* chips ON the frame sit over a picture or a clip — a translucent black disc keeps them legible on both */
+    .rk-chip{background:rgba(0,0,0,.55);color:#fff}
+    /* the first-frame chip: the picture itself, a 40×54 rounded thumbnail with the lit rim */
+    .rk-thumb{width:2.5rem;height:3.375rem;border-radius:var(--ms-r-in);background:#000;box-shadow:0 0 0 1px rgba(255,232,196,.35),0 0 12px -2px var(--app-accent)}
+    /* the working light: a 2 px amber filament along the frame's bottom edge whose LENGTH is the progress */
+    .rk-light{position:absolute;left:0;bottom:0;height:2px;width:var(--pct,4%);background:var(--app-accent);box-shadow:0 0 8px var(--app-accent);transition:width .6s ease}
     /* THE SPLIT REGIME — the runtime turns the view into a row under 520 px of height (.ms-side, runtime.css);
        the view root is a size container so the island follows the same threshold WITHOUT an app-local media
        query: one-line words, the transport stays (it compacts on width itself). */
     .rk-root{container-type:size}
     @container (max-height:520px){
-      .rk-words{height:1.7rem;min-height:1.7rem}
+      .rk-words{height:1.7rem;min-height:1.7rem;line-height:1.7rem;padding:0;overflow:hidden}
+      /* the transport keeps its BUTTON row (play · share · save · clips) and demotes its now-playing block and
+         seek bar — 216 px of view at 360×340 hold words + rail + buttons + verb, not a title and a seek bar too
+         (eye 2026-09-03: the island ran under the header and into the dock); the overflow dialog stays */
+      .rk-root [data-transport] > div:not([data-tp-row]){display:none}
+      .rk-root [data-models]{margin-top:-.125rem}
+      .rk-root .rk-res{display:none}
     }
     /* the working state breathes through three staggered dots — a typographic pulse, never a spinner */
     .rk-st{animation:rk-stin .35s ease}

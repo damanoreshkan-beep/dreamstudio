@@ -48,6 +48,26 @@ text + image → video; a clip-in mode waits for a Space that admits anonymously
   pays for one LTX or two Wan 5B before the pod-rotator moves its exit. Generation is signed-in only; a
   401 raises the systemic authWall.
 
+## The state map (the premium bar, `rules/design.md` — written before the second cut, 2026-09-03)
+
+The first cut shipped without this table and the owner opened it raw: the clip landed BEHIND the first frame
+(the `src` stayed set, so the picture kept the stage), it did not play (Chrome blocks an unmuted `play()`
+40 s after the tap — no gesture), the model was not on the screen, and the × sat under nothing but read as
+dead. Every row below names what the FRAME shows, what the ISLAND holds, the verb, and what demotes.
+
+| state | the frame (stage) | the island | verb | ≤520 px |
+|---|---|---|---|---|
+| empty | the chooser island (upload · camera · last picture) on the black inset frame | words · «Модель» rail (Авто + the `both` rows) · button | Зняти (off) | frame beside island; words one line |
+| words | same — the sources ride on the frame | words · rail · button | Зняти | — |
+| picture | the picture, `object-contain` on black; × chip top-left (`data-remove-picture`, z-10, undo toast); caption «Перший кадр» | words · rail (the `i2v` row joins) · button | Оживити | — |
+| working | what was there stays; a 2 px amber filament along the frame's bottom edge grows with `pct` (`data-progress`) | status line «Знімаю/Оживляю… N s» beside the words, button off | — | — |
+| done | the CLIP, muted loop, autoplay; first-frame chip top-left when it came from a picture (`data-first-frame` → the picture returns); the compact sources top-right; meta bottom: «з фото · 1536×1024 · 0:03 · без звуку» | words · rail · Transport (play = unmute+play; share · save · clips) · button | Зняти / Оживити | transport compacts on width by itself |
+| error | stays | the error line (an instruction, no blame) | on | — |
+| clips sheet | — | rows: words · model · seconds · when; delete with undo | — | — |
+
+Precedents: the island/stage/split regime from vidlunnia (`apps/vidlunnia/view.js`), the rail from mirage's
+options sheet (`data-model`, `data-models-check`, `shortName`), the sources from the kit (`/_rt/intake.js`).
+
 ## The app
 
 - The runtime's `/_rt/intake.js` (core 1.2.14, this app was the third photo intake — the copies in mirage
