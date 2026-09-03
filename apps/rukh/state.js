@@ -10,6 +10,7 @@ import { collection, idbSupported } from "/_rt/db.js";
 import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { toDataURL, mockArt } from "/_rt/intake.js";
+import { report } from "/_rt/telemetry.js";
 
 const BASE = `${VPS_PROXY}/video`;
 export const WORDS_MAX = 500;        // the edge's PROMPT_MAX
@@ -120,7 +121,7 @@ function land({ blob, url, by, words, pic, dur, res }) {
   $src.set(null);            // the picture steps aside — the clip IS its motion; the first-frame chip brings it back
   load(clip.url, true);
 }
-const fail = (run, code) => { if (run === runs) setJob({ phase: "error", error: code, eta: null, pct: null, elapsed: 0 }); };
+const fail = (run, code) => { if (run !== runs) return; setJob({ phase: "error", error: code, eta: null, pct: null, elapsed: 0 }); report("clip.fail", { reason: code, mode: $src.get() ? "picture" : "text", model: $model.get() }); };
 
 /** Shoot: the words (+ the first frame) → one job through the edge; a newer tap supersedes an older job. */
 export async function generate() {

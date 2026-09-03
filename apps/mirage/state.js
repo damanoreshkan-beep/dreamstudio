@@ -12,6 +12,7 @@ import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { mockArt, toDataURL, extOf } from "/_rt/intake.js";
 import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
+import { report } from "/_rt/telemetry.js";
 import { styleOf } from "./styles.js";
 
 export const MODES = ["make", "edit", "read", "blend", "style"];
@@ -137,6 +138,7 @@ function fail(mode, run, code) {
   if (run !== runs[mode]) return;
   holds[mode]?.(); holds[mode] = null; jobs[mode] = null;
   patch(mode, { error: code, phase: "error", more: false, live: null });
+  report(`${mode}.fail`, { reason: code, model: modelFor(mode) || "auto" });   // the clients' own log (/feed/log)
 }
 
 // ── make ─────────────────────────────────────────────────────────────────────────────────────────────
