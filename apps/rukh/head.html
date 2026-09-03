@@ -1,0 +1,20 @@
+  <style>
+    /* THE FRAME — a well the light does not reach (sf-inset), the clip letterboxed on black inside it. The
+       chooser island and the picture's controls sit over it; the island's frost needs the black to read. */
+    .rk-frame{background:#000}
+    /* THE SPLIT REGIME — the runtime turns the view into a row under 520 px of height (.ms-side, runtime.css);
+       the view root is a size container so the island follows the same threshold WITHOUT an app-local media
+       query: one-line words, the transport stays (it compacts on width itself). */
+    .rk-root{container-type:size}
+    @container (max-height:520px){
+      .rk-words{height:1.7rem;min-height:1.7rem}
+    }
+    /* the working state breathes through three staggered dots — a typographic pulse, never a spinner */
+    .rk-st{animation:rk-stin .35s ease}
+    @keyframes rk-stin{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+    .rk-dots span{display:inline-block;animation:rk-dot 1.2s ease-in-out infinite;opacity:.2}
+    .rk-dots span:nth-child(2){animation-delay:.2s}
+    .rk-dots span:nth-child(3){animation-delay:.4s}
+    @keyframes rk-dot{0%,100%{opacity:.2}50%{opacity:1}}
+    @media(prefers-reduced-motion:reduce){.rk-dots span{animation:none;opacity:.7}.rk-st{animation:none}}
+  </style>

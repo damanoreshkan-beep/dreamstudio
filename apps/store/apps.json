@@ -606,7 +606,7 @@
     "bg": "#17262A",
     "fg": "#8FE3D8",
     "href": "./zir/",
-    "version": "1.6",
+    "version": "1.7",
     "category": "creative",
     "needs": [
       "camera"
@@ -1491,6 +1491,40 @@
       "wakeLock"
     ],
     "added": "2026-08-10"
+  },
+  {
+    "id": "rukh",
+    "title": "Рух",
+    "titles": {
+      "uk": "Рух",
+      "en": "Rukh"
+    },
+    "tagline": "Кіно з тексту або фото: напиши, що відбувається, або дай кадр — і він оживе на кілька секунд.",
+    "taglines": {
+      "uk": "Кіно з тексту або фото: напиши, що відбувається, або дай кадр — і він оживе на кілька секунд.",
+      "en": "Film from words or a photo: say what happens, or hand over a frame, and it comes alive for a few seconds."
+    },
+    "glyph": "lucide:clapperboard",
+    "art": "<path d=\"M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z\"/><path d=\"m6.2 5.3 3.1 3.9\"/><path d=\"m12.4 3.4 3.1 4\"/><path d=\"M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z\"/>",
+    "icon": true,
+    "screens": {
+      "uk": [
+        "Кадр"
+      ],
+      "en": [
+        "Frame"
+      ]
+    },
+    "shots": [],
+    "bg": "#1F120C",
+    "fg": "#F2784B",
+    "href": "./rukh/",
+    "version": "1.0",
+    "category": "creative",
+    "needs": [
+      "camera"
+    ],
+    "added": "2026-09-03"
   },
   {
     "id": "sigil",

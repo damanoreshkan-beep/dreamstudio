@@ -1,0 +1,37 @@
+{
+  "id": "rukh",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#F2784B",
+  "tabs": [
+    {
+      "id": "frame",
+      "type": "tool",
+      "icon": "lucide:clapperboard",
+      "label": "tabFrame",
+      "view": "rukh",
+      "fit": true,
+      "needs": [
+        "camera"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:clapperboard",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "permissions": [
+      "camera"
+    ],
+    "account": "any"
+  },
+  "added": "2026-09-03"
+}
