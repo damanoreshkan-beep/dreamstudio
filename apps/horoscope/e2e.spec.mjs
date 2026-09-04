@@ -7,7 +7,8 @@ export default [
       h.expect((await h.count("[data-sign]")) === 1, "немає картки знака");
       h.expect(/Leo|Лев/.test(await h.text("[data-sign]")), "стандартний знак ≠ поточний сонячний (Лев)");
       h.expect((await h.count("[data-day]")) === 3, "має бути 3 дні (вчора/сьогодні/завтра)");
-      h.expect((await h.prop('[data-day="today"]', "ariaSelected")) === "true", "'сьогодні' не активне за замовчуванням");
+      // The day strip is the kit's Segmented, so the state is aria-pressed (never a class, never a tablist role).
+      h.expect((await h.attr('[data-day="today"]', "aria-pressed")) === "true", "'сьогодні' не активне за замовчуванням");
       h.expect((await h.text("[data-reading]")).trim().length > 40, "порожнє/поверхневе читання");
       h.expect((await h.count("[data-ratings]")) === 1, "немає блоку зоряних рейтингів");
       const body = await h.bodyText();
@@ -18,7 +19,7 @@ export default [
     name: "перемикання дня змінює гороскоп", run: async (h) => {
       const today = await h.text("[data-reading]");
       await h.click('[data-day="tomorrow"]'); await h.wait(200);
-      h.expect((await h.prop('[data-day="tomorrow"]', "ariaSelected")) === "true", "'завтра' не стало активним");
+      h.expect((await h.attr('[data-day="tomorrow"]', "aria-pressed")) === "true", "'завтра' не стало активним");
       h.expect((await h.text("[data-reading]")) !== today, "гороскоп не змінився при зміні дня");
       await h.click('[data-day="today"]'); await h.wait(150);
     },

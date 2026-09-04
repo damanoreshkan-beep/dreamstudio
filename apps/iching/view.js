@@ -180,7 +180,9 @@ const HexSvg = ({ lines, bits, label, cls }) => {
 
 // The golden caret — the film's through-line: it blinks in the question slot, waits on the writing line,
 // and types the answer. One mark, one colour, one meaning: here is where the Book speaks next.
-const Caret = (cls) => html`<span aria-hidden="true" class=${`inline-block w-[2px] h-[1em] align-[-0.12em] animate-pulse ${cls || ""}`} style="background:var(--app-accent)"></span>`;
+const Caret = (cls) => html`<span aria-hidden="true" class=${`ic-caret ${cls || ""}`}></span>`;
+// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 // ── Act I — the field ────────────────────────────────────────────────────────────────────────────
 export function iching({ S, screen, openScreen, closeScreen }) {
@@ -211,14 +213,14 @@ export function iching({ S, screen, openScreen, closeScreen }) {
           on a soft night pane — a real DOM ground (axe cannot see the canvas), so white ink is safe in
           both themes; tapping the figure replays its reading. Foot: the question slot, the single control
           on the set, the golden caret already blinking in it. */""}
-    <div class="ms-stage z-10 flex flex-col items-center pointer-events-none">
+    <div class="ms-stage z-10 flex flex-col items-center pointer-events-none" data-ic-state=${shuffling ? "shuffle" : r ? "cast" : "empty"}>
       <div class="flex-1 min-h-0 w-full flex flex-col items-center justify-center px-6">
         ${r ? html`<button data-read data-live data-reading aria-label=${T(t, "readingOpen")} onClick=${openRead}
-            class="pointer-events-auto max-w-full min-h-0 flex flex-col items-center gap-2.5 rounded-[2rem] bg-[#0b0f14]/85 backdrop-blur-[2px] px-8 py-6 text-white active:bg-[#0b0f14]/95 transition-colors">
-            <div class="w-[clamp(5.5rem,20vh,9rem)] min-h-0"><${HexSvg} lines=${r.lines} label=${`${name.cn} ${name.py}`} cls="text-white/90" /></div>
+            class="ic-pane pointer-events-auto max-w-full min-h-0 flex flex-col items-center gap-2.5 rounded-[var(--ms-r)] px-[calc(var(--ms-pad)*2)] py-[calc(var(--ms-pad)*1.5)] transition-colors">
+            <div class="w-[clamp(5.5rem,20vh,9rem)] min-h-0"><${HexSvg} lines=${r.lines} label=${`${name.cn} ${name.py}`} cls="text-base-content/90" /></div>
             <div class="text-[clamp(2.2rem,6.5vh,3.4rem)] font-light leading-none">${name.cn}</div>
-            <div class="font-mono uppercase tracking-[0.3em] text-[length:var(--ms-label)] text-white/70">${name.py}</div>
-            <div class="flex items-center gap-2 font-mono text-[length:var(--ms-label)] tabular-nums text-white/70">
+            <div class=${`${LABEL} tracking-[0.3em]`}>${name.py}</div>
+            <div class="flex items-center gap-2 font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70">
               <span data-number>${r.number}</span>
               <span>${r.upper.cn}${r.lower.cn}</span>
               <span data-change>${r.changing
@@ -226,13 +228,13 @@ export function iching({ S, screen, openScreen, closeScreen }) {
                 : T(t, "noMoving")}</span>
             </div>
           </button>`
-        : html`<div data-live class="pointer-events-auto flex flex-col items-center gap-2 rounded-[2rem] bg-[#0b0f14]/85 px-8 py-6 text-center text-white">
-            <span class="text-white/90">${T(t, "emptyCast")}</span>
-            <span class="text-sm text-white/70">${T(t, "emptyCastHint")}</span>
+        : html`<div data-live class="ic-pane pointer-events-auto flex flex-col items-center gap-2 rounded-[var(--ms-r)] px-[calc(var(--ms-pad)*2)] py-[calc(var(--ms-pad)*1.5)] text-center">
+            <span class="text-base-content/90">${T(t, "emptyCast")}</span>
+            <span class="text-sm text-muted">${T(t, "emptyCastHint")}</span>
           </div>`}
       </div>
       <button data-ask onClick=${openAsk}
-        class="pointer-events-auto shrink-0 mb-4 w-[min(86vw,24rem)] rounded-full border border-white/25 bg-[#0b0f14]/90 px-6 py-3.5 text-left text-white/75 hover:border-white/50 transition-colors">
+        class="ic-slot pointer-events-auto shrink-0 mb-4 w-[min(86vw,24rem)] rounded-full px-6 py-3.5 text-left text-base-content/75 transition-shadow">
         ${Caret("mr-2.5")}${T(t, "question")}
       </button>
     </div>
@@ -305,34 +307,36 @@ function Ceremony({ open, onClose, t, loc }) {
   const name = r ? nameOf(r.number) : null;
   const toName = r?.toNumber ? nameOf(r.toNumber) : null;
   const canRecast = phase === "answer" && row && row.day !== dayKey();
-  const pill = "rounded-full border px-6 py-2.5 font-mono uppercase tracking-[0.18em] text-sm transition-colors";
+  // The ceremony's word-buttons: the kit's ghost button as a mono pill — flat at rest (a word, not an
+  // object), the material's press under a finger; the ONE filled pill (close) is btn-primary = ink.
+  const pill = "btn btn-ghost rounded-full px-6 font-mono uppercase tracking-[0.18em] text-sm font-normal";
 
   return html`<dialog id="ask" ref=${dref} class="modal" aria-label=${T(t, "askTitle")} onClose=${onClose}>
-    ${/* data-theme="signal" re-scopes the DaisyUI tokens DARK inside the box, whatever the page theme —
-          the kit strip (Segmented) reads base-content, and dark ink on the dark veil would vanish in the
-          light theme. The film is night in both themes, so the tokens say so. */""}
-    <div ref=${boxRef} data-theme="signal" class="modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 overflow-hidden relative bg-transparent text-white [&_*]:!shadow-none">
-      ${/* The veil: near-black over the current, thinner while the lines shuffle so the field visibly
-            dances with them. A solid-alpha ground in BOTH themes — axe composites it over the page. */""}
-      <div aria-hidden="true" class=${`absolute inset-0 transition-colors duration-700 ${phase === "cast" ? "bg-[#0b0f14]/70" : "bg-[#0b0f14]/90"}`}></div>
+    ${/* The box is TRANSPARENT so the film never cuts away from the current — inline, because .modal-box
+          paints an opaque base-100 unlayered and a utility class cannot beat it. The veil below is the
+          page's own ground at a known alpha (head.html .ic-veil), so the ink tokens read in BOTH themes:
+          night on black, paper on the light field — no re-scoped dark theme needed any more. */""}
+    <div ref=${boxRef} class="modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 overflow-hidden relative text-base-content [&_*]:!shadow-none" style="background:transparent">
+      ${/* The veil: thinner while the lines shuffle so the field visibly dances with them. */""}
+      <div aria-hidden="true" class="ic-veil absolute inset-0" data-thin=${phase === "cast" ? "" : null}></div>
       <div class="relative z-10 flex flex-col h-full px-6" style="padding-top:calc(env(safe-area-inset-top) + 0.5rem);padding-bottom:calc(env(safe-area-inset-bottom) + 1.25rem)">
         ${grip}
         <div class="flex items-center justify-end shrink-0">
-          <button data-ask-close aria-label=${T(t, "close")} class="btn btn-sm btn-circle btn-ghost text-white" onClick=${onClose}>${Icon("lucide:x", "text-lg")}</button>
+          <button data-ask-close aria-label=${T(t, "close")} class="btn btn-sm btn-circle btn-ghost" onClick=${onClose}>${Icon("lucide:x", "text-lg")}</button>
         </div>
 
         ${phase === "ask" ? html`<div data-phase="ask" ref=${actRef} class="flex-1 min-h-0 flex flex-col max-w-[440px] w-full mx-auto">
           <div class="flex-1 min-h-0 flex flex-col justify-center gap-6">
-            <div class="text-center font-mono uppercase tracking-[0.35em] text-[length:var(--ms-label)] text-white/70">${T(t, "askTitle")}</div>
+            <div class=${`text-center ${LABEL} tracking-[0.35em]`}>${T(t, "askTitle")}</div>
             <div class="flex flex-col gap-3">
               <textarea id="question" ref=${qRef} rows="2" value=${qText} onInput=${(e) => setQText(e.target.value)}
                 placeholder=${T(t, "question")} aria-label=${T(t, "question")}
-                class="w-full resize-none bg-transparent text-center text-2xl font-light leading-snug text-white placeholder:text-white/40 outline-none border-0 px-1"
+                class="w-full resize-none bg-transparent text-center text-2xl font-light leading-snug text-base-content placeholder:text-muted outline-none border-0 px-1"
                 style="caret-color:var(--app-accent)"></textarea>
               ${/* The writing line — the golden hairline the answer will later type itself onto. */""}
-              <div aria-hidden="true" class="h-px w-full" style="background:linear-gradient(90deg,transparent,var(--app-accent),transparent);opacity:.6"></div>
+              <div aria-hidden="true" class="ic-line"></div>
             </div>
-            <button data-cast onClick=${submit} class=${`${pill} self-center border-white/30 text-white hover:bg-white/10 active:bg-white/15`}>
+            <button data-cast onClick=${submit} class=${`${pill} self-center`}>
               ${T(t, "cast")}</button>
           </div>
           ${/* The method, spoken quietly at the foot of the act — a choice, not a dashboard: the strip and
@@ -343,7 +347,7 @@ function Ceremony({ open, onClose, t, loc }) {
             <div class="w-full max-w-[300px]"><${Segmented} attr="data-method" size="sm" variant="outline" label=${T(t, "methodLabel")}
               items=${[{ id: "yarrow", label: T(t, "methodYarrow") }, { id: "coins", label: T(t, "methodCoins") }]}
               value=${m} onChange=${(id) => $method.set(id)} /></div>
-            <div data-odds class="font-mono text-[length:var(--ms-label)] tabular-nums text-white/70">
+            <div data-odds class="font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70">
               ${T(t, "oddsYinYang")} ${w.weights[6]}/${w.total} · ${T(t, "oddsYangYin")} ${w.weights[9]}/${w.total}</div>
           </div>
         </div>` : null}
@@ -354,47 +358,47 @@ function Ceremony({ open, onClose, t, loc }) {
             <${CastPlay} lines=${row.lines} onDone=${() => setPhase("answer")} />
             ${/* The odds as an incantation under the falling lines — the tradition's one honest number,
                   spoken during the ritual instead of laid out as a dashboard row. */""}
-            <div class="rounded-full bg-[#0b0f14]/90 px-4 py-1.5 font-mono text-[length:var(--ms-label)] tabular-nums text-white/75">
+            <div class="ic-chip rounded-full px-4 py-1.5 font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/75">
               ${T(t, row.m === "coins" ? "methodCoins" : "methodYarrow")} · ${T(t, "oddsYinYang")} ${wm.weights[6]}/${wm.total} · ${T(t, "oddsYangYin")} ${wm.weights[9]}/${wm.total}</div>
           </div>`;
         })() : null}
 
         ${phase === "answer" && r ? html`<div data-phase="answer" ref=${actRef} class="flex-1 min-h-0 overflow-y-auto flex flex-col max-w-[480px] w-full mx-auto">
           <div class="shrink-0 flex flex-col items-center gap-2.5 pt-2 text-center">
-            <div class="w-[clamp(4.5rem,15vh,6.5rem)]"><${HexSvg} lines=${r.lines} label=${`${name.cn} ${name.py}`} cls="text-white/90" /></div>
+            <div class="w-[clamp(4.5rem,15vh,6.5rem)]"><${HexSvg} lines=${r.lines} label=${`${name.cn} ${name.py}`} cls="text-base-content/90" /></div>
             <div class="text-[clamp(2.4rem,7vh,3.6rem)] font-light leading-none">${name.cn}</div>
-            <div class="font-mono uppercase tracking-[0.3em] text-[length:var(--ms-label)] text-white/70">${name.py}</div>
-            <div class="flex items-center gap-2 font-mono text-[length:var(--ms-label)] tabular-nums text-white/70">
+            <div class=${`${LABEL} tracking-[0.3em]`}>${name.py}</div>
+            <div class="flex items-center gap-2 font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70">
               <span data-a-number>${r.number}</span>
               <span>${r.upper.cn}${r.lower.cn}</span>
               ${r.changing
                 ? html`<span><span aria-hidden="true" style="color:var(--app-accent)">→</span> ${toName.cn} · ${r.toNumber}</span>`
                 : html`<span>${T(t, "noMoving")}</span>`}
             </div>
-            ${row.q ? html`<div class="text-sm text-white/80 max-w-[38ch] line-clamp-2">${row.q}</div>` : null}
-            ${replay ? html`<div data-asked class="font-mono uppercase tracking-[0.2em] text-[length:var(--ms-label)] text-white/70">
+            ${row.q ? html`<div class="text-sm text-base-content/80 max-w-[38ch] line-clamp-2">${row.q}</div>` : null}
+            ${replay ? html`<div data-asked class=${`${LABEL} tracking-[0.2em]`}>
               ${new Date(row.at).toLocaleDateString(loc === "uk" ? "uk-UA" : "en-GB")} · ${T(t, row.m === "coins" ? "methodCoins" : "methodYarrow")}</div>` : null}
           </div>
 
           <div class="flex-1 flex flex-col justify-center py-6">
             ${text ? html`<${Typewriter} key=${row.id + loc} text=${text} />`
               : failed ? html`<div class="flex flex-col items-center gap-3 py-6 text-center">
-                  <span class="text-white/80">${T(t, "readingFail")}</span>
-                  <button onClick=${retry} class=${`${pill} border-white/30 text-white hover:bg-white/10`}>${T(t, "retry")}</button>
+                  <span class="text-base-content/80">${T(t, "readingFail")}</span>
+                  <button onClick=${retry} class=${pill}>${T(t, "retry")}</button>
                 </div>`
-              : html`<div class="flex flex-col items-center gap-2 text-white/70">${[26, 32, 28, 20].map((n, i) => html`<div key=${i}><${Scramble} len=${n} /></div>`)}</div>`}
+              : html`<div class="flex flex-col items-center gap-2 text-muted">${[26, 32, 28, 20].map((n, i) => html`<div key=${i}><${Scramble} len=${n} /></div>`)}</div>`}
           </div>
 
           <div class="shrink-0 flex flex-col items-center gap-3 pb-1">
             ${/* Provenance, not decoration: the hexagram is computed exactly; the words are a model's, and
                   the reader is told so. */""}
-            <div class="flex items-start gap-2 text-[length:var(--ms-label)] text-white/70 text-center">
+            <div class="flex items-start gap-2 text-[length:var(--ms-label)] text-base-content/70 text-center">
               ${Icon("lucide:sparkles", "shrink-0 mt-0.5")}<span>${T(t, "readingGenerated")}</span>
             </div>
             <div class="flex gap-2.5">
-              ${canRecast ? html`<button data-recast onClick=${recast} class=${`${pill} border-white/30 text-white hover:bg-white/10`}>
+              ${canRecast ? html`<button data-recast onClick=${recast} class=${pill}>
                 <span aria-hidden="true" class="inline-block w-1.5 h-1.5 rounded-full mr-2 align-middle" style="background:var(--app-accent)"></span>${T(t, "recast")}</button>` : null}
-              <button data-ask-done onClick=${onClose} class=${`${pill} border-transparent bg-white text-[#0b0f14] hover:bg-white/90`}>
+              <button data-ask-done onClick=${onClose} class="btn btn-primary rounded-full px-6 font-mono uppercase tracking-[0.18em] text-sm font-normal">
                 ${T(t, "close")}</button>
             </div>
           </div>
@@ -434,7 +438,7 @@ function CastPlay({ lines, onDone }) {
     return () => { clearInterval(flick); timers.forEach(clearTimeout); clearTimeout(done); $seedLines.set(null); };
   }, []);
 
-  return html`<svg viewBox=${`0 0 ${W} ${VB_H}`} class="w-[min(62vw,17rem)] max-h-[52vh] text-white/90" aria-hidden="true" fill="currentColor">
+  return html`<svg viewBox=${`0 0 ${W} ${VB_H}`} class="w-[min(62vw,17rem)] max-h-[52vh] text-base-content/90" aria-hidden="true" fill="currentColor">
     ${cur.map((v, i) => {
       const isLocked = i < locked;
       const yang = bitOf(v) === 1, moving = isLocked && isMoving(v);
@@ -471,7 +475,7 @@ function Typewriter({ text }) {
     return () => clearInterval(id);
   }, [text]);
   const done = n >= text.length;
-  return html`<div data-answer-text class="text-center text-[1.05rem] font-light leading-loose whitespace-pre-line text-white/95">
+  return html`<div data-answer-text class="text-center text-[1.05rem] font-light leading-loose whitespace-pre-line text-base-content/95">
     <span class="sr-only">${text}</span>
     <span aria-hidden="true">${text.slice(0, n)}${done ? "" : Caret("ml-0.5")}</span>
   </div>`;
@@ -510,7 +514,7 @@ export function ichingLog({ S, screen, openScreen, closeScreen, confirm, undo })
   if (rows === null) return html`<${Scramble} lines=${4} />`;
   if (!rows.length) {
     return html`<div class="flex flex-col items-center text-center gap-2 py-16 px-6">
-      ${Icon("lucide:scroll-text", "text-4xl text-base-content/40")}
+      ${Icon("lucide:scroll-text", "text-4xl text-muted")}
       <span class="text-base-content/80">${T(t, "logEmpty")}</span>
       <span class="text-sm text-muted">${T(t, "logEmptyHint")}</span>
     </div>`;
@@ -520,8 +524,8 @@ export function ichingLog({ S, screen, openScreen, closeScreen, confirm, undo })
     ${rows.map((row) => {
       const nm = nameOf(row.n), to = row.to ? nameOf(row.to) : null;
       // The QUESTION leads the row — the journal is remembered by what was asked, not by what fell.
-      return html`<div key=${row.id} data-entry class="rounded-2xl sf-raised sf-e2 px-4 py-3 flex items-center gap-4">
-        <button data-open class="flex-1 min-w-0 flex items-center gap-4 text-left" onClick=${() => { $sel.set(row); openScreen("entry"); }}>
+      return html`<div key=${row.id} data-entry class="rounded-[var(--ms-r)] sf-raised sf-e2 px-[var(--ms-pad)] py-3 flex items-center gap-[var(--ms-gap)]">
+        <button data-open class="flex-1 min-w-0 flex items-center gap-[var(--ms-gap)] text-left" onClick=${() => { $sel.set(row); openScreen("entry"); }}>
           <div class="w-10 shrink-0"><${HexSvg} lines=${row.lines} label=${nm.cn} cls="text-base-content/85" /></div>
           <div class="flex-1 min-w-0 flex flex-col gap-0.5">
             <span class="font-medium truncate">${row.q || T(t, "noQuestion")}</span>
@@ -534,7 +538,7 @@ export function ichingLog({ S, screen, openScreen, closeScreen, confirm, undo })
         </button>
       </div>`;
     })}
-    <button data-clear class="btn btn-ghost btn-sm rounded-xl self-center mt-2 text-muted" onClick=${clearAll}>${T(t, "logClear")}</button>
+    <button data-clear class="btn btn-ghost btn-sm rounded-full self-center mt-2 text-muted" onClick=${clearAll}>${T(t, "logClear")}</button>
 
     <${LogSheet} open=${screen === "entry"} onClose=${closeScreen} row=${sel} t=${t} loc=${loc} />
   </div>`;
@@ -551,7 +555,7 @@ function LogSheet({ open, onClose, row, t, loc }) {
       ${text ? html`<p data-log-text class="leading-relaxed whitespace-pre-line">${text}</p>`
         : failed ? html`<div class="flex flex-col items-center gap-3 py-6 text-center">
             <span class="text-muted">${T(t, "readingFail")}</span>
-            <button class="btn btn-sm btn-outline rounded-xl" onClick=${retry}>${T(t, "retry")}</button>
+            <button class="btn btn-sm btn-outline rounded-full" onClick=${retry}>${T(t, "retry")}</button>
           </div>`
         : html`<div class="flex flex-col gap-2 text-base-content/70">${[28, 32, 26].map((n, i) => html`<div key=${i}><${Scramble} len=${n} /></div>`)}</div>`}
       <div class="flex items-start gap-2 text-[length:var(--ms-label)] text-muted border-t border-base-content/10 pt-3">

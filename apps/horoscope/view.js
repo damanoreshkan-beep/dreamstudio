@@ -8,7 +8,7 @@
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
-import { Sheet } from "/_rt/ui.js";
+import { Sheet, Segmented, Panel } from "/_rt/ui.js";
 import { useStore } from "@nanostores/preact";
 import { persistentAtom } from "@nanostores/persistent";
 import { T } from "/_rt/i18n.js";
@@ -20,6 +20,8 @@ import { Scramble, Pixels } from "/_rt/skeleton.js";
 import { gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const QS = new URLSearchParams(location.search);
 const SIGN_OVERRIDE = QS.get("sign"); // ?sign=0..11 previews any sign (for a phone/mock check)
 
@@ -28,8 +30,10 @@ const SIGN_OVERRIDE = QS.get("sign"); // ?sign=0..11 previews any sign (for a ph
 const API = `${VPS_PROXY}/horoscope`;
 const DAY_IDS = ["yesterday", "today", "tomorrow"], DAY_KEYS = ["dYesterday", "dToday", "dTomorrow"];
 
-// The four real ratings horoscope.com publishes per day → [i18n label, response key, colour(=meaning)].
-const RATINGS = [["love", "sex", "#FB7185"], ["work", "hustle", "#60A5FA"], ["vibe", "vibe", "#A78BFA"], ["success", "success", "#34D399"]];
+// The four real ratings horoscope.com publishes per day → [i18n label, response key]. They are categories,
+// not states, so no rating owns a hue: a filled step is the app's MARK colour (--app-accent), the one place
+// the design system lets an arbitrary colour touch a fill.
+const RATINGS = [["love", "sex"], ["work", "hustle"], ["vibe", "vibe"], ["success", "success"]];
 
 // Remembered sign ("" → default to today's sun sign on first launch, then whatever you pick).
 const $sign = persistentAtom("horoscope.sign", "");
@@ -85,60 +89,60 @@ export function horoscope({ S, screen, openScreen, closeScreen }) {
   const { text: readingText, pending: localizing } = useLocalized(data?.text, loc);
   const dateLabel = data?.date ? new Date(now.getFullYear(), now.getMonth(), now.getDate() + (day - 1))
     .toLocaleDateString(loc === "en" ? "en-GB" : loc || "uk", { day: "numeric", month: "long" }) : "";
+  // The screen's state, as one hook the driver can read: error (nothing to show) · loading · localizing · ready.
+  const state = err && !data ? "error" : !data ? "loading" : localizing ? "localizing" : "ready";
+  // The prose skeleton, shared by the loading and the localizing states: four decoding lines, the reading's shape.
+  const proseSkeleton = html`<div class="flex flex-col gap-2 text-muted">${[26, 30, 28, 18].map((n, i) => html`<div class="text-[0.97rem]" key=${i}><${Scramble} len=${n} /></div>`)}</div>`;
 
   return html`<${Fragment}>
-    <div class="flex flex-col gap-4">
+    <div class="flex flex-col gap-[var(--ms-gap)]" data-state=${state} data-day-sel=${DAY_IDS[day]} data-sign-idx=${signIdx}>
       ${/* Sign card → picker. The page extruded (`sf-raised`) on the shallow rung, and pressed IN under a
            finger (`sf-press`) — the material's own press, so no scale nudge on top of the extrusion. */""}
-      <button data-sign class="w-full flex items-center gap-4 rounded-2xl sf-raised sf-e2 sf-press p-4 transition" onClick=${() => openScreen("signs")}>
-        <span class="shrink-0 text-secondary"><${Sign} i=${signIdx} cls="w-11 h-11" /></span>
+      <button data-sign class="w-full flex items-center gap-[var(--ms-gap)] rounded-[var(--ms-r)] sf-raised sf-e2 sf-press p-[var(--ms-pad)] transition-colors" onClick=${() => openScreen("signs")}>
+        <span class="shrink-0" style="color:var(--app-accent)"><${Sign} i=${signIdx} cls="w-11 h-11" /></span>
         <span class="flex-1 min-w-0 text-left">
           <span class="block font-bold text-lg leading-tight">${(t.signs || "").split("|")[signIdx] || ""}</span>
-          <span class="block text-xs text-base-content/55 font-mono mt-0.5">${(t.signDates || "").split("|")[signIdx] || ""}</span>
+          <span class=${`block mt-0.5 ${LABEL}`}>${(t.signDates || "").split("|")[signIdx] || ""}</span>
         </span>
-        ${Icon("lucide:chevrons-up-down", "text-base-content/35 text-xl shrink-0")}
+        ${Icon("lucide:chevrons-up-down", "text-muted text-xl shrink-0")}
       </button>
 
-      ${/* Day segmented — the rail is a GROOVE and the chosen day lifts out of it. The 3-column geometry is
-           untouched; only the material changed. theme.css raises `[aria-pressed="true"]` inside an inset
-           rail, but a tablist must carry `aria-selected` (the e2e asserts it) — so the raise is declared
-           here as `sf-e3`, which is the same pair. Only the FILL differs between the two states. */""}
-      <div role="tablist" class="grid grid-cols-3 gap-1 p-1 rounded-2xl sf-inset">
-        ${[0, 1, 2].map((i) => html`<button role="tab" data-day=${DAY_IDS[i]} aria-selected=${day === i} class=${`min-w-0 truncate py-2 rounded-xl text-sm font-medium transition sf-press ${day === i ? "bg-primary text-primary-content sf-e3" : "text-muted"}`} onClick=${() => setDay(i)} key=${i}>${T(t, DAY_KEYS[i])}</button>`)}
-      </div>
+      ${/* The day is a one-of-N choice and the screen's primary mode, so it is the kit's Segmented in its
+           solid skin — the same strip every other app switches modes with. `attr` keeps the e2e hook. */""}
+      <${Segmented} attr="data-day" label=${T(t, "dToday")}
+        items=${[0, 1, 2].map((i) => ({ id: DAY_IDS[i], label: T(t, DAY_KEYS[i]) }))}
+        value=${DAY_IDS[day]} onChange=${(id) => setDay(DAY_IDS.indexOf(id))} />
 
       ${err && !data
       ? html`<div class="flex flex-col items-center text-muted py-16 gap-3 text-center px-6">${Icon("lucide:cloud-off", "text-3xl")}<span class="text-sm">${T(t, "noConnection")}</span></div>`
       : !data
         ? html`<!-- structure-shaped skeleton (date · prose lines · ratings) — never a bare spinner -->
-          <div class="flex flex-col gap-4">
-            <div class="text-[0.62rem] font-mono uppercase tracking-[0.14em] text-base-content/40"><${Scramble} len=${11} /></div>
-            <div class="flex flex-col gap-2 text-base-content/55">${[26, 30, 28, 18].map((n, i) => html`<div class="text-[0.97rem]" key=${i}><${Scramble} len=${n} /></div>`)}</div>
-            <div class="rounded-2xl sf-inset overflow-hidden h-32"><${Pixels} /></div>
+          <div class="flex flex-col gap-[var(--ms-gap)]">
+            <div class=${LABEL}><${Scramble} len=${11} /></div>
+            ${proseSkeleton}
+            <div class="rounded-[var(--ms-r)] sf-inset overflow-hidden h-32"><${Pixels} /></div>
           </div>`
         : html`<!-- reading -->
-          <div class="flex flex-col gap-4">
+          <div class="flex flex-col gap-[var(--ms-gap)]">
             <div class="flex items-baseline justify-between gap-2">
-              <span class="text-[0.62rem] font-mono uppercase tracking-[0.14em] text-base-content/45">${dateLabel}</span>
-              ${err ? html`<span class="text-[0.62rem] text-warning/80 truncate">${T(t, "offline")}</span>` : null}
+              <span class=${LABEL}>${dateLabel}</span>
+              ${err ? html`<span class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-warning truncate">${T(t, "offline")}</span>` : null}
             </div>
             ${localizing
-      ? html`<!-- translating + rewriting: hold the animated skeleton until the final natural text is ready -->
-          <div class="flex flex-col gap-2 text-base-content/55">${[26, 30, 28, 18].map((n, i) => html`<div class="text-[0.97rem]" key=${i}><${Scramble} len=${n} /></div>`)}</div>`
-      : html`<p data-reading data-live class="text-[0.97rem] leading-relaxed text-base-content/90">${readingText}</p>`}
+      ? proseSkeleton   /* translating + rewriting: hold the skeleton until the final natural text is ready */
+      : html`<p data-reading data-live class="text-[0.97rem] leading-relaxed">${readingText}</p>`}
 
             <!-- the day's four real star ratings -->
-            <div data-ratings class="flex flex-col gap-2.5 rounded-2xl sf-raised sf-e2 p-4">
-              <div class="text-[0.62rem] font-mono uppercase tracking-[0.14em] text-base-content/45 mb-0.5">${T(t, "ratings")}</div>
-              ${RATINGS.map(([label, key, c]) => html`<div class="flex items-center gap-3" key=${key}>
-                <span class="w-16 shrink-0 text-xs text-base-content/70">${T(t, label)}</span>
+            <${Panel} title=${T(t, "ratings")} data-ratings="">
+              ${RATINGS.map(([label, key]) => html`<div class="flex items-center gap-[var(--ms-gap)]" key=${key}>
+                <span class="w-16 shrink-0 text-sm text-muted">${T(t, label)}</span>
                 ${/* Five 6px segments — a track too thin to hold a shadow pair, which is the ONE place the
                      system lets tone stand in for depth (--sf-track-face, see theme.css). The empty steps
                      used to be base-300, which the repaint made identical to base-100: an unrated day drew
-                     four invisible bars. Filled steps keep the rating's own meaning colour. */""}
-                <span class="flex-1 flex gap-1">${[0, 1, 2, 3, 4].map((n) => html`<span class="flex-1 h-1.5 rounded-full" style=${`background:${n < (data.ratings[key] || 0) ? c : "var(--sf-track-face)"}`} key=${n}></span>`)}</span>
+                     four invisible bars. A filled step is the app's mark colour. */""}
+                <span class="flex-1 flex gap-1">${[0, 1, 2, 3, 4].map((n) => html`<span class="flex-1 h-1.5 rounded-full" style=${`background:${n < (data.ratings[key] || 0) ? "var(--app-accent)" : "var(--sf-track-face)"}`} key=${n}></span>`)}</span>
               </div>`)}
-            </div>
+            <//>
           </div>`}
     </div>
 
@@ -151,12 +155,12 @@ function SignSheet({ open, onClose, t, signIdx }) {
   return html`<${Sheet} id="signsheet" open=${open} onClose=${onClose} title=${T(t, "pickSign")} icon="lucide:sparkles">
       ${/* A 12-cell palette you SCAN — the 3x4 geometry is the affordance and stays exactly as it was. What
            it adopts is the farm's selection convention: the deck is a groove (sf-inset) and the chosen sign
-           lifts out of it, which theme.css already applies to any [aria-pressed="true"] inside one. The
-           hairlines are gone — the extrusion is the edge now. */""}
-      <div class="grid grid-cols-3 gap-2 sf-inset rounded-2xl p-2">
-        ${Array.from({ length: 12 }, (_, i) => html`<button data-signpick=${i} aria-pressed=${i === signIdx} class=${`flex flex-col items-center gap-1.5 py-3 rounded-2xl transition ${i === signIdx ? "bg-secondary/10 text-secondary" : "text-base-content/80"}`} onClick=${() => choose(i)} key=${i}>
+           lifts out of it, which theme.css already applies to any [aria-pressed="true"] inside one, wearing
+           the app's tint as its mark. The cells take the concentric radius of a box nested in a padded groove. */""}
+      <div class="grid grid-cols-3 gap-2 sf-inset rounded-[var(--ms-r)] p-2">
+        ${Array.from({ length: 12 }, (_, i) => html`<button data-signpick=${i} aria-pressed=${i === signIdx} class=${`flex flex-col items-center gap-1.5 py-3 rounded-[var(--ms-r-in)] transition-colors ${i === signIdx ? "bg-[var(--app-tint)]" : "text-base-content/80"}`} onClick=${() => choose(i)} key=${i}>
           <${Sign} i=${i} cls="w-6 h-6" />
-          <span class="text-xs truncate max-w-full">${(t.signs || "").split("|")[i] || ""}</span>
+          <span class="text-sm truncate max-w-full">${(t.signs || "").split("|")[i] || ""}</span>
         </button>`)}
       </div>
   </${Sheet}>`;

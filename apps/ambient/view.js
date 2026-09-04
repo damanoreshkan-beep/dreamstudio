@@ -7,10 +7,12 @@ import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Transport } from "/_rt/ui.js";
+import { Transport, Segmented, Slider } from "/_rt/ui.js";
 import { audioSupported, noiseSource as src, filter as bqf, lfo, strike, createEngine } from "/_rt/audio.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 const GROUPS = [
   { cat: "catWater", items: [
@@ -146,23 +148,24 @@ export function ambient({ S }) {
   const setVol = (key, v) => setVols((m) => ({ ...m, [key]: v }));
   const anyOn = active.size > 0;
 
-  return html`<div class="flex flex-col items-center gap-4 pt-1">
+  return html`<div class="flex flex-col items-center gap-[var(--ms-gap)] pt-1"
+    data-mix-state=${anyOn ? (paused ? "paused" : "playing") : "idle"} data-mix-on=${active.size} data-timer-min=${timerMin}>
     ${/* One mixer, one transport: how many layers are running is the now-playing line. Disabled until a
          layer is on — a play button that starts silence is a lie the old row told with a dimmed icon. */""}
     <${Transport} locale=${loc} size="sm" playing=${anyOn && !paused} disabled=${!anyOn}
       onToggle=${() => { ensure(); setPaused((p) => !p); }}
       subtitle=${anyOn ? `${active.size} · ${paused ? T(t, "aResume") : T(t, "playing")}` : null} />
 
-    <div class="flex flex-col gap-4 w-full max-w-[420px]">
+    <div class="flex flex-col gap-[var(--ms-gap)] w-full max-w-[420px]">
       ${GROUPS.map(({ cat, items }) => html`<div class="flex flex-col gap-2" key=${cat}>
-        <div class="text-[11px] font-semibold uppercase tracking-wide text-muted px-1">${T(t, cat)}</div>
+        <div class=${`${LABEL} px-1`}>${T(t, cat)}</div>
         ${/* A sound card is an OBJECT on the page, not a hairline box: off it is the page extruded on the
              shallow rung (twenty of them in one scroll — the full pair on each is a shadow storm), on it is
              the same object lifted, carrying the app's own wash. The old `border-primary bg-primary/10`
              tinted the FACE and drew an outline, which on the light theme read as a cell pressed IN — the
              exact opposite of what "this layer is playing" should say. The 2-column grid is untouched. */""}
         <div class="grid grid-cols-2 gap-2.5">
-          ${items.map(({ key, name, icon }) => { const on = active.has(key); return html`<div data-layer=${key} data-on=${on ? "1" : null} class=${`rounded-2xl p-3 flex flex-col gap-2 transition ${on ? "bg-[var(--app-tint)] sf-e3" : "sf-raised sf-e2"}`} key=${key}>
+          ${items.map(({ key, name, icon }) => { const on = active.has(key); return html`<div data-layer=${key} data-on=${on ? "1" : null} class=${`rounded-[var(--ms-r)] p-[var(--ms-pad)] flex flex-col gap-2 transition-[box-shadow,background-color] ${on ? "bg-[var(--app-tint)] sf-e3" : "sf-raised sf-e2"}`} key=${key}>
             <button aria-pressed=${on} class="flex items-center gap-2.5 text-left w-full" onClick=${() => toggle(key)}>
               ${/* The glyph sits in a WELL while the layer is silent and rises out of it when it plays —
                    `bg-base-200` meant "a step darker than the card", and base-100/200 are one colour now. */""}
@@ -170,19 +173,23 @@ export function ambient({ S }) {
               <span class="font-semibold flex-1 min-w-0 truncate">${T(t, name)}</span>
               ${on ? Icon("lucide:volume-2", "text-primary shrink-0") : null}
             </button>
-            ${on ? html`<input type="range" min="0" max="1" step="0.02" value=${vols[key] ?? 0.55} class="range range-xs range-primary" aria-label=${T(t, name)} onInput=${(e) => setVol(key, Number(e.target.value))} />` : null}
+            ${/* The kit's Slider: its caption is the input's accessible name. The caption says VOLUME, not the
+                 layer's name again — the card's header already says that, and a second readout is the same
+                 information twice. */""}
+            ${on ? html`<${Slider} attr="data-vol" id=${key} label=${T(t, "volume")} value=${vols[key] ?? 0.55} onInput=${(v) => setVol(key, v)} />` : null}
           </div>`; })}
         </div>
       </div>`)}
     </div>
 
-    <div class="flex items-center gap-2 text-sm flex-wrap justify-center">
-      <span class="text-muted flex items-center gap-1.5">${Icon("lucide:moon")}${T(t, "sleep")}</span>
-      ${/* Three chips, not a rail: the row keeps its shape and each chip declares itself — a small raised
-           object on the shallow rung in BOTH states, because a 22px chip cannot carry the full pair. The
-           chosen one is the same object carrying the app's wash, which is what the hairline used to say. */""}
-      ${TIMERS.map((m) => html`<button data-timer=${m} aria-pressed=${timerMin === m} class=${`px-2.5 py-1 rounded-full text-xs font-medium transition sf-e2 ${timerMin === m ? "bg-[var(--app-tint)]" : "sf-raised"}`} onClick=${() => setTimerMin((c) => (c === m ? 0 : m))} key=${m}>${m}${T(t, "min")}</button>`)}
+    <div class="flex items-center gap-[var(--ms-gap)] w-full max-w-[420px]">
+      <span class="text-muted flex items-center gap-1.5 text-sm shrink-0">${Icon("lucide:moon")}${T(t, "sleep")}</span>
+      ${/* The sleep timer is a genuine one-of-N (or none): the kit's Segmented as a rail, like outpost's.
+           Tapping the active option clears the timer, which the strip shows as "no option pressed". */""}
+      <div class="flex-1 min-w-0"><${Segmented} size="sm" scroll attr="data-timer" label=${T(t, "sleep")}
+        items=${TIMERS.map((m) => ({ id: String(m), label: `${m}${T(t, "min")}` }))}
+        value=${String(timerMin)} onChange=${(id) => setTimerMin((c) => (c === Number(id) ? 0 : Number(id)))} /></div>
     </div>
-    ${!audioSupported ? html`<div class="text-xs text-muted">${T(t, "noAudio")}</div>` : null}
+    ${!audioSupported ? html`<div class="text-sm text-muted">${T(t, "noAudio")}</div>` : null}
   </div>`;
 }
