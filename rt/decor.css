@@ -18,9 +18,10 @@
   --ds-mascot-s: 6.5rem;
 }
 
-/* THE HEADER CARRIES NO TEXTURE — the woven lip and its hook were removed farm-wide (owner 2026-09-02:
-   "прибери текстури з хедеру системно, вони заважають"); the header's only light is the runtime hairline
-   (--lm-lip / --lm-lip-glow). The theme suite bans --ds-lip so it cannot creep back. */
+/* THE HEADER CARRIES NOTHING — the woven lip and its hook were removed farm-wide (owner 2026-09-02:
+   "прибери текстури з хедеру системно, вони заважають"), and the runtime's lit hairline followed on
+   2026-09-04 ("прибери з хедера бордери усі, щоб лише напис і та тінь"). The wordmark and its shadow are
+   the header; the theme suite bans --ds-lip so a texture cannot creep back. */
 
 /* THE GARLAND hangs inside the dock zone: the sprite tiles at half the width (one seam, hidden behind the
    dock pill), and its art ENDS on the screen's bottom edge — `--ds-strand-y` is `calc(100% + Nvw)`, N the
