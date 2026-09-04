@@ -52,12 +52,16 @@
   <style>
     /* Realistic tone fields — dark nitrided-steel domes/dimples that catch a specular glint following a light
        whose direction (--lx/--ly, set on the pan by the gyroscope) shifts as you tilt the phone. Real DOM
-       buttons (accessible, hit-testable); the 3D is pure light-reactive CSS. See RESEARCH-buttons.md. */
+       buttons (accessible, hit-testable); the 3D is pure light-reactive CSS. See RESEARCH-buttons.md.
+       THE STEEL IS A DEPICTED MATERIAL, like a photo: nitrided steel is dark in any room, so its greys, the
+       white of the light landing on it and the black of its shade are literal by design and do not follow the
+       theme — only the pan's shell around it does. The ring a struck field glows with is the app's MARK
+       colour (--app-accent), the one theme token a light source may carry. */
     /* Outer fields are CONCAVE dimples: a raised rim (bright toward the light, shadowed away) around a sunken
        dish, so the shading is INVERTED vs the convex ding — the rim glint sits toward the light, the dish
        shadow opposite. The specular is a ring on the rim, not a centre hotspot. */
     .hp-field{position:absolute;transform:translate(-50%,-50%);border-radius:50%;display:grid;place-items:center;
-      border:0;padding:0;cursor:pointer;appearance:none;-webkit-tap-highlight-color:transparent;--glow:var(--color-secondary,#9F8CF6);
+      border:0;padding:0;cursor:pointer;appearance:none;-webkit-tap-highlight-color:transparent;--glow:var(--app-accent);
       background:radial-gradient(circle at calc(50% - var(--lx,0)*22%) calc(50% - var(--ly,0)*22%),#141519 0%,#1d1e23 52%,#2a2b32 84%,#303138 100%);
       box-shadow:
         calc(var(--lx,0)*-2px) calc(var(--ly,0)*-2px + 2px) 6px -1px rgba(0,0,0,.55),

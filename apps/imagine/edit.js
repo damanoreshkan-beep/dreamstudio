@@ -6,9 +6,10 @@
 // "keep editing" (the result becomes the new base) or go back to the "original", so a chain of edits or a
 // fresh pass off the source are both one tap. Sibling to Уяви (apps/imagine).
 //
-// The headless gate has no camera and no network and must stay deterministic, so under `gate` it seeds a
-// local mesh-gradient "photo" as the source and, on edit, a differently-seeded one as the result — the whole
-// flow (source → instruction → edit → result → save / keep / revert) runs without a single call out.
+// Where the picture comes from is the kit's /_rt/intake.js (the chooser island, the primed viewfinder, the
+// capped JPEG on the wire); the race is the kit's /_rt/imagejob.js. The headless gate has no camera and no
+// network and must stay deterministic, so under `gate` it seeds mockArt as the source and, on edit, a
+// differently-seeded one as the result — the whole flow runs without a single call out.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useRef, useEffect } from "preact/hooks";
@@ -17,8 +18,9 @@ import { useKept } from "./kept.js";
 import { T, sys } from "/_rt/i18n.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { gate } from "/_rt/gate.js";
-import { CameraPrime } from "/_rt/camprime.js";
-import { readLastGen } from "/_rt/lastgen.js";
+import { Island } from "/_rt/ui.js";
+import { Chooser, Camera, mockArt, toDataURL } from "/_rt/intake.js";
+import { startJob, follow as followJob, cancelJob } from "/_rt/imagejob.js";
 import { toEnglish } from "/_rt/translate.js";
 import { suggestPrompt } from "/_rt/ai-text.js";
 import { downloadUrl } from "/_rt/apk.js";
@@ -36,46 +38,10 @@ const randSeed = () => Math.floor(Math.random() * 1e9);
 // instruction. Only a spark for variety (never shown); the model writes the actual instruction in the locale.
 const SPARKS = ["turn it into an oil painting", "cinematic golden-hour lighting", "vintage film photograph", "soft watercolour illustration", "add dramatic shadows", "make it a snowy winter scene", "cyberpunk neon aesthetic", "dreamy pastel tones", "black-and-white film noir", "warm autumn colours", "add a glowing sunset sky", "studio portrait lighting", "misty morning atmosphere", "retro 80s synthwave look", "add gentle falling rain", "turn day into night", "pencil sketch style", "vibrant pop-art colours", "soft cinematic bloom", "add a shallow depth of field"];
 const gateDream = "перетвори на олійний живопис";                                  // gate: deterministic, no network
-const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;    // seconds → m:ss
+const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;    // seconds → m:ss
 const EST = 40;                                                                   // rough edit wall-clock (steps-heavy models run slower than text→image)
-const MAX_SIDE = 1024;                                                            // cap the uploaded image (payload + the Spaces clamp beyond this)
-
-// A stand-in "photo" for the gate/screenshot: overlapping soft colour blobs on ink → an abstract scene,
-// varied by seed so the "after" visibly differs from the "before". Deterministic, self-contained, no network.
-function mockArt(seed) {
-  let s = (seed >>> 0) || 1;
-  const r = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
-  const defs = [], rects = [];
-  for (let i = 0; i < 4; i++) {
-    const h = Math.floor(r() * 360), x = Math.floor(r() * 100), y = Math.floor(r() * 100), rad = 42 + Math.floor(r() * 38);
-    defs.push(`<radialGradient id="g${i}" cx="${x}%" cy="${y}%" r="${rad}%"><stop offset="0%" stop-color="hsl(${h} 80% 60%)" stop-opacity=".85"/><stop offset="100%" stop-color="hsl(${h} 80% 60%)" stop-opacity="0"/></radialGradient>`);
-    rects.push(`<rect width="768" height="1024" fill="url(#g${i})"/>`);
-  }
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="768" height="1024" viewBox="0 0 768 1024"><rect width="768" height="1024" fill="#0A0A0F"/><defs>${defs.join("")}</defs>${rects.join("")}</svg>`;
-  return "data:image/svg+xml," + encodeURIComponent(svg);
-}
-
-// Draw any same-origin image (objectURL / dataURL / svg) onto a capped canvas and return a JPEG data URL — the
-// shape the proxy forwards to the Spaces (their FileData.url accepts a base64 data URL). Downscaled so the POST
-// body stays small. Same-origin only, so the canvas never taints.
-export function toEditableDataURL(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => {
-      try {
-        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
-        if (!w || !h) return reject(new Error("empty image"));
-        const scale = Math.min(1, MAX_SIDE / Math.max(w, h));
-        w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
-        const c = document.createElement("canvas"); c.width = w; c.height = h;
-        c.getContext("2d").drawImage(img, 0, 0, w, h);
-        resolve(c.toDataURL("image/jpeg", 0.85));
-      } catch (e) { reject(e); }
-    };
-    img.onerror = () => reject(new Error("load failed"));
-    img.src = url;
-  });
-}
+const BASE = `${VPS_PROXY}/image/edit`;
+const tool = "btn btn-ghost btn-sm btn-circle text-base-content/70";
 
 export function retouch({ S, toast }) {
   const t = useStore(S.t), loc = useStore(S.locale), screen = useStore(S.screen);
@@ -88,18 +54,18 @@ export function retouch({ S, toast }) {
   const [idx, setIdx] = useKept("edit.idx", 0);
   const [more, setMore] = useKept("edit.more", false);                                        // the race is still delivering
   const cur = slides[idx] || slides[0] || null;
-  const result = cur;                                                             // the name the rest of this file grew up with
   const [prompt, setPrompt] = useKept("edit.prompt", gate ? "add falling snow, cinematic" : "");
   const [error, setError] = useState(null);
-  const [elapsed, setElapsed] = useState(0);
+  const [t0, setT0] = useState(0);
   const [live, setLive] = useState(null);                                          // the Space's own progress {eta, pct, step, steps}, once the worker reports it
-  const [enabled, setEnabled] = useState(false);                                  // camera stream opened
-  const [camErr, setCamErr] = useState(null);
-  const [hasLast, setHasLast] = useState(false);                                  // an image from Уяви is available
   const [suggesting, setSuggesting] = useState(false);                            // "surprise me" instruction is being written by the AI
 
-  const fileRef = useRef(), videoRef = useRef(), streamRef = useRef(null), runRef = useRef(0), blobs = useRef([]), jobRef = useRef(null), holdRef = useRef(null);
+  const runRef = useRef(0), blobs = useRef([]), jobRef = useRef(null), holdRef = useRef(null);
   const [hist, remember] = usePromptHistory("edit");
+  // a 1s tick only while an edit runs — the elapsed readout, nothing else re-renders for it
+  const [, tick] = useState(0);
+  useEffect(() => { if (phase !== "editing") return; const id = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(id); }, [phase]);
+  const elapsed = phase === "editing" && t0 ? Math.round((Date.now() - t0) / 1000) : 0;
 
   // Object URLs are revoked when the picture they point at is REPLACED (dropSlides / keep / a new run), never
   // on unmount. Unmount is not the end of this screen's life: the runtime mounts one tab at a time, so a trip
@@ -115,63 +81,20 @@ export function retouch({ S, toast }) {
     if (phase === "editing" && !jobRef.current) setPhase(slides.length ? "done" : (srcUrl ? "ready" : "empty"));
   }, []);
 
-  // Is there a last-generated image from Уяви to offer as a source? (same-origin shared store; see /_rt/lastgen.js)
-  useEffect(() => { if (!gate) readLastGen().then((v) => setHasLast(!!v)).catch(() => {}); }, []);
-
-  // ── camera: open the back stream while the camera phase is active + primed; mirror apps/cam's lifecycle ──
-  useEffect(() => {
-    if (gate || phase !== "camera" || !enabled) return;
-    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) { setCamErr("unavailable"); return; }
-    let live = true;
-    (async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1920 } }, audio: false });
-        if (!live) { stream.getTracks().forEach((tr) => tr.stop()); return; }
-        streamRef.current = stream;
-        const v = videoRef.current; if (v) { v.srcObject = stream; v.setAttribute?.("playsinline", ""); try { await v.play?.(); } catch { /* */ } }
-      } catch (e) { if (live) setCamErr(e && e.name === "NotAllowedError" ? "denied" : "unavailable"); }
-    })();
-    return () => { live = false; try { streamRef.current?.getTracks().forEach((tr) => tr.stop()); } catch { /* */ } streamRef.current = null; const v = videoRef.current; try { if (v) v.srcObject = null; } catch { /* */ } };
-  }, [phase, enabled]);
-
-  const stopCam = () => { try { streamRef.current?.getTracks().forEach((tr) => tr.stop()); } catch { /* */ } streamRef.current = null; };
-
   // load a source image and go to the ready state (revoke the previous run's result blob first)
   const dropSlides = () => { slides.forEach((x) => revoke(x.url)); setSlides([]); setIdx(0); setMore(false); };
   const loadSource = (url) => {
-    dropSlides(); setError(null); setElapsed(0); setLive(null);
-    setSrcUrl(url); setOriginal(url); setPhase("ready");
+    dropSlides(); setError(null); setLive(null);
+    setSrcUrl(own(url)); setOriginal(url); setPhase("ready");
   };
+  const backToChooser = () => { setPhase("empty"); };
 
-  const onFile = (e) => {
-    const f = e.target.files?.[0]; if (!f) return;
-    loadSource(own(URL.createObjectURL(f)));
-    e.target.value = "";                                                          // allow re-picking the same file
-  };
-
-  const fromLast = async () => {
-    try { const v = await readLastGen(); if (v?.url) { loadSource(v.url); if (v.prompt) setPrompt(""); } else setHasLast(false); }
-    catch { setHasLast(false); }
-  };
-
-  const capture = () => {
-    const v = videoRef.current; if (!v || !(v.videoWidth > 0)) return;
-    try {
-      const c = document.createElement("canvas"); c.width = v.videoWidth; c.height = v.videoHeight;
-      c.getContext("2d").drawImage(v, 0, 0);
-      const url = c.toDataURL("image/jpeg", 0.92);
-      buzz(14); stopCam(); setEnabled(false); loadSource(url);
-    } catch { /* capture blocked */ }
-  };
-
-  const backToChooser = () => { stopCam(); setEnabled(false); setCamErr(null); setPhase("empty"); if (!gate) readLastGen().then((v) => setHasLast(!!v)).catch(() => {}); };
-
-  const fail = (run, key) => { if (run === runRef.current) { setError(key); setPhase("error"); } };
+  const fail = (run, key) => { if (run !== runRef.current) return; holdRef.current?.(); holdRef.current = null; jobRef.current = null; setError(key); setPhase("error"); };
 
   // A photo + read handed over from Опиши: it becomes the source on stage and the instruction in the field,
   // consumed once (whether this view was mounted or comes up now).
   const handed = useStore(editHandoff);
-  useEffect(() => { if (handed?.url) { stopCam(); setEnabled(false); loadSource(handed.url); setPrompt(handed.prompt || ""); editHandoff.set(null); } }, [handed]);
+  useEffect(() => { if (handed?.url) { loadSource(handed.url); setPrompt(handed.prompt || ""); editHandoff.set(null); } }, [handed]);
 
   // "Surprise me" — the AI writes a fresh edit instruction from a random spark: English under the hood, the
   // reader's language in the field (suggestPrompt seeds the pair, so edit() sends the model's own English).
@@ -188,61 +111,40 @@ export function retouch({ S, toast }) {
     const p = prompt.trim();
     if (!p || !srcUrl || phase === "editing") return;
     const seed = randSeed(), run = ++runRef.current;
-    buzz(); setError(null); setElapsed(0);
+    buzz(); setError(null); setLive(null); setT0(Date.now());
     holdRef.current?.(); holdRef.current = null;
     dropSlides(); setPhase("editing");
     remember(p);
-    if (!gate) notifyAsk();
     if (gate) { await sleep(120); if (run === runRef.current) { setSlides([0, 1, 2, 3].map((n) => ({ url: mockArt(seed + n) }))); setPhase("done"); } return; }
+    notifyAsk();
     let image;
-    try { image = await toEditableDataURL(srcUrl); } catch { return fail(run, "edFailed"); }
+    try { image = (await toDataURL(srcUrl)).data; } catch { return fail(run, "edFailed"); }   // the kit answers { data, w, h } — the string is `.data` (mirage's regression, 2026-09-03)
     if (run !== runRef.current) return;
     if (image.length > 9_000_000) return fail(run, "eBig");                       // ~6.7 MB decoded — over the proxy's body cap
     let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail(run, e.code || "eTranslate"); }   // English or nothing: a native instruction at a Space is the defect (2026-09-03)
     if (run !== runRef.current) return;
-    try {
-      // Async job + poll, exactly like Уяви: POST starts the cascade, short polls never trip the proxy's 60s cap.
-      const cr = await fetch(`${VPS_PROXY}/image/edit`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image, prompt: pEn, seed, k: 4 }) });
-      if (run !== runRef.current) return;
-      if (!cr.ok) return fail(run, cr.status === 429 ? "eRate" : cr.status === 413 ? "eBig" : "edFailed");
-      const { job } = await cr.json();
-      if (!job) return fail(run, "edFailed");
-      jobRef.current = job;
-      const release = holdBackground({ title: T(t, "title"), body: T(t, "eEditing") }); holdRef.current = release;   // APK: stay warm while we poll
-      const t0 = Date.now(); let got = 0; const mine = [];
-      // ~200s of 1.5s polls. It must OUTLAST the edge's own 200s race budget: at 150s the client used to give up
-      // while the worker was still driving its last Space, so a variant that landed at 160s was thrown away and
-      // the user was told "took too long" by a job that had not finished.
-      for (let i = 0; i < 135; i++) {
-        await sleep(1500);
-        if (run !== runRef.current) return;
-        setElapsed(Math.round((Date.now() - t0) / 1000));
-        let j; try { j = await (await fetch(`${VPS_PROXY}/image/edit/get?job=${job}`)).json(); } catch { continue; }
-        if (run !== runRef.current || !j) return;
-        if (j.pct != null || j.eta != null) setLive({ eta: j.eta, pct: j.pct, step: j.step, steps: j.steps });
-        for (let n = got; n < (j.got || 0); n++) {                                // pull every variant that landed since the last poll
-          try {
-            const pr = await fetch(`${VPS_PROXY}/image/edit/get?job=${job}&n=${n}`);
-            if (run !== runRef.current) return;
-            if (!(pr.headers.get("content-type") || "").startsWith("image/")) continue;
-            const blob = await pr.blob(); const meta = (j.slides || [])[n] || {};
-            mine.push({ url: own(URL.createObjectURL(blob)), w: meta.w, h: meta.h, by: meta.by });
-            setSlides([...mine]); setMore(j.status !== "done");
-            if (mine.length === 1) {
-              setIdx(0); setPhase("done"); buzz(12);
-              if (document.visibilityState === "hidden") notify({ id: "imagine-edit-done", title: T(t, "title"), body: T(t, "notifEditDone"), url: "./?tab=edit" });
-            }
-          } catch { /* a variant that failed to transfer is skipped; the rest still land */ }
-          got = n + 1;
+    // Async job + poll, exactly like Уяви: POST starts the cascade, short polls never trip the proxy's 60s cap.
+    let job; try { job = await startJob(BASE, { image, prompt: pEn, seed, k: 4 }); } catch (e) { return fail(run, e.code === "eFailed" ? "edFailed" : (e.code || "eNetwork")); }
+    if (run !== runRef.current) { cancelJob(BASE, job); return; }
+    jobRef.current = job;
+    const release = holdBackground({ title: T(t, "title"), body: T(t, "eEditing") }); holdRef.current = release;   // APK: stay warm while we poll
+    const mine = [];
+    const status = await followJob({
+      base: BASE, job, alive: () => run === runRef.current,
+      onLive: (l) => setLive(l),
+      onSlide: (s) => {
+        mine.push({ url: own(s.url), w: s.w, h: s.h, by: s.by });
+        setSlides([...mine]); setMore(true);
+        if (mine.length === 1) {
+          setIdx(0); setPhase("done"); buzz(12);
+          if (document.visibilityState === "hidden") notify({ id: "imagine-edit-done", title: T(t, "title"), body: T(t, "notifEditDone"), url: "./?tab=edit" });
         }
-        if (j.status === "done" || j.status === "error") { release(); setMore(false); if (!mine.length) fail(run, "edFailed"); return; }
-      }
-      // Out of polls: tell the edge, so the worker stops the race instead of spending the rest of the anonymous
-      // ZeroGPU budget on pictures this client will never read.
-      release(); setMore(false);
-      fetch(`${VPS_PROXY}/image/edit/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ job }) }).catch(() => {});
-      if (!mine.length) fail(run, "eTimeout");
-    } catch { holdRef.current?.(); fail(run, "eNetwork"); }
+      },
+    });
+    if (status === "stale") return;
+    release(); holdRef.current = null; jobRef.current = null;
+    setMore(false); setLive(null);
+    if (!mine.length) fail(run, status === "timeout" ? "eTimeout" : status === "busy" ? "eBusy" : "edFailed");
   };
 
   // Cancel — abandon this run (a stale reply cannot land) and tell the edge, so the worker stops the race.
@@ -250,8 +152,8 @@ export function retouch({ S, toast }) {
     if (phase !== "editing") return;
     runRef.current++; const job = jobRef.current; jobRef.current = null;
     holdRef.current?.(); holdRef.current = null;
-    setMore(false); setPhase("ready");
-    if (job && !gate) fetch(`${VPS_PROXY}/image/edit/cancel`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ job }) }).catch(() => {});
+    setMore(false); setLive(null); setPhase("ready");
+    if (job && !gate) cancelJob(BASE, job);
   };
 
   // keep editing: the result becomes the new base (iterative). revert: back to the untouched original.
@@ -260,7 +162,7 @@ export function retouch({ S, toast }) {
   const onSlidesScroll = (e) => { const el = e.currentTarget; const n = Math.round(el.scrollLeft / Math.max(1, el.clientWidth)); if (n !== idx && n >= 0 && n < slides.length) setIdx(n); };
 
   const save = () => {
-    const url = result?.url; if (!url) return;
+    const url = cur?.url; if (!url) return;
     try {
       downloadUrl(url, `retouch-${Date.now()}.jpg`); toast?.(T(t, "saved"));
     } catch { toast?.(T(t, "eNetwork")); }
@@ -268,92 +170,69 @@ export function retouch({ S, toast }) {
 
   const onKey = (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); edit(); } };
 
-  const stageImg = srcUrl;                                                        // the source on stage before/while editing (results are the slides)
-  const isDone = phase === "done" && result;
+  const isDone = phase === "done" && !!cur;
+  const pct = live?.pct != null ? Math.min(99, Math.round(live.pct)) : Math.min(96, Math.round(elapsed / EST * 100));
+  const placeholder = T(t, "edPlaceholder");
 
-  return html`<div class="ms-stage z-20 bg-base-100 flex flex-col">
+  return html`<div class="ms-stage z-20 bg-base-100 flex flex-col" data-phase=${phase}>
     <${Lightbox} open=${screen === "view" && !!(isDone ? cur?.url : srcUrl)} slides=${isDone ? slides : null} src=${isDone ? null : srcUrl} index=${idx} onIndex=${setIdx} alt=${prompt} onClose=${() => S.screen.set(null)} />
     <${HistorySheet} id="hist-edit" open=${screen === "hist"} onClose=${() => S.screen.set(null)} items=${hist} onPick=${setPrompt} t=${t} locale=${loc} />
-    <input ref=${fileRef} type="file" accept="image/*" class="hidden" aria-hidden="true" onChange=${onFile} />
 
-    <!-- ── the image stage (contain, so an editor never crops what you're working on) ── -->
-    ${/* The black is a MEDIA backdrop — it belongs under a photo or a camera feed, which is foreign content.
-         With nothing loaded there is no foreign content, and the source chooser was being drawn on it in
-         base-content ink: on the light theme that is #0A0A0C on black, i.e. an invisible screen. Empty, the
-         stage is simply the page, so the chooser's buttons read against the material they were built for. */""}
+    ${/* The image stage (contain, so an editor never crops what you're working on). The black is a MEDIA
+         backdrop — it belongs under a photo or a camera feed, which is foreign content; the white on it (the
+         working line, the dots, the × over a picture) is white for the same reason. With nothing loaded the
+         stage is simply the page, so the chooser island reads against the material it was built for. */""}
     <div class=${`relative flex-1 min-h-0 overflow-hidden flex items-center justify-center ${phase === "empty" ? "bg-base-100" : "bg-black"}`}>
-      ${phase === "empty" ? html`<div data-source class="flex flex-col items-center gap-6 px-8 w-full max-w-xs">
-        <div class="text-base-content/30">${Icon("lucide:image-plus", "text-5xl")}</div>
-        <div class="text-base font-semibold text-base-content/85">${T(t, "pick")}</div>
-        <div class="flex flex-col gap-2.5 w-full">
-          <button data-src-upload class="btn btn-primary rounded-2xl gap-2.5 justify-start px-5" onClick=${() => { buzz(); fileRef.current?.click(); }}>${Icon("lucide:upload", "text-lg")}${T(t, "srcUpload")}</button>
-          <button data-src-camera class="btn btn-outline rounded-2xl gap-2.5 justify-start px-5" onClick=${() => { buzz(); setCamErr(null); setPhase("camera"); }}>${Icon("lucide:camera", "text-lg")}${T(t, "srcCamera")}</button>
-          ${hasLast ? html`<button data-src-last class="btn btn-ghost rounded-2xl gap-2.5 justify-start px-5" onClick=${() => { buzz(); fromLast(); }}>${Icon("lucide:sparkles", "text-lg text-secondary")}${T(t, "srcLast")}</button>` : null}
-        </div>
-      </div>` : null}
-
-      ${phase === "camera" ? html`<${Fragment}>
-        <video ref=${videoRef} autoplay muted playsinline class=${`absolute inset-0 w-full h-full object-cover ${enabled && !camErr ? "" : "opacity-0"}`}></video>
-        ${enabled && !camErr ? html`<${Fragment}>
-          <button data-cam-back aria-label=${T(t, "newImg")} class="absolute top-3 left-3 btn btn-circle btn-sm bg-black/50 text-white" onClick=${backToChooser}>${Icon("lucide:x", "text-base")}</button>
-          ${/* The shutter is the farm's shutter (apps/cam): a raised ring with the primary disc set in a collar.
-               It sits over the camera feed, so the dark scrim stays for legibility — but the EDGE is the
-               material now (sf-e3), not a hand-drawn white hairline. */""}
-          <button data-shutter aria-label=${T(t, "capture")} onClick=${capture} class="absolute left-1/2 -translate-x-1/2 bottom-6 w-[4.6rem] h-[4.6rem] rounded-full bg-white/10 sf-e3 flex items-center justify-center active:scale-95 transition">
-            <span class="w-[3.6rem] h-[3.6rem] rounded-full bg-primary border-4 border-base-100"></span>
-          </button>
-        </${Fragment}>` : null}
-      </${Fragment}>` : null}
+      ${phase === "empty" ? html`<${Chooser} loc=${loc} onPick=${loadSource} onCamera=${() => { buzz(); setPhase("camera"); }} />` : null}
+      ${phase === "camera" ? html`<${Camera} loc=${loc} reason=${T(t, "primeReason")} privacy=${T(t, "primePrivacy")}
+        onCapture=${(d) => { buzz(14); loadSource(d); }} onClose=${backToChooser} onSettings=${() => S.screen.set("perms")} />` : null}
 
       ${isDone ? html`<div data-slides tabindex="0" role="region" aria-label=${T(t, "slides")} class="absolute inset-0 flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory outline-none" style="scrollbar-width:none" onScroll=${onSlidesScroll}>
         ${slides.map((x, i) => html`<div key=${x.url} class="w-full h-full shrink-0 snap-center bg-black"><img data-result data-slide=${i} src=${x.url} alt=${prompt} class="w-full h-full object-contain" onClick=${() => S.screen.set("view")} /></div>`)}
       </div>` : null}
-      ${isDone && (slides.length > 1 || more) ? html`<div data-dots class="absolute inset-x-0 bottom-3 flex justify-center items-center gap-1.5 pointer-events-none">
-        ${slides.map((x, i) => html`<span key=${x.url} class=${`rounded-full transition-[width,background-color] ${i === idx ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/45"}`}></span>`)}
-        ${more ? html`<span class="w-1.5 h-1.5 rounded-full bg-white/45 animate-pulse"></span>` : null}
+      ${isDone && (slides.length > 1 || more) ? html`<div data-dots class="absolute inset-x-0 bottom-3 flex justify-center items-center gap-1.5 pointer-events-none text-white">
+        ${slides.map((x, i) => html`<span key=${x.url} class=${`rounded-full bg-current transition-[width,opacity] ${i === idx ? "w-4 h-1.5" : "w-1.5 h-1.5 opacity-45"}`}></span>`)}
+        ${more ? html`<span class="w-1.5 h-1.5 rounded-full bg-current im-more"></span>` : null}
       </div>` : null}
-      ${(phase === "ready" || phase === "editing" || phase === "done" || phase === "error") && stageImg ? html`<${Fragment}>
-        ${isDone ? null : html`<img data-result src=${stageImg} alt="" class=${`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${phase === "editing" ? "opacity-30" : "opacity-100"}`} onClick=${() => phase === "ready" && S.screen.set("view")} />`}
-        ${isDone ? html`<button data-new aria-label=${T(t, "newImg")} class="absolute top-3 left-3 btn btn-circle btn-sm bg-black/50 text-white" onClick=${() => { revert(); setPhase("empty"); }}>${Icon("lucide:x", "text-base")}</button>` : null}
+      ${(phase === "ready" || phase === "editing" || phase === "done" || phase === "error") && srcUrl ? html`<${Fragment}>
+        ${isDone ? null : html`<img data-result src=${srcUrl} alt="" class=${`absolute inset-0 w-full h-full object-contain transition-opacity duration-300 ${phase === "editing" ? "opacity-30" : "opacity-100"}`} onClick=${() => phase === "ready" && S.screen.set("view")} />`}
+        ${isDone ? html`<button data-new aria-label=${T(t, "newImg")} class="absolute top-3 left-3 btn btn-circle btn-sm im-chip border-0" onClick=${() => { revert(); setPhase("empty"); }}>${Icon("lucide:x", "text-base")}</button>` : null}
       </${Fragment}>` : null}
 
-      ${phase === "editing" ? html`<div class="relative z-10 flex flex-col items-center gap-3 w-56 max-w-[70%]">
-        <div data-gen class="font-mono text-sm uppercase tracking-wide text-white/90 tabular-nums drop-shadow">${T(t, "eEditing")} ${fmt(elapsed)}${elapsed <= (live?.eta ?? EST) + 3 ? html`<span class="text-white/50"> / ~${fmt(Math.round(live?.eta ?? EST))}</span>` : ""}${live?.steps ? html`<span class="text-white/50"> · ${live.step}/${live.steps}</span>` : null}</div>
-        <div class="w-full h-1 rounded-full bg-white/20 overflow-hidden"><div class="h-full bg-primary rounded-full transition-[width] duration-700 ease-out" style=${`width:${live?.pct != null ? Math.min(99, Math.round(live.pct)) : Math.min(96, Math.round(elapsed / EST * 100))}%`}></div></div>
-      </div>` : null}
-
-      ${/* The error chip floats over the user's PHOTO, so a 15% error wash behind error-coloured text was
-           unreadable on half the images it could land on, and the hairline around it was the object drawing
-           its own edge. It is an opaque raised chip now — the material says "on top of the picture", the
-           colour is left to carry the meaning. */""}
-      ${phase === "error" ? html`<div class="absolute inset-x-0 bottom-3 flex justify-center px-4"><div data-error class="flex items-center gap-2 text-sm px-3 py-2 rounded-xl bg-base-100 text-error sf-e3">${Icon("lucide:alert-triangle", "text-base shrink-0")}${T(t, error || "edFailed")}</div></div>` : null}
+      ${/* the working state: the real readout (elapsed · the Space's own step) and a light whose LENGTH is the
+           progress along the stage's bottom edge (head.html .im-light) — never a spinner */""}
+      ${phase === "editing" ? html`<${Fragment}>
+        <div data-working data-gen class="relative z-10 im-chip rounded-full px-4 py-2 font-mono text-[0.72rem] uppercase tracking-[0.18em] tabular-nums">${T(t, "eEditing")} ${fmt(elapsed)}${live?.steps ? html` · ${live.step}/${live.steps}` : null}</div>
+        <div class="im-light" style=${`--pct:${Math.max(4, pct)}%`}></div>
+      </${Fragment}>` : null}
     </div>
 
-    <!-- ── composer / actions ── -->
-    ${/* The composer is the page, extruded — the stage above it is black, so the boundary is a colour change
-         and never needed a hairline on top of it (the neumorphic material makes one read as a sticker seam). */""}
-    ${phase === "ready" || phase === "editing" || phase === "error" ? html`<div class="shrink-0 bg-base-100 px-3 pt-3 flex flex-col gap-2 max-w-xl w-full mx-auto" style="padding-bottom:max(0.75rem,env(safe-area-inset-bottom))">
-      <div class="relative">
-        <textarea id="prompt" rows="2" aria-label=${T(t, "edPlaceholder")} class="textarea textarea-bordered w-full resize-none rounded-2xl text-[0.95rem] leading-snug pr-[5.25rem]" placeholder=${T(t, "edPlaceholder")} value=${prompt} onInput=${(e) => setPrompt(e.target.value)} onKeyDown=${onKey}></textarea>
-        <button data-history aria-label=${T(t, "history")} onClick=${() => S.screen.set("hist")} class="btn btn-ghost btn-sm btn-circle absolute top-1.5 right-10 text-base-content/70">${Icon("lucide:history", "text-lg")}</button>
-        <button data-dream aria-label=${T(t, "edDream")} disabled=${suggesting || phase === "editing"} onClick=${() => { buzz(); dream(); }} class="btn btn-ghost btn-sm btn-circle absolute top-1.5 right-1.5 text-secondary">${Icon("lucide:dices", `text-lg ${suggesting ? "animate-pulse" : ""}`)}</button>
-      </div>
-      <div class="flex gap-2">
-        <button data-new class="btn btn-ghost rounded-2xl gap-2 shrink-0" aria-label=${T(t, "newImg")} disabled=${phase === "editing"} onClick=${backToChooser}>${Icon("lucide:image", "text-lg")}</button>
-        ${phase === "editing"
-          ? html`<button data-cancel class="btn btn-outline flex-1 rounded-2xl gap-2" onClick=${cancel}>${Icon("lucide:x", "text-lg")}${sys("cancel", loc)}</button>`
-          : html`<button data-edit class="btn btn-primary flex-1 rounded-2xl gap-2" disabled=${!prompt.trim()} onClick=${edit}>${Icon("lucide:wand-sparkles", "text-lg")}${T(t, phase === "error" ? "edAgain" : "editBtn")}</button>`}
-      </div>
+    ${/* The composer is an island in flow under the stage: the page's own material, so the boundary with the
+         black stage is a colour change and never needed a hairline on top of it. */""}
+    ${phase === "ready" || phase === "editing" || phase === "error" || isDone ? html`<div class="shrink-0 p-[var(--ms-gap)]">
+    <${Island} className="w-full max-w-xl mx-auto flex flex-col gap-[var(--ms-gap)]">
+      ${isDone ? html`<div data-actions class="@container flex items-center gap-1.5">
+        <button data-keep class="btn btn-sm btn-primary rounded-full flex-1 min-w-0 gap-1.5" onClick=${keep}>${Icon("lucide:wand-sparkles", "text-base shrink-0")}<span class="truncate @max-[15rem]:hidden">${T(t, "keep")}</span></button>
+        <button data-revert class="btn btn-sm rounded-full flex-1 min-w-0 gap-1.5" onClick=${revert}>${Icon("lucide:undo-2", "text-base shrink-0")}<span class="truncate @max-[15rem]:hidden">${T(t, "revert")}</span></button>
+        <button data-save class="btn btn-sm btn-circle shrink-0" aria-label=${T(t, "save")} title=${T(t, "save")} onClick=${save}>${Icon("lucide:download", "text-base")}</button>
+      </div>` : html`<${Fragment}>
+        <div data-field class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-col gap-1 focus-within:ring-1 focus-within:ring-base-content/25">
+          <textarea id="prompt" rows="2" aria-label=${placeholder}
+            class="w-full resize-none bg-transparent border-0 outline-none px-2 pt-1 text-[0.95rem] leading-snug text-base-content placeholder:text-muted"
+            placeholder=${placeholder} value=${prompt} onInput=${(e) => setPrompt(e.target.value)} onKeyDown=${onKey}></textarea>
+          <div class="flex items-center gap-0.5">
+            <button data-new aria-label=${T(t, "newImg")} class=${tool} disabled=${phase === "editing"} onClick=${backToChooser}>${Icon("lucide:image-plus", "text-lg")}</button>
+            <button data-dream aria-label=${T(t, "edDream")} aria-busy=${suggesting ? "true" : null} class=${tool} disabled=${suggesting || phase === "editing"} onClick=${() => { buzz(); dream(); }}>${Icon("lucide:dices", "text-lg")}</button>
+            <button data-history aria-label=${T(t, "history")} class=${tool} onClick=${() => S.screen.set("hist")}>${Icon("lucide:history", "text-lg")}</button>
+            <div class="flex-1"></div>
+            ${phase === "editing"
+              ? html`<button data-cancel class="btn btn-sm rounded-full gap-1.5 shrink-0" onClick=${cancel}>${Icon("lucide:square", "text-base")}${sys("cancel", loc)}</button>`
+              : html`<button data-edit class="btn btn-primary btn-sm rounded-full gap-1.5 shrink-0" disabled=${!prompt.trim()} onClick=${edit}>${Icon("lucide:wand-sparkles", "text-base")}${T(t, phase === "error" ? "edAgain" : "editBtn")}</button>`}
+          </div>
+        </div>
+        ${phase === "error" ? html`<p data-error role="alert" class="text-sm text-error px-1">${T(t, error || "edFailed")}</p>` : null}
+      </${Fragment}>`}
+    <//>
     </div>` : null}
-
-    ${isDone ? html`<div class="shrink-0 bg-base-100 px-3 py-3 flex flex-col gap-2 max-w-xl w-full mx-auto" style="padding-bottom:max(0.75rem,env(safe-area-inset-bottom))">
-      <div class="flex gap-2">
-        <button data-keep class="btn btn-primary flex-1 rounded-2xl gap-2" onClick=${keep}>${Icon("lucide:wand-sparkles", "text-lg")}${T(t, "keep")}</button>
-        <button data-save class="btn btn-outline rounded-2xl gap-2 shrink-0" onClick=${save}>${Icon("lucide:download", "text-lg")}${T(t, "save")}</button>
-      </div>
-      <button data-revert class="btn btn-ghost btn-sm rounded-2xl gap-2 self-center text-base-content/70" onClick=${revert}>${Icon("lucide:undo-2", "text-base")}${T(t, "revert")}</button>
-    </div>` : null}
-
-    ${phase === "camera" && (!enabled || camErr) ? html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} privacy=${T(t, "primePrivacy")} privacyIcon="lucide:cloud-upload" onEnable=${() => { buzz(); setCamErr(null); setEnabled(true); }} onSettings=${() => S.screen.set("perms")} denied=${camErr === "denied"} unavailable=${camErr === "unavailable"} />` : null}
   </div>`;
 }

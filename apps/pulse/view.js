@@ -8,17 +8,20 @@
 // Ukrainian Wikipedia), plus humans-only / articles-only toggles. Search spotlights the live feed by
 // title/editor. Scope/toggle changes reset the accumulated view; search is a pure display filter.
 //
-// CI/dev: the real stream is nondeterministic (and may be blocked from a CI IP), so on localhost we feed
+// CI/dev: the real stream is nondeterministic (and may be blocked from a CI IP), so under the gate we feed
 // a synthetic stream — the gate sees a live, populated view. Same env-double idea as crypto.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
+import { gate } from "/_rt/gate.js";
+import { Panel } from "/_rt/ui.js";
+import { Scramble } from "/_rt/skeleton.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 const STREAM = "https://stream.wikimedia.org/v2/stream/recentchange";
 const WINDOW_MS = 60000; // rolling window for the per-minute rate + ratios
+const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 // Curated scope list. Language names are endonyms (same in any UI locale) — self-identifying, so no flags:
 // emoji are banned farm-wide (a flag in a native <option> can't be a vector anyway, and endonyms read cleaner).
@@ -72,7 +75,7 @@ export function pulse({ S }) {
     };
 
     let src, mock;
-    if (isLocal) {
+    if (gate) {
       const CODES = ["en", "de", "uk", "fr", "es", "ja", "wd", "commons"];
       const TITLES = ["Kyiv", "Berlin", "Tokyo", "Photosynthesis", "Ukraine", "Music theory", "Q42", "2026"];
       const pick = (a) => a[(Math.random() * a.length) | 0];
@@ -107,7 +110,7 @@ export function pulse({ S }) {
         humanPct: w.length ? Math.round((1 - bots / w.length) * 100) : 100,
         top, total: total.current,
         big: big && (!p.big || Math.abs(big.delta) > Math.abs(p.big.delta)) ? big : p.big,
-        live: isLocal ? true : p.live,
+        live: gate ? true : p.live,
       }));
     }, 700);
 
@@ -124,59 +127,57 @@ export function pulse({ S }) {
   const signed = (d) => (d >= 0 ? "+" : "") + num(d);
   const ql = q.trim().toLowerCase();
   const shown = ql ? s.feed.filter((it) => (it.title + " " + it.user).toLowerCase().includes(ql)) : s.feed;
-  // A filter toggle is an OBJECT in both states, so off is a plain raised `.btn` (the material gives it the
-  // pair) rather than a ghost wearing a hairline. aria-pressed carries the state that the outline used to.
-  const toggleBtn = (on, set, icon, label) => html`<button aria-pressed=${on} class=${`btn btn-sm flex-1 rounded-2xl gap-1 ${on ? "btn-primary" : ""}`} onClick=${() => set(!on)}>${Icon(icon)}<span class="truncate">${label}</span></button>`;
+  // A filter toggle is an OBJECT in both states (two independent switches, not a one-of-N strip), so off is
+  // a plain raised `.btn` and on is the ink pill; aria-pressed carries the state.
+  const toggleBtn = (id, on, set, icon, label) => html`<button data-filter=${id} aria-pressed=${on} class=${`btn btn-sm flex-1 min-w-0 rounded-full gap-1 ${on ? "btn-primary" : ""}`} onClick=${() => set(!on)}>${Icon(icon)}<span class="truncate">${label}</span></button>`;
+  const filled = s.live && (s.total > 0 || s.feed.length > 0);   // the first flush has landed: numbers are real, not zero
 
-  return html`<div class="flex flex-col gap-3">
-    ${/* The hairline this used to be outlined with is gone: `.card` already carries the material's shallow
-         pair, and that is the edge now. (Don't reach for sf-e3 here — theme.css defines `.card` AFTER the
-         ladder, so on a card the rung loses the cascade.) The wash stays — it is the app's identity. */""}
-    <div class="card bg-gradient-to-b from-primary/15 to-base-100 rounded-2xl"><div class="card-body p-5 items-center text-center gap-1">
-      <div class="flex items-center gap-1.5 text-xs text-base-content/70">
-        ${/* An 8px status LED is too small for the pair; unlit takes --sf-track-face, the sanctioned tone. */""}
-        <span class=${`inline-block w-2 h-2 rounded-full ${s.live ? "bg-success animate-pulse" : ""}`} style=${s.live ? "" : "background:var(--sf-track-face)"}></span>${s.live ? T(t, "live") : T(t, "connecting")}
-        ${scope !== "all" ? html`<span class="text-base-content/50">·</span><span class="font-medium text-base-content/80">${SCOPE_NAME[scope] || scope}</span>` : null}
+  return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-live=${s.live ? "true" : "false"} data-scope=${scope} data-filters=${[humansOnly && "humans", articlesOnly && "articles"].filter(Boolean).join(" ") || null}>
+    <${Panel} className="items-center text-center gap-1">
+      <div class=${`flex items-center gap-1.5 ${LBL}`}>
+        ${/* An 8px status LED is too small for the pair; unlit takes --sf-track-face, the sanctioned tone.
+             Lit, it breathes (head.html .pl-live) — the one animated thing on a screen about a heartbeat. */""}
+        <span class=${`inline-block w-2 h-2 rounded-full ${s.live ? "bg-success pl-live" : ""}`} style=${s.live ? "" : "background:var(--sf-track-face)"}></span>${s.live ? T(t, "live") : T(t, "connecting")}
+        ${scope !== "all" ? html`<span class="text-muted">·</span><span class="normal-case tracking-normal font-sans text-base-content">${SCOPE_NAME[scope] || scope}</span>` : null}
       </div>
-      <div id="rate" class="text-6xl font-bold tabular-nums leading-none mt-1 @max-[240px]:text-5xl">${num(s.perMin)}</div>
+      <div id="rate" class="text-6xl font-bold tabular-nums leading-none mt-1 @max-[240px]:text-5xl">${filled ? num(s.perMin) : html`<${Scramble} len=${2} />`}</div>
       <div class="text-sm text-base-content/80">${T(t, "perMin")}</div>
-      <div class="w-full mt-3">
-        <div class="flex justify-between text-xs mb-1"><span class="flex items-center gap-1">${Icon("lucide:user", "text-primary")}${T(t, "humans")} ${s.humanPct}%</span><span class="flex items-center gap-1 text-muted">${T(t, "bots")} ${100 - s.humanPct}% ${Icon("lucide:bot")}</span></div>
-        ${/* base-300 and base-100 are the SAME colour under this material, so this trough was painting
-             nothing at all. An 8px rail cannot hold the pair either — it takes --sf-track-face. */""}
+      <div class="w-full mt-2">
+        <div class=${`flex justify-between mb-1 ${LBL}`}><span class="flex items-center gap-1">${Icon("lucide:user", "text-primary")}${T(t, "humans")} ${s.humanPct}%</span><span class="flex items-center gap-1 text-muted">${T(t, "bots")} ${100 - s.humanPct}% ${Icon("lucide:bot")}</span></div>
+        ${/* base-300 and base-100 are the SAME colour under this material, so a bg-base-300 trough paints
+             nothing. An 8px rail cannot hold the pair either — it takes --sf-track-face. */""}
         <div class="h-2 rounded-full overflow-hidden" style="background:var(--sf-track-face)"><div class="h-full bg-primary transition-[width] duration-500" style=${`width:${s.humanPct}%`}></div></div>
       </div>
-      ${scope === "all" && s.top.length ? html`<div class="flex flex-wrap gap-1 justify-center mt-3">${s.top.map((c) => html`<button class="badge gap-1 cursor-pointer hover:badge-primary" key=${c} onClick=${() => setScope(c)}>${Icon("lucide:globe", "text-[0.85em] opacity-70")}${c}</button>`)}</div>` : null}
-      <div class="text-xs text-muted mt-2">${T(t, "total", { n: num(s.total) })}</div>
-    </div></div>
+      ${scope === "all" && s.top.length ? html`<div class="flex flex-wrap gap-1 justify-center mt-2">${s.top.map((c) => html`<button data-top=${c} class="badge gap-1 cursor-pointer hover:badge-primary" key=${c} onClick=${() => setScope(c)}>${Icon("lucide:globe", "text-[0.85em]")}${c}</button>`)}</div>` : null}
+      <div class=${`${LBL} mt-1`}>${T(t, "total", { n: num(s.total) })}</div>
+    <//>
 
-    <div class="flex flex-col gap-2">
-      <label class="input input-bordered flex items-center gap-2 h-11 rounded-2xl">${Icon("lucide:search", "text-lg opacity-50")}<input id="q" type="search" class="grow" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
-      <select id="scope" class="select select-bordered rounded-2xl w-full" value=${scope} onChange=${(e) => setScope(e.target.value)} aria-label=${T(t, "fScope")}>
+    <${Panel} className="gap-2">
+      <label class="input input-bordered flex items-center gap-2 h-[var(--ms-ctl)] rounded-full">${Icon("lucide:search", "text-lg text-muted")}<input id="q" type="search" class="grow" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
+      <select id="scope" class="select select-bordered rounded-full h-[var(--ms-ctl)] min-h-0 w-full" value=${scope} onChange=${(e) => setScope(e.target.value)} aria-label=${T(t, "fScope")}>
         <option value="all">${T(t, "allScopes")}</option>
         <optgroup label=${T(t, "gLangs")}>${LANGS.map(([c, n]) => html`<option value=${c} key=${c}>${n} · ${c}</option>`)}</optgroup>
         <optgroup label=${T(t, "gProjects")}>${PROJECTS.map(([c, n]) => html`<option value=${c} key=${c}>${n}</option>`)}</optgroup>
       </select>
       <div class="flex gap-2">
-        ${toggleBtn(humansOnly, setHumansOnly, "lucide:user-round", T(t, "humansOnly"))}
-        ${toggleBtn(articlesOnly, setArticlesOnly, "lucide:file-text", T(t, "articlesOnly"))}
+        ${toggleBtn("humans", humansOnly, setHumansOnly, "lucide:user-round", T(t, "humansOnly"))}
+        ${toggleBtn("articles", articlesOnly, setArticlesOnly, "lucide:file-text", T(t, "articlesOnly"))}
       </div>
-    </div>
+    <//>
 
-    ${s.big && !ql ? html`<div class="card bg-base-100 rounded-2xl"><div class="card-body p-3 px-4 gap-0.5">
-      <div class="text-xs text-muted flex items-center gap-1">${Icon("lucide:flame", "text-primary")}${T(t, "biggest")}</div>
+    ${s.big && !ql ? html`<${Panel} data-big className="gap-0.5" title=${T(t, "biggest")}>
       <div class="flex items-center gap-2"><span class="font-semibold truncate flex-1">${s.big.title}</span><span class=${`font-bold tabular-nums shrink-0 ${s.big.delta >= 0 ? "text-success" : "text-error"}`}>${signed(s.big.delta)}</span></div>
-    </div></div>` : null}
+    <//>` : null}
 
     ${/* A feed row is a card in a long list — the material's shallow pair (which `.card` already carries)
-         is the edge now, so the hairline that used to outline every row is gone. */""}
+         is the edge; the hairline that used to outline every row is gone. */""}
     <div class="flex flex-col gap-2" data-feed>
       ${shown.length === 0
-        ? html`<div class="text-center text-base-content/50 py-10 text-sm flex flex-col items-center gap-2">${Icon(ql ? "lucide:search-x" : "lucide:radio", "text-3xl opacity-40")}${T(t, ql ? "noMatch" : "waiting")}</div>`
-        : shown.map((it) => html`<a href=${it.url} target="_blank" rel="noopener" class="card bg-base-100 rounded-2xl active:scale-[.99] transition" key=${it.id}><div class="card-body p-3 px-4 flex-row items-center gap-3">
-            ${Icon(it.bot ? "lucide:bot" : "lucide:user", "text-lg shrink-0 " + (it.bot ? "text-base-content/40" : "text-primary"))}
-            <div class="flex-1 min-w-0"><div class="font-medium truncate">${it.title}</div><div class="text-xs text-muted truncate">${it.code}${it.user ? " · " + it.user : ""}</div></div>
-            <span class=${`text-xs font-semibold tabular-nums shrink-0 ${it.delta >= 0 ? "text-success" : "text-error"}`}>${signed(it.delta)}</span>
+        ? html`<div class="text-center text-muted py-10 text-sm flex flex-col items-center gap-2">${Icon(ql ? "lucide:search-x" : "lucide:radio", "text-3xl")}${T(t, ql ? "noMatch" : "waiting")}</div>`
+        : shown.map((it) => html`<a href=${it.url} target="_blank" rel="noopener" class="card bg-base-100 rounded-[var(--ms-r)] active:scale-[.99] transition-transform" key=${it.id}><div class="card-body p-3 px-4 flex-row items-center gap-3">
+            ${Icon(it.bot ? "lucide:bot" : "lucide:user", "text-lg shrink-0 " + (it.bot ? "text-muted" : "text-primary"))}
+            <div class="flex-1 min-w-0"><div class="font-medium truncate">${it.title}</div><div class="text-[0.78rem] text-muted truncate">${it.code}${it.user ? " · " + it.user : ""}</div></div>
+            <span class=${`text-[0.78rem] font-semibold tabular-nums shrink-0 ${it.delta >= 0 ? "text-success" : "text-error"}`}>${signed(it.delta)}</span>
           </div></a>`)}
     </div>
   </div>`;

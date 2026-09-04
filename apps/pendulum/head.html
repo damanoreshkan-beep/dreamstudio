@@ -1,0 +1,15 @@
+  <style>
+    /* THE ORB — a depicted light source, so it is painted in the app's MARK colour (--app-accent), shaded
+       in oklch relative to that one hue: a highlight where the light lands, the body, a darker underside.
+       No literal colour: the same orb reads on the black base and on the light theme's paper. */
+    .pd-bob{border-radius:9999px;
+      background:radial-gradient(circle at 42% 36%,
+        oklch(from var(--app-accent) 0.97 calc(c * 0.35) h) 0%,
+        oklch(from var(--app-accent) 0.9 calc(c * 0.7) h) 14%,
+        var(--app-accent) 46%,
+        oklch(from var(--app-accent) 0.5 c h) 78%,
+        oklch(from var(--app-accent) 0.32 c h) 100%);
+      box-shadow:inset 0 -5px 13px oklch(from var(--app-accent) 0.25 c h / .6), 0 0 28px -4px var(--lm-bloom-hi)}
+    /* the halo around it: the theme's own bloom, fading to nothing */
+    .pd-halo{border-radius:9999px;background:radial-gradient(circle, var(--lm-bloom-hi) 0%, var(--lm-bloom) 30%, transparent 62%)}
+  </style>
