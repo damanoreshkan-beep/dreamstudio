@@ -88,7 +88,9 @@ const GATE_FIELD = [
   { addr: "0A:99:88:77:66:55", name: "", rssi: -92, raw: "020106", kind: "ble" },
   { addr: "24:0A:C4:11:22:33", name: "Gate-AP", rssi: -52, kind: "wifi", ftm: true, freq: 5180 },
   { addr: "3C:5A:B4:44:55:66", name: "Gate-Guest", rssi: -74, kind: "wifi", ftm: false, freq: 2437 },
-  { addr: "lte:301", name: "LTE 1300", rssi: -89, kind: "lte", serving: true },
+  // The serving cell carries its identifiers, its neighbour carries none — that is not a gap in the
+  // fixture but the radio's own rule, and a field where every cell had a CID could not test it.
+  { addr: "lte:301", name: "LTE 1300", rssi: -89, kind: "lte", serving: true, cid: 27183, lac: 4102 },
   { addr: "lte:118", name: "LTE 1300", rssi: -104, kind: "lte", serving: false },
 ];
 
@@ -129,6 +131,11 @@ function upsert(frame) {
   }
 }
 
+// Android reports an unavailable cell field as Integer.MAX_VALUE instead of omitting it, and a neighbour
+// cell carries no CID at all — only the cell the radio is camped on does. Both must read as "not stated"
+// rather than as a number: a printed 2147483647 is an invented identifier. Every id here is ≤ 28 bits.
+const cellNum = (v) => (Number.isInteger(v) && v > 0 && v < 0x10000000 ? v : null);
+
 // Wi-Fi and cell are CALLS where BLE is a subscribe, so they are asked on a timer. Each failure is
 // swallowed on its own: one radio being refused must never blank the other two.
 async function sweepRadios() {
@@ -149,7 +156,7 @@ async function sweepRadios() {
         if (id == null) continue;
         upsert({
           addr: `${c.type || "cell"}:${id}`, name: `${(c.type || "cell").toUpperCase()} ${c.arfcn ?? ""}`.trim(),
-          rssi: c.rssi, kind: "lte", serving: !!c.serving,
+          rssi: c.rssi, kind: "lte", serving: !!c.serving, cid: cellNum(c.cid), lac: cellNum(c.lac),
         });
       }
     } catch { /* a phone with no SIM answers nothing, which is not an error */ }
@@ -420,6 +427,12 @@ export function listView({ S, t }) {
           <span class="mt-1 block font-mono text-[length:var(--ms-label)] text-base-content/70">
             ${(() => { const v = vendorOf(d.addr, d.kind, oui); return v ? html`<span data-vendor>${v}</span> · ` : null; })()}
             ${T(t, "band_" + band(d.smooth ?? d.rssi))} · ${Math.round(d.smooth ?? d.rssi)} dBm${rotates(d.addr) && d.kind === "ble" ? " · " + T(t, "rotating") : ""}
+            ${/* The same honesty rule as the vendor above, for the other radio: a cell states the
+                 identifiers it actually broadcast, and a neighbour that gave none stays bare. CID and LAC
+                 are protocol abbreviations, so they are not translated — no more than dBm is. */""}
+            ${d.cid || d.lac
+              ? html` · <span data-cellid>${[d.cid ? `CID ${d.cid}` : null, d.lac ? `LAC ${d.lac}` : null].filter(Boolean).join(" · ")}</span>`
+              : null}
           </span>
         </button>`)}
       </div>

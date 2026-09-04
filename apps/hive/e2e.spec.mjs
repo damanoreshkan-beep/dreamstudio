@@ -39,6 +39,12 @@ export default [
       h.expect(vendors >= 2, `виробника не показано для жодної справжньої адреси (${vendors})`);
       h.expect(vendors < rows, "виробника показано навіть для ротаційних адрес — це вигадка");
 
+      // The same rule for the cell radio: the serving cell states CID/LAC, its neighbour gave neither and
+      // must stay bare. A number printed there would be an identifier the radio never broadcast.
+      h.expect((await h.count("[data-cellid]")) === 1, `очікував CID/LAC рівно в однієї соти, знайшов ${await h.count("[data-cellid]")}`);
+      const cellid = await h.text("[data-cellid]");
+      h.expect(/CID \d+ · LAC \d+/.test(cellid), `рядок соти без CID/LAC: ${cellid}`);
+
       // No distance, anywhere. Bands and dBm only.
       const body = await h.text("[data-live]");
       h.expect(/dBm/.test(body), "немає вимірювання в dBm");
