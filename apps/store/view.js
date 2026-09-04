@@ -152,7 +152,7 @@ export function store({ S, openScreen, closeScreen }) {
         </div>`)}
       </div>
       ${/* the device note is a fact in ink; the USB glyph carries the accent as the mark that says "attention" */""}
-      ${needsUsb(sel) ? html`<div data-needs-device class="flex items-center gap-2 text-sm text-base-content sf-inset rounded-[var(--ms-r-in)] px-3 py-2">${Icon("lucide:usb", "shrink-0 text-[var(--ms-icon)]", "color:var(--app-accent)")}<span>${T(t, sel.deviceNote || "needsDeviceHackrf")}</span></div>` : null}
+      ${needsUsb(sel) ? html`<div data-needs-device class="flex items-center gap-2 text-sm text-base-content sf-inset rounded-[var(--ms-r-in)] px-3 py-2">${Icon("lucide:usb", "shrink-0 text-[length:var(--ms-icon)]", "color:var(--app-accent)")}<span>${T(t, sel.deviceNote || "needsDeviceHackrf")}</span></div>` : null}
       ${/* Screenshots — one real capture per screen, in the app's populated state. The ONE horizontal scroller
             in the store: proximity snap (never mandatory — that is what fought the vertical swipe), its own
             overscroll, no scrollbar. */""}
