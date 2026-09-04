@@ -69,3 +69,40 @@ question and NOT for a fresh one (under the gate every answer text is identical,
   (`tx` per locale) is the durable copy the replay reads first.
 - **No quick-cast button on the island.** All casting goes through the ceremony; the question slot is the
   single entry point (a faux-input button, like a search bar that opens a search screen).
+
+## Design refresh 2026-09-04
+
+The film stays a film; what changed is that its surfaces are now the THEME's, not `#0b0f14` + `text-white`
+literals, so the same acts read on the light field too. State map of the cast screen (`[data-ic-state]`
+empty · cast · shuffle on the `.ms-stage` root; `[data-phase]` ask · cast · answer inside the ceremony):
+
+- empty — the current, one pane ("the book is still silent"), the question slot with the golden caret.
+- cast — the pane with the hexagram, the name, pinyin, number · trigrams · change; tap = replay.
+- shuffle — the field's seed follows the flickering lines (`$seedLines`), the pane shows them.
+- overlay ask / ask — the veil, ASK THE BOOK, the question on the writing line, CAST, the method strip +
+  the odds at the foot.
+- overlay ask / cast — the veil thinned (`[data-thin]`), the shuffle, the incantation chip.
+- overlay ask / answer — hexagram header, the question, the replay date when it is a replay, the answer
+  typing itself, provenance, RECAST (once a day, old entries only) + CLOSE.
+- journal — raised rows (question first), the entry sheet; empty state.
+
+What changed and why:
+
+- `apps/iching/head.html` (inlined by `scaffold --force`): `.ic-pane` (the night pane = base-100 at 85 %
+  with the 2 px blur over the current — foreign content, so the blur is the sanctioned kind), `.ic-slot`
+  (the question pill with the material's rim), `.ic-veil` / `[data-thin]` (90 % / 70 % of base-100),
+  `.ic-chip`, `.ic-caret` (a CSS blink, not `animate-pulse`), `.ic-line`. In the dark theme these are
+  black-on-black exactly as before; in the light theme they are paper-on-paper with ink.
+- The 8 `bg-[#0b0f14]` and 39 `text-white*` literals are gone; ink is `text-base-content` (with the same
+  alphas), muted copy is `.text-muted`; the `data-theme="signal"` re-scope inside the ceremony is gone with
+  them (its whole purpose was to force dark tokens under white text).
+- The ceremony's `<div class="modal-box">` now carries `style="background:transparent"`: `.modal-box`
+  paints an opaque base-100 unlayered, so the old `bg-transparent` utility never won and the "transparent
+  dialog" of Revision 2 was in fact opaque. The veil is now genuinely over the current.
+- The ceremony's word-buttons (`rounded-full border border-white/30`) → `btn btn-ghost rounded-full`
+  mono pills; CLOSE is `btn-primary` (ink on ground), never `bg-white text-[#0b0f14]`.
+- Radii `rounded-[2rem]` / `rounded-2xl` / `rounded-xl` → `--ms-r` (the pane's padding is `--ms-pad`
+  multiples); the journal rows read `--ms-pad` / `--ms-gap`.
+- Left as is, with the reason: the full-screen `<dialog class="modal">` ceremony is NOT a bottom sheet
+  (tarot's Ritual precedent; preflight allows it) — a `Sheet` caps at 88dvh and would cut the film into a
+  drawer. `[&_*]:!shadow-none` inside it stays: the kit strip on a veil must not extrude.

@@ -49,6 +49,28 @@
     }
   }
   </script>
+  <style>
+    /* THE FILM'S SURFACES, in the theme's own tokens. The set is the WebGPU current (foreign content, so a
+       blur over it is the sanctioned kind); everything the eye reads sits on a PANE of the page's own ground
+       — base-100 at a known alpha, base-content ink — so night is black-on-black in the dark theme (the owner's
+       "magic film") and paper-on-paper in the light theme, with contrast deterministic in both. */
+    .ic-pane{background:color-mix(in srgb,var(--color-base-100) 85%,transparent);color:var(--color-base-content);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+    .ic-pane:active{background:color-mix(in srgb,var(--color-base-100) 95%,transparent)}
+    /* the question slot: a pill of the ground with the material's rim, the one control on the set */
+    .ic-slot{background:color-mix(in srgb,var(--color-base-100) 90%,transparent);color:var(--color-base-content);box-shadow:0 0 0 1px var(--lm-rim, rgba(255,232,196,.11))}
+    .ic-slot:hover{box-shadow:0 0 0 1px var(--lm-rim-hi, rgba(255,238,208,.2))}
+    /* the veil over the current inside the ceremony: dimmer while the lines shuffle so the field visibly dances */
+    .ic-veil{background:color-mix(in srgb,var(--color-base-100) 90%,transparent);transition:background-color .7s ease}
+    .ic-veil[data-thin]{background:color-mix(in srgb,var(--color-base-100) 70%,transparent)}
+    /* the incantation chip under the shuffle */
+    .ic-chip{background:color-mix(in srgb,var(--color-base-100) 90%,transparent)}
+    /* the golden caret — the film's through-line — blinks by CSS, never a pulse utility */
+    .ic-caret{display:inline-block;width:2px;height:1em;vertical-align:-.12em;background:var(--app-accent);animation:ic-blink 1s steps(2) infinite}
+    @keyframes ic-blink{to{opacity:0}}
+    /* the writing line: the golden hairline the answer later types itself onto */
+    .ic-line{height:1px;width:100%;background:linear-gradient(90deg,transparent,var(--app-accent),transparent);opacity:.6}
+    @media(prefers-reduced-motion:reduce){.ic-caret{animation:none}.ic-veil{transition:none}}
+  </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
   <div id="boot" aria-hidden="true"><div class="bh"><span class="bm">Книга Перемін</span></div><div class="bb"><i></i></div><div class="bd"></div></div>

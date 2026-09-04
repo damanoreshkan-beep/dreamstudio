@@ -14,7 +14,8 @@ import { atom } from "nanostores";
 import { persistentAtom } from "@nanostores/persistent";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Sheet, Transport, Island } from "/_rt/ui.js";
+import { Sheet, Transport, Island, Segmented, Slider, Panel } from "/_rt/ui.js";
+import { Pixels } from "/_rt/skeleton.js";
 import { wakeLock } from "/_rt/sensors.js";
 import { holdAudio } from "/_rt/mediasession.js";
 import { gate } from "/_rt/gate.js";
@@ -24,6 +25,10 @@ import { createUsbSession } from "/_rt/usbsession.js";
 import { LISTEN_PRESETS } from "/_rt/bandplan.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
+// The subject's tile: the page raised on the deep rung, the glyph in the app's MARK colour (a graphic, never text).
+const TILE = "w-20 h-20 rounded-[var(--ms-r)] grid place-items-center sf-raised sf-e3 text-[var(--app-accent)]";
 const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
 const presetOf = (id) => LISTEN_PRESETS.find((p) => p.id === id) || null;
 
@@ -128,34 +133,30 @@ export function listenView({ S, screen, openScreen, closeScreen }) {
   const p = presetOf(preset);
   return html`<${Fragment}>
     <!-- scrolling body (like fmradio): band tiles + the listening stage; the transport is a pinned island below -->
-    <div class="flex flex-col gap-[var(--ms-gap)] max-w-[440px] mx-auto w-full pb-[8.5rem]">
-    <!-- band tiles: tap one to hear it. The active tile carries the accent as a MARK (ring + tint), not text. -->
-    <div class="grid grid-cols-2 gap-[var(--ms-gap)] shrink-0" role="group" aria-label=${T(t, "listenPick")}>
-      ${LISTEN_PRESETS.map((b) => {
-    const on = preset === b.id;
-    return html`<button key=${b.id} data-preset=${b.id} aria-pressed=${on} onClick=${() => listen(t, b.id)}
-        class=${`flex items-center gap-2.5 rounded-[var(--ms-r)] px-3.5 py-3 text-left transition min-w-0 ${on ? "sf-e3 bg-primary/10 ring-1 ring-primary/40" : "sf-raised sf-e2"}`}>
-        ${Icon(b.icon, `text-2xl shrink-0 ${on ? "text-primary" : "text-muted"}`)}
-        <span class=${`font-medium leading-tight min-w-0 ${on ? "" : "text-base-content/80"}`}>${T(t, b.key)}</span>
-      </button>`;
-  })}
-    </div>
+    <div class="flex flex-col gap-[var(--ms-gap)] max-w-[440px] mx-auto w-full pb-[9.5rem]"
+      data-listen=${p ? state : "idle"} data-preset-sel=${preset || ""}>
+    ${/* The band is a one-of-N choice and the screen's primary mode: the kit's Segmented in its solid skin.
+         Every option carries an icon, so on a narrow rail the strip demotes to glyphs instead of squashing
+         four labels — and the stage below names the band in full anyway. `attr` keeps the e2e hook. */""}
+    <${Segmented} attr="data-preset" label=${T(t, "listenPick")}
+      items=${LISTEN_PRESETS.map((b) => ({ id: b.id, label: T(t, b.key), icon: b.icon }))}
+      value=${preset} onChange=${(id) => listen(t, id)} />
 
     <!-- stage: the current listening state, given presence with a min-height so it centres its subject -->
     <div class="min-h-[34vh] grid place-items-center text-center px-4">
       ${!p ? html`<div class="flex flex-col items-center gap-3 text-muted">
           ${Icon("lucide:radio-tower", "text-5xl")}<span>${T(t, "listenPick")}</span></div>`
-    : state === "searching" ? html`<div class="flex flex-col items-center gap-4" data-searching>
+    : state === "searching" ? html`<div class="flex flex-col items-center gap-[var(--ms-gap)]" data-searching>
           <${Equalizer} level=${0} searching=${true} />
           <span class="text-muted">${T(t, "searching")}</span></div>`
     : state === "silent" ? html`<div class="flex flex-col items-center gap-3 text-muted" data-silent>
           ${Icon("lucide:volume-x", "text-4xl")}<span>${T(t, "silent")}</span>
-          <button data-next class="btn btn-sm gap-2 mt-1" onClick=${nextChannel}>${Icon("lucide:skip-forward")}${T(t, "nextChannel")}</button></div>`
-    : html`<div class="flex flex-col items-center gap-4" data-live>
-          <div class="w-20 h-20 rounded-3xl grid place-items-center bg-primary/12 text-primary sf-e2">${Icon(p.icon, "text-4xl")}</div>
+          <button data-next class="btn btn-sm rounded-full gap-2 mt-1" onClick=${nextChannel}>${Icon("lucide:skip-forward")}${T(t, "nextChannel")}</button></div>`
+    : html`<div class="flex flex-col items-center gap-[var(--ms-gap)]" data-live>
+          <div class=${TILE}>${Icon(p.icon, "text-4xl")}</div>
           <div class="flex flex-col items-center gap-1">
             <span class="text-xl font-semibold">${T(t, p.key)}</span>
-            <span class="text-xs uppercase tracking-wider text-muted">${T(t, "listening")}</span>
+            <span class=${LABEL}>${T(t, "listening")}</span>
           </div>
           <${Equalizer} level=${signal} />
         </div>`}
@@ -163,7 +164,7 @@ export function listenView({ S, screen, openScreen, closeScreen }) {
     </div>
 
     <!-- transport island: play/pause · next channel · squelch · volume in a sheet -->
-    <${Island} pinned data-player className="w-full max-w-[440px] rounded-[1.5rem] p-2">
+    <${Island} pinned data-player className="w-full max-w-[440px]">
       <${Transport} locale=${S.locale.get?.() || "en"} size="md"
         playing=${playing} onToggle=${() => (playing ? pause() : play(t))}
         disabled=${!p}
@@ -197,11 +198,8 @@ function Equalizer({ level, searching = false }) {
 // Listen options → history-backed sheet (S.screen="opts"): volume + squelch + disconnect.
 function OptsSheet({ open, onClose, t, vol, squelch, demo }) {
   return html`<${Sheet} id="optsheet" open=${open} onClose=${onClose} title=${T(t, "volume")} icon="lucide:sliders-horizontal">
-    <div class="flex flex-col gap-1">
-      <div class="flex items-center justify-between text-xs"><span class="uppercase tracking-wide text-base-content/70">${T(t, "volume")}</span>
-        <span class="font-mono tabular-nums text-muted">${Math.round(vol * 100)}</span></div>
-      <input type="range" min="0" max="1" step="0.01" value=${vol} class="range range-xs range-primary" aria-label=${T(t, "volume")} onInput=${(e) => setVol(Number(e.target.value))} />
-    </div>
+    ${/* The kit's Slider: the caption is the accessible name, and the value is deliberately not printed. */""}
+    <${Slider} attr="data-opt" id="vol" label=${T(t, "volume")} value=${vol} step=${0.01} onInput=${setVol} />
     <label class="flex items-center justify-between text-sm"><span class="flex items-center gap-2">${Icon("lucide:volume-1", "text-base text-muted")}${T(t, "squelch")}</span>
       <input type="checkbox" class="toggle toggle-primary toggle-sm" checked=${squelch} aria-label=${T(t, "squelch")} onChange=${toggleSquelch} /></label>
     ${!demo ? html`<button data-disconnect class="btn btn-ghost btn-sm gap-2 text-muted self-start" onClick=${() => { disconnect(); onClose(); }}>${Icon("lucide:power")}${T(t, "disconnect")}</button>` : null}
@@ -229,26 +227,31 @@ export function radarView({ S, screen, openScreen, closeScreen }) {
 
   if (!connected) return html`<${ConnectPrime} t=${t} usbOk=${usbOk} />`;
 
-  return html`<div class="flex flex-col gap-[var(--ms-gap)] max-w-[440px] mx-auto w-full pb-24">
+  return html`<div class="flex flex-col gap-[var(--ms-gap)] max-w-[440px] mx-auto w-full pb-24"
+    data-radar=${scanning ? "scanning" : radar.length ? "hits" : "empty"} data-hits=${radar.length}>
     <div class="flex items-center gap-2 pt-0.5">
+      ${/* While the sweep runs the verb changes and the button is disabled — the state is the word, never a
+           spinning glyph (a spinner by another name); the list below shows the skeleton meanwhile. */""}
       <button data-scan disabled=${scanning} onClick=${scan}
-        class="btn btn-primary flex-1 gap-2 rounded-[var(--ms-r)]">${Icon("lucide:radar", `text-lg ${scanning ? "animate-spin" : ""}`)}${T(t, scanning ? "scanning" : "scan")}</button>
+        class="btn btn-primary flex-1 gap-2 rounded-full">${Icon("lucide:radar", "text-lg")}${T(t, scanning ? "scanning" : "scan")}</button>
       <button data-engineer aria-label=${T(t, "engineer")} aria-expanded=${screen === "eng"} onClick=${() => { buzz(); openScreen("eng"); }}
-        class="btn btn-square btn-ghost">${Icon("lucide:activity", "text-lg")}</button>
+        class="btn btn-circle btn-ghost">${Icon("lucide:activity", "text-lg")}</button>
     </div>
 
     ${scanning && !radar.length ? html`<div class="flex flex-col gap-[var(--ms-gap)]" data-skel>
-        ${[0, 1, 2].map((i) => html`<div key=${i} class="h-[4.5rem] rounded-[var(--ms-r)] sf-inset animate-pulse"></div>`)}
+        ${/* Three wells the size of a hit row, blinking pixels inside (the kit's image placeholder) — a
+             structure-shaped skeleton, never a pulsing slab. */""}
+        ${[0, 1, 2].map((i) => html`<div key=${i} class="h-[4.5rem] rounded-[var(--ms-r)] sf-inset overflow-hidden"><${Pixels} /></div>`)}
       </div>`
     : radar.length ? html`<div class="flex flex-col gap-[var(--ms-gap)]" data-live>
         ${radar.slice().sort((a, b) => b.strength - a.strength).map((s) => html`
-          <div key=${s.id} data-hit=${s.id} class="flex items-center gap-3 rounded-[var(--ms-r)] px-4 py-3 sf-raised sf-e2">
+          <div key=${s.id} data-hit=${s.id} class="flex items-center gap-[var(--ms-gap)] rounded-[var(--ms-r)] px-[var(--ms-pad)] py-3 sf-raised sf-e2">
             ${Icon(iconFor(s.id), "text-2xl text-muted shrink-0")}
             <div class="flex-1 min-w-0">
               <div class="font-medium truncate">${T(t, s.key)}</div>
               <${StrengthBar} level=${s.strength} />
             </div>
-            <span class="text-xs uppercase tracking-wider shrink-0 ${s.strength > 0.55 ? "text-primary" : "text-muted"}">${T(t, s.strength > 0.55 ? "strong" : "faint")}</span>
+            <span class=${`font-mono text-[length:var(--ms-label)] uppercase tracking-wider shrink-0 ${s.strength > 0.55 ? "text-base-content" : "text-muted"}`}>${T(t, s.strength > 0.55 ? "strong" : "faint")}</span>
           </div>`)}
       </div>`
     : html`<div class="flex flex-col items-center text-center text-muted gap-3 py-16 px-6" data-empty>
@@ -280,13 +283,13 @@ function EngineerSheet({ open, onClose, t }) {
 // ================= shared bits =================
 function ConnectPrime({ t, usbOk }) {
   const supported = usbSupported() && usbOk;
-  return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto">
-    <div class="w-20 h-20 rounded-3xl grid place-items-center bg-primary/12 text-primary sf-e2">${Icon("lucide:usb", "text-4xl")}</div>
+  return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto" data-connect-state=${supported ? "ready" : "unsupported"}>
+    <div class=${TILE}>${Icon("lucide:usb", "text-4xl")}</div>
     <h2 class="text-2xl font-semibold">${T(t, "connectTitle")}</h2>
     <p class="text-base-content/70 leading-relaxed">${T(t, "connectBody")}</p>
     ${supported
-    ? html`<button id="connect" data-connect class="btn btn-primary btn-lg rounded-2xl gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
-    : html`<div class="alert bg-warning/12 text-warning rounded-2xl text-sm justify-center gap-2">${Icon("lucide:triangle-alert", "shrink-0")}${T(t, "noUsb")}</div>`}
+    ? html`<button id="connect" data-connect class="btn btn-primary btn-lg rounded-full gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
+    : html`<${Panel} className="w-full items-center text-warning text-sm"><div class="flex items-center gap-2">${Icon("lucide:triangle-alert", "shrink-0")}<span>${T(t, "noUsb")}</span></div><//>`}
   </div>`;
 }
 
