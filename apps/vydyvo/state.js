@@ -159,6 +159,9 @@ export function generateNow() {
   runs++;                                     // stales the running follow before generate() takes its own run
   if (job && !gate) cancelJob(BASE, job);
   hold?.(); hold = null; job = null;
+  // the frames painted AHEAD were painted for the old words or the old character — they are stale the moment
+  // the owner asks for new ones; they go, the stage keeps what it shows, the race paints fresh (2026-09-04)
+  $frames.set($frames.get().filter((f) => { if (f.shown) return true; revoke(f.url); return false; }));
   patchGen({ phase: "idle", error: null, live: null, until: 0 });
   generate();
 }
@@ -168,7 +171,7 @@ async function generate() {
   const run = ++runs, o = $opts.get(), wid = activeWorld(), world = worldOf(wid);
   const mode = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
   const seed = Math.floor(Math.random() * 1e9);
-  patchGen({ phase: "working", error: null, live: null });
+  patchGen({ phase: "working", error: null, live: null, runs: run });   // `runs` = which race this is (the gate reads it off the stage)
   if (gate) {
     await sleep(90); if (run !== runs) return;
     for (let n = 0; n < K; n++) addFrame({ url: mockFrame(seed + n, mode), preset: wid, prompt: o.prompt, mode, w: 90, h: 160 });

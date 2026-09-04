@@ -109,8 +109,10 @@ IndexedDB, no restore, no cycling. Frames live in memory only — the one on sta
 for the cross-fade) and the fresh ones painted ahead (`CAP` = 6 as a memory ceiling); `present()` frees every
 shown frame that is neither of the two on stage; `advance()` picks only a FRESH frame and otherwise leaves the
 stage as it is — the drift keeps the last picture alive until the next race lands. Two fresh frames are kept
-"ahead"; when fewer, a race starts. The gate's proof of the wand is `data-vy-ahead` on the stage (the count of
-fresh frames), not a collection count.
+"ahead"; when fewer, a race starts. The wand and a character pick DISCARD the frames painted ahead (they belong
+to the old words or the old world) and race afresh; the gate's proof is the race counter `data-vy-runs` on
+the stage going up and `data-vy-ahead` ≥ 1 again — a growth assertion failed in CI (2026-09-04) because a
+run's earlier tests had already stacked five fresh frames against the cap of six.
 
 ## Under the gate
 

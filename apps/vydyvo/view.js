@@ -147,7 +147,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
-    <div data-stage ref=${stageRef} data-vy-world=${wid} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-vy-ahead=${frames.filter((f) => !f.shown).length} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
+    <div data-stage ref=${stageRef} data-vy-world=${wid} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-vy-ahead=${frames.filter((f) => !f.shown).length} data-vy-runs=${gen.runs || 0} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
       class=${`vy-stage fixed inset-0 ${show ? "z-[60]" : "z-0"} bg-black overflow-hidden`}
       onClick=${show ? () => S.screen.set(null) : null}>
       ${[0, 1].map((slot) => {
@@ -177,7 +177,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
       ${/* the grid scrolls on a short screen; the island stays at the foot */""}
       <div class="flex-1 min-h-0 overflow-y-auto flex flex-col justify-end">
         <${CharGrid} t=${t} loc=${loc} mode=${docMode} picked=${wid}
-          onPick=${(id) => { if (id !== wid) { setOpts({ char: id }); nudge(); } S.screen.set("show"); }} />
+          onPick=${(id) => { if (id !== wid) { setOpts({ char: id }); generateNow(); } S.screen.set("show"); }} />
       </div>
       <${Island} tone="glass" className="flex flex-col gap-2">
         <div class="flex items-center gap-2">

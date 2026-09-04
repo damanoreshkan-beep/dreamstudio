@@ -41,14 +41,17 @@ export default [
   {
     // nothing is kept (owner 2026-09-04): there is no collection to count — the wand's proof is the number of
     // FRESH frames waiting for the stage, which the stage carries as data-vy-ahead
-    name: "паличка: явна генерація негайно малює свіжі кадри наперед", run: async (h) => {
+    // the wand DISCARDS the frames painted ahead (they belong to the old words) and starts a new race: the proof is
+    // the race counter on the stage going up and a fresh frame landing again within a few seconds
+    name: "паличка: явна генерація скидає старі свіжі кадри і малює нові", run: async (h) => {
       await ready(h);
-      const ahead = async () => Number(await h.attr("[data-stage]", "data-vy-ahead"));
-      const before = await ahead();
+      const num = async (a) => Number(await h.attr("[data-stage]", a));
+      const runsBefore = await num("data-vy-runs");
       await h.tap("[data-gen-now]");
-      // the gate's race is 90 ms, but a slow runner renders later: poll up to 4 s rather than trust one wait
-      let after = before; for (let i = 0; i < 16 && !(after > before); i++) { await h.wait(250); after = await ahead(); }
-      h.expect(after > before, `свіжих кадрів наперед не побільшало після явної генерації (${before} → ${after})`);
+      let runs = runsBefore, ahead = 0;
+      for (let i = 0; i < 16 && !(runs > runsBefore && ahead >= 1); i++) { await h.wait(250); runs = await num("data-vy-runs"); ahead = await num("data-vy-ahead"); }
+      h.expect(runs > runsBefore, `паличка не почала нову гонку (${runsBefore} → ${runs})`);
+      h.expect(ahead >= 1, `після палички не зʼявилось свіжого кадру (ahead=${ahead})`);
     },
   },
   {
