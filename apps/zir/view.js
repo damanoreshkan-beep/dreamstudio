@@ -18,7 +18,7 @@ import * as M from "./state.js";
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
 const tool = "btn btn-ghost btn-sm btn-circle text-base-content/70";
-const label = "font-mono uppercase tracking-wide font-semibold text-[var(--ms-label)] text-base-content/70";
+const label = "font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70";
 // The scan: one bright line sweeps the photo top to bottom while the pods work — the upscaler's own idiom,
 // and it needs no picture of the result to exist. The working line shimmers like mirage's (a gradient clipped
 // to the glyphs); both are still under reduced motion and in the gate.

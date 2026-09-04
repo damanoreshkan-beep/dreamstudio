@@ -63,7 +63,7 @@ function ShowType({ t, loc, frame }) {
 // confirm; the next race paints that world, and the stage behind the grid already belongs to it.
 function CharGrid({ t, loc, mode, picked, onPick }) {
   return html`<div data-chars class="mb-3">
-    <div class="font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70 mb-2">${T(t, "whoSpeaks")}</div>
+    <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70 mb-2">${T(t, "whoSpeaks")}</div>
     <div class="vy-grid">
       ${Object.keys(WORLDS).map((id, i) => html`<button key=${id} type="button" data-char=${id} data-on=${picked === id ? "1" : null} class="vy-tile" style=${`--ti:${i}`}
         aria-label=${`${nameOf(id, mode, loc)} · ${nameOf(id, mode === "light" ? "dark" : "light", loc)}`} aria-pressed=${picked === id ? "true" : "false"} onClick=${() => onPick(id)}>
@@ -145,7 +145,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
   const counting = !working && !gen.error && frames.length > 1 && stage.cur;
   const status = working ? T(t, "working") : gen.error ? T(t, gen.error) : counting ? mmss(left) : T(t, "resting");
 
-  const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
+  const label = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
     <div data-stage ref=${stageRef} data-vy-world=${wid} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-vy-ahead=${frames.filter((f) => !f.shown).length} data-vy-runs=${gen.runs || 0} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
       class=${`vy-stage fixed inset-0 ${show ? "z-[60]" : "z-0"} bg-black overflow-hidden`}

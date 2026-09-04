@@ -93,3 +93,23 @@ media session (release before re-create) · macros ramp with `setTargetAtTime` (
 `/_rt/ambient.js` proven by 10 unit tests (consonance ranking, mode integrity, voice-leading floor + motion
 minimisation, deterministic Markov/Eno/ sparkle, ten-distinct-styles). ajv + preflight + unit green locally;
 Chromium + axe + e2e in CI.
+
+## Design refresh 2026-09-04
+
+**State map — Play (fit).** One state, three bands: the world rail (`Segmented`, outline, scrolls) · the
+elastic void the `Field` shows through · the `Island` carrying `Transport`. Sub-states are the transport's own
+(stopped / playing, and "vary" enabled only while playing), plus one terminal branch — no Web Audio at all,
+which replaces the transport line with a sentence. **Shape (fit):** the pack rail + a `Panel` of three
+`Slider`s in `ms-cols`, and nothing else.
+
+**What changed.** Two lines. The section caption above the pack rail carried the size token without the
+`length:` hint, so Tailwind compiled it to a *colour*, dropped it, and the label had been rendering at body
+size — the same weight as the words it was supposed to caption. And the "no audio here" line was `text-xs`
+in a `/70` ink: that line is the screen's entire content when it appears, not a caption on a control, so it
+now reads at body size in the designed muted ink (`.text-muted`).
+
+**Deliberately left.** The bottom scrim (`bg-gradient-to-t from-black/55`) is a legibility wash over the
+generative canvas, not decoration — the transport sits on live pixels and needs a floor to be read against.
+The playing dot's `animate-pulse` is a state indicator on a real value, not a content-less placeholder. The
+`hsl()` in `applyAccent`/`Dot` is the world's MARK hue: it lands on `--app-accent` and on filled discs, never
+on text or on a surface behind text, which is exactly the case the token layer exists to allow.
