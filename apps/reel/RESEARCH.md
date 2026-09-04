@@ -270,23 +270,38 @@ Java change. The one party that already fetches the page is the proxy, and the t
   `edge/core.local_test.js` (ph-root fixture) and `edge/session.local_test.js` (redirect chain, anonymous vs
   cookie, consent flags, egress).
 
-## Design refresh 2026-09-04
+## 7. The black dive, the main list, and where the page is (2026-09-04)
 
-State map of the feed (the main screen): **loading** (Pixels for a full slide) · **error** / **empty**
-(the white-on-black centred verbs) · **playing** (`[data-main][data-playing]`, the source island, the like
-burst on a double tap) · **more sheet** (export pairs, noir, clean, subscribe, open) · **source sheet**
-(`#src-input`, search) · **session sheet** (`#sess-input`). Sources tab: domain cards (`sf-raised sf-e2`,
-the watched one `sf-e3` + tint), page rows (`[data-src-row]`, the playing row pressed in). Liked tab: the
-poster grid (`[data-liked-tile]`), the empty state.
+Three reports from the phone, one day: a **black screen** after swiping into a clip; **shorts spliced into the
+site's video list**; and a decision about the tap. Measured with the farm's driver (`vps/drive.sh reel …`,
+[[reference_drive]]) and fresh phone captures of the site, not from the description.
 
-What changed and why: the like was a named colour outside the token pair (`text-rose-500 fill-rose-500`
-:619, `text-rose-400` :1141) → the farm's warm pole `--app-accent` as a MARK (`LIKE`), its glow a
-`drop-shadow` filter in the same colour over the clip. `rounded-2xl` ×19 / `rounded-xl` ×3 on inputs,
-textarea and buttons (:668–679, :699–701, :769, :776, :802, :961, :963, :1045, :1095, :1109) — removed, so
-the theme's own `--radius-field` applies; on the app's own boxes (the card shell :1062, the pressed row
-:1020/:1022, the liked tiles :1134) → `rounded-[var(--ms-r)]`. Hand-picked sizes (`text-[0.7rem]` :1036,
-:1072; `text-[10px]` :1139; `text-xs` :699, :795, :1074) → the ladder's label token (`MONO`) for mono
-readouts, `text-sm` for sentences. `opacity-30…70` on icons (×14) → `.text-muted`; `transition` on a tile →
-`transition-transform` (the material is box-shadow). Kept: the scrim under a tile title (legibility over a
-picture, not decoration); `border-b border-base-300` between a domain card's header and its rows (a divider,
-not a border around the card); the dark `tone` island over video; the VPS-proxy fetches (domain, not kit).
+- **The black dive was two facts, neither of them the swipe.** (1) The edge returned the player's own quality
+  ladder — five poster-less, page-less rows titled `mpeg2_ts` — at the TOP of the dive feed, because the phone's
+  clip page now renders its rail as `<li>` × 24 plus `<li class="hidden">` × 21 and the two signatures split
+  the plurality (take-all). (2) The rail's tile posters answer **403 without a referer and 206 with the
+  page's** (curl from the box and from the phone); the client removed the `<img>` on error, and a poster that
+  removes itself over a preview is a black slide. The clip path had answered the referer question through the
+  sealed proxy since 2026-08; the posters never had. `usePosterSrc` (view.js) now loads a poster the way a clip
+  is loaded — direct, once through `sealedFrameUrl` on failure, gone only after a proxied failure — and one
+  hook feeds the blurred fill, the sharp fill and the `<video poster>` so the three cannot disagree. The
+  liked grid still loads posters direct (a like keeps its poster URL; not in this pass).
+- **The main list is the edge's job, and the recipe is written there:** `microspec-edge/docs/research/main-list.md`
+  (private repo — real hosts). In one line: records are clustered by KIND (tag + classes minus state words, or a
+  JSON entry's shape — key set / arity), the dominant kind is the list; then one kind of PAGE ROUTE must hold ≥ 60 %
+  and the rest (`/shorties/<id>`, `/gif/<id>`) go; an ad guard that would take half the list stands down; a
+  ladder's rungs dedupe to one clip; an `hdnea` token is a signature. Fields, not counts: the clip page went
+  25 (5 junk) → 45 (0 junk), a model page 8 gifs → 19 videos, mixkit/commons/xvideos/redtube byte-identical.
+- **The tap opens the PAGE; the in-app player is a beta behind its name (owner, 2026-09-04).** From
+  2026-08-20 the tap opened the full clip in the app; the owner sent that back: a tap on a reel promises the
+  clip's page — the site's own player, the rest of the page, the comments, the account — and the parse of the
+  page's ladder (`/feed/stream`) is a beta that works where it works. So: tap → `openExternal(page)`; the
+  island's filled circle is the same trip (external-link glyph, "Відкрити сторінку кліпу" — the keyboard's
+  statement of the tap); the More sheet's "Відкрити у браузері" row is REPLACED by "Дивитись тут (бета)" →
+  `openFull`. `openBrowser` left both locales; `openPage` and `watchHere` arrived. The e2e proves the pair: a
+  tap opens no overlay; the sheet row does, and Back closes it.
+- **A shortie's page is a player, not a list.** `/shorties/<id>` carries five ladders and names no rail
+  (`relatedEndpoint` → null), so a dive into one is "На цій сторінці відео не знайдено" — by design, not a
+  defect; the tap opens it on the site. Its rail is the site's JS.
+- **The eye cannot decode H.264** (Playwright's Chromium: `canPlayType('video/mp4; codecs="avc1…"')` is
+  empty), so `video.error.code === 4` in a drive is the eye, not production; judge the posters and the wire.

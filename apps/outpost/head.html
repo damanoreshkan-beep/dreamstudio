@@ -1,0 +1,12 @@
+  <style>
+    /* THE STATION'S LIGHT, in the theme's own pair: the nebula wash behind the console and the reactor's glow
+       around the core are the app's mark colours (--app-accent amber, --app-accent-2 cyan) at low alpha —
+       never a fixed hue, so the wash follows a theme change and reads on paper as a warm cast. */
+    .op-wash{background:radial-gradient(90% 60% at 25% 12%,color-mix(in srgb,var(--app-accent) 12%,transparent),transparent 55%),radial-gradient(80% 60% at 82% 78%,color-mix(in srgb,var(--app-accent-2, var(--color-accent)) 10%,transparent),transparent 55%)}
+    .op-glow{background:radial-gradient(closest-side,color-mix(in srgb,var(--app-accent) 35%,transparent),transparent 72%);opacity:0;transition:opacity .7s ease}
+    .op-glow[data-on]{opacity:1;animation:op-breathe 2.4s ease-in-out infinite}
+    /* the status LED breathes with the reactor — a state, not a loading spinner */
+    .op-led[data-on]{background:var(--app-accent);animation:op-breathe 2.4s ease-in-out infinite}
+    @keyframes op-breathe{0%,100%{opacity:1}50%{opacity:.45}}
+    @media(prefers-reduced-motion:reduce){.op-glow[data-on],.op-led[data-on]{animation:none}}
+  </style>

@@ -14,7 +14,7 @@ import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Sheet, Segmented, Transport, Island, Slider } from "/_rt/ui.js";
+import { Sheet, Segmented, Transport, Island, Slider, Panel } from "/_rt/ui.js";
 import { AC, audioSupported, createEngine, midiToFreq } from "/_rt/audio.js";
 import { downloadBlob } from "/_rt/apk.js";
 import { hannCurve, planGrains, conditionSample, detectPitch, encodeWav, syntheticSample, semisToRate, grainRate } from "/_rt/grain.js";
@@ -389,7 +389,7 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
            costs a row plus a gap on every screen, to say two short words. */""}
       <div class="shrink-0 relative rounded-[var(--ms-r)] sf-inset px-2 flex items-center h-[clamp(1.75rem,9vh,3.75rem)] overflow-hidden">
         <${Wave} take=${take} pos=${pos} onSeek=${(v) => $pos.set(v)} className="h-[70%]" />
-        <span class="absolute right-2 top-0 bottom-0 flex items-center gap-1.5 pl-2 text-[var(--ms-label)] text-base-content/70 pointer-events-none">
+        <span class="absolute right-2 top-0 bottom-0 flex items-center gap-1.5 pl-2 font-mono text-[length:var(--ms-label)] text-base-content/70 pointer-events-none">
           <span class="tabular-nums">${take ? `${take.dur.toFixed(1)}s` : "—"}</span>
           <span data-pitch class="font-semibold text-base-content">${take ? (take.pitched ? take.name : T(t, "unpitched")) : T(t, "noTake")}</span>
         </span>
@@ -413,8 +413,8 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
           aria-label=${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${T(t, "field")} ${i + 1}`}
           class=${`relative min-h-0 overflow-hidden rounded-[var(--ms-r)] sf-raised flex flex-col justify-end items-start gap-0.5 p-[var(--ms-pad)] transition-transform duration-150 ${lit.has(i) ? "outline-2 outline-secondary scale-[1.02]" : ""} ${take ? "" : "opacity-40"}`}>
           <span class=${`absolute top-[var(--ms-pad)] right-[var(--ms-pad)] w-1.5 h-1.5 rounded-full transition-opacity duration-150 ${lit.has(i) ? "opacity-100" : "opacity-35"}`} style="background:var(--app-accent)"></span>
-          <span class="text-[var(--ms-label)] font-mono tabular-nums text-base-content/70 leading-none">${o > 0 ? `+${o}` : o}</span>
-          <span class="text-[var(--ms-title)] font-semibold tabular-nums leading-none truncate max-w-full">${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${T(t, "field")} ${i + 1}`}</span>
+          <span class="text-[length:var(--ms-label)] font-mono tabular-nums text-base-content/70 leading-none">${o > 0 ? `+${o}` : o}</span>
+          <span class="text-[length:var(--ms-title)] font-semibold tabular-nums leading-none truncate max-w-full">${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${T(t, "field")} ${i + 1}`}</span>
         </button>`)}
       </div>
 
@@ -436,7 +436,7 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
             ]} />
         <//>
       </div>
-      ${err && err !== "denied" ? html`<div data-err class="shrink-0 text-center text-xs text-base-content/70">${T(t, "err" + err[0].toUpperCase() + err.slice(1))}</div>` : null}
+      ${err && err !== "denied" ? html`<div data-err class="shrink-0 text-center text-sm text-error">${T(t, "err" + err[0].toUpperCase() + err.slice(1))}</div>` : null}
     </div>
   </div>`;
 }
@@ -452,11 +452,11 @@ export function grainShape({ S, screen, openScreen, closeScreen }) {
   const rate = grainRate(grainMs / 1000, density);
 
   return html`<${Fragment}>
-    <div class="flex flex-col gap-3 pb-40">
-      <div class="rounded-2xl sf-inset px-2 py-2 h-24 flex items-center">
+    <div data-shape class="flex flex-col gap-[var(--ms-gap)] pb-40">
+      <div class="rounded-[var(--ms-r)] sf-inset px-2 py-2 h-24 flex items-center">
         <${Wave} take=${take} pos=${pos} bars=${72} onSeek=${(v) => $pos.set(v)} className="h-full" />
       </div>
-      <div class="flex items-center justify-between text-xs text-base-content/70">
+      <div class="flex items-center justify-between font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70">
         <span>${T(t, "head")}</span>
         <span data-rate class="tabular-nums">${Math.round(rate)} ${T(t, "perSec")}</span>
       </div>
@@ -470,13 +470,15 @@ export function grainShape({ S, screen, openScreen, closeScreen }) {
         <${Slider} id="gr-bpm" attr="data-bpm" label=${T(t, "tempo")} min=${52} max=${132} step=${1} value=${bpm} onInput=${(v) => $bpm.set(v)} />
       </div>
 
+      ${/* a toggle, not a strip: pressed = the ink pill (the dock's language), released = ghost — no hairline
+           standing in for a state */""}
       ${tilt.supported ? html`<button data-tilt aria-pressed=${tilted} onClick=${() => { buzz(); $tilted.set(!tilted); }}
-        class=${`btn btn-sm gap-2 ${tilted ? "btn-secondary" : "btn-outline"}`}>${Icon("lucide:orbit", "text-base")}${T(t, "tiltMacro")}</button>` : null}
+        class=${`btn btn-sm rounded-full gap-2 ${tilted ? "btn-primary" : "btn-ghost sf-raised"}`}>${Icon("lucide:orbit", "text-base")}${T(t, "tiltMacro")}</button>` : null}
 
       ${/* the loop as a grid: rows are fields, columns are the 16 eighths */""}
       <div class="flex flex-col gap-[3px]">
         ${offs.map((o, i) => html`<div class="flex items-center gap-[3px]" key=${i}>
-          <div class="w-8 shrink-0 text-center text-xs tabular-nums text-base-content/70">${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${o > 0 ? "+" : ""}${o}`}</div>
+          <div class="w-8 shrink-0 text-center font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70">${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${o > 0 ? "+" : ""}${o}`}</div>
           ${STEPS.map((s) => { const on = loop[s] === i; return html`<button key=${s} data-cell=${`${i}-${s}`} aria-pressed=${on}
             aria-label=${`${T(t, "field")} ${i + 1} · ${s + 1}`} onClick=${() => { const nx = loop.slice(); nx[s] = on ? -1 : i; $loop.set(nx); if (!on) strike(i, { vel: 0.8 }); }}
             class=${`flex-1 min-w-0 h-8 rounded-md ${s % 4 === 0 && s > 0 ? "ml-1" : ""} ${on ? "sf-e2 bg-primary" : "sf-inset"} ${s === cur ? "outline-2 outline-secondary" : ""}`}></button>`; })}
@@ -496,9 +498,11 @@ export function grainShape({ S, screen, openScreen, closeScreen }) {
 
     <${Sheet} id="presetsheet" open=${screen === "preset"} onClose=${closeScreen} title=${T(t, "preset")} icon="lucide:sliders-horizontal">
       <div class="grid grid-cols-1 gap-2">
-        ${PRESETS.map((p) => html`<button key=${p.id} data-preset=${p.id} class="btn btn-outline justify-start gap-3 rounded-xl"
+        ${/* a preset is a raised object inside the sheet: the material says "tap me", not a hairline; the
+             radius is the sheet's inner one (concentric with the box around it) */""}
+        ${PRESETS.map((p) => html`<button key=${p.id} data-preset=${p.id} class="btn btn-ghost sf-raised sf-e2 h-auto min-h-[var(--ms-ctl)] py-2 justify-start gap-3 rounded-[var(--ms-r-in)]"
           onClick=${() => { buzz(); $grainMs.set(p.size); $spray.set(p.spray); $density.set(p.density); $drift.set(p.drift); closeScreen(); }}>
-          ${Icon(p.icon, "text-lg")}<span class="flex flex-col items-start"><span class="font-semibold">${T(t, p.name)}</span><span class="text-xs text-base-content/70">${T(t, p.hint)}</span></span>
+          ${Icon(p.icon, "text-[length:var(--ms-icon)]")}<span class="flex flex-col items-start"><span class="font-semibold">${T(t, p.name)}</span><span class="font-mono text-[length:var(--ms-label)] text-base-content/70 font-normal">${T(t, p.hint)}</span></span>
         </button>`)}
       </div>
     </${Sheet}>
@@ -552,22 +556,28 @@ export function grainTakes({ S, undo, toast }) {
     $busy.set(false);
   };
 
+  // A take is a Panel (the page extruded) — the flat `card bg-base-100` it was is invisible on a black
+  // page where base-100 IS the page. The skeleton is the same Panel with decoding slots, so nothing shifts
+  // when the list lands.
   if (!useReveal(list !== null)) {
-    return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel class="card bg-base-100 rounded-2xl" key=${i}><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${10} /></div><div class="h-5"><${Scramble} len=${18} /></div></div></div></div>`)}</div>`;
+    return html`<div data-takes data-ready="0" class="flex flex-col gap-[var(--ms-gap)]">${[0, 1, 2].map((i) => html`<${Panel} data-skel key=${i}><div class="flex items-center gap-[var(--ms-gap)] text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${10} /></div><div class="h-5"><${Scramble} len=${18} /></div></div></div><//>`)}</div>`;
   }
-  if (!list.length) return html`<div class="flex flex-col items-center text-base-content/70 py-20 gap-2 text-center px-6">${Icon("lucide:mic", "text-4xl")}<span>${T(t, "takesEmpty")}</span></div>`;
+  // the runtime's own empty-state shape (render.js Empty): mascot hook + glyph + the one line
+  if (!list.length) return html`<div data-takes data-ready="1" data-empty class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6"><span data-mascot aria-hidden="true"></span>${Icon("lucide:mic", "text-4xl")}<span class="font-medium">${T(t, "takesEmpty")}</span></div>`;
 
-  return html`<div class="flex flex-col gap-2">
-    ${list.map((it) => html`<div data-take class="card bg-base-100 rounded-2xl" key=${it.id}>
-      <div class="card-body p-3 flex-row items-center gap-3">
+  return html`<div data-takes data-ready="1" class="flex flex-col gap-[var(--ms-gap)]">
+    ${list.map((it) => html`<${Panel} data-take key=${it.id}>
+      <div class="flex items-center gap-[var(--ms-gap)]">
+        ${/* the open button LOADS the take into Play; it is the primary verb of the row, the ink pill, and
+             the current take's is the warm pole — a mark on a button, never on text */""}
         <button data-open aria-label=${T(t, "aPlay")} class=${`btn btn-circle btn-sm shrink-0 ${take?.name === it.name ? "btn-secondary" : "btn-primary"}`} onClick=${() => open(it)}>${Icon("lucide:play", "text-base")}</button>
         <button class="flex-1 min-w-0 text-left flex flex-col gap-1.5" onClick=${() => open(it)}>
-          <span class="flex items-baseline justify-between gap-2"><span class="font-semibold truncate">${it.name}</span><span class="text-xs text-base-content/70 tabular-nums shrink-0">${(it.dur || 0).toFixed(1)} s</span></span>
+          <span class="flex items-baseline justify-between gap-2"><span class="font-semibold truncate">${it.name}</span><span class="font-mono text-[length:var(--ms-label)] text-base-content/70 tabular-nums shrink-0">${(it.dur || 0).toFixed(1)} s</span></span>
           <span class="h-5 w-full"><${Wave} take=${it} dim bars=${40} className="h-5" /></span>
         </button>
         <button data-share aria-label=${T(t, "export")} class="btn btn-ghost btn-sm btn-circle text-muted" onClick=${() => share(it)}>${Icon("lucide:share-2", "text-lg")}</button>
         <button data-del aria-label=${T(t, "del")} data-haptic="bump" class="btn btn-ghost btn-sm btn-circle text-muted" onClick=${() => del(it)}>${Icon("lucide:trash-2", "text-lg")}</button>
       </div>
-    </div>`)}
+    <//>`)}
   </div>`;
 }

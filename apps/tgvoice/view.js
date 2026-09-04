@@ -21,6 +21,10 @@ import { log, logLines, clearLog, readMark, mark } from "./log.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+// The farm's mono micro-label, colour left to the caller (a status line may be success/warning ink).
+// `length:` is load-bearing — the bare `text-[var(--ms-label)]` was a COLOUR to Tailwind v4, so every
+// label on this screen rendered at body size.
+const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider";
 const b64ToBytes = (b64) => { const s = atob(b64); const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u; };
 
 export function tgvoice({ S, toast }) {
@@ -167,36 +171,38 @@ export function tgvoice({ S, toast }) {
   // The model affordance lives with the EMPTY state (where you decide what to do), never beside the result's
   // own actions: a transcript you already have does not need a "download models" button next to Copy.
   const modelChip = dlFrac != null
-    ? html`<div data-get class="font-mono text-[var(--ms-label)] text-base-content/70 flex items-center gap-1.5">
+    ? html`<div data-get class=${`${LBL} text-base-content/70 flex items-center gap-1.5`}>
         ${Icon("lucide:download", "text-[color:var(--app-accent)]")}<span>${T(t, "stModel")} · ${Math.round(dlFrac * 100)}%</span></div>`
     : ready
-      ? html`<div class="font-mono text-[var(--ms-label)] text-success flex items-center gap-1.5">${Icon("lucide:check")}<span>${T(t, "cached")}</span></div>`
+      ? html`<div class=${`${LBL} text-success flex items-center gap-1.5`}>${Icon("lucide:check")}<span>${T(t, "cached")}</span></div>`
       : html`<button data-get onClick=${download} class="btn btn-sm btn-ghost gap-1.5 normal-case">
           ${Icon("lucide:download", "text-[color:var(--app-accent)]")}
           <span>${lang === "auto" ? T(t, "getAll") : T(t, "getModels")} · ${T(t, "modelSize", { mb: needMB })}</span></button>`;
 
-  return html`<div class="h-full flex flex-col gap-[var(--ms-gap)] p-[var(--ms-pad)]">
+  return html`<div class="h-full flex flex-col gap-[var(--ms-gap)] p-[var(--ms-pad)]" data-phase=${phase} data-lang-pick=${lang} data-models=${ready ? "ready" : "missing"}>
     <${Segmented} items=${langItems} value=${lang} onChange=${(v) => { setLang(v); buzz(); }} variant="solid" attr="data-lang" />
 
     ${audioUrl ? html`<div data-audio class="flex items-center gap-2 shrink-0">
         ${Icon("lucide:file-audio", "text-[color:var(--app-accent)] shrink-0")}
-        <span class="font-mono text-[var(--ms-label)] text-base-content/70 truncate max-w-[40%]">${audioName}</span>
+        <span class="font-mono text-[length:var(--ms-label)] text-base-content/70 truncate max-w-[40%]">${audioName}</span>
         <audio controls src=${audioUrl} aria-label=${T(t, "result")} class="h-8 min-w-0 flex-1"></audio>
       </div>` : null}
 
     <div class="flex-1 min-h-0 flex flex-col">
       ${phase === "result" && res
         ? html`<${Panel} title=${T(t, "result")} className="flex-1 min-h-0">
-            ${lang === "auto" ? html`<div data-detected class="font-mono text-[var(--ms-label)] text-base-content/70 flex items-center gap-1.5">
+            ${lang === "auto" ? html`<div data-detected class=${`${LBL} text-base-content/70 flex items-center gap-1.5`}>
               ${Icon("lucide:languages", "text-[color:var(--app-accent)]")}<span>${T(t, "detected", { lang: MODELS[res.lang].label })}</span></div>` : null}
-            ${res.ambiguous ? html`<div class="text-[var(--ms-label)] text-warning">${T(t, "ambiguous")}</div>` : null}
+            ${res.ambiguous ? html`<div class="text-sm text-warning">${T(t, "ambiguous")}</div>` : null}
             <p data-transcript class="flex-1 min-h-0 overflow-y-auto leading-relaxed text-base-content whitespace-pre-wrap">${res.text}</p>
           <//>`
         : phase === "working"
         ? html`<${Panel} title=${T(t, stageKey(stage))} className="flex-1 min-h-0">
             ${stage && stage.fraction != null
-              ? html`<div class="font-mono text-[var(--ms-label)] text-base-content/70">${Math.round(stage.fraction * 100)}%</div>` : null}
-            <div data-working class="flex-1 min-h-0"><${Scramble} lines=${4} /><//>
+              ? html`<div class=${`${LBL} text-base-content/70`}>${Math.round(stage.fraction * 100)}%</div>` : null}
+            ${/* the transcript's own shape while it decodes: three lines of scramble, never a spinner
+                 (Scramble is one slot — a line each, not a `lines` prop it does not have) */""}
+            <div data-working class="flex-1 min-h-0 flex flex-col gap-1 text-muted">${[24, 30, 18].map((n) => html`<div key=${n}><${Scramble} len=${n} /></div>`)}<//>
           <//>`
         : phase === "error"
         ? html`<${Panel} className="flex-1 min-h-0 items-center justify-center text-center gap-3">
@@ -239,7 +245,7 @@ export function tgvoice({ S, toast }) {
         }}>${Icon("lucide:copy")}<span>${T(t, "logCopy")}</span></button>
         <button data-log-clear class="btn btn-sm btn-ghost normal-case" onClick=${() => { clearLog(); S.screen.set(null); }}>${T(t, "logClear")}</button>
       </div>
-      <pre class="font-mono text-[0.7rem] leading-relaxed text-base-content/80 whitespace-pre-wrap break-all">${
+      <pre class="font-mono text-[length:var(--ms-label)] leading-relaxed text-base-content/80 whitespace-pre-wrap break-all">${
         [...logLines(), ...(bridgeLines ? ["--- shell ---", ...bridgeLines] : [])].join("\n") || T(t, "logEmpty")
       }</pre>
     <//>

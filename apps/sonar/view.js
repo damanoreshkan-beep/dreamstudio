@@ -19,11 +19,16 @@ import { Transport, Segmented, Panel, Slider } from "/_rt/ui.js";
 import { createEngine, audioSupported } from "/_rt/audio.js";
 import { DEFAULTS, snapCarrier, binWidth, analyzeFrame, Calibration, Detector, synthSpectrum, dopplerHz } from "/_rt/sonar.js";
 import { MicPrime } from "/_rt/camprime.js";
+import { Scramble } from "/_rt/skeleton.js";
 import { gate, MOCK } from "/_rt/gate.js";
 import { wakeLock } from "/_rt/sensors.js";
 import { collection } from "/_rt/db.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the farm's mono micro-label (`length:` — the bare var form is a colour to Tailwind v4), and the same size
+// for mono meta that keeps its case (units, times)
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
+const META = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
 const CARRIERS = [18000, 19000, 20000];
 const VOL_MAX = 0.1;                       // a Web Audio gain has no defined mapping to SPL, so the ceiling is
 const AUTO_STOP_MS = 5 * 60 * 1000;        // conservative and the run is time-boxed rather than argued about
@@ -290,7 +295,8 @@ function Waterfall({ t }) {
     try { ro = new ResizeObserver(size); ro.observe(wrap); } catch { /* linkedom */ }
     return () => { try { ro?.disconnect(); } catch { /* */ } paint = null; };
   }, []);
-  return html`<div ref=${box} class="relative flex-1 min-h-0 rounded-[var(--ms-r)] bg-base-100 sf-inset border border-base-content/10 overflow-hidden">
+  // a WELL the trace falls into: sf-inset is the depth, so no hairline around it
+  return html`<div ref=${box} class="relative flex-1 min-h-0 rounded-[var(--ms-r)] sf-inset overflow-hidden">
     <canvas ref=${canvas} class="absolute inset-0 w-full h-full"></canvas>
     ${/* The instrument's own graticule — ±125 / ±250 Hz across, ~0.8 s down. currentColor, so it is one
           declaration in both themes, and behind the trace rather than over it. */ ""}
@@ -330,12 +336,12 @@ export function sonar({ t, toast, S }) {
   const dir = active && reading && Math.abs(reading.direction) >= DEFAULTS.directionMin
     ? (reading.direction > 0 ? "dirNear" : "dirFar") : null;
 
-  return html`<div class="h-full min-h-0 flex flex-col gap-[var(--ms-gap)] relative">
-    <div class="shrink-0 flex items-center gap-3">
+  return html`<div class="h-full min-h-0 flex flex-col gap-[var(--ms-gap)] relative" data-status=${status} data-motion=${active ? "on" : "off"} data-calibrated=${calS.ready ? "yes" : "no"}>
+    <div class="shrink-0 flex items-center gap-[var(--ms-gap)]">
       <span class=${`w-3 h-3 rounded-full shrink-0 ${active ? "bg-[var(--app-accent)]" : "bg-base-content/25"}`}></span>
       <div class="min-w-0 flex-1">
         <div class="text-[length:var(--ms-title)] font-semibold leading-tight truncate">${T(t, state)}</div>
-        <div class="font-mono text-xs uppercase tracking-wide text-base-content/70 truncate">
+        <div class=${`${LABEL} truncate`}>
           ${dir ? T(t, dir) : calibrating ? `${calS.frames}/${CAL_FRAMES}` : listening ? kHz(carrierHz()) : T(t, "sigAutoStop")}
         </div>
       </div>
@@ -349,7 +355,7 @@ export function sonar({ t, toast, S }) {
       <${Metric} label=${T(t, "mCarrier")} value=${reading && reading.ok ? num(reading.snrDb, 0) : "—"} unit="dB" />
     </div>
 
-    ${err ? html`<div data-err class="shrink-0 text-center text-xs text-base-content/70">${T(t, err)}</div>` : null}
+    ${err ? html`<div data-err class="shrink-0 text-center text-sm text-muted">${T(t, err)}</div>` : null}
 
     <${Transport} locale=${loc} playing=${listening} stopIcon
       onToggle=${() => (listening ? stop() : start())}
@@ -363,9 +369,9 @@ export function sonar({ t, toast, S }) {
   </div>`;
 }
 
-const Metric = ({ label, value, unit, live }) => html`<div class="rounded-[var(--ms-r)] bg-base-100 sf-inset px-2 py-1.5 min-w-0">
-  <div class="text-[length:var(--ms-label)] uppercase tracking-wide text-base-content/70 truncate">${label}</div>
-  <div ...${live ? { "data-live": "1" } : {}} class="truncate"><span class="text-[length:var(--ms-title)] font-semibold">${value}</span><span class="text-xs text-base-content/70"> ${unit}</span></div>
+const Metric = ({ label, value, unit, live }) => html`<div class="rounded-[var(--ms-r)] sf-inset px-[calc(var(--ms-pad)/2)] py-1.5 min-w-0">
+  <div class=${`${LABEL} truncate`}>${label}</div>
+  <div ...${live ? { "data-live": "1" } : {}} class="truncate"><span class="text-[length:var(--ms-title)] font-semibold">${value}</span><span class=${META}> ${unit}</span></div>
 </div>`;
 
 // ---- the log ----
@@ -403,7 +409,8 @@ export function sonarLog({ t, S, toast, confirm, undo }) {
     onConfirm: async () => { try { await EVENTS.clear(); } catch { /* */ } $logv.set($logv.get() + 1); toast?.(T(t, "logCleared")); },
   });
 
-  if (!list) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel key=${i} class="card bg-base-100 rounded-2xl"><div class="card-body p-3 h-14"></div></div>`)}</div>`;
+  // the rows' own shape while IndexedDB answers: a well for the glyph, two decoding value slots
+  if (!list) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel key=${i} class="card bg-base-100 rounded-[var(--ms-r)]"><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1"><div class="font-mono font-semibold"><${Scramble} len=${5} /></div><div class=${META}><${Scramble} len=${16} /></div></div></div></div>`)}</div>`;
   if (!list.length) {
     return html`<div class="flex flex-col items-center text-center gap-2 px-6 py-20 text-base-content/70">
       ${Icon("lucide:radio", "text-4xl")}
@@ -412,7 +419,7 @@ export function sonarLog({ t, S, toast, confirm, undo }) {
     </div>`;
   }
   return html`<div class="flex flex-col gap-2">
-    ${list.map((it) => html`<div data-event key=${it.id} class="card bg-base-100 rounded-2xl">
+    ${list.map((it) => html`<div data-event key=${it.id} class="card bg-base-100 rounded-[var(--ms-r)]">
       <div class="card-body p-3 flex-row items-center gap-3">
         <span class=${`w-9 h-9 rounded-full sf-inset shrink-0 flex items-center justify-center ${Math.abs(it.dir) >= DEFAULTS.directionMin ? "text-[var(--app-accent)]" : "text-base-content/70"}`}>
           ${Icon(Math.abs(it.dir) < DEFAULTS.directionMin ? "lucide:waves" : it.dir > 0 ? "lucide:arrow-down-to-dot" : "lucide:arrow-up-from-dot", "text-lg")}
@@ -420,9 +427,9 @@ export function sonarLog({ t, S, toast, confirm, undo }) {
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-2">
             <span class="font-mono tabular-nums font-semibold">${fmt(it.t)}</span>
-            <span class="font-mono text-xs tabular-nums text-base-content/70">${T(t, "logDur", { s: num(it.dur) })}</span>
+            <span class=${META}>${T(t, "logDur", { s: num(it.dur) })}</span>
           </div>
-          <div class="font-mono text-xs tabular-nums text-base-content/70 truncate">${day(it.t)} · ${num(it.peak)} dB${Math.abs(it.dir) >= DEFAULTS.directionMin ? ` · ${T(t, it.dir > 0 ? "dirNear" : "dirFar")}` : ""}</div>
+          <div class=${`${META} truncate`}>${day(it.t)} · ${num(it.peak)} dB${Math.abs(it.dir) >= DEFAULTS.directionMin ? ` · ${T(t, it.dir > 0 ? "dirNear" : "dirFar")}` : ""}</div>
         </div>
         <button data-del data-haptic="bump" aria-label=${T(t, "delete")} class="btn btn-ghost btn-sm btn-circle text-base-content/70" onClick=${() => del(it)}>${Icon("lucide:trash-2", "text-lg")}</button>
       </div>
@@ -455,7 +462,7 @@ export function sonarSignal({ t }) {
         <${Fact} k=${T(t, "dFft")} v=${String(DEFAULTS.fftSize)} />
         <${Fact} k=${T(t, "dBin")} v=${rate ? `${binWidth(rate, DEFAULTS.fftSize).toFixed(3)} Hz` : "—"} />
       </dl>
-      <div class="mt-1 font-mono text-xs text-base-content/70">
+      <div class=${`mt-1 ${META}`}>
         ${T(t, "dProcessing")}: AEC ${proc(s.echoCancellation)} · NS ${proc(s.noiseSuppression)} · AGC ${proc(s.autoGainControl)}
       </div>
     </${Panel}>

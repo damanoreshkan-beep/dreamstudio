@@ -8,7 +8,7 @@ import { html } from "htm/preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Segmented, Transport } from "/_rt/ui.js";
+import { Segmented, Transport, Island } from "/_rt/ui.js";
 import { camera } from "/_rt/sensors.js";
 import { CameraPrime } from "/_rt/camprime.js";
 import { palette, avgColor, luminance, rgbToHsl, rgbToHex, ink } from "/_rt/colour.js";
@@ -106,7 +106,7 @@ export function synesth({ S }) {
   };
   useEffect(() => () => { try { silence(); engRef.current?.close(); } catch { /* */ } }, []);
 
-  return html`<div class="ms-stage z-20 bg-base-200 flex flex-col">
+  return html`<div class="ms-stage z-20 bg-base-100 flex flex-col" data-enabled=${enabled && !err ? "yes" : "no"} data-playing=${playing ? "on" : "off"} data-scale-id=${scale}>
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
       ${enabled && !err && !gate ? html`<video ref=${videoRef} autoplay muted playsinline class="absolute inset-0 w-full h-full object-cover opacity-35"></video>` : null}
       ${gate ? html`<div class="absolute inset-0 opacity-35" style=${`background:linear-gradient(135deg, ${(pal.length ? pal : [[20, 20, 24]]).map(rgbToHex).join(",")})`}></div>` : null}
@@ -119,13 +119,18 @@ export function synesth({ S }) {
       </div>` : null}
     </div>
 
-    <div class="shrink-0 bg-base-100 border-t border-base-300 px-4 pt-3 pb-3 flex flex-col gap-3 max-w-md w-full mx-auto">
-      <${Segmented} attr="data-scale" scroll size="sm"
-        items=${SCALE_KEYS.map(([s, k]) => ({ id: s, label: T(t, k) }))} value=${scale} onChange=${setScale} />
-      ${/* The chord the camera is currently seeing IS the now-playing line — so it belongs in the transport's
-           title slot, not in a bespoke row beside a bespoke play button. */""}
-      <${Transport} locale=${loc} size="sm" playing=${playing} onToggle=${toggle}
-        subtitle=${notes.length ? notes.map(noteName).join(" · ") : "—"} />
+    ${/* The controls are the kit's Island (the dock's material), not a bar welded to the stage's foot with a
+         hairline: the scale strip and the transport float at the bottom of the stage with the runtime's gap
+         as their air. */""}
+    <div class="shrink-0 px-[var(--ms-gap)] pb-[var(--ms-gap)] pt-[var(--ms-gap)]">
+      <${Island} className="max-w-md w-full mx-auto flex flex-col gap-[var(--ms-gap)]">
+        <${Segmented} attr="data-scale" scroll size="sm"
+          items=${SCALE_KEYS.map(([s, k]) => ({ id: s, label: T(t, k) }))} value=${scale} onChange=${setScale} />
+        ${/* The chord the camera is currently seeing IS the now-playing line — so it belongs in the transport's
+             title slot, not in a bespoke row beside a bespoke play button. */""}
+        <${Transport} locale=${loc} size="sm" playing=${playing} onToggle=${toggle}
+          subtitle=${notes.length ? notes.map(noteName).join(" · ") : "—"} />
+      <//>
     </div>
     ${!enabled || err ? html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} onEnable=${() => setEnabled(true)} onSettings=${() => S.screen.set("perms")} denied=${err === "denied"} unavailable=${err === "unavailable" || err === "unsupported"} />` : null}
   </div>`;

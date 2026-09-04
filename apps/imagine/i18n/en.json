@@ -17,6 +17,8 @@
   "eFailed": "Couldn't generate that",
   "eNetwork": "Network error — try again",
   "eTimeout": "Took too long — try again",
+  "eBusy": "Every GPU is taken — try again in a minute, or switch to Fast",
+  "eSignIn": "Sign in to generate",
   "profTheme": "Dark theme",
   "profLang": "Language",
   "install": "Install app",

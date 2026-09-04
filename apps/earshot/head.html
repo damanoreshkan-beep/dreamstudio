@@ -1,0 +1,10 @@
+  <style>
+    /* YOUR line in the conversation: a well (sf-inset) whose rim is the app's accent. The accent is a MARK
+       colour — it may ring a surface, never sit behind text — so the box-shadow restates the well's own
+       sink and adds the ring on top, instead of a tinted fill under the words. */
+    .es-mine{box-shadow:var(--sf-sink),0 0 0 1px color-mix(in oklch,var(--app-accent) 60%,transparent)}
+    /* the scanner's live dot: a slow breath while the radio listens — a state light, not a loading pulse */
+    .es-live{animation:es-live 1.6s ease-in-out infinite}
+    @keyframes es-live{0%,100%{opacity:1}50%{opacity:.35}}
+    @media(prefers-reduced-motion:reduce){.es-live{animation:none}}
+  </style>

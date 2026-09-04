@@ -32,7 +32,7 @@ export default [
     name: "seek змінює частоту", run: async (h) => {
       await ready(h);
       const before = await h.bodyText();
-      await h.tap('[data-seek="up"]'); await h.wait(150);
+      await h.tap("#next"); await h.wait(150);   // the kit's Transport: seek up is its `next` key
       h.expect((await h.bodyText()) !== before, "seek не змінив частоту");
     },
   },

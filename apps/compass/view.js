@@ -27,6 +27,8 @@ import { Scramble } from "/_rt/skeleton.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the one micro-label recipe (design.md): mono, the density token, uppercased by CSS
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const SAMPLE = { lat: 50.4501, lng: 30.5234, accuracy: 12 };   // Kyiv — the gate has no magnetometer or GPS
 
 const norm = (d) => ((d % 360) + 360) % 360;
@@ -66,9 +68,9 @@ export function compassView({ S }) {
 
   const isTrue = dec != null;
 
-  return html`<div class="flex flex-col items-center gap-4">
+  return html`<div data-compass data-true=${isTrue ? "1" : "0"} data-sensor=${needPerm ? "ask" : compass.supported || isGate || MOCK ? "ok" : "none"} class="flex flex-col items-center gap-[var(--ms-gap)]">
     <div class="text-center min-h-20">
-      <div class="text-[0.62rem] font-mono uppercase text-muted">${T(t, isTrue ? "trueHdg" : "magHdg")}</div>
+      <div class=${LABEL}>${T(t, isTrue ? "trueHdg" : "magHdg")}</div>
       <div class="text-5xl font-bold tabular-nums leading-none" data-hdg>
         ${shown == null ? html`<${Scramble} len=${4} />` : `${Math.round(shown)}°`}
       </div>
@@ -108,8 +110,8 @@ export function compassView({ S }) {
       </div>
     </div>
 
-    <div class="flex flex-col items-center gap-1.5 text-xs min-h-12">
-      ${needPerm ? html`<button id="perm" data-perm class="btn btn-sm btn-primary rounded-2xl gap-2" onClick=${grant}>${Icon("lucide:compass")}${T(t, "enable")}</button>`
+    <div class="flex flex-col items-center gap-1.5 text-sm min-h-12">
+      ${needPerm ? html`<button id="perm" data-perm class="btn btn-sm btn-primary rounded-full gap-2" onClick=${grant}>${Icon("lucide:compass")}${T(t, "enable")}</button>`
         : !compass.supported ? html`<span class="text-error flex items-center gap-1">${Icon("lucide:compass")}${T(t, "noCompass")}</span>` : null}
 
       ${dec != null ? html`<span data-dec data-live class="text-base-content/70 flex items-center gap-1.5 font-mono tabular-nums">
@@ -122,7 +124,7 @@ export function compassView({ S }) {
         : geoState ? html`<span data-nodec class="text-warning flex items-center gap-1.5 text-center">${Icon("lucide:map-pin-off", "shrink-0")}${T(t, geoState === "denied" ? "noPerm" : "noPos")}</span>`
         : null}
 
-      ${dec != null ? html`<span class="text-base-content/45 font-mono text-[0.65rem]">${T(t, "model")}</span>` : null}
+      ${dec != null ? html`<span class="font-mono text-[length:var(--ms-label)] tracking-wider text-muted">${T(t, "model")}</span>` : null}
     </div>
   </div>`;
 }

@@ -45,13 +45,13 @@ export function DateField({ value, label, locale, placeholder, onOpen, attr }) {
     ? new Date(Date.UTC(p.y, p.m, p.d)).toLocaleDateString(intl(locale), { day: "numeric", month: "short", year: "numeric" })
     : placeholder;
   return html`<button ...${attr ? { [attr]: "1" } : {}} type="button" onClick=${onOpen}
-    class="flex flex-col gap-1 min-w-0 text-left rounded-2xl sf-raised sf-e2 px-3 py-2.5 active:scale-[.99] transition">
-    <span class="text-[0.62rem] font-mono uppercase tracking-[0.12em] text-base-content/65 truncate">${label}</span>
-    <span class=${`text-sm tabular-nums truncate ${p ? "font-semibold" : "text-base-content/50"}`}>${text}</span>
+    class="flex flex-col gap-1 min-w-0 text-left rounded-[var(--ms-r-in)] sf-raised sf-e2 px-3 py-2.5 active:scale-[.99] transition-transform">
+    <span class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70 truncate">${label}</span>
+    <span class=${`text-sm tabular-nums truncate ${p ? "font-semibold" : "text-muted"}`}>${text}</span>
   </button>`;
 }
 
-const CELL = "h-11 rounded-xl text-sm tabular-nums grid place-items-center transition active:scale-[.97]";
+const CELL = "h-[var(--ms-ctl)] rounded-[var(--ms-r-in)] text-sm tabular-nums grid place-items-center transition-[background-color,color,transform] active:scale-[.97]";
 const SEL = "bg-primary text-primary-content font-semibold";
 
 export function CalendarSheet({ open, onClose, value, onPick, locale, title, minYear = 1900, maxYear = new Date().getUTCFullYear() }) {
@@ -78,7 +78,7 @@ export function CalendarSheet({ open, onClose, value, onPick, locale, title, min
     <button type="button" data-cal-prev aria-label=${monthName(locale, (cur.m + 11) % 12)}
       class="btn btn-ghost btn-sm btn-circle" onClick=${() => (mode === "day" ? step(-1) : setCur({ ...cur, y: Math.max(minYear, cur.y - 24) }))}>
       ${Icon("lucide:chevron-left", "text-xl")}</button>
-    <button type="button" data-cal-title class="btn btn-ghost btn-sm flex-1 rounded-xl font-semibold text-sm"
+    <button type="button" data-cal-title class="btn btn-ghost btn-sm flex-1 rounded-full font-semibold text-sm"
       onClick=${() => setMode(mode === "day" ? "year" : "day")}>
       ${mode === "day" ? `${monthName(locale, cur.m)} ${cur.y}` : `${cur.y}`}
     </button>
@@ -108,7 +108,7 @@ export function CalendarSheet({ open, onClose, value, onPick, locale, title, min
     body = html`<div class="flex flex-col gap-1.5">
       <div class="grid grid-cols-7 gap-1.5">
         ${Array.from({ length: 7 }, (_, i) => html`<div key=${i}
-          class="h-6 grid place-items-center text-[0.6rem] font-mono uppercase tracking-wide text-base-content/55">${weekdayName(locale, i)}</div>`)}
+          class="h-6 grid place-items-center font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70">${weekdayName(locale, i)}</div>`)}
       </div>
       <div class="grid grid-cols-7 gap-1.5">
         ${Array.from({ length: lead }, (_, i) => html`<div key=${"x" + i}></div>`)}

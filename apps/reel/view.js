@@ -36,12 +36,6 @@ import { collection, idbSupported } from "/_rt/db.js";
 import { Pixels } from "/_rt/skeleton.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the ONE mono micro-size (the ladder's label token; `length:` because a bare var() in text-[…] is a colour
-// to Tailwind v4) — replaces the hand-picked 0.7rem / 10px / text-xs readouts
-const MONO = "font-mono text-[length:var(--ms-label)] tabular-nums";
-// the like is a MARK in the farm's warm pole: the heart burst over the clip and the unlike button on a tile.
-// A named colour (rose) sat outside the token pair; the accent means "yours" everywhere else in the farm.
-const LIKE = "color:var(--app-accent)";
 /* Route an asset through the reverse proxy. `ref` is the PAGE the asset was found on, and it is the whole
    reason this works: what blocks a guarded clip is hotlink protection, not CORS. Measured against a live
    signed clip with the browser UA held constant — no referer 404, the CDN's own origin 404, the page's origin
@@ -470,7 +464,7 @@ function FullClip({ S, t }) {
     <div class="flex-1 relative">
       ${full.err
         ? html`<div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70 p-6 text-center">
-            ${Icon("lucide:tv-minimal-play", "text-5xl")}<div>${T(t, "videoErr")}</div>
+            ${Icon("lucide:tv-minimal-play", "text-5xl opacity-40")}<div>${T(t, "videoErr")}</div>
             <a href=${full.page} target="_blank" rel="noopener" class="btn btn-sm btn-outline text-white border-white/30 gap-2">${Icon("lucide:external-link")}${T(t, "openSite")}</a>
           </div>`
         : html`<${Pixels} cls="w-full h-full" />`}
@@ -488,12 +482,32 @@ function Favicon({ url, size = "w-6 h-6" }) {
     : html`<img src=${`https://${hostOf(url)}/favicon.ico`} alt="" loading="lazy" class=${`${cls} bg-base-content/10`} onError=${() => setFailed(true)} />`;
 }
 
+/* A poster the CDN refuses to hand this origin is not a missing poster. Measured 2026-09-04 on a clip page's
+   related rail: the tile poster answers 403 without a referer and 206 with the page's — the same hotlink
+   check the clips get, and the clip path already answers it by going through the sealed proxy, which is the
+   one party that can state the referer. The posters never learned that: a direct failure simply REMOVED the
+   <img>, and on a dive every slide of the rail was a poster that had removed itself over a preview the eye's
+   Chromium could not decode — a black screen, the whole feed long. So a poster is loaded the way a clip is:
+   direct first (most sources need no help and every proxied byte crosses our box), once through the proxy on
+   failure, and only a proxied failure is really the end. One hook, so the fill and the <video poster> agree. */
+function usePosterSrc(poster, page) {
+  const [src, setSrc] = useState(poster || null);
+  useEffect(() => { setSrc(poster || null); }, [poster]);
+  const fail = () => {
+    if (!src || src !== poster || poster.startsWith("data:")) return setSrc(null);       // already the proxied one, or inline → gone
+    framed(poster, page).then((s) => setSrc(s || null)).catch(() => setSrc(null));
+  };
+  return [src, fail];
+}
 // Blanking fill: a poster shown full-frame (object-contain) over a blurred scaled copy of itself — no black bars,
 // nothing cropped. Reused by the preview/inactive slides and the video-error fallback.
-const PosterFill = ({ poster }) => poster ? html`<${Fragment}>
-  <img src=${poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-55" onError=${(e) => e.currentTarget.remove()} />
-  <img src=${poster} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain" onError=${(e) => e.currentTarget.remove()} />
-</${Fragment}>` : null;
+function PosterFill({ poster, page }) {
+  const [src, fail] = usePosterSrc(poster, page);
+  return src ? html`<${Fragment}>
+    <img src=${src} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-55" />
+    <img src=${src} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain" onError=${fail} />
+  </${Fragment}>` : null;
+}
 // A live <video>, mounted for the active slide AND its neighbours (see PRELOAD). Exactly one PLAYS; the rest
 // are attached and buffering, paused. createPlayer handles mp4 vs HLS and tears down on unmount. On failure it
 // falls back to the poster — the island's way out is already there either way, so no failure flag has to
@@ -522,6 +536,7 @@ function VideoLayer({ item, playing, ephemeral }) {
   const ref = useRef(), bgRef = useRef();
   const [errored, setErrored] = useState(false);
   const [viaProxy, setViaProxy] = useState(!!ephemeral);
+  const [poster, posterFail] = usePosterSrc(item.poster, item.page);                    // direct, then once through the proxy
   // Sealing is WebCrypto, so a proxied src cannot be derived during render any more. Direct stays synchronous
   // (the common path pays nothing); only the proxied one resolves in an effect, and `src` is null until it
   // does — which the attach effect below treats as "not ready yet" rather than as a failure.
@@ -583,27 +598,27 @@ function VideoLayer({ item, playing, ephemeral }) {
   // The ambient backdrop, for clips with no poster: a muted copy of the same video, blurred, filling the
   // letterbox. Active slide only, and only once the main one has data — see the note above.
   useEffect(() => {
-    if (!playing || !ready || item.poster || errored) return;
+    if (!playing || !ready || poster || errored) return;
     const bg = bgRef.current; if (!bg) return;
     bg.muted = true; bg.loop = true;
     let handle, dead = false;
     createPlayer(bg, src, { onReady: () => { if (!dead) bg.play?.().catch(() => {}); } })
       .then((h) => { if (dead) h?.destroy?.(); else handle = h; });
     return () => { dead = true; handle?.destroy?.(); };
-  }, [playing, ready, src, item.poster, errored]);
+  }, [playing, ready, src, poster, errored]);
 
   return html`<${Fragment}>
     ${errored
-      ? html`<${PosterFill} poster=${item.poster} />`
-      : item.poster
-        ? html`<img src=${item.poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" onError=${(e) => e.currentTarget.remove()} />`
+      ? html`<${PosterFill} poster=${item.poster} page=${item.page} />`
+      : poster
+        ? html`<img src=${poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" onError=${posterFail} />`
         : html`<video ref=${bgRef} aria-hidden="true" muted loop playsinline class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"></video>`}
     <div class="absolute inset-0 bg-black/25" aria-hidden="true"></div>
     ${/* `data-playing` mirrors which element owns playback. A <video> is opaque to every gate this farm has
           — `paused` is a property, not an attribute, so no selector can see it — and the whole claim of the
           preload window is "several are mounted, exactly ONE plays". State the claim in the DOM or it
           cannot be tested, and a window that quietly plays all three is the regression to catch. */""}
-    <video ref=${ref} data-main data-playing=${playing ? "" : null} poster=${item.poster || null} playsinline loop muted class=${`absolute inset-0 w-full h-full object-contain ${errored ? "opacity-0" : ""}`}></video>
+    <video ref=${ref} data-main data-playing=${playing ? "" : null} poster=${poster} playsinline loop muted class=${`absolute inset-0 w-full h-full object-contain ${errored ? "opacity-0" : ""}`}></video>
   </${Fragment}>`;
 }
 
@@ -622,8 +637,7 @@ function HeartBurst({ x, y, onDone }) {
     if (anim) anim.onfinish = () => onDone?.(); else onDone?.();
     return () => { if (anim) anim.onfinish = null; };
   }, []);
-  // over the clip (foreign content) the glyph carries its own glow so it reads on a bright frame too
-  return html`<div ref=${ref} aria-hidden="true" class="absolute z-[5] pointer-events-none" style=${`left:${x}px;top:${y}px;${LIKE};filter:drop-shadow(0 0 16px var(--app-accent))`}>${Icon("lucide:heart", "text-7xl fill-current")}</div>`;
+  return html`<div ref=${ref} aria-hidden="true" class="absolute z-[5] pointer-events-none" style=${`left:${x}px;top:${y}px`}>${Icon("lucide:heart", "text-7xl text-rose-500 fill-rose-500 drop-shadow-[0_2px_16px_rgba(0,0,0,.45)]")}</div>`;
 }
 
 // A slide is the clip and NOTHING else — no chip, no link, no pill. Every affordance it used to carry (dive,
@@ -632,15 +646,16 @@ function HeartBurst({ x, y, onDone }) {
 function Slide({ S, item, idx, active, near, ephemeral }) {
   const secRef = useRef();
   const [burst, setBurst] = useState(null);
-  // Systemic tap dispatch (runtime useTap): SINGLE tap toggles pause on a clip that plays inline, else opens the
-  // source page; DOUBLE tap likes + blooms a heart — and never fires the single (so a like never pauses/navigates).
-  /* SINGLE tap opens the full clip — for every slide, not just a dead one. It used to toggle pause, and to
-     open the page in a browser tab only when the clip could not play here; that made the most valuable action
-     on the surface reachable only by failure. The reel is the trailer and the tap is how you watch the thing.
-     Pause is not lost: the reel suspends by itself while the overlay is up (see FeedSurface), and swiping away
-     is what "not this one" already meant. */
+  // Systemic tap dispatch (runtime useTap): SINGLE tap opens the clip's PAGE; DOUBLE tap likes + blooms a
+  // heart — and never fires the single (so a like never navigates).
+  /* SINGLE tap opens the clip's page in the browser — for every slide. It opened the in-app full clip for a
+     while (2026-08-20 → 2026-09-04), and the owner sent that back: the page is what a tap on a reel promises —
+     the site's own player, the rest of the page, the comments, the account — and the in-app player is a BETA:
+     a parse of the page's ladder that works where it works. So the page is the tap, and the beta sits behind
+     its name in the More sheet (see MoreSheet), where a word can say "beta"; a glyph on the surface cannot.
+     Pause is not lost: swiping away is what "not this one" already meant. */
   const onTap = useTap({
-    onSingle: () => openFull(S, item),
+    onSingle: () => openExternal(item.page || item.orig || item.video),
     onDouble: (p) => { setBurst({ x: p.x, y: p.y, k: Date.now() }); addLike(item); navigator.vibrate?.(12); },
   });
   return html`<section ref=${secRef} data-reel data-idx=${idx} onClick=${onTap} class="snap-start snap-always relative h-[100dvh] w-full flex items-center justify-center bg-black overflow-hidden">
@@ -651,7 +666,7 @@ function Slide({ S, item, idx, active, near, ephemeral }) {
     ${near
       ? html`<${VideoLayer} item=${item} playing=${active} ephemeral=${ephemeral} />`
       : item.poster
-        ? html`<${PosterFill} poster=${item.poster} />`
+        ? html`<${PosterFill} poster=${item.poster} page=${item.page} />`
         : null}
     ${burst ? html`<${HeartBurst} x=${burst.x} y=${burst.y} key=${burst.k} onDone=${() => setBurst(null)} />` : null}
   </section>`;
@@ -672,20 +687,18 @@ function SourceSheet({ S, t }) {
   // same S.screen atom the close handler writes, so the system Back button still closes it.
   return html`<${Sheet} open onClose=${() => S.screen.set(null)} title=${T(t, "srcTitle")} icon="lucide:link">
     <form onSubmit=${load} class="flex flex-col gap-3">
-      ${/* fields and buttons keep the theme's own --radius-field: a hard rounded-2xl on each of them was the
-            one radius in the farm the density ladder could not reach */""}
-      <label class="input flex items-center gap-2">
-        ${Icon("lucide:globe", "text-muted shrink-0")}
+      <label class="input flex items-center gap-2 rounded-2xl">
+        ${Icon("lucide:globe", "opacity-50 shrink-0")}
         <input id="src-input" type="url" inputmode="url" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "srcPlaceholder")} aria-label=${T(t, "srcTitle")} value=${val} onInput=${(e) => setVal(e.target.value)} />
       </label>
       ${sr.searchable ? html`<div class="flex gap-2">
-        <label class="input flex items-center gap-2 flex-1">
-          ${Icon("lucide:search", "text-muted shrink-0")}
+        <label class="input flex items-center gap-2 rounded-2xl flex-1">
+          ${Icon("lucide:search", "opacity-50 shrink-0")}
           <input id="sheet-search" type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
         </label>
-        <button type="button" class="btn btn-primary gap-1 shrink-0" onClick=${search}>${Icon("lucide:search")} ${T(t, "search")}</button>
+        <button type="button" class="btn btn-primary rounded-2xl gap-1 shrink-0" onClick=${search}>${Icon("lucide:search")} ${T(t, "search")}</button>
       </div>` : null}
-      <button id="src-load" type="submit" class="btn btn-primary gap-1">${Icon("lucide:play")} ${T(t, "load")}</button>
+      <button id="src-load" type="submit" class="btn btn-primary rounded-2xl gap-1">${Icon("lucide:play")} ${T(t, "load")}</button>
     </form>
   <//>`;
 }
@@ -705,9 +718,9 @@ function SessionSheet({ S, t, undo }) {
   const forget = () => { undo(() => setSession(site, cur), siteName(site)); setSession(site, ""); close(); };
   return html`<${Sheet} open onClose=${close} title=${T(t, "sessTitle")} subtitle=${sessionKey(site)} icon="lucide:key-round">
     <form onSubmit=${save} class="flex flex-col gap-3">
-      <textarea id="sess-input" rows="4" autocomplete="off" spellcheck="false" class="textarea font-mono text-sm leading-snug w-full break-all" placeholder="name=value; name2=value2" aria-label=${T(t, "sessTitle")} value=${val} onInput=${(e) => setVal(e.target.value)}></textarea>
-      <button id="sess-save" type="submit" class="btn btn-primary gap-1" disabled=${!val.trim()}>${Icon("lucide:check")} ${T(t, "sessSave")}</button>
-      ${cur ? html`<button type="button" data-sess-forget class="btn btn-ghost gap-1 text-base-content/70" onClick=${forget}>${Icon("lucide:trash-2")} ${T(t, "sessForget")}</button>` : null}
+      <textarea id="sess-input" rows="4" autocomplete="off" spellcheck="false" class="textarea rounded-2xl font-mono text-xs leading-snug w-full break-all" placeholder="name=value; name2=value2" aria-label=${T(t, "sessTitle")} value=${val} onInput=${(e) => setVal(e.target.value)}></textarea>
+      <button id="sess-save" type="submit" class="btn btn-primary rounded-2xl gap-1" disabled=${!val.trim()}>${Icon("lucide:check")} ${T(t, "sessSave")}</button>
+      ${cur ? html`<button type="button" data-sess-forget class="btn btn-ghost rounded-2xl gap-1 text-base-content/70" onClick=${forget}>${Icon("lucide:trash-2")} ${T(t, "sessForget")}</button>` : null}
     </form>
   <//>`;
 }
@@ -772,18 +785,18 @@ async function exportClip({ item, format, mode, t, toast }) {
    that is a decision rather than a reflex moved in here.
    A Sheet and not a popover: it is the kit's, it drag-dismisses, and it is routed through S.screen, so the
    system Back closes it like every other dismissable surface in this farm. */
-function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
+function MoreSheet({ S, t, item, src, title, subbed, watchHere, toast }) {
   const busy = useStore($busy), loc = useStore(S.locale), mono = useStore($mono);
   const close = () => S.screen.set(null);
-  const row = "btn btn-ghost justify-start gap-3 w-full font-normal";
+  const row = "btn btn-ghost justify-start gap-3 rounded-2xl w-full font-normal";
   // Save and share sit on the same line as the format they act on: two rows instead of four, and the pair
   // reads as one choice about one thing rather than as four unrelated buttons.
   /* Same left edge, same gap, same icon slot as the rows below. Shot 2026-08-20 and measured: the export
      labels sat at 20px from the edge while the list labels sat at 62px, and only the list rows carried an
      icon — one sheet speaking two visual languages, which reads as two unrelated widgets stacked. `px-4`
      matches DaisyUI's --btn-p (1rem) so this aligns with .btn rows without hard-coding their padding twice. */
-  const pair = (format, icon, label) => html`<div class="flex items-center gap-3 px-4 py-1">
-    ${Icon(icon, "text-lg text-muted shrink-0")}
+  const pair = (format, icon, label) => html`<div class="flex items-center gap-3 px-4 py-1 rounded-2xl">
+    ${Icon(icon, "text-lg opacity-70 shrink-0")}
     <span class="flex-1 min-w-0 truncate">${label}</span>
     ${[["save", "lucide:download"], ["share", "lucide:share-2"]].map(([mode, icon]) => {
       const key = `${format}-${mode}`;
@@ -801,15 +814,15 @@ function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
         ${pair("mp4", "lucide:video", T(t, "expVideo"))}
         ${/* The wait is real (a download and a transcode on our box), so it is STATED rather than hidden
               behind a control that simply does not respond for half a minute. */""}
-        ${busy ? html`<div data-exp-busy class="text-sm text-muted px-4">${T(t, "expBusy")} ${T(t, busy.startsWith("mp4") ? "expVideo" : "expGif")}</div>` : null}
+        ${busy ? html`<div data-exp-busy class="text-xs text-muted px-4">${T(t, "expBusy")} ${T(t, busy.startsWith("mp4") ? "expVideo" : "expGif")}</div>` : null}
         <div class="h-px bg-base-content/10 my-1"></div>
       </${Fragment}>` : null}
       ${/* Noir and the clean screen are the two ways of WATCHING, so they sit together and first. Noir is a
             switch and not a door — it has an on state you have to be able to see in the sheet — so it is the
             runtime's own settings language (icon · name · DaisyUI toggle, exactly the profile's theme row),
             aligned to px-4 = --btn-p so its left edge lands on the .btn rows' text. */""}
-      <label class="flex items-center gap-3 px-4 py-3">
-        ${Icon("lucide:contrast", "text-lg text-muted shrink-0")}
+      <label class="flex items-center gap-3 px-4 py-3 rounded-2xl">
+        ${Icon("lucide:contrast", "text-lg opacity-70 shrink-0")}
         <span class="flex-1 min-w-0 truncate">${T(t, "noir")}</span>
         <input data-noir type="checkbox" class="toggle toggle-primary shrink-0" aria-label=${T(t, "noir")}
           checked=${mono === "1"} onChange=${(e) => $mono.set(e.target.checked ? "1" : "0")} />
@@ -819,9 +832,14 @@ function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
             of the height (measured, 832x384). The mode belongs to the RUNTIME (S.clean) because the app bar
             and the dock are its elements and --hdr-h/--dock-h are its measurements — an app hiding them from
             the outside would leave both numbers describing chrome that is no longer on screen. */""}
-      <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg text-muted")}${sys("clean", loc)}</button>
-      ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg text-muted")}${T(t, "sub")}</button>` : null}
-      ${openIn ? html`<button data-open-page class=${row} onClick=${() => { close(); openIn(); }}>${Icon("lucide:external-link", "text-lg text-muted")}${T(t, "openBrowser")}</button>` : null}
+      <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg opacity-70")}${sys("clean", loc)}</button>
+      ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg opacity-70")}${T(t, "sub")}</button>` : null}
+      ${/* The in-app player — a BETA, and named so. It parses the clip's page for its quality ladder on the box
+            (/feed/stream) and plays it here; it works where the page's player is one of the shapes the parser
+            knows, and the owner's rule (2026-09-04) is that a beta is reached by name, one tap deeper, while
+            the page itself is the tap on the reel and the island's circle. This row REPLACED "Open in
+            browser": the trip out is the surface's own tap now, so the sheet's row is the one that stays in. */""}
+      ${watchHere ? html`<button data-watch-here class=${row} onClick=${() => { close(); watchHere(); }}>${Icon("lucide:play", "text-lg opacity-70")}${T(t, "watchHere")}</button>` : null}
     </div>
   <//>`;
 }
@@ -853,11 +871,11 @@ function SourceIsland({ S, t, src, title, depth, dive, watch }) {
             blank. The page is always worth reaching, so the control is always there. It stays a circle and
             never carries a word: filled with a word, on a black media surface, it was the brightest thing on
             the screen.
-            It plays HERE, so the glyph stays `play` and never becomes an external-link — an external-link on
-            a control that opens an in-app player is the icon lying about where the tap goes. The trip that
-            really leaves (what only the site itself has: the rest of the page, its comments, an account)
-            moved into the sheet, where it can afford to carry its name instead of a glyph. */""}
-      ${watch ? html`<button data-watch class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "watch")} onClick=${watch}>${Icon("lucide:play", "text-base")}</button>` : null}
+            It is the clip's PAGE — the same trip the tap on the slide takes, stated here so a keyboard can
+            take it too — so the glyph is the external-link, and never `play`: a play glyph on a control that
+            leaves the app is the icon lying about where the tap goes. The in-app player (a beta) lives in
+            the sheet, where it can afford to carry its name and the word "beta" beside it. */""}
+      ${watch ? html`<button data-watch class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "openPage")} onClick=${watch}>${Icon("lucide:external-link", "text-base")}</button>` : null}
       ${/* forward is the mirror of back: the page this clip lives on. The destination's NAME is not written
             here — it is what the drag reveals under the finger — so the label rides the a11y name instead. */""}
       ${dive ? html`<button data-dive class=${act} aria-label=${`${T(t, "dive")}: ${dive.label}`} onClick=${dive.go}>${Icon("lucide:chevron-right", "text-lg")}</button>` : null}
@@ -967,9 +985,9 @@ function FeedSurface({ S, t, toast }) {
   const body = loading
     ? html`<section class="h-[100dvh] w-full"><${Pixels} cls="w-full h-full" /></section>`
     : err
-      ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/70 px-8 text-center">${Icon("lucide:cloud-off", "text-5xl")}<div>${T(t, "loadErr")}</div><button class="btn btn-sm btn-outline text-white border-white/25" onClick=${() => loadSource(src)}>${T(t, "retry")}</button></section>`
+      ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/70 px-8 text-center">${Icon("lucide:cloud-off", "text-5xl")}<div>${T(t, "loadErr")}</div><button class="btn btn-sm btn-outline text-white border-white/25 rounded-2xl" onClick=${() => loadSource(src)}>${T(t, "retry")}</button></section>`
       : !items.length
-        ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/60 px-8 text-center">${Icon("lucide:film", "text-5xl")}<div>${T(t, "empty")}</div><button class="btn btn-sm btn-outline text-white border-white/25" onClick=${() => S.tab.set("sources")}>${T(t, "changeSrc")}</button></section>`
+        ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/60 px-8 text-center">${Icon("lucide:film", "text-5xl")}<div>${T(t, "empty")}</div><button class="btn btn-sm btn-outline text-white border-white/25 rounded-2xl" onClick=${() => S.tab.set("sources")}>${T(t, "changeSrc")}</button></section>`
         : items.map((it, i) => html`<${Slide} S=${S} item=${it} idx=${i} active=${i === active && !suspended} near=${Math.abs(i - active) <= PRELOAD} ephemeral=${it.eph != null ? it.eph : ephemeral} key=${(it.orig || it.video) + i} />`);
 
   // The island's controls belong to the ACTIVE clip, so they are derived here, once, from `items[active]` —
@@ -989,12 +1007,12 @@ function FeedSurface({ S, t, toast }) {
           off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
           transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
-      dive=${dive} watch=${watch ? () => openFull(S, cur) : null} />`}
+      dive=${dive} watch=${watch ? () => openExternal(watch) : null} />`}
     ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
           tab plays through too — hanging it off the tab would give the same feed two different sets of
           actions depending on which way you arrived at it. */""}
     ${screen === "more" ? html`<${MoreSheet} S=${S} t=${t} toast=${toast} item=${cur} src=${src} title=${title}
-      subbed=${subs.some((s) => s.url === src)} openIn=${watch ? () => openExternal(watch) : null} />` : null}
+      subbed=${subs.some((s) => s.url === src)} watchHere=${watch ? () => openFull(S, cur) : null} />` : null}
     ${/* Lives with the feed, not with the tab, so it works identically from Liked — one engine, one overlay. */""}
     ${suspended ? html`<${FullClip} S=${S} t=${t} />` : null}
   </${Fragment}>`;
@@ -1026,9 +1044,9 @@ function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSe
   // are the same ink, so "active = text-primary" would be 100% vs 100% — the exact trap that hid the dock's
   // active tab for the life of the project. The row it plays from is pressed INTO the card (`sf-inset`) —
   // the material says "selected" without a tint — and the rail stays, readable from across the room.
-  return html`<li class=${`flex flex-col ${active ? "sf-inset rounded-[var(--ms-r)]" : ""}`}>
+  return html`<li class=${`flex flex-col ${active ? "sf-inset rounded-2xl" : ""}`}>
     <div class="flex items-center gap-0.5 pr-1">
-      <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-[var(--ms-r)] sf-press" onClick=${() => onPlay(s)}>
+      <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-xl sf-press" onClick=${() => onPlay(s)}>
         ${lead}
         <span class="min-w-0 flex-1">
           ${/* the saved name is the page's real title — the string the island resolved and renameSub wrote
@@ -1042,17 +1060,17 @@ function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSe
                 unbroken 60-character token has to break somewhere, and the alternative is a horizontal
                 overflow the gates would (rightly) fail. */""}
           <span data-src-title class=${`block break-words leading-snug ${active ? "font-semibold" : ""}`}>${sourceTitle(s.url, { pageTitle: s.name, max: ROW_MAX })}</span>
-          ${sub ? html`<span class=${`block ${MONO} text-base-content/70 truncate`}>${sub}</span>` : null}
+          ${sub ? html`<span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${sub}</span>` : null}
         </span>
       </button>
-      ${sr.searchable ? html`<button data-search-toggle class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${searching ? "text-primary" : "text-muted"}`} aria-label=${T(t, "search")} aria-pressed=${searching} onClick=${() => setSearching((v) => !v)}>${Icon("lucide:search", "text-lg")}</button>` : null}
-      ${onOpen ? html`<button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 text-muted" aria-label=${T(t, "openSite")} onClick=${() => onOpen(s)}>${Icon("lucide:external-link", "text-lg")}</button>` : null}
-      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "text-muted"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(s)}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
-      <button class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbed ? "text-primary" : "text-muted"}`} aria-label=${T(t, subbed ? "unsub" : "sub")} data-haptic=${subbed ? "bump" : "off"} onClick=${onToggle}>${Icon(subbed ? "lucide:check" : "lucide:plus", "text-lg")}</button>
+      ${sr.searchable ? html`<button data-search-toggle class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${searching ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "search")} aria-pressed=${searching} onClick=${() => setSearching((v) => !v)}>${Icon("lucide:search", "text-lg")}</button>` : null}
+      ${onOpen ? html`<button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(s)}>${Icon("lucide:external-link", "text-lg")}</button>` : null}
+      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(s)}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
+      <button class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbed ? "text-primary" : "opacity-50"}`} aria-label=${T(t, subbed ? "unsub" : "sub")} data-haptic=${subbed ? "bump" : "off"} onClick=${onToggle}>${Icon(subbed ? "lucide:check" : "lucide:plus", "text-lg")}</button>
     </div>
     ${searching ? html`<form onSubmit=${submit} class="flex items-center gap-2 px-2.5 pb-2.5">
-      <label class="input input-sm flex items-center gap-2 flex-1">
-        ${Icon("lucide:search", "text-muted shrink-0 text-sm")}
+      <label class="input input-sm flex items-center gap-2 rounded-xl flex-1">
+        ${Icon("lucide:search", "opacity-50 shrink-0 text-sm")}
         <input data-search-input type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
       </label>
       <button type="submit" class="btn btn-primary btn-sm btn-circle" aria-label=${T(t, "search")}>${Icon("lucide:play")}</button>
@@ -1068,7 +1086,7 @@ function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSe
 function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession, sessions, t }) {
   const hot = g.items.some((s) => s.url === curSrc);
   const hasSession = !!(sessions && sessions[g.domain]);
-  const shell = `rounded-[var(--ms-r)] ${hot ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`;
+  const shell = `rounded-2xl ${hot ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`;
   if (g.items.length === 1) {
     const s = g.items[0];
     return html`<ul class=${shell}><${PageRow} s=${s} active=${s.url === curSrc} subbed=${subbedUrls.has(s.url)} onPlay=${onPlay} onOpen=${onOpen} onToggle=${() => onToggle(s)} onSession=${onSession} hasSession=${hasSession} lead=${html`<${Favicon} url=${s.url} size="w-10 h-10" />`} sub=${g.domain} t=${t} /></ul>`;
@@ -1078,11 +1096,11 @@ function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession
       <${Favicon} url=${g.items[0].url} size="w-10 h-10" />
       <div class="min-w-0 flex-1">
         <div class="font-semibold truncate leading-tight">${g.name}</div>
-        <div class=${`${MONO} text-base-content/70 truncate`}>${g.domain}</div>
+        <div class="text-[0.7rem] font-mono text-base-content/70 truncate">${g.domain}</div>
       </div>
-      <span class=${`${MONO} text-base-content/70 px-1`}>${g.items.length}</span>
-      <button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 text-muted" aria-label=${T(t, "openSite")} onClick=${() => onOpen(g.items[0])}>${Icon("lucide:external-link", "text-lg")}</button>
-      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "text-muted"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(g.items[0])}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
+      <span class="text-xs font-mono text-base-content/70 tabular-nums px-1">${g.items.length}</span>
+      <button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(g.items[0])}>${Icon("lucide:external-link", "text-lg")}</button>
+      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(g.items[0])}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
     </header>
     <ul class="divide-y divide-base-300/60">
       ${g.items.map((s) => html`<${PageRow} s=${s} active=${s.url === curSrc} subbed=${subbedUrls.has(s.url)} onPlay=${onPlay} onToggle=${() => onToggle(s)} lead=${html`<span class=${`shrink-0 rounded-full ${s.url === curSrc ? "w-1.5 h-5 bg-primary" : "w-1.5 h-1.5 bg-base-content/30"}`}></span>`} t=${t} key=${s.url} />`)}
@@ -1101,7 +1119,7 @@ export function sources({ S, undo }) {
 
   return html`<${Fragment}>
     <div class="flex flex-col gap-4 @container">
-      <button id="add-url" class="btn btn-primary gap-2" onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
+      <button id="add-url" class="btn btn-primary rounded-2xl gap-2" onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
 
       <div class="flex flex-col gap-2.5">
         <div class="text-sm font-semibold px-1 flex items-center gap-1.5">${Icon("lucide:bookmark", "text-primary")} ${T(t, "subs")}</div>
@@ -1115,7 +1133,7 @@ export function sources({ S, undo }) {
         ${discover.map((g) => html`<${DomainCard} g=${g} curSrc=${curSrc} subbedUrls=${subbedUrls} onPlay=${play} onOpen=${openSite} onToggle=${(s) => subscribe(s)} t=${t} key=${g.domain} />`)}
       </div>` : null}
 
-      ${watchedN > 0 ? html`<button id="clear-watched" class="btn btn-ghost btn-sm gap-2 text-base-content/70 self-center mt-2" onClick=${clearWatched} data-haptic="bump">${Icon("lucide:rotate-ccw")} ${T(t, "clearWatched", { n: watchedN })}</button>` : null}
+      ${watchedN > 0 ? html`<button id="clear-watched" class="btn btn-ghost btn-sm rounded-2xl gap-2 text-base-content/70 self-center mt-2" onClick=${clearWatched} data-haptic="bump">${Icon("lucide:rotate-ccw")} ${T(t, "clearWatched", { n: watchedN })}</button>` : null}
     </div>
     ${screen === "source" ? html`<${SourceSheet} S=${S} t=${t} />` : null}
     ${screen === "session" ? html`<${SessionSheet} S=${S} t=${t} undo=${undo} />` : null}
@@ -1136,19 +1154,18 @@ export function liked({ S, toast }) {
     $items.set([...sorted.slice(i), ...sorted.slice(0, i)]);
     $active.set(0); $restoreTo.set(0);
   };
-  if (!sorted.length) return html`<div class="flex flex-col items-center justify-center gap-3 text-muted text-center" style="min-height:60vh">${Icon("lucide:heart", "text-6xl")}<div class="text-sm max-w-[16rem]">${T(t, "likedEmpty")}</div></div>`;
+  if (!sorted.length) return html`<div class="flex flex-col items-center justify-center gap-3 text-muted text-center" style="min-height:60vh">${Icon("lucide:heart", "text-6xl opacity-30")}<div class="text-sm max-w-[16rem]">${T(t, "likedEmpty")}</div></div>`;
   return html`<div data-liked class="grid grid-cols-3 gap-1.5">
     ${/* A tile is a SLOT the poster drops into — `sf-inset`. It reads as an empty well until the frame
-          lands and fills it, which is what `bg-base-300` was trying to say with a tone step. The scrim under
-          the title is legibility over a PICTURE (foreign content), not decoration. */""}
-    ${sorted.map((l, i) => html`<div class="relative aspect-[9/16] rounded-[var(--ms-r)] overflow-hidden sf-inset" key=${l.id}>
-      <button data-liked-tile class="absolute inset-0 w-full h-full active:scale-[.98] transition-transform" aria-label=${l.title || l.host} onClick=${() => playAt(i)}>
+          lands and fills it, which is what `bg-base-300` was trying to say with a tone step. */""}
+    ${sorted.map((l, i) => html`<div class="relative aspect-[9/16] rounded-xl overflow-hidden sf-inset" key=${l.id}>
+      <button data-liked-tile class="absolute inset-0 w-full h-full active:scale-[.98] transition" aria-label=${l.title || l.host} onClick=${() => playAt(i)}>
         ${l.poster
           ? html`<img src=${l.poster} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onError=${(e) => e.currentTarget.remove()} />`
-          : html`<div class="absolute inset-0 flex items-center justify-center text-muted">${Icon("lucide:play", "text-2xl")}</div>`}
-        <div class="absolute inset-x-0 bottom-0 p-1.5 pt-6 bg-gradient-to-t from-black/75 to-transparent"><div class=${`${MONO} text-white/90 truncate text-left`}>${l.title || l.host}</div></div>
+          : html`<div class="absolute inset-0 flex items-center justify-center">${Icon("lucide:play", "text-2xl opacity-40")}</div>`}
+        <div class="absolute inset-x-0 bottom-0 p-1.5 pt-6 bg-gradient-to-t from-black/75 to-transparent"><div class="text-[10px] text-white/90 truncate text-left">${l.title || l.host}</div></div>
       </button>
-      <button class="absolute top-1 right-1 btn btn-xs btn-circle bg-black/45 border-0 hover:bg-black/70" style=${LIKE} aria-label=${T(t, "unlike")} data-haptic="bump" onClick=${() => unlike(l.id)}>${Icon("lucide:heart", "text-sm fill-current")}</button>
+      <button class="absolute top-1 right-1 btn btn-xs btn-circle bg-black/45 border-0 text-rose-400 hover:bg-black/70" aria-label=${T(t, "unlike")} data-haptic="bump" onClick=${() => unlike(l.id)}>${Icon("lucide:heart", "text-sm fill-current")}</button>
     </div>`)}
   </div>`;
 }

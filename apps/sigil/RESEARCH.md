@@ -108,3 +108,18 @@ a dynamic background across the whole app; 2027 quality.* Every frame designed a
   never a JS-computed hex.
 - **Motion is progressive enhancement**, so no `[data-live]` requirement; but the 2D fallback still needs its
   own render marker for the gate.
+
+## Design refresh 2026-09-04
+
+State map of Forge: **empty** (`data-forged=no`) — the 3D stage idle, the island holds the intent field + the
+forge verb · **forged** — the attribution chip at the top, the island adds keep / share / tilt · **tilt on**
+(`data-tilt=on`) — the gyro drives the stage · **about** — the meaning Sheet over it. Grimoire: **reading**
+— two tile skeletons (Pixels + a scramble) · **empty** — one Panel · **kept** (`data-kept=n`) — the tile grid ·
+**detail** — the Sheet.
+
+Changed: the grimoire no longer flashes its empty state before IndexedDB answers (skeleton tiles via
+`useReveal`); every micro-label is the length-form token (`text-xs`/`base-content/50` were body-size and
+failed paper); muted glyphs are `.text-muted`; tile/canvas radii are `--ms-r` / `--ms-r-in` (concentric);
+buttons take the theme's field radius (no `rounded-2xl`); transitions name their property (the material is
+a box-shadow pair); chrome padding/gaps are the density tokens. The tile keeps `p-3` on purpose — the 2D
+render is a fixed 132 px and a 360 px column only holds it with 12 px a side.

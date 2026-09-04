@@ -127,3 +127,17 @@ than that the room emptied. `packages/runtime/audience.js`, unit-tested.
 - Whether a strict HTTPS-First user sees an interstitial for the QR URL (§3) — sourced to a test name only.
 - What a **third-party QR scanner's embedded WebView** does with a cleartext URL; only Chrome was reasoned
   about. The QR carries a full `http://host:port/` so a scanner that hands off to the browser is fine.
+
+## Design refresh 2026-09-04
+
+State map of Board (fit): **off** (`[data-stage][data-on=no]`) — the poster dimmed, the go-live key, an error
+or "needs the app" line in the OSD · **on** (`data-on=yes`) — the live dot, the head count (`[data-viewers]`)
+or "live", QR + stop keys, the poster white, the phrase island · **busy** (`data-busy=yes`) — keys disabled
+while the station starts/stops · **qr** — the join Sheet (`#wall-qr`).
+
+Changed: the OSD size was the colour trap (`text-[var(--ms-label)]`) — the head count and the join URL
+rendered at body size; both are the length form and the OSD is the farm's mono uppercase idiom. The stage is
+`bg-black` — the room's page is `#000`, and the owner's preview IS the poster, so the near-black `#0A0A0B`
+literal was both a mismatch and a stray hex. Fixed white keys / the white go-live key stay: this is a window
+onto other people's displays, documented in the view. The live dot keeps `animate-pulse` — it is the on-air
+state, not a placeholder.

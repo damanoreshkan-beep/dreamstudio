@@ -49,6 +49,21 @@
     }
   }
   </script>
+  <style>
+    /* Over MEDIA only — a picture, the dust on black, a camera frame: foreign content the theme's tokens do
+       not reach, so these are the one place a literal colour is right. The scrims keep the working line and
+       the slide dots legible on a bright frame; the chip is a translucent black disc for the same reason. */
+    .im-scrim-b{background:linear-gradient(to top,rgba(0,0,0,.7),transparent)}
+    .im-scrim-t{background:linear-gradient(to bottom,rgba(0,0,0,.45),transparent)}
+    .im-chip{background:rgba(0,0,0,.55);color:#fff}
+    /* the working light (rukh's rk-light): an accent filament along the stage's bottom edge whose LENGTH is
+       the progress — the mark colour, never text */
+    .im-light{position:absolute;left:0;bottom:0;height:2px;width:var(--pct,4%);background:var(--app-accent);box-shadow:0 0 8px var(--app-accent);transition:width .6s ease}
+    /* one more slide is still landing: the last dot breathes — a typographic pulse, never a spinner */
+    .im-more{animation:im-breathe 1.2s ease-in-out infinite}
+    @keyframes im-breathe{0%,100%{opacity:.25}50%{opacity:.9}}
+    @media(prefers-reduced-motion:reduce){.im-more{animation:none;opacity:.6}.im-light{transition:none}}
+  </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
   <div id="boot" aria-hidden="true"><div class="bh"><span class="bm">Уяви</span></div><div class="bb"><i></i></div><div class="bd"></div></div>

@@ -37,6 +37,7 @@ const DESC_KEY = { daily: "descDaily", ppf: "descPPF", sao: "descSAO", mindbody:
 const SUIT_KEY = { wands: "suitWands", cups: "suitCups", swords: "suitSwords", pentacles: "suitPentacles" };
 const cardName = (c, loc) => (loc === "uk" ? c.uk : c.name);
 const meaningOf = (d) => DECK[d.card][d.reversed ? "rev" : "up"];
+const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 export function tarot({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t);
@@ -102,13 +103,13 @@ export function tarot({ S, screen, openScreen, closeScreen }) {
 
     ${isDaily
       // the card of the day: the picker, then one large card with its meaning inline (scrolls naturally)
-      ? html`<div class="relative z-10 flex flex-col gap-4">
+      ? html`<div class="relative z-10 flex flex-col gap-4" data-spread-id=${spreadId} data-cards=${drawn.length}>
           <${Picker} t=${t} spreadId=${spreadId} onPick=${pickSpread} />
           <${Header} t=${t} spreadId=${spreadId} isDaily=${true} />
           <div class="overflow-hidden"><div ref=${paneRef} ...${pan} class="touch-pan-y will-change-transform"><${Solo} d=${drawn[0]} pos=${spread.pos[0]} t=${t} loc=${loc} onOpen=${() => openCard(0)} /></div></div>
         </div>`
       // any multi-card spread: the WHOLE structure fits the screen — cards shrink to fit, no page scroll.
-      : html`<div class="relative z-10 flex flex-col gap-2.5 h-[calc(100dvh-11.5rem)] min-h-0 overflow-hidden">
+      : html`<div class="relative z-10 flex flex-col gap-2.5 h-[calc(100dvh-11.5rem)] min-h-0 overflow-hidden" data-spread-id=${spreadId} data-cards=${drawn.length}>
           <${Picker} t=${t} spreadId=${spreadId} onPick=${pickSpread} />
           <${Header} t=${t} spreadId=${spreadId} isDaily=${false} onShuffle=${shuffle} onRitual=${openRitual} onSynth=${() => openScreen("synth")} />
           <${FitReading} rows=${rows} drawn=${drawn} pos=${spread.pos} t=${t} loc=${loc} onOpen=${openCard} paneRef=${paneRef} pan=${pan} />
@@ -147,7 +148,7 @@ function Header({ t, spreadId, isDaily, onShuffle, onRitual, onSynth }) {
   return html`<div class="shrink-0 flex items-start justify-between gap-3">
     <div class="min-w-0">
       <div class="font-bold text-lg leading-tight">${T(t, SPREAD_KEY[spreadId])}</div>
-      <p class="mt-0.5 text-[0.78rem] leading-snug text-base-content/55 break-words line-clamp-2">${T(t, DESC_KEY[spreadId])}</p>
+      <p class="mt-0.5 text-sm leading-snug text-muted break-words line-clamp-2">${T(t, DESC_KEY[spreadId])}</p>
     </div>
     ${/* Two icon buttons, same size and same order as before — what changed is what they are MADE of.
          `btn-ghost` means "a text button, not an object", so theme.css deliberately leaves it flat; these
@@ -156,7 +157,7 @@ function Header({ t, spreadId, isDaily, onShuffle, onRitual, onSynth }) {
     ${!isDaily ? html`<div class="shrink-0 flex items-center gap-1.5">
       <button data-synth aria-label=${T(t, "synthTitle")} class="btn btn-sm btn-circle" onClick=${onSynth}>${Icon("lucide:scroll-text", "text-base")}</button>
       <button data-shuffle aria-label=${T(t, "redraw")} class="btn btn-sm btn-circle" onClick=${onShuffle}>${Icon("lucide:shuffle", "text-base")}</button>
-      <button data-ritual class="btn btn-sm btn-secondary gap-1.5 rounded-full" onClick=${onRitual}>${Icon("lucide:sparkles", "text-base")}<span class="text-xs font-semibold">${T(t, "ritual")}</span></button>
+      <button data-ritual class="btn btn-sm btn-secondary gap-1.5 rounded-full" onClick=${onRitual}>${Icon("lucide:sparkles", "text-base")}<span class="font-semibold">${T(t, "ritual")}</span></button>
     </div>` : null}
   </div>`;
 }
@@ -181,10 +182,10 @@ function SynthSheet({ open, onClose, sig, input, t, loc, spreadName }) {
   const text = gate ? (GATE_SUMMARY[loc] || GATE_SUMMARY.en) : summary(sig, loc);
   return html`<${Sheet} id="synthsheet" open=${open} onClose=${onClose} locale=${loc} title=${T(t, "synthTitle")} subtitle=${spreadName} icon="lucide:scroll-text">
       ${done
-        ? html`<p data-synth-text class="text-[0.97rem] leading-relaxed text-base-content/90">${text}</p>`
+        ? html`<p data-synth-text class="text-[0.97rem] leading-relaxed">${text}</p>`
         : failed
-          ? html`<button data-synth-retry class="btn btn-sm gap-2 rounded-xl" onClick=${run}>${Icon("lucide:rotate-cw", "text-base")}<span class="text-sm">${T(t, "synthRetry")}</span></button>`
-          : html`<div class="flex flex-col gap-2 text-base-content/55">${[30, 34, 28, 20].map((n, i) => html`<div class="text-[0.95rem]" key=${i}><${Scramble} len=${n} /></div>`)}</div>`}
+          ? html`<button data-synth-retry class="btn btn-sm gap-2 rounded-full" onClick=${run}>${Icon("lucide:rotate-cw", "text-base")}<span class="text-sm">${T(t, "synthRetry")}</span></button>`
+          : html`<div class="flex flex-col gap-2 text-muted">${[30, 34, 28, 20].map((n, i) => html`<div class="text-[0.95rem]" key=${i}><${Scramble} len=${n} /></div>`)}</div>`}
   </${Sheet}>`;
 }
 
@@ -214,7 +215,7 @@ function FitTile({ d, pos, t, loc, wpct, onOpen }) {
     <div class="min-h-0 flex items-center justify-center w-full">
       <img src=${imgURL(c.img)} alt="" loading="lazy" class=${`max-h-full max-w-full w-auto h-auto object-contain rounded-md sf-e2 ${d.reversed ? "rotate-180" : ""}`} />
     </div>
-    <div class="shrink-0 text-[0.5rem] font-mono uppercase tracking-wide text-base-content/50 truncate max-w-full leading-tight">${T(t, pos)}</div>
+    <div class=${`shrink-0 ${LBL} truncate max-w-full leading-tight`}>${T(t, pos)}</div>
   </button>`;
 }
 
@@ -223,7 +224,12 @@ function FitTile({ d, pos, t, loc, wpct, onOpen }) {
 // field) + the moment in time — all swirling in a living particle field, distilled into a number 0..N-1 and
 // hashed into the seed. Makes the randomness feel personal and legible. Canvas2D (not WebGL) so it renders
 // identically everywhere — on the device and in the CI gate that screenshots it. Deterministic under gate.
-const RIT_COLORS = [[159, 140, 246], [240, 101, 94], [64, 193, 115], [217, 151, 58], [90, 169, 230], [232, 160, 214]];
+//
+// The ritual is a DARK CHAMBER in both themes: a canvas scene the particles are painted into with `lighter`
+// compositing, which only reads on black. So every colour here is a scene colour over that canvas, not a
+// theme token — the six lights the querent picks from (the first is the farm's amber, the app's own mark),
+// the wash that leaves the motion trails, and the white ink of the words over it.
+const RIT_COLORS = [[242, 184, 75], [92, 228, 220], [240, 101, 94], [64, 193, 115], [90, 169, 230], [232, 160, 214]];
 const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
 function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
@@ -292,50 +298,52 @@ function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
   const col = RIT_COLORS[color];
   const { boxRef, grip } = useSheetDrag(onClose);   // swipe down to dismiss
 
+  // the chamber's own ink: white over the canvas scene (see RIT_COLORS), never a theme token
+  const ink = "text-white", inkMuted = "text-white/70";
   return html`<dialog id="ritual" ref=${dref} class="modal" onClose=${onClose}>
-    <div ref=${boxRef} class="modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 bg-base-100 overflow-hidden relative">
+    <div ref=${boxRef} data-charge=${charge.toFixed(2)} data-key-color=${color} class=${`modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 ${ink} overflow-hidden relative`} style="background:#000">
       <canvas ref=${cref} data-live aria-hidden="true" class="absolute inset-0 w-full h-full"></canvas>
-      <div class="relative z-10 flex flex-col h-full px-5" style="padding-top:calc(env(safe-area-inset-top) + 0.5rem);padding-bottom:calc(env(safe-area-inset-bottom) + 1.25rem)">
+      <div class="relative z-10 flex flex-col h-full px-[var(--ms-pad)]" style="padding-top:calc(env(safe-area-inset-top) + 0.5rem);padding-bottom:calc(env(safe-area-inset-bottom) + 1.25rem)">
         ${grip}
         <div class="flex items-center justify-between">
-          <div>
-            <div class="text-[0.62rem] font-mono uppercase tracking-[0.16em] text-muted">${T(t, "ritual")}</div>
-            <div class="font-bold text-lg leading-tight">${spreadName}</div>
+          <div class="min-w-0">
+            <div class=${`font-mono text-[length:var(--ms-label)] uppercase tracking-wider ${inkMuted}`}>${T(t, "ritual")}</div>
+            <div class="font-bold text-[length:var(--ms-title)] leading-tight truncate">${spreadName}</div>
+            <div class=${`mt-0.5 text-sm leading-snug ${inkMuted}`}>${T(t, "ritualWhat")}</div>
           </div>
-          <button data-ritual-close aria-label=${T(t, "close")} class="btn btn-sm btn-circle btn-ghost" onClick=${onClose}>${Icon("lucide:x", "text-lg")}</button>
+          <button data-ritual-close aria-label=${T(t, "close")} class=${`btn btn-sm btn-circle btn-ghost shrink-0 ${ink}`} onClick=${onClose}>${Icon("lucide:x", "text-lg")}</button>
         </div>
-
-        <p class="mt-3 text-[0.9rem] leading-snug text-base-content/70 max-w-[16rem]">${T(t, "ritualWhat")}</p>
 
         <div class="flex-1 min-h-0 flex flex-col items-center justify-center gap-5">
           <!-- the live formula: colour · tilt · compass · time, distilling into the number -->
-          <div class="flex items-center gap-2 font-mono text-[0.72rem] text-base-content/75 tabular-nums" aria-hidden="true">
+          <div class=${`flex items-center gap-2 font-mono text-[0.72rem] ${inkMuted} tabular-nums`} aria-hidden="true">
             <span class="h-3.5 w-3.5 rounded-full shrink-0" style=${`background:${rgba(col, 1)}`}></span>
-            <span class="text-base-content/30">·</span>
-            <span class="inline-flex items-center gap-1">${Icon("lucide:move-3d", "text-sm text-base-content/55")}${live.tilt}°</span>
-            <span class="text-base-content/30">·</span>
-            <span class="inline-flex items-center gap-1">${Icon("lucide:compass", "text-sm text-base-content/55")}${live.head}°</span>
-            <span class="text-base-content/30">·</span>
-            <span class="inline-flex items-center gap-1">${Icon("lucide:clock", "text-sm text-base-content/55")}${live.time || "—"}</span>
+            <span>·</span>
+            <span class="inline-flex items-center gap-1">${Icon("lucide:move-3d", "text-sm")}${live.tilt}°</span>
+            <span>·</span>
+            <span class="inline-flex items-center gap-1">${Icon("lucide:compass", "text-sm")}${live.head}°</span>
+            <span>·</span>
+            <span class="inline-flex items-center gap-1">${Icon("lucide:clock", "text-sm")}${live.time || "—"}</span>
           </div>
           <div class="relative flex items-center justify-center" style="width:9.5rem;height:9.5rem">
             <svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full -rotate-90" aria-hidden="true">
-              <circle cx="50" cy="50" r="45" fill="none" stroke="var(--color-base-content)" stroke-opacity="0.12" stroke-width="2.5" />
+              <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-opacity="0.15" stroke-width="2.5" />
               <circle cx="50" cy="50" r="45" fill="none" stroke=${rgba(col, 0.95)} stroke-width="2.5" stroke-linecap="round" stroke-dasharray=${`${(charge * 282.7).toFixed(1)} 282.7`} style="transition:stroke-dasharray .2s linear" />
             </svg>
             <div class="text-center">
-              <div class="text-[2.6rem] font-bold tabular-nums leading-none" style=${`color:${rgba(col, 1)}`}>${num}</div>
-              <div class="text-[0.55rem] font-mono uppercase tracking-widest text-muted mt-1">0–${deckLen - 1}</div>
+              <div data-number class="text-[2.6rem] font-bold tabular-nums leading-none" style=${`color:${rgba(col, 1)}`}>${num}</div>
+              <div class=${`font-mono text-[length:var(--ms-label)] uppercase tracking-widest ${inkMuted} mt-1`}>0–${deckLen - 1}</div>
             </div>
           </div>
         </div>
 
+        ${/* The colour is the querent's KEY, so it paints marks only — the ring, the number, the dot — and the
+             verb stays the farm's ink button: a colour as a background under text fails in half the picks. */""}
         <div class="flex flex-col gap-4">
-          <p class="text-center text-[0.72rem] leading-relaxed text-muted max-w-sm mx-auto">${T(t, "ritualHow")}</p>
           <div class="flex justify-center gap-3">
-            ${RIT_COLORS.map((c, i) => html`<button data-color=${i} aria-label=${`${T(t, "colorPick")} ${i + 1}`} aria-pressed=${color === i} class=${`h-8 w-8 rounded-full transition ${color === i ? "ring-2 ring-offset-2 ring-offset-base-100 scale-110" : "opacity-60"}`} style=${`background:${rgba(c, 1)};--tw-ring-color:${rgba(c, 1)}`} onClick=${() => setColor(i)} key=${i}></button>`)}
+            ${RIT_COLORS.map((c, i) => html`<button data-color=${i} aria-label=${`${T(t, "colorPick")} ${i + 1}`} aria-pressed=${color === i} class=${`h-8 w-8 rounded-full transition-[transform,box-shadow] ${color === i ? "ring-2 ring-offset-2 ring-offset-black scale-110" : ""}`} style=${`background:${rgba(c, color === i ? 1 : 0.6)};--tw-ring-color:${rgba(c, 1)}`} onClick=${() => setColor(i)} key=${i}></button>`)}
           </div>
-          <button data-draw class="btn btn-lg w-full rounded-2xl border-0 font-bold text-[#0a0a0b]" style=${`background:${rgba(col, 1)}`} onClick=${drawNow}>${T(t, "drawCards")}</button>
+          <button data-draw class="btn btn-lg btn-primary w-full rounded-full font-bold" onClick=${drawNow}>${T(t, "drawCards")}</button>
         </div>
       </div>
     </div>
@@ -348,15 +356,15 @@ function Solo({ d, pos, t, loc, onOpen }) {
   useStore(trTick);
   const c = DECK[d.card];
   return html`<div data-reading class="flex flex-col items-center gap-4">
-    <div class="text-[0.6rem] font-mono uppercase tracking-[0.14em] text-base-content/45">${T(t, pos)}</div>
-    <button data-tile class="w-[62%] max-w-[11rem] active:scale-[.99] transition" onClick=${onOpen}>
-      <img src=${imgURL(c.img)} alt=${cardName(c, loc)} class=${`w-full aspect-[350/600] object-cover rounded-xl sf-e3 ${d.reversed ? "rotate-180" : ""}`} />
+    <div class=${LBL}>${T(t, pos)}</div>
+    <button data-tile class="w-[62%] max-w-[11rem] active:scale-[.99] transition-transform" onClick=${onOpen}>
+      <img src=${imgURL(c.img)} alt=${cardName(c, loc)} class=${`w-full aspect-[350/600] object-cover rounded-[var(--ms-r-in)] sf-e3 ${d.reversed ? "rotate-180" : ""}`} />
     </button>
     <div class="text-center">
       <div class="font-bold text-xl leading-tight">${cardName(c, loc)}</div>
-      <div class=${`mt-1 text-xs font-medium ${d.reversed ? "text-warning" : "text-secondary"}`}>${T(t, d.reversed ? "reversed" : "upright")}</div>
+      <div class=${`mt-1 badge badge-sm font-medium ${d.reversed ? "badge-warning" : "badge-secondary"}`}>${T(t, d.reversed ? "reversed" : "upright")}</div>
     </div>
-    <p class="text-[0.95rem] leading-relaxed text-base-content/90 text-center max-w-prose">${tr(meaningOf(d), loc)}</p>
+    <p class="text-[0.95rem] leading-relaxed text-center max-w-prose">${tr(meaningOf(d), loc)}</p>
   </div>`;
 }
 
@@ -367,11 +375,11 @@ function CardSheet({ open, onClose, d, pos, t, loc }) {
   const kind = c ? (c.arcana === "major" ? T(t, "arcanaMajor") : `${T(t, "arcanaMinor")} · ${T(t, SUIT_KEY[c.suit])}`) : "";
   return html`<${Sheet} id="cardsheet" open=${open} onClose=${onClose} locale=${loc}>
       ${c ? html`<div class="flex flex-col items-center gap-4">
-        <div class="text-[0.6rem] font-mono uppercase tracking-[0.14em] text-base-content/45">${T(t, pos)}</div>
-        <img src=${imgURL(c.img)} alt=${cardName(c, loc)} class=${`w-40 aspect-[350/600] object-cover rounded-xl sf-e3 ${d.reversed ? "rotate-180" : ""}`} />
+        <div class=${LBL}>${T(t, pos)}</div>
+        <img src=${imgURL(c.img)} alt=${cardName(c, loc)} class=${`w-40 aspect-[350/600] object-cover rounded-[var(--ms-r-in)] sf-e3 ${d.reversed ? "rotate-180" : ""}`} />
         <div class="text-center">
           <div class="font-bold text-xl leading-tight">${cardName(c, loc)}</div>
-          <div class="text-[0.68rem] font-mono uppercase tracking-wide text-base-content/50 mt-1">${kind}</div>
+          <div class=${`${LBL} mt-1`}>${kind}</div>
           ${/* Upright / reversed is a TAG on the card, and the farm already has that object: `.badge`,
                which theme.css gives the shallow pair (a 20px chip cannot carry the full extrusion). This
                was a hand-rolled pill whose entire body was a 15% tint of its own text colour — depth
@@ -380,7 +388,7 @@ function CardSheet({ open, onClose, d, pos, t, loc }) {
                both themes. Same place, same shape, same two states. */""}
           <div class=${`mt-2 badge badge-sm font-medium ${d.reversed ? "badge-warning" : "badge-secondary"}`}>${T(t, d.reversed ? "reversed" : "upright")}</div>
         </div>
-        <p class="text-[0.95rem] leading-relaxed text-base-content/90">${tr(meaningOf(d), loc)}</p>
+        <p class="text-[0.95rem] leading-relaxed">${tr(meaningOf(d), loc)}</p>
       </div>` : null}
   </${Sheet}>`;
 }

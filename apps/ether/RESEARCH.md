@@ -185,3 +185,41 @@ does not touch digital voice modes (DMR/TETRA). Same line the farm already drew 
   (the FM path proves the request shape, not the USB queue depth). Consume in submission order regardless.
 - **[UNK, on-hardware]** real AM/NFM audio quality, gain staging, squelch thresholds — synthetic unit tests
   prove the maths; the numbers tune on the phone.
+
+## Design refresh 2026-09-04
+
+Frozen for FEATURE work (FROZEN.md); this pass touches only the surface — no behaviour, no key, no e2e
+contract changed. State map of the Listen screen (`[data-listen]` idle · searching · live · silent and
+`[data-preset-sel]` on the body; `[data-connect-state]` on the connect screen) and of Radar
+(`[data-radar]` scanning · hits · empty, `[data-hits]`):
+
+- Listen / idle — the band strip with nothing pressed, the radio-tower empty stage, the transport disabled
+  with "pick something to hear" as its title.
+- Listen / searching — the equalizer idling, "finding a live channel".
+- Listen / live — the band's tile (raised, glyph in the mark colour), the name, LISTENING, the equalizer
+  breathing with the signal; the transport: play · next · silence-noise · volume (demoted into "…" past
+  230 px).
+- Listen / silent — volume-x, the sentence, NEXT.
+- overlays — `opts` (volume slider, squelch toggle, disconnect), the transport's `more` sheet.
+- Radar / scanning — SCANNING (the verb changes, the button disables), three pixel wells the size of a hit.
+- Radar / hits — one raised row per named source: glyph, name, strength bar, STRONG/FAINT micro-label.
+- Radar / empty — radar glyph + "tap scan"; overlay `eng` — the waterfall sheet.
+
+What changed and why:
+
+- The 2×2 grid of band tiles was a hand-rolled one-of-N (`aria-pressed`, `bg-primary/10 ring-1`) → the
+  kit's `Segmented` in its solid skin (`attr="data-preset"`); every option has an icon, so on a narrow rail
+  the strip demotes to glyphs and the stage below names the band in full.
+- The volume `range` in the options sheet (with a printed percentage) → the kit's `Slider`; the value is not
+  printed.
+- `animate-spin` on the scan button's radar glyph → gone; the verb + disabled state carry it. The skeleton
+  rows (`sf-inset animate-pulse` slabs) → three inset wells with `Pixels`, the kit's placeholder.
+- `bg-primary/12 rounded-3xl` icon tiles (connect, live) → the raised surface at `--ms-r` with the glyph in
+  `--app-accent`; the `alert bg-warning/12 rounded-2xl` → `Panel` in the warning tone; `btn-lg rounded-2xl`
+  and the scan/next buttons → `rounded-full`.
+- `text-xs uppercase` labels → the mono micro-label token; radar rows `px-4 gap-3` → `--ms-pad` /
+  `--ms-gap`; the island keeps the kit's own padding and radius (the `rounded-[1.5rem] p-2` override is
+  gone; the body's bottom padding grew to 9.5rem to clear it).
+- Left as is, with the reason: the searching equalizer's `animate-pulse` on five bars is a live-state
+  indicator (there is nothing to reveal), not a placeholder; the hand-rolled empty states are copy, not
+  chrome.

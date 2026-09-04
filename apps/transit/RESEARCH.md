@@ -680,3 +680,21 @@ random pairs). Two rules are specific to it, and both come from failures already
 file — a prompt that describes an input the client does not send gets the reading the prompt described
 (§10), so the absence of houses is stated in the block AND in the prompt; and two charts invite two portraits
 back to back, which is not a synastry, so the required shape is contact-first.
+
+## Design refresh 2026-09-04
+
+State map of the main screen (the wheel tab; the hits, chart and match tabs share the surfaces):
+
+- **no birth** — the empty state (`[data-need-birth]`) with «Вказати народження» → the birth Sheet.
+- **chart ready** — the bi-wheel, the birth row (`[data-birth-row]`), the date readout, the day steps + the year scrub + the three chips (today · tomorrow · pick a day), the contacts Panel (`[data-hits]`, tightest first) with «Тлумачення».
+- **working** — a hit card's times decode through `Scramble` until its root-find lands; a reading Sheet decodes its lines until the model answers, then offers a retry.
+- **overlays** — the birth Sheet, the interp / transit / placement / cusp / portrait / ask Sheets, all history-backed through `S.screen`.
+- 412×430 / 360×340: the wheel caps at 360 px; the rows truncate their names, never their numbers.
+
+What changed and why (the volume pass the audit asked for — 38 old-idiom labels, 37 hard radii, 19 `text-xs`):
+
+- Every micro-label (`text-[0.62rem] font-mono uppercase tracking-[…]`, `text-[0.58rem]`, `text-[0.6rem]`) is the one `--ms-label` mono pattern (`LBL`); the mono meta lines (dates, coordinates, zones) share it at `META`; small data cells are `text-[0.78rem]` (the kit's own small size), never `text-xs`.
+- The contacts box, the natal table, the cusps box and the empty hits card are `Panel`s (`data-hits`, `data-natal-table`, `data-cusps`); the tap-through rows (birth, ask, hit cards) stay buttons on `sf-raised sf-e2 sf-press` at `--ms-r` with `--ms-pad`; wells inside sheets take `--ms-r-in` (`WELL`); the ask thread's bubbles too.
+- Inputs sit at `--ms-ctl` as pills; the save verb is a pill; the day-step tiles and the date chips take the inner radius; the disabled day step is `.text-muted`, not `/40`.
+- match.js / datepick.js / reading.js took the same pass (their `/50 /55 /65` inks are `.text-muted` or `/70`).
+- Deliberately left: the date scrub (`#scrub`, a ±365-day date scrubber — not a macro `Slider`, and its caption is the date readout above it), the today/tomorrow/pick chips (a one-of-three whose third member IS a native date input, which a `Segmented` cannot host), the wheel's own `text-[0.52rem]` angle glyph labels (chart geometry, sized by the dial), and the hairline row separators inside lists (a separator, not a box border).

@@ -29,11 +29,11 @@ export default [
   {
     name: "перемикач швидкість/якість перемикається", run: async (h) => {
       await ready(h);
-      h.expect(await h.attr("[data-q=fast]", "aria-selected") === "true", "швидкість не активна за замовчуванням");
+      h.expect(await h.attr("[data-q=fast]", "aria-pressed") === "true", "швидкість не активна за замовчуванням");
       await h.click("[data-q='2k']");
       await h.wait(150);
-      h.expect(await h.attr("[data-q='2k']", "aria-selected") === "true", "якість не увімкнулась");
-      h.expect(await h.attr("[data-q=fast]", "aria-selected") === "false", "швидкість не вимкнулась після вибору якості");
+      h.expect(await h.attr("[data-q='2k']", "aria-pressed") === "true", "якість не увімкнулась");
+      h.expect(await h.attr("[data-q=fast]", "aria-pressed") === "false", "швидкість не вимкнулась після вибору якості");
     },
   },
   {
@@ -48,10 +48,10 @@ export default [
   {
     name: "пропорції: екран за замовчуванням, перемикаються", run: async (h) => {
       await ready(h);
-      h.expect(await h.attr("[data-aspect=screen]", "aria-selected") === "true", "екран не активний за замовчуванням");
+      h.expect(await h.attr("[data-aspect=screen]", "aria-pressed") === "true", "екран не активний за замовчуванням");
       await h.click("[data-aspect=landscape]"); await h.wait(150);
-      h.expect(await h.attr("[data-aspect=landscape]", "aria-selected") === "true", "пейзаж не увімкнувся");
-      h.expect(await h.attr("[data-aspect=screen]", "aria-selected") === "false", "екран не вимкнувся");
+      h.expect(await h.attr("[data-aspect=landscape]", "aria-pressed") === "true", "пейзаж не увімкнувся");
+      h.expect(await h.attr("[data-aspect=screen]", "aria-pressed") === "false", "екран не вимкнувся");
       await h.click("[data-aspect=screen]"); await h.wait(100);
     },
   },

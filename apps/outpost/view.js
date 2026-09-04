@@ -16,11 +16,13 @@ import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Segmented, Transport } from "/_rt/ui.js";
+import { Segmented, Transport, Slider } from "/_rt/ui.js";
 import { createEngine, audioSupported, noiseSource as src, filter as bqf, lfo, noteFreq } from "/_rt/audio.js";
 import { STATIONS, LAYERS, station, reactorVoices, faderGain, semiToRatio } from "/_rt/scifi.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
 const NAME = { reactor: "stReactor", bridge: "stBridge", observation: "stObservation", cryo: "stCryo", derelict: "stDerelict", relay: "stRelay" };
 const LMETA = { hull: "lucide:box", vent: "lucide:wind", reactor: "lucide:atom", servo: "lucide:cog", tele: "lucide:activity", deep: "lucide:radio" };
@@ -106,10 +108,11 @@ export function outpost({ S }) {
   };
 
   return html`<${Fragment}>
-    <!-- ambient nebula wash (theme-safe: only faint colour, base shows through) -->
-    <div class="fixed inset-0 z-0 pointer-events-none" aria-hidden="true" style="background:radial-gradient(90% 60% at 25% 12%, rgba(159,140,246,.12), transparent 55%), radial-gradient(80% 60% at 82% 78%, rgba(80,150,230,.10), transparent 55%)"></div>
+    <!-- ambient nebula wash: the app's two mark colours at low alpha (head.html), so it follows the theme -->
+    <div class="op-wash fixed inset-0 z-0 pointer-events-none" aria-hidden="true"></div>
 
-    <div class="relative z-10 flex flex-col items-center gap-6 pt-1 pb-2">
+    <div class="relative z-10 flex flex-col items-center gap-[calc(var(--ms-gap)*2)] pt-1 pb-2"
+      data-op-state=${playing ? "online" : "standby"} data-station-sel=${stId} data-timer-min=${timerMin}>
       <!-- station selector -->
       <div class="w-full max-w-[440px]">
         <${Segmented} attr="data-station" scroll variant="outline"
@@ -119,7 +122,8 @@ export function outpost({ S }) {
 
       <!-- the core: transport + live cue -->
       <div class="relative grid place-items-center py-1">
-        <div class=${`absolute w-44 h-44 rounded-full transition-opacity duration-700 ${playing ? "opacity-100 animate-pulse" : "opacity-0"}`} style="background:radial-gradient(closest-side, rgba(159,140,246,.35), transparent 72%)"></div>
+        ${/* The reactor glow: the mark colour breathing behind the core while the station runs (head.html). */""}
+        <div class="op-glow absolute w-44 h-44 rounded-full" data-on=${playing ? "" : null} aria-hidden="true"></div>
         ${/* The halo rings were two `border-base-content/10` hairlines. They are EMBOSSED rims now: an
              element with no fill and only the shallow shadow pair (`sf-e2`), so the ring is the material
              rather than a line drawn on top of it — and, being transparent, it still lets the reactor glow
@@ -131,11 +135,12 @@ export function outpost({ S }) {
         ${/* The core is the kit's Transport at its `hero` size — the halo rings above stay this app's own. */""}
         <${Transport} locale=${loc} size="hero" playing=${playing} onToggle=${toggle} disabled=${!audioSupported} />
       </div>
-      <div class="-mt-3 flex items-center gap-2 font-mono text-xs uppercase tracking-[0.2em] text-base-content/55">
+      <div class=${`-mt-3 flex items-center gap-2 ${LABEL} tracking-[0.2em]`} data-status>
         ${/* The standby dot was an ink tone step (`bg-base-content/30`). A 6px LED cannot hold the shadow
              pair, so it takes --sf-track-face — the system's ONE sanctioned tone, the same token pulse's
-             status LED and rave's step rails use, rather than a per-app guess at an alpha. */""}
-        <span class=${`w-1.5 h-1.5 rounded-full ${playing ? "bg-primary animate-pulse" : ""}`} style=${playing ? "" : "background:var(--sf-track-face)"}></span>
+             status LED and rave's step rails use, rather than a per-app guess at an alpha. Online it is the
+             mark colour breathing (head.html .op-led). */""}
+        <span class="op-led w-1.5 h-1.5 rounded-full" data-on=${playing ? "" : null} style=${playing ? "" : "background:var(--sf-track-face)"}></span>
         ${T(t, NAME[stId])} · ${T(t, playing ? "online" : "offline")}
       </div>
 
@@ -145,7 +150,7 @@ export function outpost({ S }) {
           ${/* Reset was a bare <button> — a control with no material state at all, so a tap said nothing.
                `btn btn-ghost` is the kit's text button: flat at rest (it is a word, not an object) and
                taking the systemic press from theme.css the moment a finger lands on it. */""}
-          <button data-reset onClick=${resetMix} class="btn btn-ghost btn-sm gap-1.5 text-xs text-muted">${Icon("lucide:rotate-ccw", "text-sm")}${T(t, "aReset")}</button>
+          <button data-reset onClick=${resetMix} class="btn btn-ghost btn-sm rounded-full gap-1.5 text-sm text-muted">${Icon("lucide:rotate-ccw", "text-sm")}${T(t, "aReset")}</button>
         </div>
         ${/* Was `border-base-content/10 bg-base-100/60 backdrop-blur` — a hairline AND frosted glass over our
              own surface, which blurs away the very extrusion it sits on. Each fader is a raised strip now,
@@ -153,18 +158,19 @@ export function outpost({ S }) {
              gravel (the same reason theme.css gives `.card` sf-lift2). It stays a hand-rolled row rather
              than a <${"Panel"}/> because a Panel is a flex-COLUMN on --ms-pad, and six of those inflate the
              bank by ~4.5rem on a phone for no gain — the shared thing here is the MATERIAL, not the box.
-             The icon disc is a recess: it holds the glyph, so it is inset, not raised. */""}
-        ${LAYERS.map((L) => html`<div data-fader=${L} key=${L} class="flex items-center gap-3 rounded-2xl sf-raised sf-e2 px-3.5 py-2.5">
+             The icon disc is a recess: it holds the glyph, so it is inset, not raised. The fader itself is
+             the kit's Slider — its mono caption IS the layer's name and the input's accessible name, so the
+             separate name column is gone (the same word twice). */""}
+        ${LAYERS.map((L) => html`<div data-fader=${L} key=${L} class="flex items-center gap-[var(--ms-gap)] rounded-[var(--ms-r)] sf-raised sf-e2 px-[var(--ms-pad)] py-2.5">
           <span class="flex items-center justify-center w-8 h-8 rounded-full shrink-0 sf-inset text-base-content/70">${Icon(LMETA[L], "text-lg")}</span>
-          <span class="text-sm font-medium w-28 shrink-0">${T(t, "l" + L[0].toUpperCase() + L.slice(1))}</span>
-          <input type="range" min="0" max="1" step="0.02" value=${faders[L]} aria-label=${T(t, "l" + L[0].toUpperCase() + L.slice(1))} onInput=${(e) => setFader(L, Number(e.target.value))} class="range range-xs range-primary flex-1" />
+          <div class="flex-1 min-w-0"><${Slider} attr="data-level" id=${L} label=${T(t, "l" + L[0].toUpperCase() + L.slice(1))} value=${faders[L]} onInput=${(v) => setFader(L, v)} /></div>
         </div>`)}
       </div>
 
       ${/* sleep timer — a genuine one-of-N: four durations, exactly one (or none) in force, already laid out
            as one row of pills. That is the kit's Segmented, so it becomes one; tapping the active option
            still clears the timer, which the strip expresses as "no option pressed". */""}
-      <div class="w-full max-w-[440px] flex items-center gap-3">
+      <div class="w-full max-w-[440px] flex items-center gap-[var(--ms-gap)]">
         <span class="text-muted flex items-center gap-1.5 text-sm shrink-0">${Icon("lucide:moon")}${T(t, "sleep")}</span>
         ${/* A RAIL, not a fitted strip: fitted options divide the row, and at watch width (208px) four of
              them leave ~16px of label each and every duration truncates to "15…". Scrolling keeps every
@@ -174,7 +180,7 @@ export function outpost({ S }) {
           value=${String(timerMin)} onChange=${(id) => { buzz(); setTimerMin((c) => (c === Number(id) ? 0 : Number(id))); }} /></div>
       </div>
 
-      ${!audioSupported ? html`<div class="text-xs text-muted">${T(t, "noAudio")}</div>` : null}
+      ${!audioSupported ? html`<div class="text-sm text-muted">${T(t, "noAudio")}</div>` : null}
     </div>
   </${Fragment}>`;
 }

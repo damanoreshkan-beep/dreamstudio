@@ -38,8 +38,6 @@ body { background-image: var(--ds-grain); background-size: 180px 180px; }
   --lm-bloom:  transparent;
   --lm-bloom-hi: color-mix(in oklch, var(--app-accent) 55%, transparent);
   --nm-cast:   rgba(0, 0, 0, .55);
-  --lm-lip:      rgba(233, 240, 233, .3);
-  --lm-lip-glow: color-mix(in oklch, var(--app-accent-2) 16%, transparent);
   --sf-rim:        var(--lm-rim);
   --sf-shadow:     rgba(0, 0, 0, .7);
   --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);
@@ -88,8 +86,6 @@ body { background-image: var(--ds-grain); background-size: 180px 180px; }
   --lm-bloom:  transparent;
   --lm-bloom-hi: color-mix(in oklch, var(--color-accent) 55%, transparent);
   --nm-cast:   rgba(21, 25, 21, .18);
-  --lm-lip:      rgba(21, 25, 21, .24);
-  --lm-lip-glow: transparent;
   --sf-rim:        var(--lm-rim);
   --sf-shadow:     rgba(21, 25, 21, .16);
   --sf-drop:       0 0 0 1px var(--lm-rim), inset 0 1px 0 var(--lm-rim-hi), 0 10px var(--lm-g) var(--lm-gs) var(--nm-cast);

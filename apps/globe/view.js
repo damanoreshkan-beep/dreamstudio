@@ -6,6 +6,7 @@ import { useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Globe } from "/_rt/globe.js";
+import { Panel } from "/_rt/ui.js";
 import facts from "./facts.json" with { type: "json" };
 
 // Three views, one earth. iss and quakes were separate apps that each mounted this same Globe component and
@@ -17,6 +18,11 @@ export { quakes } from "./quakes.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const LIST = Object.entries(facts).map(([id, f]) => ({ id, ...f }));
+// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
+// facts.json carries each flag as a regional-indicator pair. The farm renders no emoji, so the pair is decoded
+// back into the ISO 3166-1 alpha-2 code it encodes (U+1F1E6 is "A") and set in mono — the data stays as is.
+const iso = (flag) => Array.from(flag || "").map((ch) => { const n = ch.codePointAt(0) - 0x1F1E6; return n >= 0 && n < 26 ? String.fromCharCode(65 + n) : ""; }).join("");
 
 export function globe({ S }) {
   const t = useStore(S.t), loc = useStore(S.locale);
@@ -31,25 +37,30 @@ export function globe({ S }) {
   const choose = (c) => { setSel(c.id); setQ(""); setFocus({ lat: c.ll[0], lon: c.ll[1] }); };  // pick from search → fly
 
   const num = (n) => n == null ? "—" : Number(n).toLocaleString(loc === "uk" ? "uk-UA" : "en-US");
-  const row = (icon, label, val) => val ? html`<div class="flex items-start gap-2.5 py-2 border-b border-base-300/40 last:border-0"><span class="text-base-content/45 shrink-0 w-5 text-center mt-0.5">${Icon(icon)}</span><div class="min-w-0"><div class="text-[0.68rem] uppercase tracking-wide text-base-content/45">${T(t, label)}</div><div class="font-medium break-words">${val}</div></div></div>` : null;
+  const row = (icon, label, val) => val ? html`<div class="flex items-start gap-2.5 py-2"><span class="text-muted shrink-0 w-5 text-center mt-0.5">${Icon(icon)}</span><div class="min-w-0"><div class=${LABEL}>${T(t, label)}</div><div class="font-medium break-words">${val}</div></div></div>` : null;
 
-  return html`<div class="flex flex-col gap-3">
+  // The globe is its own invitation (it spins until a country is picked), so nothing captions it below.
+  return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-sel=${sel || ""} data-matches=${matches.length}>
     <${Globe} selected=${sel} focus=${focus} onPick=${pick} spin=${!sel} />
 
-    <label class="input input-bordered flex items-center gap-2 h-11 rounded-2xl">${Icon("lucide:search", "text-lg opacity-50")}<input id="country-search" type="search" class="grow" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
-    ${matches.length ? html`<div class="flex flex-col gap-1" id="matches">${matches.map((c) => html`<button class="btn btn-ghost btn-sm justify-start gap-2 rounded-2xl" data-id=${c.id} key=${c.id} onClick=${() => choose(c)}><span class="text-lg">${c.flag}</span>${c.n}</button>`)}</div>` : null}
+    <label class="input flex items-center gap-2 h-[var(--ms-ctl)] rounded-[var(--ms-r)]">${Icon("lucide:search", "text-lg text-muted")}<input id="country-search" type="search" class="grow" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
+    ${matches.length ? html`<div class="flex flex-col gap-1" id="matches">${matches.map((c) => html`<button class="btn btn-ghost btn-sm justify-start gap-2" data-id=${c.id} key=${c.id} onClick=${() => choose(c)}><span class=${`${LABEL} w-7 text-center shrink-0`}>${iso(c.flag)}</span>${c.n}</button>`)}</div>` : null}
 
     ${f
-      ? html`<div class="card bg-base-100 border border-base-300 rounded-2xl"><div class="card-body p-4 gap-1">
-          <div class="flex items-center gap-3"><span class="text-4xl leading-none">${f.flag}</span><div class="min-w-0"><div class="font-bold text-lg leading-tight break-words">${f.n}</div><div class="text-sm text-muted">${f.reg}${f.sub ? " · " + f.sub : ""}</div></div></div>
-          <div class="mt-1">
+      ? html`<${Panel} data-facts=${sel}>
+          <div class="flex items-center gap-3">
+            ${/* the country's code sits in a well — a mark in mono where the flag emoji used to be */""}
+            <span class="w-11 h-11 shrink-0 rounded-[var(--ms-r-in)] sf-inset grid place-items-center font-mono font-semibold tracking-wider">${iso(f.flag)}</span>
+            <div class="min-w-0"><div class="font-bold text-lg leading-tight break-words">${f.n}</div><div class="text-sm text-muted">${f.reg}${f.sub ? " · " + f.sub : ""}</div></div>
+          </div>
+          <div class="divide-y divide-base-300/40">
             ${row("lucide:landmark", "fCapital", f.cap)}
             ${row("lucide:users", "fPopulation", num(f.pop))}
             ${row("lucide:ruler", "fArea", f.area ? num(f.area) + " km²" : null)}
             ${row("lucide:languages", "fLang", f.langs)}
             ${row("lucide:coins", "fCurrency", f.cur)}
           </div>
-        </div></div>`
-      : html`<div class="text-center text-base-content/70 py-4 text-sm flex flex-col items-center gap-2">${Icon("lucide:hand", "text-2xl opacity-40")}${T(t, "hint")}</div>`}
+        <//>`
+      : null}
   </div>`;
 }

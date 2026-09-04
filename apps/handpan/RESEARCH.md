@@ -88,3 +88,21 @@ the camera parallax small and the world-rotation gentle — this is a meditation
 - Chladni figures / struck-membrane standing waves; ideal-drumhead radial modes (the ripple metaphor).
 - Codrops, *Coding a 3D Audio Visualizer with Three.js* (2025) — instanced/uniform-driven, no CPU geometry.
 - MDN AnalyserNode (observer-tap pattern); `apps/rave/RESEARCH.md` + `reference_webgl_threejs_in_farm` (farm precedent).
+
+## Design refresh 2026-09-04
+
+State map of the main screen (Play):
+
+- **idle** — the scale rail (`Segmented`, `[data-scale]`), the pan with its steel fields over the ripple field, the island: Transport (stop icon) + Flow + Rec actions + the space `Slider` (`[data-space]`).
+- **struck** — the field glows in the app's mark colour (`.hp-lit`, `--glow: var(--app-accent)`), a ripple lands in the field behind.
+- **playing / recording** — the Transport's play is a stop, Rec is `aria-pressed` and pulses; Flow sweeps the loop in.
+- **Weave** — the grid, the pinned island with the Transport and four actions (demoting past `keep` into the overflow Sheet); the settings Sheet holds tempo + space `Slider`s, shimmer/drone toggles, voice + scale rails.
+- **Saved** — skeleton cards → the list; delete is undo-backed.
+- 412×430 / 360×340: the pan is `min(90vw, 62vh)`; the island's Transport compacts on width, the slider's caption sits beside its track below 9 rem.
+
+What changed and why:
+
+- The three DaisyUI `range`s (the island's space, the sheet's tempo and space) are the kit's `Slider`: the caption is the accessible name (`data-space`, `data-set="tempo"` / `"space"`); tempo carries its BPM in the caption («Темп · 80», the mono label · count shape), space prints nothing, as a macro should.
+- `head.html`: the glow fell back to the pre-luminous purple `#9F8CF6` through `--color-secondary`; it is `--app-accent` now. The steel itself stays literal and is documented as a DEPICTED material (dark in any room, like a photo) — the reason there is no light-theme branch for it.
+- Micro-labels in the settings Sheet carry the mono `--ms-label` pattern; `text-xs` meta is the label token; saved cards sit at `--ms-r`; the two `transition` on cards name their property.
+- Deliberately left: `bg-secondary/25 text-secondary` on the immersion button and `text-secondary` on the ding row (the theme tunes `--color-secondary` per theme for text, `rules/design.md`), and `outline-base-content/50` on the playhead cell (a mark, not text).

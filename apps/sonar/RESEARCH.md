@@ -208,3 +208,16 @@ Deterministic synthetic spectra, no hardware: no carrier · stable carrier, no m
 lower sideband only · both · carrier drifted off nominal · carrier lost · a changed sample rate · a raised
 noise floor · the slow-hand 5.5 Hz case · the walking 111 Hz case. These are the eleven states the DSP must
 classify correctly, and they are unit tests, not a screenshot.
+
+## Design refresh 2026-09-04
+
+State map of Room (fit): **off** (`data-status=idle`) — headline "off", the empty well, three metrics at "—",
+play · **calibrating** (`data-calibrated=no`) — the frame count under the headline · **still** — the waterfall
+scrolls, the dot dark · **motion** (`data-motion=on`) — the dot lit in the accent, the direction line, the
+shift metric live · **weak carrier** — the weak headline · **denied / unavailable** — the error line under the
+metrics + the mic prime. The Transport carries calibrate as its action.
+
+Changed: the waterfall well lost its hairline (`sf-inset` is the depth); every label and mono meta is the
+`--ms-label` length token (the `text-xs` ones were body-size); the error line is `.text-muted`; the log's
+loading rows are the rows' own shape with `Scramble` slots instead of empty cards; card radii are `--ms-r`;
+the metric wells pad off `--ms-pad`. The root carries `data-status` / `data-motion` / `data-calibrated`.

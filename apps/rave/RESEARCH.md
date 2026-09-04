@@ -237,3 +237,20 @@ ghost of a wireframe. A canvas cannot take a theme from CSS, so:
 Scene name, ten scene ticks, the 16-step playhead and the player each occupied their own band in the lower
 third. The playhead **is** bar position, i.e. a player's progress line, so it moved inside the island; the
 scene name and its ticks became one row (name left, track right). Two elements where there were four.
+
+## Design refresh 2026-09-04
+
+State map of the Beat screen (fit): **idle** — genre strip · the spectrum scene · scene name + ticks · island
+(16-step rail dark, filter slider, tempo, transport with generate) · **playing** — the rail's playhead walks,
+the scene breathes, `#play` shows stop · **generating** (`data-gen=on`) — the sweep runs the rail in accent,
+generate is active · **no audio** — the transport is disabled and one muted line says so. The root carries
+`data-playing` / `data-gen` / `data-scene` for the driver. Below 520 px the island keeps every control (the
+slider's caption sits beside its track under 9 rem — the kit's own container query).
+
+Changed: every `<input type="range">` is the kit's `Slider` (filter on the island; tempo + the six FX in the
+settings sheet; the tempo's number rides the caption as a mono count, the kit prints no value); the icons that
+stood in for FX labels are gone (the caption is the name). Micro-labels are one idiom
+(`font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70`, no `0.62rem`/
+`0.6rem`/`text-xs`). The app's own bottom gradient over the stage is gone (the dock fades the page itself;
+gradients as decoration are banned). No `animate-pulse` on the generate glyph (the Transport's `pulse` is the
+kit's). Radii are `--ms-r`, chrome gaps `--ms-gap`, a silent track's glyph is `.text-muted`.
