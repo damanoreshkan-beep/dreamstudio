@@ -19,6 +19,7 @@ import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Panel, Island } from "/_rt/ui.js";
+import { Pixels } from "/_rt/skeleton.js";
 import { collection } from "/_rt/db.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
@@ -112,15 +113,15 @@ const PinCard = ({ pin, t, full, owned, onSave, onCopy, compact }) => {
          decodes — a better skeleton than a shimmer, because it is the average colour of the very image
          being waited for. */""}
     <a href=${url} target="_blank" rel="noopener" data-open-image
-      class="block w-full overflow-hidden rounded-[var(--ms-r)]"
+      class="block w-full overflow-hidden rounded-[var(--ms-r-in)]"
       style=${`aspect-ratio:1/${ratio(pin)};background:${pin.color}`}>
       <img src=${pin.src} alt=${pin.text || ""} loading="lazy" class="block w-full h-full object-cover" />
     </a>
     ${pin.text && !compact ? html`<p class="text-sm text-base-content/70 line-clamp-3">${pin.text}</p>` : null}
-    ${pin.board && !compact ? html`<div class="font-mono text-[var(--ms-label)] text-base-content/70 truncate">
+    ${pin.board && !compact ? html`<div class="font-mono text-[length:var(--ms-label)] text-base-content/70 truncate">
       ${pin.board}${pin.author ? ` · ${T(t, "byAuthor", { n: pin.author })}` : ""}</div>` : null}
     <div class="flex items-center gap-2">
-      <button data-copy class="btn btn-primary btn-sm flex-1 shrink min-w-0 gap-1.5 rounded-2xl" onClick=${() => onCopy(url)}>
+      <button data-copy class="btn btn-primary btn-sm flex-1 shrink min-w-0 gap-1.5" onClick=${() => onCopy(url)}>
         ${Icon("lucide:link", "text-base")}<span class="truncate">${T(t, "copyLink")}</span>
       </button>
       <a data-download href=${url} download target="_blank" rel="noopener"
@@ -133,7 +134,7 @@ const PinCard = ({ pin, t, full, owned, onSave, onCopy, compact }) => {
       <a data-open-pin href=${pin.page} target="_blank" rel="noopener"
         class="btn btn-sm btn-circle btn-ghost" aria-label=${T(t, "openPin")}>${Icon("lucide:external-link", "text-base")}</a>
     </div>
-    <div class="font-mono text-[var(--ms-label)] text-base-content/70 truncate" data-fullstate>
+    <div class="font-mono text-[length:var(--ms-label)] text-base-content/70 truncate" data-fullstate>
       ${isFull ? T(t, "resolution") : T(t, "onlyPreview")}
     </div>
   <//>`;
@@ -150,7 +151,7 @@ function Idle({ t }) {
   useEffect(() => { SAVED.all().then((a) => setRecent(a.sort((x, y) => (y._ts || 0) - (x._ts || 0)).slice(0, 6))).catch(() => setRecent([])); }, [owned]);
   if (recent && recent.length) {
     return html`<div class="flex flex-col gap-[var(--ms-gap)]">
-      <div class="font-mono uppercase tracking-wide text-[var(--ms-label)] text-base-content/70 px-1">${T(t, "tabSaved")}</div>
+      <div class="font-mono uppercase tracking-wide text-[length:var(--ms-label)] text-base-content/70 px-1">${T(t, "tabSaved")}</div>
       <div data-recent class="columns-2 gap-[var(--ms-gap)] [&>*]:mb-[var(--ms-gap)] [&>*]:break-inside-avoid">
         ${recent.map((pn) => html`<a key=${pn.id} data-pin=${pn.id} href=${pn.full || pn.src} target="_blank" rel="noopener"
           class="block overflow-hidden rounded-[var(--ms-r)]" style=${`aspect-ratio:1/${ratio(pn)};background:${pn.color}`}>
@@ -160,7 +161,7 @@ function Idle({ t }) {
     </div>`;
   }
   return html`<div data-idle class="flex flex-wrap gap-2 px-1">
-    ${SHAPES.map((sh) => html`<button key=${sh} data-shape class="btn btn-sm btn-outline rounded-2xl font-mono text-[var(--ms-label)] normal-case"
+    ${SHAPES.map((sh) => html`<button key=${sh} data-shape class="btn btn-sm btn-outline rounded-full font-mono text-[length:var(--ms-label)] normal-case"
       onClick=${() => $q.set(sh)}>${sh.replace("https://", "")}</button>`)}
   </div>`;
 }
@@ -207,16 +208,20 @@ export function pins({ S, toast }) {
         <input id="q" data-q type="url" inputmode="url" autocomplete="off" value=${q}
           aria-label=${T(t, "inputLabel")} placeholder=${T(t, "inputPlaceholder")}
           onInput=${(e) => $q.set(e.target.value)}
-          class="input input-bordered w-full flex-1 min-w-0 rounded-2xl" />
-        <button id="grab" type="submit" disabled=${busy} class="btn btn-primary rounded-2xl gap-1.5 shrink-0">
-          ${Icon(busy ? "lucide:loader" : "lucide:arrow-down-to-line", `text-base ${busy ? "animate-spin" : ""}`)}
+          class="input input-bordered w-full flex-1 min-w-0" />
+        ${/* No spinner: the verb changes to its progressive form and the card slot below shows the pin
+             decoding (Pixels) — the state is said by the words and by the structure, not by a wheel. */""}
+        <button id="grab" type="submit" disabled=${busy} aria-busy=${busy ? "true" : null} class="btn btn-primary gap-1.5 shrink-0">
+          ${Icon("lucide:arrow-down-to-line", "text-base")}
           <span class="truncate">${T(t, busy ? "grabbing" : "grab")}</span>
         </button>
       </form>
       ${err ? html`<p role="alert" data-err class="text-error text-sm">${T(t, err)}</p>` : null}
     <//>
 
-    ${items.length === 0 && !err
+    ${busy && items.length === 0
+      ? html`<${Panel} data-pin-skel><div class="w-full overflow-hidden rounded-[var(--ms-r-in)] sf-inset" style="aspect-ratio:4/5"><${Pixels} cls="w-full h-full" /></div><//>`
+      : items.length === 0 && !err
       ? html`<${Idle} t=${t} />`
       : kind === "board"
         ? html`<div data-board class="columns-2 gap-[var(--ms-gap)] [&>*]:mb-[var(--ms-gap)] [&>*]:break-inside-avoid">
@@ -246,7 +251,7 @@ export function pinsSaved({ S, toast }) {
     return html`<${Panel}><span class="text-base-content/70">${T(t, "savedEmpty")}</span><//>`;
   }
   return html`<div class="flex flex-col gap-[var(--ms-gap)]">
-    ${list ? html`<div class="font-mono text-[var(--ms-label)] text-base-content/70 px-1">${T(t, "savedCount", { n: list.length })}</div>` : null}
+    ${list ? html`<div class="font-mono text-[length:var(--ms-label)] text-base-content/70 px-1">${T(t, "savedCount", { n: list.length })}</div>` : null}
     <div data-saved class="columns-2 gap-[var(--ms-gap)] [&>*]:mb-[var(--ms-gap)] [&>*]:break-inside-avoid">
       ${(list || []).map((p) => html`<${PinCard} key=${p.id} pin=${p} t=${t} full=${{ [p.id]: p.full }} owned=${owned}
         onSave=${onSave} onCopy=${onCopy} compact />`)}

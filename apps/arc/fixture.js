@@ -4,17 +4,17 @@
 // The acts text is a REAL level-3 reply captured from the live endpoint, not a hand-written stand-in, and
 // level 3 is deliberate: it is the LONGEST state, and the string nobody measures is the one that overflows.
 // A shot of a tidy short summary would prove nothing about the screen a reader actually gets.
-import { letterTile } from "/_rt/tile.js";
+import { spine } from "./data.js";
 
 export const FIXTURE = [
   { id: "190192", pageid: 190192, qid: "Q190192", title: "Dune", author: "Frank Herbert", year: "1965", byline: "Frank Herbert · 1965",
-    cover: letterTile("Dune", { w: 300, h: 450, hue: 24, sat: 12, light: 22, fontSize: 84 }), hasCover: false, url: "https://en.wikipedia.org/?curid=190192" },
+    cover: spine("Dune"), hasCover: false, url: "https://en.wikipedia.org/?curid=190192" },
   { id: "7619282", pageid: 7619282, qid: "Q7619282", title: "Stoner", author: "John Williams", year: "1965", byline: "John Williams · 1965",
-    cover: letterTile("Stoner", { w: 300, h: 450, hue: 24, sat: 12, light: 22, fontSize: 84 }), hasCover: false, url: "https://en.wikipedia.org/?curid=7619282" },
+    cover: spine("Stoner"), hasCover: false, url: "https://en.wikipedia.org/?curid=7619282" },
   { id: "12161147", pageid: 12161147, qid: "Q12161147", title: "Tiger Trappers", author: "Ivan Bahrianyi", year: "1944", byline: "Ivan Bahrianyi · 1944",
-    cover: letterTile("Tiger Trappers", { w: 300, h: 450, hue: 24, sat: 12, light: 22, fontSize: 84 }), hasCover: false, url: "https://en.wikipedia.org/?curid=12161147" },
+    cover: spine("Tiger Trappers"), hasCover: false, url: "https://en.wikipedia.org/?curid=12161147" },
   { id: "208460", pageid: 208460, qid: "Q208460", title: "Nineteen Eighty-Four", author: "George Orwell", year: "1949", byline: "George Orwell · 1949",
-    cover: letterTile("Nineteen Eighty-Four", { w: 300, h: 450, hue: 24, sat: 12, light: 22, fontSize: 84 }), hasCover: false, url: "https://en.wikipedia.org/?curid=208460" },
+    cover: spine("Nineteen Eighty-Four"), hasCover: false, url: "https://en.wikipedia.org/?curid=208460" },
 ];
 
 // Keyed by locale; the reader falls back to en. Same shape the live endpoint returns: three [n] markers.

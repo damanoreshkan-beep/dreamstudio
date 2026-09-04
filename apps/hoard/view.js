@@ -170,7 +170,7 @@ export function flow({ t, S, toast }) {
            to be tappable, not a control cluster */""}
       <div class="shrink-0 flex justify-center">
         <button data-rate type="button" aria-label=${T(t, "aRate")} onClick=${() => S.screen.set("rate")}
-          class=${`btn btn-ghost btn-sm h-auto min-h-0 py-1.5 px-3 rounded-full font-mono uppercase tracking-wide text-[var(--ms-label)] max-w-full ${FROST}`}>
+          class=${`btn btn-ghost btn-sm h-auto min-h-0 py-1.5 px-3 rounded-full font-mono uppercase tracking-wide text-[length:var(--ms-label)] max-w-full ${FROST}`}>
           <span class="truncate">${rateLine}</span>
           <iconify-icon icon="lucide:chevron-down" class="shrink-0"></iconify-icon>
         </button>
@@ -183,7 +183,7 @@ export function flow({ t, S, toast }) {
           <div ref=${amountRef} data-amount class="font-mono tabular-nums font-semibold"
             style="white-space:pre-wrap;word-break:normal;line-height:0.95;font-size:var(--ms-hero)">${fmtAmount(0, rate.currency, 2)}</div>
         </div>
-        <div class="mt-1 font-mono uppercase tracking-wide text-[var(--ms-label)] text-base-content/70 flex items-center justify-center gap-2">
+        <div class="mt-1 font-mono uppercase tracking-wide text-[length:var(--ms-label)] text-base-content/70 flex items-center justify-center gap-2">
           <span data-persec>${T(t, "perSec", { v: fmtAmount(perSec, rate.currency, rateDp(perSec)) })}</span>
           <span aria-hidden="true">·</span>
           <span ref=${elapsedRef} data-elapsed class="tabular-nums">${fmtSpan(0)}</span>
@@ -200,7 +200,7 @@ export function flow({ t, S, toast }) {
       <${Island} className="shrink-0" tone="frost">
         <button data-run type="button" onClick=${running ? bank : start}
           class="btn btn-primary btn-block h-[var(--ms-ctl)] min-h-0 rounded-[var(--ms-r-in)] gap-2">
-          <iconify-icon icon=${running ? "lucide:hand-coins" : "lucide:play"} class="text-[var(--ms-icon)]"></iconify-icon>
+          <iconify-icon icon=${running ? "lucide:hand-coins" : "lucide:play"} class="text-[length:var(--ms-icon)]"></iconify-icon>
           ${T(t, running ? "bank" : "start")}
         </button>
       </${Island}>
@@ -222,7 +222,7 @@ function RateSheet({ t, loc, S, open, rate }) {
   const save = () => { $rate.set(normRate(draft)); close(); };
 
   const field = (label, key, extra) => html`<label class="flex flex-col gap-1 min-w-0 flex-1 basis-[7rem]">
-    <span class="font-mono uppercase tracking-wide font-semibold text-[var(--ms-label)] text-base-content/70 truncate">${label}</span>
+    <span class="font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70 truncate">${label}</span>
     <input ...${extra} type="number" min="0" step="any" inputmode="decimal" value=${draft[key] ?? ""}
       onInput=${(e) => set(key, e.target.value)}
       class="input w-full min-w-0 font-mono tabular-nums rounded-[var(--ms-r-in)] h-[var(--ms-ctl)]" />
@@ -269,9 +269,9 @@ export function vault({ t, S, undo }) {
 
   if (!sessions.length) {
     return html`<div class="flex flex-col items-center justify-center gap-2 py-16 text-center" data-empty>
-      <iconify-icon icon="lucide:coins" class="text-4xl text-base-content/30"></iconify-icon>
+      <iconify-icon icon="lucide:coins" class="text-4xl text-muted"></iconify-icon>
       <div class="font-semibold">${T(t, "vaultEmpty")}</div>
-      <div class="text-sm text-base-content/70">${T(t, "vaultEmptyHint")}</div>
+      <div class="text-sm text-muted">${T(t, "vaultEmptyHint")}</div>
     </div>`;
   }
 
@@ -279,7 +279,7 @@ export function vault({ t, S, undo }) {
     ${totals.map((v) => html`<${Panel} key=${v.currency} title=${T(t, "vaultTotal")} data-total=${v.currency}>
       <div class="flex items-end justify-between gap-3">
         <div class="font-mono tabular-nums font-semibold text-2xl min-w-0 truncate">${fmtAmount(v.sum, v.currency, 2)}</div>
-        <div class="font-mono uppercase tracking-wide text-[var(--ms-label)] text-base-content/70 shrink-0 text-right">
+        <div class="font-mono uppercase tracking-wide text-[length:var(--ms-label)] text-base-content/70 shrink-0 text-right">
           ${T(t, "vaultCount")} · ${v.count}<br/>${fmtSpan(v.ms)}
         </div>
       </div>
@@ -291,7 +291,7 @@ export function vault({ t, S, undo }) {
           class=${`flex items-center gap-3 py-2 ${i ? "border-t border-base-content/10" : ""}`}>
           <div class="min-w-0 flex-1">
             <div class="font-mono tabular-nums font-semibold truncate">${fmtAmount(s.amount, s.currency, 2)}</div>
-            <div class="font-mono uppercase tracking-wide text-[var(--ms-label)] text-base-content/70 truncate">
+            <div class="font-mono uppercase tracking-wide text-[length:var(--ms-label)] text-base-content/70 truncate">
               ${when(s.endedAt || s._ts || Date.now())} · ${fmtSpan(s.ms)}
             </div>
           </div>

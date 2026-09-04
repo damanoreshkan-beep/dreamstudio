@@ -25,6 +25,11 @@ import { mulberry32 } from "/_rt/groove.js";
 import { bbox, centre, spanM, boxAround, segments, simplify, project, length, stops } from "/_rt/trace.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// The micro-label (`length:` — a bare var() in text-[…] is a COLOUR to Tailwind v4; eleven captions here
+// carried it and rendered at body size) and the one class for a sentence of secondary prose. The two are
+// different things: a caption over a value is mono and small, a sentence is a sentence.
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
+const NOTE = "text-sm text-muted";
 
 const DAYS = collection("trail");
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -223,34 +228,35 @@ export function trailToday({ t, S }) {
       ${Stat(T(t, "statFixes"), String(today.points.length), today.lost ? `−${today.lost}` : "")}
     </div>
 
-    <div class="flex-1 min-h-0 relative rounded-[var(--ms-r)] overflow-hidden bg-base-200/40">
+    <div class="flex-1 min-h-0 relative rounded-[var(--ms-r)] overflow-hidden sf-inset">
       ${today.points.length > 1
         ? DayCanvas(today.points, ownBox(today.points), "absolute inset-0 w-full h-full p-2")
-        : html`<div class="absolute inset-0 grid place-items-center text-base-content/70 text-[var(--ms-label)]">${T(t, "nothingYet")}</div>`}
+        : html`<div class=${`absolute inset-0 grid place-items-center ${NOTE}`}>${T(t, "nothingYet")}</div>`}
     </div>
 
-    ${today.lost ? html`<p class="shrink-0 text-[var(--ms-label)] text-base-content/70">${T(t, "lostBody")}</p>` : null}
-    ${err ? html`<p class="shrink-0 text-[var(--ms-label)] text-error">${err}</p>` : null}
+    ${today.lost ? html`<p class=${`shrink-0 ${NOTE}`}>${T(t, "lostBody")}</p>` : null}
+    ${err ? html`<p class="shrink-0 text-sm text-error">${err}</p>` : null}
 
     <button
       data-rec=${rec ? "on" : "off"}
       data-haptic=${rec ? "bump" : null}
-      class=${`shrink-0 btn rounded-2xl w-full gap-2 ${rec ? "btn-outline" : "btn-primary"}`}
+      class=${`shrink-0 btn rounded-full w-full gap-2 ${rec ? "btn-outline" : "btn-primary"}`}
       onClick=${() => (rec ? stopDay() : startDay(t))}>
       ${Icon(rec ? "lucide:square" : "lucide:circle-dot")}${T(t, rec ? "stop" : "start")}
     </button>
   </div>`;
 }
 
-const Stat = (label, value, unit) => html`<div class="rounded-[var(--ms-r)] bg-base-200/50 px-3 py-2 min-w-0">
-  <div class="text-[var(--ms-label)] text-base-content/70 truncate">${label}</div>
-  <div class="font-mono text-[var(--ms-title)] leading-tight truncate">${value}${unit ? html`<span class="text-base-content/70 text-[var(--ms-label)] ml-1">${unit}</span>` : null}</div>
+// A reading sits IN the page: the well (sf-inset), not a lighter panel laid on it.
+const Stat = (label, value, unit) => html`<div class="rounded-[var(--ms-r)] sf-inset px-3 py-2 min-w-0">
+  <div class=${`${LABEL} truncate`}>${label}</div>
+  <div class="font-mono text-[length:var(--ms-title)] leading-tight truncate">${value}${unit ? html`<span class="font-mono text-[length:var(--ms-label)] text-base-content/70 ml-1">${unit}</span>` : null}</div>
 </div>`;
 
 const Gate = (t, titleKey, bodyKey, ctaKey, onCta) => html`<div class="h-full min-h-0 flex flex-col justify-center">
   <${Panel} title=${T(t, titleKey)}>
-    <p class="text-base-content/70 text-[var(--ms-label)]">${T(t, bodyKey)}</p>
-    ${ctaKey ? html`<button class="btn btn-primary rounded-2xl mt-3 gap-2 w-full" onClick=${onCta}>
+    <p class=${NOTE}>${T(t, bodyKey)}</p>
+    ${ctaKey ? html`<button class="btn btn-primary rounded-full mt-3 gap-2 w-full" onClick=${onCta}>
       ${Icon("lucide:settings")}${T(t, ctaKey)}</button>` : null}
   <//>
 </div>`;
@@ -313,25 +319,27 @@ export function trailMonth({ t, S, screen, openScreen, closeScreen, toast, confi
       <button class="btn btn-ghost btn-sm btn-circle" aria-label=${T(t, "monthPrev")} onClick=${() => shift(-1)}>${Icon("lucide:chevron-left")}</button>
       <div class="flex-1 min-w-0">
         <div class="font-medium truncate">${label}</div>
-        <div class="text-[var(--ms-label)] text-base-content/70 font-mono">${km(total)} km · ${inMonth.length} ${T(t, "days")}</div>
+        <div class="font-mono text-[length:var(--ms-label)] text-base-content/70 tabular-nums">${km(total)} km · ${inMonth.length} ${T(t, "days")}</div>
       </div>
       <button class="btn btn-ghost btn-sm btn-circle" aria-label=${T(t, "monthNext")} onClick=${() => shift(1)}>${Icon("lucide:chevron-right")}</button>
     </div>
 
     ${inMonth.length === 0
-      ? html`<${Panel} title=${T(t, "emptyTitle")}><p class="text-base-content/70 text-[var(--ms-label)]">${T(t, "emptyBody")}</p><//>`
+      ? html`<${Panel} title=${T(t, "emptyTitle")}><p class=${NOTE}>${T(t, "emptyBody")}</p><//>`
       : html`<div data-month-grid class="grid grid-cols-7 gap-1.5">
           ${Array.from({ length: lead }, (_, i) => html`<div key=${`p${i}`} aria-hidden="true"></div>`)}
           ${Array.from({ length: count }, (_, i) => {
             const id = `${month}-${pad2(i + 1)}`;
             const d = days.get(id);
             const has = d && d.points.length > 0;
-            // A hairline on EVERY cell, recorded or not. Without it the month has no structure at all: the
-            // first shot was six wisps floating in a void, because a 30%-opacity fill is invisible at
-            // this size and the calendar the grid is supposed to be simply was not there.
-            if (!has) return html`<div key=${id} class="aspect-square rounded-md border border-base-content/10" aria-hidden="true"></div>`;
+            // EVERY cell is a surface, recorded or not. Without that the month has no structure at all: the
+            // first shot was six wisps floating in a void, because a 30%-opacity fill is invisible at this
+            // size and the calendar the grid is supposed to be simply was not there. Depth is the meaning:
+            // an empty day is a well (sf-inset), a recorded one is the page lifted (sf-raised) — never a
+            // hairline box, which is not depth in this material.
+            if (!has) return html`<div key=${id} class="aspect-square rounded-[var(--ms-r-in)] sf-inset" aria-hidden="true"></div>`;
             return html`<button key=${id} data-day=${id} aria-label=${id}
-              class="aspect-square rounded-md border border-base-content/15 bg-base-200/40 active:scale-95 transition p-0.5"
+              class="aspect-square rounded-[var(--ms-r-in)] sf-raised sf-e2 active:scale-95 transition-transform p-0.5"
               onClick=${() => openScreen(`day:${id}`)}>
               ${isHome(d.points)
                 ? html`<svg viewBox="0 0 100 100" class="w-full h-full" aria-hidden="true"><circle cx="50" cy="50" r="9" fill="var(--app-accent)"/></svg>`
@@ -340,9 +348,9 @@ export function trailMonth({ t, S, screen, openScreen, closeScreen, toast, confi
           })}
         </div>`}
 
-    ${inMonth.length ? html`<p class="text-[var(--ms-label)] text-base-content/70">${T(t, "legend")}</p>` : null}
+    ${inMonth.length ? html`<p class=${NOTE}>${T(t, "legend")}</p>` : null}
 
-    ${inMonth.length ? html`<button class="btn btn-outline rounded-2xl gap-2" onClick=${() => exportMonth(inMonth, span, label, total, t, toast)}>
+    ${inMonth.length ? html`<button class="btn btn-outline rounded-full gap-2" onClick=${() => exportMonth(inMonth, span, label, total, t, toast)}>
       ${Icon("lucide:download")}${T(t, "export")}</button>` : null}
 
     <${Sheet} id="day" open=${!!open} onClose=${closeScreen} title=${openId || ""}
@@ -359,11 +367,11 @@ function DayDetail(day, t, toast, confirm, closeScreen) {
   const breaks = Math.max(0, segments(day.points).length - 1);
 
   return html`<div data-poster class="flex flex-col gap-[var(--ms-gap)]">
-    <div class="aspect-square rounded-[var(--ms-r)] bg-base-200/40 overflow-hidden">
+    <div class="aspect-square rounded-[var(--ms-r-in)] sf-inset overflow-hidden">
       ${home
         ? html`<div class="w-full h-full grid place-items-center text-center px-6">
             <div><div class="font-medium">${T(t, "atHome")}</div>
-            <p class="text-[var(--ms-label)] text-base-content/70 mt-1">${T(t, "atHomeBody")}</p></div></div>`
+            <p class=${`${NOTE} mt-1`}>${T(t, "atHomeBody")}</p></div></div>`
         : DayCanvas(day.points, box, "w-full h-full p-3")}
     </div>
 
@@ -373,12 +381,12 @@ function DayDetail(day, t, toast, confirm, closeScreen) {
       ${Stat(T(t, "dayGaps"), String(breaks), "")}
     </div>
 
-    ${day.lost ? html`<p class="text-[var(--ms-label)] text-base-content/70">${T(t, "lostBody")}</p>` : null}
+    ${day.lost ? html`<p class=${NOTE}>${T(t, "lostBody")}</p>` : null}
 
     <div class="flex gap-2">
-      <button class="btn btn-outline flex-1 rounded-2xl gap-2" onClick=${() => exportDay(day, box, toast)}>
+      <button class="btn btn-outline flex-1 rounded-full gap-2" onClick=${() => exportDay(day, box, toast)}>
         ${Icon("lucide:download")}${T(t, "exportDay")}</button>
-      <button class="btn btn-ghost text-error rounded-2xl gap-2" data-haptic="bump"
+      <button class="btn btn-ghost text-error rounded-full gap-2" data-haptic="bump"
         onClick=${() => confirm({
           title: T(t, "deleteTitle"), body: T(t, "deleteBody"), verb: T(t, "deleteVerb"),
           onConfirm: async () => { await removeDay(day.id); closeScreen(); toast?.("deleted"); },

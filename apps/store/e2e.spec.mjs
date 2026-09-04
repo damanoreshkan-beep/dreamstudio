@@ -21,11 +21,17 @@ export default [
     name: "пошук фільтрує сітку", run: async (h) => {
       await ready(h);
       const base = await h.count("[data-app]");
-      await h.type(".input", "рейв"); await h.wait(250);
+      // folded behind #search-btn (rules/invariants.md); the hidden twin #store-filter takes a typed query
+      h.expect((await h.count("#search-btn")) === 1, "немає іконки пошуку в рядку «Сьогодні»");
+      h.expect((await h.count("[data-search-open]")) === 0, "поле пошуку розгорнуте до дотику");
+      await h.type("#store-filter", "рейв"); await h.wait(250);
       const now = await h.count("[data-app]");
       h.expect(now >= 1 && now < base, "пошук не звузив сітку");
-      await h.type(".input", ""); await h.wait(250);
+      h.expect((await h.count("[data-search-open]")) === 1, "запит є, а поле згорнуте — нема як його стерти");
+      await h.type("#store-filter", ""); await h.wait(250);
       h.expect((await h.count("[data-app]")) === base, "не відновилось після очищення");
+      await h.click("#search-close"); await h.wait(250);
+      h.expect((await h.count("[data-search-open]")) === 0, "× не згорнув поле");
     },
   },
   {

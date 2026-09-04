@@ -110,3 +110,18 @@ keys (hunt's full key list is the template). Push → read run-level conclusion 
   device after ship; the constant lives in one place in view.js.
 - axe over a semi-transparent chip on video: gate backdrop is a plain dark div, chips use solid
   dark ink (#0b0b0e) + white text, so contrast is computable and ≥15:1 either way.
+
+## Design refresh 2026-09-04
+
+State map of the stage (`[data-swarm]`, fit): **priming** (CameraPrime over the stage) · **loading**
+(Pixels until the engine is up) · **playing** (`[data-live]` HUD: wave · score · hearts · sound · records ·
+fire) · **over** (`[data-over]`, the restart card) · **engine error** (`[data-err]`) · **records sheet**
+(`#records`, `[data-stat]`).
+
+What changed and why: the label trap ×2 (view.js:345, :361 — `text-[var(--ms-label)]` is a colour to
+Tailwind v4, so the game-over caption and the record captions rendered at body size) and the two viewfinder
+chips at a hand-picked `text-[0.58rem]` (:305, :309) → one `LABEL` at `text-[length:var(--ms-label)]`;
+`opacity-80/70` on those captions → the `/70` ink (over the black chips, `text-white/70`). The record wells
+inside the sheet → `--ms-r-in` (concentric), the reset button → a pill. Kept: the canvas rgba palette in
+render.js and the chips' `bg-black border-white/15` — viewfinder chrome over a camera feed, documented at
+render.js:9–11; the gate-only radial backdrop (a stand-in for the camera frame).

@@ -10,8 +10,11 @@ import { animate, stagger } from "motion";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { sha1hex, splitHash, lookup } from "/_rt/pwned.js";
+import { Panel } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the micro-label at the ladder's size (`length:` — a bare var() in text-[…] is a colour to Tailwind v4)
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const RANGE = "https://api.pwnedpasswords.com/range/";
 const SAMPLE_HEX = "5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8";   // SHA-1("password") — the gate fixture
 const SAMPLE_COUNT = 3861493;
@@ -77,11 +80,11 @@ export function check({ S }) {
     } catch { setStatus("error"); }
   };
 
-  return html`<div class="w-full min-w-0 py-5 flex flex-col gap-5 max-w-md mx-auto">
+  return html`<div class="w-full min-w-0 py-5 flex flex-col gap-5 max-w-md mx-auto" data-status=${status}>
 
-    <!-- input -->
-    <div class="group rounded-3xl sf-inset p-1.5 pl-4 flex items-center gap-2">
-      ${Icon("lucide:key-round", "text-lg text-base-content/40 shrink-0")}
+    <!-- input: a field is a well (sf-inset), a pill because it is one line -->
+    <div class="group rounded-full sf-inset p-1.5 pl-4 flex items-center gap-2">
+      ${Icon("lucide:key-round", "text-lg text-muted shrink-0")}
       <input data-pw type=${reveal ? "text" : "password"} value=${pw} onInput=${(e) => setPw(e.currentTarget.value)}
         aria-label=${T(t, "pwLabel")} placeholder=${T(t, "pwPlaceholder")} autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
         class="input input-ghost flex-1 min-w-0 bg-transparent px-1 text-base focus:outline-none" />
@@ -89,50 +92,57 @@ export function check({ S }) {
     </div>
 
     <!-- the hash, split: the 5 that leave vs the 35 that stay -->
-    ${hex ? html`<div class="rounded-3xl sf-raised p-4 flex flex-col gap-3 min-w-0">
-      <div class="flex items-center gap-2 text-[11px] uppercase tracking-widest text-base-content/70 font-mono">${Icon("lucide:hash", "text-sm")}SHA-1</div>
+    ${/* The hash is a Panel (the page raised, the kit's mono micro-label as its title) — it was the same
+         surface assembled by hand, which is the tell design.md names. */""}
+    ${hex ? html`<${Panel} className="min-w-0" title=${html`<span class="inline-flex items-center gap-1.5">${Icon("lucide:hash", "text-sm")}SHA-1</span>`}>
       <div data-hash class="font-mono text-sm break-all leading-relaxed min-w-0">
         ${/* The 5 chars that leave are a CHIP — a small object lifted off the hash, on the shallow pair.
              The ring it used to carry was an outline doing the shadow's job. */""}
-        <span class="inline-flex items-center rounded-md bg-primary/15 text-primary font-bold px-1.5 py-0.5 mr-0.5 sf-e2">${prefix}</span><span class="text-base-content/45 tracking-tight">${suffix}</span>
+        <span class="inline-flex items-center rounded-full bg-primary/15 text-primary font-bold px-1.5 py-0.5 mr-0.5 sf-e2">${prefix}</span><span class="text-muted tracking-tight">${suffix}</span>
       </div>
-      <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs min-w-0">
-        <div class="flex items-center gap-1.5 min-w-0"><span class="w-2 h-2 rounded-full bg-primary shrink-0"></span><span class="text-base-content/70 truncate">${T(t, "sentLabel")}</span></div>
-        <div class="flex items-center gap-1.5 min-w-0"><span class="w-2 h-2 rounded-full bg-base-content/40 shrink-0"></span><span class="text-base-content/70 truncate">${T(t, "localLabel")}</span></div>
+      <div class="flex flex-wrap gap-x-4 gap-y-1 min-w-0">
+        <div class="flex items-center gap-1.5 min-w-0"><span class="w-2 h-2 rounded-full bg-primary shrink-0"></span><span class=${`${LABEL} truncate`}>${T(t, "sentLabel")}</span></div>
+        <div class="flex items-center gap-1.5 min-w-0"><span class="w-2 h-2 rounded-full bg-base-content/40 shrink-0"></span><span class=${`${LABEL} truncate`}>${T(t, "localLabel")}</span></div>
       </div>
-    </div>` : null}
+    <//>` : null}
 
-    <button data-check onClick=${run} disabled=${!hex || status === "checking"} class="btn btn-primary rounded-2xl h-12 gap-2">
+    <button data-check onClick=${run} disabled=${!hex || status === "checking"} class="btn btn-primary h-[var(--ms-ctl)] gap-2">
       ${Icon("lucide:shield-search", "text-lg")}${T(t, status === "checking" ? "checking" : "checkBtn")}
     </button>
 
     <!-- the k-anonymity pipeline (the motion hero) -->
-    <div ref=${pipeRef} class="relative rounded-3xl sf-raised p-4 pl-3 min-w-0 overflow-hidden">
-      <div class="absolute left-[1.85rem] top-6 bottom-6 w-px bg-base-content/12"></div>
-      <div ref=${beamRef} class="absolute left-[1.85rem] -translate-x-1/2 w-1 h-10 rounded-full bg-gradient-to-b from-transparent via-primary to-transparent blur-[1px] pointer-events-none" style="top:4%"></div>
-      <div class="flex flex-col gap-3.5 relative">
+    ${/* The beam is LIGHT travelling the timeline — the one gradient here is the light itself, in the
+         farm's warm pole, not a decoration. The line and the beam sit at the nodes' centre: the Panel's
+         own padding plus half a node, so the density ladder cannot move them apart. */""}
+    <${Panel} className="relative min-w-0 overflow-hidden">
+      <div class="absolute top-6 bottom-6 w-px bg-base-content/12" style="left:calc(var(--ms-pad) + 1.125rem)"></div>
+      <div ref=${beamRef} class="absolute -translate-x-1/2 w-1 h-10 rounded-full bg-gradient-to-b from-transparent via-[var(--app-accent)] to-transparent blur-[1px] pointer-events-none" style="top:4%;left:calc(var(--ms-pad) + 1.125rem)"></div>
+      <div ref=${pipeRef} class="flex flex-col gap-3.5 relative">
         ${NODES.map(([ic, k], i) => html`<div data-node class="flex items-center gap-3 min-w-0" key=${k}>
           <span class="w-9 h-9 rounded-full sf-raised sf-e2 text-base-content/70 flex items-center justify-center shrink-0">${Icon(ic, "text-base")}</span>
           <div class="text-sm text-base-content/80 min-w-0">${T(t, k)}</div>
         </div>`)}
       </div>
-    </div>
+    <//>
 
     <!-- verdict -->
     ${/* The verdict is the page pushed OUT at the deepest rung the surface has (sf-e3) — it used to be a
          tinted hairline, an outline standing in for the shadow pair. The meaning still reads in colour:
-         the aura, the icon well and the heading all carry error/success. */""}
-    ${res && status === "done" ? html`<div ref=${verdictRef} data-verdict data-pwned=${String(res.pwned)} class="relative rounded-3xl p-6 flex flex-col items-center gap-1.5 min-w-0 overflow-hidden sf-raised sf-e3">
+         the aura, the icon well and the heading all carry error/success. The spring animates the wrapper
+         (a Panel is a function component; a ref would not reach its element). */""}
+    ${res && status === "done" ? html`<div ref=${verdictRef} data-verdict data-pwned=${String(res.pwned)} class="min-w-0">
+      <${Panel} className="relative items-center gap-1.5 min-w-0 overflow-hidden sf-e3">
       <div ref=${glowRef} class=${`absolute -z-0 w-40 h-40 rounded-full blur-3xl ${res.pwned ? "bg-error/25" : "bg-success/25"}`} style="opacity:.35"></div>
       <div class="relative z-10 flex flex-col items-center gap-1.5 min-w-0">
-        <div class=${`w-16 h-16 rounded-2xl flex items-center justify-center sf-e2 ${res.pwned ? "bg-error/15" : "bg-success/15"}`}>
+        <div class=${`w-16 h-16 rounded-[var(--ms-r-in)] flex items-center justify-center sf-e2 ${res.pwned ? "bg-error/15" : "bg-success/15"}`}>
           ${Icon(res.pwned ? "lucide:shield-alert" : "lucide:shield-check", `text-4xl ${res.pwned ? "text-error" : "text-success"}`)}
         </div>
         <div class=${`text-lg font-semibold mt-1 ${res.pwned ? "text-error" : "text-success"}`}>${T(t, res.pwned ? "vPwned" : "vClean")}</div>
         ${res.pwned
-      ? html`<div class="text-center"><div data-count class="text-3xl font-bold tabular-nums tracking-tight break-all">${fmt(display)}</div><div class="text-xs text-muted mt-0.5">${T(t, "vPwnedSub")}</div></div>`
+      ? html`<div class="text-center"><div data-count class="text-3xl font-bold tabular-nums tracking-tight break-all">${fmt(display)}</div><div class=${`${LABEL} mt-0.5`}>${T(t, "vPwnedSub")}</div></div>`
       : html`<div class="text-sm text-base-content/75 text-center max-w-[15rem]">${T(t, "vCleanSub")}</div>`}
       </div>
+      <//>
     </div>` : null}
     ${status === "error" ? html`<div data-error class="text-sm text-error text-center py-2">${T(t, "errMsg")}</div>` : null}
   </div>`;

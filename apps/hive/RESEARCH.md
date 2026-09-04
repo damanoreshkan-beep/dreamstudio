@@ -364,3 +364,15 @@ whole system off, and under the gate the entrance classes are omitted so shots s
   6 dB shift of window medians (`sightTrend` in radar.js) — RESEARCH §B says a stationary trace wanders
   5–15 dB, so anything smaller is noise and the mark stays away. Medians, not means: one body-shadow
   dropout must not flip the verdict.
+
+## Design refresh 2026-09-04
+
+State map of the radar (the main screen, fit): **idle** (`[data-live]` says "N cells · idle") · **scanning**
+(the live dot pulses beside the count) · **denied / off / too often** (`[data-reason]`) · **target picked**
+(`[data-dev][aria-pressed]`, the rose) · **pick sheet** (`#pick`, `[data-pick-dev]`). Guard: the policy
+line, `[data-flag]` rows, `[data-watch]` rows with their reasons, `[data-nofix]`.
+
+What changed and why: the label trap ×13 (every `text-[var(--ms-label)]` — a colour to Tailwind v4, so all
+the micro-labels rendered at body size; the same for `text-[var(--ms-icon)]` ×3, so the kind glyphs took
+the parent's size) → `text-[length:…]`. The legend's zero count `text-base-content/50` → `.text-muted`.
+Everything else was already the kit (Panel ×5, Island ×2, Sheet, Stage ×2, head.html): untouched.

@@ -24,6 +24,8 @@ import { renderFrame } from "./render.js";
 import { loadEngine, makeClock, makeSound, GATE_SEED } from "./engine.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the micro-label at the ladder's size (`length:` — a bare var() in text-[…] is a colour to Tailwind v4)
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider";
 
 /* Frames between DEAD and the over-card, so the last sting is actually seen (hunt's lesson:
    raising the card on the flag's own frame animates a death nobody ever saw). */
@@ -302,11 +304,11 @@ export function swarm(props) {
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
             <div class=${chip}>
-              <span class="text-[0.58rem] uppercase tracking-[0.22em] text-white/60">${T(t, "wave")}</span>
+              <span class=${`${LABEL} text-white/70`}>${T(t, "wave")}</span>
               <span class="text-sm" ref=${waveEl}>1</span>
             </div>
             <div class=${chip}>
-              <span class="text-[0.58rem] uppercase tracking-[0.22em] text-white/60">${T(t, "score")}</span>
+              <span class=${`${LABEL} text-white/70`}>${T(t, "score")}</span>
               <span class="text-sm" ref=${scoreEl}>0</span>
               <span ref=${comboEl} class="text-sm text-[var(--app-accent)] transition-opacity" aria-hidden="true"></span>
             </div>
@@ -342,8 +344,8 @@ export function swarm(props) {
       ${over ? html`<div class="absolute inset-0 grid place-items-center overflow-hidden bg-black/45" data-over>
         <button class="sf-raised sf-press active:sf-pressed bg-base-100 rounded-[var(--ms-r)] gap-1 flex flex-col items-center max-w-full max-h-full px-[var(--ms-pad)] py-[calc(var(--ms-pad)*0.7)]"
           onClick=${restart} data-restart>
-          <span class="font-mono uppercase tracking-widest text-[var(--ms-label)] opacity-80">${T(t, "gameOver")}</span>
-          <span class="font-mono text-[var(--ms-title)]">${T(t, "wave")} ${best?.wave ?? 1}</span>
+          <span class=${`${LABEL} text-base-content/70`}>${T(t, "gameOver")}</span>
+          <span class="font-mono text-[length:var(--ms-title)]">${T(t, "wave")} ${best?.wave ?? 1}</span>
         </button>
       </div>` : null}
 
@@ -356,12 +358,12 @@ export function swarm(props) {
       title=${T(t, "records")} icon="lucide:trophy" locale=${loc}>
       <div class="grid grid-cols-2 gap-[var(--ms-gap)] text-center">
         ${[["bestWave", best?.wave ?? 0], ["score", best?.score ?? 0], ["kills", best?.kills ?? 0], ["runs", +runs || 0]].map(([k, v]) => html`
-          <div class="sf-inset rounded-2xl p-3 min-w-0">
-            <div class="font-mono text-[var(--ms-title)] truncate" data-stat=${k}>${v}</div>
-            <div class="text-[var(--ms-label)] uppercase tracking-wide opacity-70 mt-1 leading-[1.4] break-words">${T(t, k)}</div>
+          <div class="sf-inset rounded-[var(--ms-r-in)] p-3 min-w-0">
+            <div class="font-mono text-[length:var(--ms-title)] truncate" data-stat=${k}>${v}</div>
+            <div class=${`${LABEL} text-base-content/70 mt-1 leading-[1.4] break-words`}>${T(t, k)}</div>
           </div>`)}
       </div>
-      <button class="btn btn-ghost rounded-2xl w-full" data-haptic="bump" id="records-reset"
+      <button class="btn btn-ghost rounded-full w-full" data-haptic="bump" id="records-reset"
         onClick=${() => props.confirm?.({
           title: T(t, "resetTitle"), body: T(t, "resetBody"), verb: T(t, "resetVerb"),
           onConfirm: () => { $best.set(null); $runs.set("0"); A.screen.set(null); },

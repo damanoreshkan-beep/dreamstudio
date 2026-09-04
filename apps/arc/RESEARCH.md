@@ -337,3 +337,30 @@ The pattern: an opener has to **anchor itself to the book** ("цієї книг�
 concrete to change. A bare "герой" or a bare "інакше" leaves the model deciding whether it is even being asked
 about the book in front of it, and on a long plot it sometimes decides it is not. The shipped chips are the
 bottom two rows plus the one that already worked; the top two are kept here so nobody re-shortens them.
+
+## Design refresh 2026-09-04
+
+State map of the reader (the detail body under the runtime's overlay; the shelves are the runtime's list):
+
+- **shelves** (list tab, `.aw-tap` cards): a cover or the generated spine tile — now the material's WELL
+  (`sf-inset` face, dim rim, dark inner top) with the first letter as an amber MARK with a soft bloom; the
+  SVG follows `[data-theme]` through the embedding element's `color-scheme` (paper well + tint by day).
+- **reader · loading** (`[data-reader]`, acts as `Scramble` lines at the level's length).
+- **reader · read** (`[data-act='1'|'2']`, `[data-reveal]` the locked third act as the one sunk block).
+- **reader · revealed** (`[data-act='3']`).
+- **reader · failed** (`[data-retry]`).
+- **thread**: openers (`[data-ask-chip]`) → turns (`[data-ask-q]`/`[data-ask-a]`) → stuck (`[data-ask-retry]`).
+
+What changed and why:
+
+- The label trap ×4 (view.js:132, :133, :158, :159 `text-[var(--ms-label)]` — a COLOUR to Tailwind v4, so the
+  captions rendered at body size) → `LABEL`/`COUNT` with `text-[length:var(--ms-label)]`.
+- `btn … rounded-xl` ×2 (:110, :254) → pills; the ask field → a pill beside its round send button (one
+  geometry with the opener chips); the reveal button inside the well → `--ms-r-in` (concentric).
+- The locked block stays a hand-assembled `sf-inset` well ON PURPOSE (a Panel is the page raised; this is
+  the page sunk) — the dead `bg-base-100` under `sf-inset` is gone.
+- The cover fallback (data.js:38–41 `letterTile` at hue 24 / sat 12 / light 18–26 %) painted a grey-brown
+  face on black — the "grey card on black" mistake. Replaced by an app-owned SVG spine: the well's own
+  terms (#0A0A0D face, warm rim .10, black inner top; paper: #ECE9E1, ink rim) and the letter in
+  `#F2B84B` as a mark, both themes. No per-title hue any more — colour meant nothing there.
+- The gate fixture's covers ride the same generator; `/_rt/tile.js` is no longer imported by arc.

@@ -104,3 +104,18 @@ work behind the audio handshake.**
 `gate` (headless or `?mock`) seeds a six-tune fixture and makes `bytesFor` return the bundled
 `demo.v2mz`, so the whole store → play → library flow is exercised end to end without a single request to
 modland.
+
+## Design refresh 2026-09-04
+
+State map of the play screen (`fit`): **empty** (no tune) · **loaded** (the byte stage + Transport, `#save`
+with `data-saved-track`) · **playing** (`data-playing`) · **error** (the alert line under the transport).
+Store tab: **syncing** (`[data-skel]` rows as wells) · **list** (`[data-tune]`, the playing row lifted) ·
+**no match**. Library: **loading** (card skeletons) · **empty** · **rows** (`[data-track-row]`).
+
+What changed and why: `text-xs` ×5 as readouts (view.js:434, :512, :526, :551, :626) — zero `--ms-label` in
+a screen full of mono counts. The counts (catalogue size, a track's size · duration) now read the ladder's
+label token (`MONO` = `font-mono text-[length:var(--ms-label)] tabular-nums`); the author subline and the
+error are sentences → `text-sm` (`.text-muted` for the author). `rounded-xl`/`rounded-lg` (:522, :546, :589)
+→ `--ms-r` for the list rows, `--ms-r-in` for the slot inside a card. Icon alpha (`opacity-40/60`) →
+`.text-muted`. Kept: `sf-e2` on the playing row (a ladder rung, by design), `text-base-content/70` on
+icon buttons (within the safe band), no head.html — nothing here needs CSS.

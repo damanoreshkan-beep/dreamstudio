@@ -269,3 +269,24 @@ Java change. The one party that already fetches the page is the proxy, and the t
   the path and `humanName` ignores bitrate tokens (61 clean items). Gitignored local suites carry the real page:
   `edge/core.local_test.js` (ph-root fixture) and `edge/session.local_test.js` (redirect chain, anonymous vs
   cookie, consent flags, egress).
+
+## Design refresh 2026-09-04
+
+State map of the feed (the main screen): **loading** (Pixels for a full slide) · **error** / **empty**
+(the white-on-black centred verbs) · **playing** (`[data-main][data-playing]`, the source island, the like
+burst on a double tap) · **more sheet** (export pairs, noir, clean, subscribe, open) · **source sheet**
+(`#src-input`, search) · **session sheet** (`#sess-input`). Sources tab: domain cards (`sf-raised sf-e2`,
+the watched one `sf-e3` + tint), page rows (`[data-src-row]`, the playing row pressed in). Liked tab: the
+poster grid (`[data-liked-tile]`), the empty state.
+
+What changed and why: the like was a named colour outside the token pair (`text-rose-500 fill-rose-500`
+:619, `text-rose-400` :1141) → the farm's warm pole `--app-accent` as a MARK (`LIKE`), its glow a
+`drop-shadow` filter in the same colour over the clip. `rounded-2xl` ×19 / `rounded-xl` ×3 on inputs,
+textarea and buttons (:668–679, :699–701, :769, :776, :802, :961, :963, :1045, :1095, :1109) — removed, so
+the theme's own `--radius-field` applies; on the app's own boxes (the card shell :1062, the pressed row
+:1020/:1022, the liked tiles :1134) → `rounded-[var(--ms-r)]`. Hand-picked sizes (`text-[0.7rem]` :1036,
+:1072; `text-[10px]` :1139; `text-xs` :699, :795, :1074) → the ladder's label token (`MONO`) for mono
+readouts, `text-sm` for sentences. `opacity-30…70` on icons (×14) → `.text-muted`; `transition` on a tile →
+`transition-transform` (the material is box-shadow). Kept: the scrim under a tile title (legibility over a
+picture, not decoration); `border-b border-base-300` between a domain card's header and its rows (a divider,
+not a border around the card); the dark `tone` island over video; the VPS-proxy fetches (domain, not kit).

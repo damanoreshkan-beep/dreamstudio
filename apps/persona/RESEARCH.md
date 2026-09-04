@@ -132,3 +132,19 @@ webgl, 21st». Then: «google авторизацію — основна, най�
   needed (popup/FedCM). Put `GOOGLE_CLIENT_ID=…` (and optionally `OWNER_EMAIL=…`) in the VPS `.env`, then
   `docker compose up -d core`. Until then `/feed/google/config` returns an empty id and the sign-in surface
   shows GitHub alone.
+
+## Design refresh 2026-09-04
+
+State map of the chat (the detail body, `[data-chat]`): **creating** (`[data-creating]`, the caption and
+three decoding lines) · **loading** (three decoding lines) · **empty** (the three openers `[data-opener]`) ·
+**thread** (`[data-turn]` — the reader's line ruled in the accent, the reply; `[data-pending]` while it
+streams; the retry row on failure; the cut-off caption) · **composer** (`[data-composer]` in an Island,
+lifted by `--kb`) · **history sheet** (`#persona-history`, `[data-history-row]`).
+
+What changed and why: the label trap ×3 (view.js:259, :280, :317 — `text-[var(--ms-label)]` is a colour to
+Tailwind v4; the send glyph's `text-[var(--ms-icon)]` the same) → `text-[length:…]`. The retry button's
+`rounded-lg` → removed (theme radius); the composer field → a pill well beside its round send key (the dead
+`bg-base-100` under `sf-inset` dropped). Kept ON PURPOSE: the composer's own positioner instead of
+`Island pinned` — `pinned` clears `--dock-h`, but the drill-down covers the dock and the field must ride
+the MEASURED keyboard (`--kb`), which the kit's positioner does not read; the material and width are still
+the kit's Island.

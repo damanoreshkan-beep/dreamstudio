@@ -103,3 +103,26 @@ route inside the APK, which is how five apps broke at once. Precedent: `grain` (
 2. **The Activity dies while the service lives** → gaps. Handled above; visible, not invented.
 3. **Battery.** `minMs`/`minM` are the whole budget. Default to a walking cadence and say what it costs.
 4. **A day with no movement** is a legitimate outcome and must render as something, not as an error.
+
+## Design refresh 2026-09-04
+
+State map of the Today screen (`fit`): **gate** (no grant → a Panel with the one verb) · **idle**
+(`[data-rec="off"]`, three readings in wells, the empty canvas well saying "nothing yet") · **recording**
+(`[data-rec="on"]`, the day's stroke in the well, the outline Stop) · **gaps** (the lost-fixes sentence under
+the canvas) · **error** (the error sentence). Month: the grid (`[data-month-grid]`, empty days as wells,
+recorded days raised) → the day sheet (`[data-poster]`).
+
+What changed and why:
+
+- The label trap ×11 (`text-[var(--ms-label)]` at :229, :232, :233, :246, :247, :252, :316, :322, :343,
+  :366, :376 — a colour to Tailwind v4, so every caption rendered at BODY size inside a fit screen). Split by
+  what they are: the readings' captions and units and the month subline are real micro-labels →
+  `text-[length:var(--ms-label)]` mono; the sentences (nothing yet, lost fixes, legend, empty month, at
+  home, the gate body) are prose → `text-sm text-muted`, which is still smaller than what they rendered at.
+- Surfaces: `bg-base-200/40–50` (the readings, the canvas box, the day poster) → `sf-inset` wells — a value
+  sits in the page, it is not a lighter panel on it; the month cells' hairline boxes → empty = well,
+  recorded = raised (depth is the meaning); `transition` → `transition-transform` (the material is
+  box-shadow, a blanket transition cross-fades it).
+- Radii: `rounded-2xl` ×5 on buttons → pills; the poster box inside the sheet → `--ms-r-in`.
+- Kept: the share-card canvas literals (`#12181c`, `#5E8CA8`, `#e8eef2`) — a fixed export bitmap, not the
+  screen; `#5E8CA8` is the app's own spec accent on that card.

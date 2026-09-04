@@ -102,3 +102,17 @@ field has twenty looks and a pretty frame proves nothing about the other ninetee
 - Nothing here depends on it, but the exact sRGB→linear conversion above uses the `x^2.2` approximation
   rather than the piecewise sRGB curve. The margin at both floors (5.1:1 and 4.5:1 against a 4.5 target) is
   larger than the approximation's error, and the CI axe gate does not read canvases either way.
+
+## Design refresh 2026-09-04
+
+State map of the heap (fit, `data-running`): **idle** (the rate pill, the amount at zero, the meta line,
+the Start verb in the Island) · **running** (the amount counting, elapsed, the molten heap rising) ·
+**stopped** (the amount held, Save/Discard) · **rate sheet** (the currency Segmented, the fields). Vault:
+**empty** (`[data-empty]`) · **totals** (`[data-total]` Panels) · **sessions** (`[data-session]` rows).
+
+What changed and why: the label trap ×5 (view.js:173, :186, :225, :282, :294 — `text-[var(--ms-label)]` is
+a colour to Tailwind v4, so the rate pill, the meta line, the field captions and the vault lines rendered
+at body size; `text-[var(--ms-icon)]` ×1 the same) → `text-[length:…]`. The vault's empty glyph
+`text-base-content/30` and its hint `/70` → `.text-muted`. Kept: `bg-base-200` under the GlStage (a base
+token, the page itself behind the shader); the Island/Segmented/Sheet/Panel/FROST kit as it was; no
+head.html — nothing here needs CSS the kit does not give.

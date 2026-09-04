@@ -256,7 +256,7 @@ export function chat({ item, t, loc, S, undo, confirm }) {
       ${err
         ? html`<p role="alert" class="text-error text-sm px-1">${T(t, err)}</p>`
         : html`<div class="flex flex-col gap-2 pt-2 text-base-content/70">
-            <div class="font-mono uppercase tracking-wide text-[var(--ms-label)]">${T(t, "creating")}</div>
+            <div class="font-mono uppercase tracking-wide text-[length:var(--ms-label)]">${T(t, "creating")}</div>
             ${[34, 28, 31].map((w, i) => html`<div key=${i}><${Scramble} len=${w} /></div>`)}
           </div>`}
     </div>`;
@@ -274,10 +274,10 @@ export function chat({ item, t, loc, S, undo, confirm }) {
             ${turn.a ? html`<div data-msg="assistant" data-pending=${turn.a.pending ? "1" : null} class="text-[0.97rem] leading-relaxed text-base-content/90 whitespace-pre-wrap break-words">
                 ${turn.a.pending && turn.a.chunks ? turn.a.chunks.map((c) => html`<span key=${c.id} class="ms-word-in">${c.text}</span>`) : turn.a.content}${turn.a.pending && !turn.a.content ? html`<span class="text-base-content/70"><${Scramble} len=${18} /></span>` : null}
                 ${turn.a.failed ? html`<div class="flex items-center gap-2 mt-1.5 text-sm text-base-content/70">${T(t, "sendFailed")}
-                    <button data-retry type="button" class="btn btn-ghost btn-xs rounded-lg gap-1"
+                    <button data-retry type="button" class="btn btn-ghost btn-xs gap-1"
                       onClick=${() => { const m = turn.a, prev = turn.q; patch(characterId, (t0) => ({ ...t0, messages: t0.messages.filter((x) => x !== m && x !== prev) })); if (prev) ask(characterId, prev.content, loc); }}>
                       ${Icon("lucide:rotate-cw")}${T(t, "retry")}</button></div>` : null}
-                ${turn.a.cut && !turn.a.failed ? html`<div class="mt-1 font-mono text-[var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "cutOff")}</div>` : null}
+                ${turn.a.cut && !turn.a.failed ? html`<div class="mt-1 font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "cutOff")}</div>` : null}
               </div>` : null}
           </div>`)}
           <span ref=${tail} aria-hidden="true" style="scroll-margin-bottom:calc(var(--composer-h, 4rem) + var(--kb, 0px) + 1rem)"></span>
@@ -297,10 +297,10 @@ export function chat({ item, t, loc, S, undo, confirm }) {
           <input ref=${input} data-input type="text" value=${draft} onInput=${(e) => setDraft(e.target.value)} enterkeyhint="send" autocomplete="off" autocapitalize="sentences"
             onFocus=${() => { presence.tListen = 1; }} onBlur=${() => { presence.tListen = 0; }}
             placeholder=${T(t, "composer")} aria-label=${T(t, "composer")}
-            class="sf-inset flex-1 min-w-0 rounded-[var(--ms-r)] bg-base-100 border-0 px-3.5 h-[var(--ms-ctl)] text-[0.95rem] text-base-content placeholder:text-muted outline-none focus:ring-1 focus:ring-base-content/25" />
+            class="sf-inset flex-1 min-w-0 rounded-full border-0 px-3.5 h-[var(--ms-ctl)] text-[0.95rem] text-base-content placeholder:text-muted outline-none focus:ring-1 focus:ring-base-content/25" />
           <button data-send type="submit" aria-label=${T(t, "send")} disabled=${!draft.trim() || streaming} data-haptic="tap"
             class="shrink-0 grid place-items-center w-[var(--ms-ctl)] h-[var(--ms-ctl)] rounded-full text-[var(--app-accent)] disabled:text-muted active:scale-95 transition-transform">
-            ${Icon("lucide:arrow-up", "text-[var(--ms-icon)]")}
+            ${Icon("lucide:arrow-up", "text-[length:var(--ms-icon)]")}
           </button>
         </form>
       <//>
@@ -314,7 +314,7 @@ export function chat({ item, t, loc, S, undo, confirm }) {
           <button data-history-row=${c.id} type="button" class=${`flex-1 min-w-0 text-left px-1 py-3 ${c.id === th.chatId ? "text-base-content" : "text-base-content/80"}`}
             onClick=${async () => { S.screen.set(null); await openHistoryChat(characterId, c.id); }}>
             <div class="truncate text-[0.95rem]">${c.title || c.last || "…"}</div>
-            <div class="font-mono text-[var(--ms-label)] uppercase tracking-wide text-base-content/70">${when(c.updated_at, loc)}${c.id === th.chatId ? ` · ${T(t, "current")}` : ""}</div>
+            <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wide text-base-content/70">${when(c.updated_at, loc)}${c.id === th.chatId ? ` · ${T(t, "current")}` : ""}</div>
           </button>
           <button data-history-del=${c.id} type="button" aria-label=${T(t, "deleteChat")} class="btn btn-ghost btn-sm btn-circle text-base-content/70"
             onClick=${() => {

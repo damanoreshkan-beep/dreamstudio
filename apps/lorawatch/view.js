@@ -16,6 +16,10 @@ import { usbSupported, USB_FILTERS } from "/_rt/hackrf.js";
 import { createUsbSession } from "/_rt/usbsession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the ONE mono readout size — the ladder's label token, never text-xs (`length:` because a bare var() in
+// text-[…] is a colour to Tailwind v4)
+const MONO = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
 const fMhz = (hz) => (hz / 1e6).toFixed(3);
 const NORM_LO = -95, NORM_HI = -35;
@@ -131,21 +135,22 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
 
   if (!connected) {
     const supported = usbSupported() && usbOk;
-    return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto">
+    return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto" data-lora-state="disconnected">
       ${/* A raised plaque, not a tinted box with a hairline: the material says "object", the colour stays on
            the MARK (the glyph) where an arbitrary hue is safe in both themes. */""}
-      <div class="w-20 h-20 rounded-3xl grid place-items-center sf-raised sf-e3 text-primary">${Icon("lucide:radio", "text-4xl")}</div>
+      <div class="w-20 h-20 rounded-[var(--ms-r)] grid place-items-center sf-raised sf-e3 text-primary">${Icon("lucide:radio", "text-4xl")}</div>
       <h2 class="text-2xl font-semibold">${T(t, "connectTitle")}</h2>
-      <p class="text-base-content/70 leading-relaxed">${T(t, "connectBody")}</p>
+      <p class="text-muted leading-relaxed">${T(t, "connectBody")}</p>
+      ${/* no WebUSB: a fact in ink inside a well, the glyph in the warm pole as the mark — not amber text */""}
       ${supported
-        ? html`<button id="connect" data-connect class="btn btn-primary btn-lg rounded-2xl gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
-        : html`<div class="alert bg-warning/12 text-warning rounded-2xl sf-e2 text-sm justify-center gap-2">${Icon("lucide:triangle-alert", "shrink-0")}${T(t, "noUsb")}</div>`}
+        ? html`<button id="connect" data-connect class="btn btn-primary btn-lg gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
+        : html`<div class="flex items-center justify-center gap-2 sf-inset rounded-[var(--ms-r)] px-4 py-3 text-sm text-base-content">${Icon("lucide:triangle-alert", "shrink-0 text-[var(--app-accent)]")}${T(t, "noUsb")}</div>`}
     </div>`;
   }
 
   const p = preset();
   return html`<${Fragment}>
-    <div class="@container flex flex-col gap-3 max-w-[440px] mx-auto w-full pb-40">
+    <div class="@container flex flex-col gap-3 max-w-[440px] mx-auto w-full pb-40" data-lora-state=${active ? "active" : "listening"} data-lora-packets=${packets.length}>
       <!-- preset selector -->
       <${Segmented} attr="data-preset" scroll variant="outline" size="sm"
         items=${LORA_PRESETS.map((pp) => ({ id: pp.key, label: pp.label }))} value=${pk} onChange=${setPreset} />
@@ -155,36 +160,36 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
       ${/* The height is inline, not `h-64`: this box is what the canvas is measured against, so it has to be
            the right size from the first frame — before the generated sheet exists — and it must not take its
            height from the thing it sizes. */""}
-      <div ref=${wfBox} class="w-full rounded-3xl overflow-hidden bg-[#08090e] sf-e2" style="height:16rem">
+      <div ref=${wfBox} class="w-full rounded-[var(--ms-r)] overflow-hidden bg-black sf-e2" style="height:16rem">
         <canvas ref=${wfRef} class="block w-full h-full" role="img" aria-label=${T(t, "waterfall")} data-waterfall></canvas>
       </div>
 
       ${/* activity — the ring of primary hairline + tint was a THIRD drawing of "detected", which the pulsing
            dot and the headline already say. The panel now answers with the material instead: it stands
            further off the page while there is something to hear (e3) and settles back to e2 when idle. */""}
-      <div class=${`rounded-2xl px-4 py-3 flex items-center gap-3 sf-raised ${active ? "sf-e3" : "sf-e2"}`} data-live data-activity>
+      <div class=${`rounded-[var(--ms-r)] px-4 py-3 flex items-center gap-3 sf-raised ${active ? "sf-e3" : "sf-e2"}`} data-live data-activity>
         ${/* Idle was an ink alpha (`bg-base-content/25`). A 10px LED is far too small for the shadow pair, so
              it takes --sf-track-face — the system's one sanctioned tone step — instead of this app's own
              guess at how dark "off" should be. Live keeps bg-primary: that is meaning, not depth. */""}
         <span class=${`w-2.5 h-2.5 rounded-full shrink-0 ${active ? "bg-primary animate-pulse" : ""}`} style=${active ? "" : "background:var(--sf-track-face)"}></span>
         <div class="flex-1 min-w-0">
           <div class="font-semibold text-sm">${T(t, active ? "detected" : "listening")}</div>
-          ${detect ? html`<div class="font-mono text-xs text-base-content/70 tabular-nums">SF${detect.sf} · ${Math.round(detect.bw / 1000)} kHz · ${detect.count} ${T(t, "bursts")}</div>` : null}
+          ${detect ? html`<div class=${MONO}>SF${detect.sf} · ${Math.round(detect.bw / 1000)} kHz · ${detect.count} ${T(t, "bursts")}</div>` : null}
         </div>
-        <span class="font-mono text-xs text-base-content/55 tabular-nums shrink-0">${fMhz(p.freq)}</span>
+        <span class=${`${MONO} shrink-0`}>${fMhz(p.freq)}</span>
       </div>
 
       <!-- decoded packets -->
       ${packets.length ? html`<div class="flex flex-col gap-1.5" data-live data-packets>
-        <div class="text-xs uppercase tracking-wide text-base-content/70 px-1">${T(t, "packets")}</div>
-        ${packets.map((pkt) => html`<div key=${pkt.id} data-packet class="rounded-2xl sf-raised sf-e2 px-4 py-2.5 flex flex-col gap-1">
-          ${/* The CRC pill keeps its hue (that IS the meaning) and loses its outline — a badge is a small
-               raised object, so it takes the shallow pair theme.css already gives every `.badge`. */""}
+        <div class=${`${LABEL} px-1`}>${T(t, "packets")}</div>
+        ${packets.map((pkt) => html`<div key=${pkt.id} data-packet class="rounded-[var(--ms-r)] sf-raised sf-e2 px-4 py-2.5 flex flex-col gap-1">
+          ${/* The CRC pill is a small raised object in INK; its meaning is the dot — success for a clean
+               frame, error for a bad one. Colour on the mark, never on the words. */""}
           <div class="flex items-center gap-2">
-            <span class=${`rounded-full px-2 py-0.5 text-[0.6rem] uppercase tracking-wider sf-e2 ${pkt.crcOk ? "text-primary bg-primary/10" : "text-warning bg-warning/10"}`}>${T(t, pkt.crcOk ? "crcOk" : "crcBad")}</span>
-            <span class="font-mono text-[0.62rem] text-base-content/65 tabular-nums">SF${pkt.sf} · ${pkt.bytes.length} B</span>
+            <span class=${`inline-flex items-center gap-1 rounded-full px-2 py-0.5 sf-e2 ${LABEL} text-base-content`}><span aria-hidden="true" class="w-1.5 h-1.5 rounded-full shrink-0" style=${`background:var(${pkt.crcOk ? "--color-success" : "--color-error"})`}></span>${T(t, pkt.crcOk ? "crcOk" : "crcBad")}</span>
+            <span class=${MONO}>SF${pkt.sf} · ${pkt.bytes.length} B</span>
           </div>
-          <div class="font-mono text-[0.72rem] text-base-content/70 break-all leading-snug">${hexOf(pkt.bytes)}</div>
+          <div class=${`${MONO} break-all leading-snug`}>${hexOf(pkt.bytes)}</div>
           <div class="font-mono text-sm break-all leading-snug">${asciiOf(pkt.bytes)}</div>
         </div>`)}
       </div>` : null}
@@ -192,8 +197,8 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
 
     <${Island} pinned data-player className="w-full max-w-[440px] flex items-center gap-2.5 rounded-full p-2">
         ${Icon("lucide:radio", `text-lg text-primary ${active ? "animate-pulse" : ""}`)}
-        <span class="flex-1 min-w-0 text-sm font-medium truncate">${p.label} <span class="text-base-content/70 font-mono text-xs">${fMhz(p.freq)}</span></span>
-        <button data-disconnect aria-label=${T(t, "disconnect")} class="btn btn-circle btn-ghost btn-sm text-base-content/55 shrink-0" onClick=${() => { if (!demo) disconnect(); }}>${Icon("lucide:power", "text-lg")}</button>
+        <span class="flex-1 min-w-0 text-sm font-medium truncate">${p.label} <span class=${MONO}>${fMhz(p.freq)}</span></span>
+        <button data-disconnect aria-label=${T(t, "disconnect")} class="btn btn-circle btn-ghost btn-sm text-muted shrink-0" onClick=${() => { if (!demo) disconnect(); }}>${Icon("lucide:power", "text-lg")}</button>
       <//>
     
   </${Fragment}>`;

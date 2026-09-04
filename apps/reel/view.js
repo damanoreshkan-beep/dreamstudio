@@ -36,6 +36,12 @@ import { collection, idbSupported } from "/_rt/db.js";
 import { Pixels } from "/_rt/skeleton.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the ONE mono micro-size (the ladder's label token; `length:` because a bare var() in text-[…] is a colour
+// to Tailwind v4) — replaces the hand-picked 0.7rem / 10px / text-xs readouts
+const MONO = "font-mono text-[length:var(--ms-label)] tabular-nums";
+// the like is a MARK in the farm's warm pole: the heart burst over the clip and the unlike button on a tile.
+// A named colour (rose) sat outside the token pair; the accent means "yours" everywhere else in the farm.
+const LIKE = "color:var(--app-accent)";
 /* Route an asset through the reverse proxy. `ref` is the PAGE the asset was found on, and it is the whole
    reason this works: what blocks a guarded clip is hotlink protection, not CORS. Measured against a live
    signed clip with the browser UA held constant — no referer 404, the CDN's own origin 404, the page's origin
@@ -464,7 +470,7 @@ function FullClip({ S, t }) {
     <div class="flex-1 relative">
       ${full.err
         ? html`<div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70 p-6 text-center">
-            ${Icon("lucide:tv-minimal-play", "text-5xl opacity-40")}<div>${T(t, "videoErr")}</div>
+            ${Icon("lucide:tv-minimal-play", "text-5xl")}<div>${T(t, "videoErr")}</div>
             <a href=${full.page} target="_blank" rel="noopener" class="btn btn-sm btn-outline text-white border-white/30 gap-2">${Icon("lucide:external-link")}${T(t, "openSite")}</a>
           </div>`
         : html`<${Pixels} cls="w-full h-full" />`}
@@ -616,7 +622,8 @@ function HeartBurst({ x, y, onDone }) {
     if (anim) anim.onfinish = () => onDone?.(); else onDone?.();
     return () => { if (anim) anim.onfinish = null; };
   }, []);
-  return html`<div ref=${ref} aria-hidden="true" class="absolute z-[5] pointer-events-none" style=${`left:${x}px;top:${y}px`}>${Icon("lucide:heart", "text-7xl text-rose-500 fill-rose-500 drop-shadow-[0_2px_16px_rgba(0,0,0,.45)]")}</div>`;
+  // over the clip (foreign content) the glyph carries its own glow so it reads on a bright frame too
+  return html`<div ref=${ref} aria-hidden="true" class="absolute z-[5] pointer-events-none" style=${`left:${x}px;top:${y}px;${LIKE};filter:drop-shadow(0 0 16px var(--app-accent))`}>${Icon("lucide:heart", "text-7xl fill-current")}</div>`;
 }
 
 // A slide is the clip and NOTHING else — no chip, no link, no pill. Every affordance it used to carry (dive,
@@ -665,18 +672,20 @@ function SourceSheet({ S, t }) {
   // same S.screen atom the close handler writes, so the system Back button still closes it.
   return html`<${Sheet} open onClose=${() => S.screen.set(null)} title=${T(t, "srcTitle")} icon="lucide:link">
     <form onSubmit=${load} class="flex flex-col gap-3">
-      <label class="input flex items-center gap-2 rounded-2xl">
-        ${Icon("lucide:globe", "opacity-50 shrink-0")}
+      ${/* fields and buttons keep the theme's own --radius-field: a hard rounded-2xl on each of them was the
+            one radius in the farm the density ladder could not reach */""}
+      <label class="input flex items-center gap-2">
+        ${Icon("lucide:globe", "text-muted shrink-0")}
         <input id="src-input" type="url" inputmode="url" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "srcPlaceholder")} aria-label=${T(t, "srcTitle")} value=${val} onInput=${(e) => setVal(e.target.value)} />
       </label>
       ${sr.searchable ? html`<div class="flex gap-2">
-        <label class="input flex items-center gap-2 rounded-2xl flex-1">
-          ${Icon("lucide:search", "opacity-50 shrink-0")}
+        <label class="input flex items-center gap-2 flex-1">
+          ${Icon("lucide:search", "text-muted shrink-0")}
           <input id="sheet-search" type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
         </label>
-        <button type="button" class="btn btn-primary rounded-2xl gap-1 shrink-0" onClick=${search}>${Icon("lucide:search")} ${T(t, "search")}</button>
+        <button type="button" class="btn btn-primary gap-1 shrink-0" onClick=${search}>${Icon("lucide:search")} ${T(t, "search")}</button>
       </div>` : null}
-      <button id="src-load" type="submit" class="btn btn-primary rounded-2xl gap-1">${Icon("lucide:play")} ${T(t, "load")}</button>
+      <button id="src-load" type="submit" class="btn btn-primary gap-1">${Icon("lucide:play")} ${T(t, "load")}</button>
     </form>
   <//>`;
 }
@@ -696,9 +705,9 @@ function SessionSheet({ S, t, undo }) {
   const forget = () => { undo(() => setSession(site, cur), siteName(site)); setSession(site, ""); close(); };
   return html`<${Sheet} open onClose=${close} title=${T(t, "sessTitle")} subtitle=${sessionKey(site)} icon="lucide:key-round">
     <form onSubmit=${save} class="flex flex-col gap-3">
-      <textarea id="sess-input" rows="4" autocomplete="off" spellcheck="false" class="textarea rounded-2xl font-mono text-xs leading-snug w-full break-all" placeholder="name=value; name2=value2" aria-label=${T(t, "sessTitle")} value=${val} onInput=${(e) => setVal(e.target.value)}></textarea>
-      <button id="sess-save" type="submit" class="btn btn-primary rounded-2xl gap-1" disabled=${!val.trim()}>${Icon("lucide:check")} ${T(t, "sessSave")}</button>
-      ${cur ? html`<button type="button" data-sess-forget class="btn btn-ghost rounded-2xl gap-1 text-base-content/70" onClick=${forget}>${Icon("lucide:trash-2")} ${T(t, "sessForget")}</button>` : null}
+      <textarea id="sess-input" rows="4" autocomplete="off" spellcheck="false" class="textarea font-mono text-sm leading-snug w-full break-all" placeholder="name=value; name2=value2" aria-label=${T(t, "sessTitle")} value=${val} onInput=${(e) => setVal(e.target.value)}></textarea>
+      <button id="sess-save" type="submit" class="btn btn-primary gap-1" disabled=${!val.trim()}>${Icon("lucide:check")} ${T(t, "sessSave")}</button>
+      ${cur ? html`<button type="button" data-sess-forget class="btn btn-ghost gap-1 text-base-content/70" onClick=${forget}>${Icon("lucide:trash-2")} ${T(t, "sessForget")}</button>` : null}
     </form>
   <//>`;
 }
@@ -766,15 +775,15 @@ async function exportClip({ item, format, mode, t, toast }) {
 function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
   const busy = useStore($busy), loc = useStore(S.locale), mono = useStore($mono);
   const close = () => S.screen.set(null);
-  const row = "btn btn-ghost justify-start gap-3 rounded-2xl w-full font-normal";
+  const row = "btn btn-ghost justify-start gap-3 w-full font-normal";
   // Save and share sit on the same line as the format they act on: two rows instead of four, and the pair
   // reads as one choice about one thing rather than as four unrelated buttons.
   /* Same left edge, same gap, same icon slot as the rows below. Shot 2026-08-20 and measured: the export
      labels sat at 20px from the edge while the list labels sat at 62px, and only the list rows carried an
      icon — one sheet speaking two visual languages, which reads as two unrelated widgets stacked. `px-4`
      matches DaisyUI's --btn-p (1rem) so this aligns with .btn rows without hard-coding their padding twice. */
-  const pair = (format, icon, label) => html`<div class="flex items-center gap-3 px-4 py-1 rounded-2xl">
-    ${Icon(icon, "text-lg opacity-70 shrink-0")}
+  const pair = (format, icon, label) => html`<div class="flex items-center gap-3 px-4 py-1">
+    ${Icon(icon, "text-lg text-muted shrink-0")}
     <span class="flex-1 min-w-0 truncate">${label}</span>
     ${[["save", "lucide:download"], ["share", "lucide:share-2"]].map(([mode, icon]) => {
       const key = `${format}-${mode}`;
@@ -792,15 +801,15 @@ function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
         ${pair("mp4", "lucide:video", T(t, "expVideo"))}
         ${/* The wait is real (a download and a transcode on our box), so it is STATED rather than hidden
               behind a control that simply does not respond for half a minute. */""}
-        ${busy ? html`<div data-exp-busy class="text-xs text-muted px-4">${T(t, "expBusy")} ${T(t, busy.startsWith("mp4") ? "expVideo" : "expGif")}</div>` : null}
+        ${busy ? html`<div data-exp-busy class="text-sm text-muted px-4">${T(t, "expBusy")} ${T(t, busy.startsWith("mp4") ? "expVideo" : "expGif")}</div>` : null}
         <div class="h-px bg-base-content/10 my-1"></div>
       </${Fragment}>` : null}
       ${/* Noir and the clean screen are the two ways of WATCHING, so they sit together and first. Noir is a
             switch and not a door — it has an on state you have to be able to see in the sheet — so it is the
             runtime's own settings language (icon · name · DaisyUI toggle, exactly the profile's theme row),
             aligned to px-4 = --btn-p so its left edge lands on the .btn rows' text. */""}
-      <label class="flex items-center gap-3 px-4 py-3 rounded-2xl">
-        ${Icon("lucide:contrast", "text-lg opacity-70 shrink-0")}
+      <label class="flex items-center gap-3 px-4 py-3">
+        ${Icon("lucide:contrast", "text-lg text-muted shrink-0")}
         <span class="flex-1 min-w-0 truncate">${T(t, "noir")}</span>
         <input data-noir type="checkbox" class="toggle toggle-primary shrink-0" aria-label=${T(t, "noir")}
           checked=${mono === "1"} onChange=${(e) => $mono.set(e.target.checked ? "1" : "0")} />
@@ -810,9 +819,9 @@ function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
             of the height (measured, 832x384). The mode belongs to the RUNTIME (S.clean) because the app bar
             and the dock are its elements and --hdr-h/--dock-h are its measurements — an app hiding them from
             the outside would leave both numbers describing chrome that is no longer on screen. */""}
-      <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg opacity-70")}${sys("clean", loc)}</button>
-      ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg opacity-70")}${T(t, "sub")}</button>` : null}
-      ${openIn ? html`<button data-open-page class=${row} onClick=${() => { close(); openIn(); }}>${Icon("lucide:external-link", "text-lg opacity-70")}${T(t, "openBrowser")}</button>` : null}
+      <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg text-muted")}${sys("clean", loc)}</button>
+      ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg text-muted")}${T(t, "sub")}</button>` : null}
+      ${openIn ? html`<button data-open-page class=${row} onClick=${() => { close(); openIn(); }}>${Icon("lucide:external-link", "text-lg text-muted")}${T(t, "openBrowser")}</button>` : null}
     </div>
   <//>`;
 }
@@ -958,9 +967,9 @@ function FeedSurface({ S, t, toast }) {
   const body = loading
     ? html`<section class="h-[100dvh] w-full"><${Pixels} cls="w-full h-full" /></section>`
     : err
-      ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/70 px-8 text-center">${Icon("lucide:cloud-off", "text-5xl")}<div>${T(t, "loadErr")}</div><button class="btn btn-sm btn-outline text-white border-white/25 rounded-2xl" onClick=${() => loadSource(src)}>${T(t, "retry")}</button></section>`
+      ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/70 px-8 text-center">${Icon("lucide:cloud-off", "text-5xl")}<div>${T(t, "loadErr")}</div><button class="btn btn-sm btn-outline text-white border-white/25" onClick=${() => loadSource(src)}>${T(t, "retry")}</button></section>`
       : !items.length
-        ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/60 px-8 text-center">${Icon("lucide:film", "text-5xl")}<div>${T(t, "empty")}</div><button class="btn btn-sm btn-outline text-white border-white/25 rounded-2xl" onClick=${() => S.tab.set("sources")}>${T(t, "changeSrc")}</button></section>`
+        ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/60 px-8 text-center">${Icon("lucide:film", "text-5xl")}<div>${T(t, "empty")}</div><button class="btn btn-sm btn-outline text-white border-white/25" onClick=${() => S.tab.set("sources")}>${T(t, "changeSrc")}</button></section>`
         : items.map((it, i) => html`<${Slide} S=${S} item=${it} idx=${i} active=${i === active && !suspended} near=${Math.abs(i - active) <= PRELOAD} ephemeral=${it.eph != null ? it.eph : ephemeral} key=${(it.orig || it.video) + i} />`);
 
   // The island's controls belong to the ACTIVE clip, so they are derived here, once, from `items[active]` —
@@ -1017,9 +1026,9 @@ function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSe
   // are the same ink, so "active = text-primary" would be 100% vs 100% — the exact trap that hid the dock's
   // active tab for the life of the project. The row it plays from is pressed INTO the card (`sf-inset`) —
   // the material says "selected" without a tint — and the rail stays, readable from across the room.
-  return html`<li class=${`flex flex-col ${active ? "sf-inset rounded-2xl" : ""}`}>
+  return html`<li class=${`flex flex-col ${active ? "sf-inset rounded-[var(--ms-r)]" : ""}`}>
     <div class="flex items-center gap-0.5 pr-1">
-      <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-xl sf-press" onClick=${() => onPlay(s)}>
+      <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-[var(--ms-r)] sf-press" onClick=${() => onPlay(s)}>
         ${lead}
         <span class="min-w-0 flex-1">
           ${/* the saved name is the page's real title — the string the island resolved and renameSub wrote
@@ -1033,17 +1042,17 @@ function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSe
                 unbroken 60-character token has to break somewhere, and the alternative is a horizontal
                 overflow the gates would (rightly) fail. */""}
           <span data-src-title class=${`block break-words leading-snug ${active ? "font-semibold" : ""}`}>${sourceTitle(s.url, { pageTitle: s.name, max: ROW_MAX })}</span>
-          ${sub ? html`<span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${sub}</span>` : null}
+          ${sub ? html`<span class=${`block ${MONO} text-base-content/70 truncate`}>${sub}</span>` : null}
         </span>
       </button>
-      ${sr.searchable ? html`<button data-search-toggle class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${searching ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "search")} aria-pressed=${searching} onClick=${() => setSearching((v) => !v)}>${Icon("lucide:search", "text-lg")}</button>` : null}
-      ${onOpen ? html`<button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(s)}>${Icon("lucide:external-link", "text-lg")}</button>` : null}
-      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(s)}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
-      <button class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbed ? "text-primary" : "opacity-50"}`} aria-label=${T(t, subbed ? "unsub" : "sub")} data-haptic=${subbed ? "bump" : "off"} onClick=${onToggle}>${Icon(subbed ? "lucide:check" : "lucide:plus", "text-lg")}</button>
+      ${sr.searchable ? html`<button data-search-toggle class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${searching ? "text-primary" : "text-muted"}`} aria-label=${T(t, "search")} aria-pressed=${searching} onClick=${() => setSearching((v) => !v)}>${Icon("lucide:search", "text-lg")}</button>` : null}
+      ${onOpen ? html`<button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 text-muted" aria-label=${T(t, "openSite")} onClick=${() => onOpen(s)}>${Icon("lucide:external-link", "text-lg")}</button>` : null}
+      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "text-muted"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(s)}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
+      <button class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbed ? "text-primary" : "text-muted"}`} aria-label=${T(t, subbed ? "unsub" : "sub")} data-haptic=${subbed ? "bump" : "off"} onClick=${onToggle}>${Icon(subbed ? "lucide:check" : "lucide:plus", "text-lg")}</button>
     </div>
     ${searching ? html`<form onSubmit=${submit} class="flex items-center gap-2 px-2.5 pb-2.5">
-      <label class="input input-sm flex items-center gap-2 rounded-xl flex-1">
-        ${Icon("lucide:search", "opacity-50 shrink-0 text-sm")}
+      <label class="input input-sm flex items-center gap-2 flex-1">
+        ${Icon("lucide:search", "text-muted shrink-0 text-sm")}
         <input data-search-input type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
       </label>
       <button type="submit" class="btn btn-primary btn-sm btn-circle" aria-label=${T(t, "search")}>${Icon("lucide:play")}</button>
@@ -1059,7 +1068,7 @@ function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSe
 function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession, sessions, t }) {
   const hot = g.items.some((s) => s.url === curSrc);
   const hasSession = !!(sessions && sessions[g.domain]);
-  const shell = `rounded-2xl ${hot ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`;
+  const shell = `rounded-[var(--ms-r)] ${hot ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`;
   if (g.items.length === 1) {
     const s = g.items[0];
     return html`<ul class=${shell}><${PageRow} s=${s} active=${s.url === curSrc} subbed=${subbedUrls.has(s.url)} onPlay=${onPlay} onOpen=${onOpen} onToggle=${() => onToggle(s)} onSession=${onSession} hasSession=${hasSession} lead=${html`<${Favicon} url=${s.url} size="w-10 h-10" />`} sub=${g.domain} t=${t} /></ul>`;
@@ -1069,11 +1078,11 @@ function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession
       <${Favicon} url=${g.items[0].url} size="w-10 h-10" />
       <div class="min-w-0 flex-1">
         <div class="font-semibold truncate leading-tight">${g.name}</div>
-        <div class="text-[0.7rem] font-mono text-base-content/70 truncate">${g.domain}</div>
+        <div class=${`${MONO} text-base-content/70 truncate`}>${g.domain}</div>
       </div>
-      <span class="text-xs font-mono text-base-content/70 tabular-nums px-1">${g.items.length}</span>
-      <button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(g.items[0])}>${Icon("lucide:external-link", "text-lg")}</button>
-      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(g.items[0])}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
+      <span class=${`${MONO} text-base-content/70 px-1`}>${g.items.length}</span>
+      <button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 text-muted" aria-label=${T(t, "openSite")} onClick=${() => onOpen(g.items[0])}>${Icon("lucide:external-link", "text-lg")}</button>
+      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "text-muted"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(g.items[0])}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
     </header>
     <ul class="divide-y divide-base-300/60">
       ${g.items.map((s) => html`<${PageRow} s=${s} active=${s.url === curSrc} subbed=${subbedUrls.has(s.url)} onPlay=${onPlay} onToggle=${() => onToggle(s)} lead=${html`<span class=${`shrink-0 rounded-full ${s.url === curSrc ? "w-1.5 h-5 bg-primary" : "w-1.5 h-1.5 bg-base-content/30"}`}></span>`} t=${t} key=${s.url} />`)}
@@ -1092,7 +1101,7 @@ export function sources({ S, undo }) {
 
   return html`<${Fragment}>
     <div class="flex flex-col gap-4 @container">
-      <button id="add-url" class="btn btn-primary rounded-2xl gap-2" onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
+      <button id="add-url" class="btn btn-primary gap-2" onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
 
       <div class="flex flex-col gap-2.5">
         <div class="text-sm font-semibold px-1 flex items-center gap-1.5">${Icon("lucide:bookmark", "text-primary")} ${T(t, "subs")}</div>
@@ -1106,7 +1115,7 @@ export function sources({ S, undo }) {
         ${discover.map((g) => html`<${DomainCard} g=${g} curSrc=${curSrc} subbedUrls=${subbedUrls} onPlay=${play} onOpen=${openSite} onToggle=${(s) => subscribe(s)} t=${t} key=${g.domain} />`)}
       </div>` : null}
 
-      ${watchedN > 0 ? html`<button id="clear-watched" class="btn btn-ghost btn-sm rounded-2xl gap-2 text-base-content/70 self-center mt-2" onClick=${clearWatched} data-haptic="bump">${Icon("lucide:rotate-ccw")} ${T(t, "clearWatched", { n: watchedN })}</button>` : null}
+      ${watchedN > 0 ? html`<button id="clear-watched" class="btn btn-ghost btn-sm gap-2 text-base-content/70 self-center mt-2" onClick=${clearWatched} data-haptic="bump">${Icon("lucide:rotate-ccw")} ${T(t, "clearWatched", { n: watchedN })}</button>` : null}
     </div>
     ${screen === "source" ? html`<${SourceSheet} S=${S} t=${t} />` : null}
     ${screen === "session" ? html`<${SessionSheet} S=${S} t=${t} undo=${undo} />` : null}
@@ -1127,18 +1136,19 @@ export function liked({ S, toast }) {
     $items.set([...sorted.slice(i), ...sorted.slice(0, i)]);
     $active.set(0); $restoreTo.set(0);
   };
-  if (!sorted.length) return html`<div class="flex flex-col items-center justify-center gap-3 text-muted text-center" style="min-height:60vh">${Icon("lucide:heart", "text-6xl opacity-30")}<div class="text-sm max-w-[16rem]">${T(t, "likedEmpty")}</div></div>`;
+  if (!sorted.length) return html`<div class="flex flex-col items-center justify-center gap-3 text-muted text-center" style="min-height:60vh">${Icon("lucide:heart", "text-6xl")}<div class="text-sm max-w-[16rem]">${T(t, "likedEmpty")}</div></div>`;
   return html`<div data-liked class="grid grid-cols-3 gap-1.5">
     ${/* A tile is a SLOT the poster drops into — `sf-inset`. It reads as an empty well until the frame
-          lands and fills it, which is what `bg-base-300` was trying to say with a tone step. */""}
-    ${sorted.map((l, i) => html`<div class="relative aspect-[9/16] rounded-xl overflow-hidden sf-inset" key=${l.id}>
-      <button data-liked-tile class="absolute inset-0 w-full h-full active:scale-[.98] transition" aria-label=${l.title || l.host} onClick=${() => playAt(i)}>
+          lands and fills it, which is what `bg-base-300` was trying to say with a tone step. The scrim under
+          the title is legibility over a PICTURE (foreign content), not decoration. */""}
+    ${sorted.map((l, i) => html`<div class="relative aspect-[9/16] rounded-[var(--ms-r)] overflow-hidden sf-inset" key=${l.id}>
+      <button data-liked-tile class="absolute inset-0 w-full h-full active:scale-[.98] transition-transform" aria-label=${l.title || l.host} onClick=${() => playAt(i)}>
         ${l.poster
           ? html`<img src=${l.poster} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-cover" onError=${(e) => e.currentTarget.remove()} />`
-          : html`<div class="absolute inset-0 flex items-center justify-center">${Icon("lucide:play", "text-2xl opacity-40")}</div>`}
-        <div class="absolute inset-x-0 bottom-0 p-1.5 pt-6 bg-gradient-to-t from-black/75 to-transparent"><div class="text-[10px] text-white/90 truncate text-left">${l.title || l.host}</div></div>
+          : html`<div class="absolute inset-0 flex items-center justify-center text-muted">${Icon("lucide:play", "text-2xl")}</div>`}
+        <div class="absolute inset-x-0 bottom-0 p-1.5 pt-6 bg-gradient-to-t from-black/75 to-transparent"><div class=${`${MONO} text-white/90 truncate text-left`}>${l.title || l.host}</div></div>
       </button>
-      <button class="absolute top-1 right-1 btn btn-xs btn-circle bg-black/45 border-0 text-rose-400 hover:bg-black/70" aria-label=${T(t, "unlike")} data-haptic="bump" onClick=${() => unlike(l.id)}>${Icon("lucide:heart", "text-sm fill-current")}</button>
+      <button class="absolute top-1 right-1 btn btn-xs btn-circle bg-black/45 border-0 hover:bg-black/70" style=${LIKE} aria-label=${T(t, "unlike")} data-haptic="bump" onClick=${() => unlike(l.id)}>${Icon("lucide:heart", "text-sm fill-current")}</button>
     </div>`)}
   </div>`;
 }

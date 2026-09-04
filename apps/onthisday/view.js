@@ -74,11 +74,14 @@ export function onthisday({ S }) {
   const body = (it) => html`<div class="card-body p-3 flex-row items-start gap-3">
     <div class="shrink-0 w-12 text-right pt-0.5"><span class="text-base font-bold tabular-nums text-primary">${it.year ?? "—"}</span></div>
     <div class="flex-1 min-w-0"><p class="text-sm leading-snug break-words">${it.text}</p></div>
-    ${it.thumb ? html`<img src=${it.thumb} loading="lazy" alt="" class="w-14 h-14 rounded-lg object-cover shrink-0" />` : null}
+    ${it.thumb ? html`<img src=${it.thumb} loading="lazy" alt="" class="w-14 h-14 rounded-[var(--ms-r-in)] object-cover shrink-0" />` : null}
   </div>`;
-  const skel = (i) => html`<div class="card bg-base-100 border border-base-300 rounded-2xl overflow-hidden" key=${"s" + i}><div class="card-body p-3 flex-row items-start gap-3 text-base-content/70"><div class="shrink-0 w-12 text-right pt-0.5"><span class="text-base font-bold tabular-nums text-primary/50"><${Scramble} len=${4} /></span></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate text-sm"><${Scramble} len=${34} /></div><div class="truncate text-sm w-2/3"><${Scramble} len=${18} /></div></div></div></div>`;
+  // A card is the page RAISED (`.card` carries the shallow pair from theme.css) — the hairline it wore was an
+  // edge drawn on top of an extrusion, and a lighter face is the "grey card on black" mistake.
+  const CARD = "card rounded-[var(--ms-r)] overflow-hidden";
+  const skel = (i) => html`<div class=${CARD} key=${"s" + i}><div class="card-body p-3 flex-row items-start gap-3 text-muted"><div class="shrink-0 w-12 text-right pt-0.5"><span class="text-base font-bold tabular-nums"><${Scramble} len=${4} /></span></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate text-sm"><${Scramble} len=${34} /></div><div class="truncate text-sm w-2/3"><${Scramble} len=${18} /></div></div></div></div>`;
 
-  return html`<div class="flex flex-col gap-3">
+  return html`<div class="flex flex-col gap-3" data-otd-cat=${cat} data-otd-state=${err ? "error" : !ready ? "loading" : items.length ? "list" : "empty"}>
     <div class="text-2xl font-bold text-center">${dateStr}</div>
     <${Segmented} attr="data-cat" scroll variant="outline"
       items=${CATS.map((k) => ({ id: k, label: T(t, LABEL[k]) }))} value=${cat} onChange=${setCat} />
@@ -86,8 +89,8 @@ export function onthisday({ S }) {
       ${err ? html`<div class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6">${Icon("lucide:cloud-off", "text-3xl")}<span>${T(t, "statusError")}</span></div>`
         : !ready ? Array.from({ length: 5 }, (_, i) => skel(i))
         : items.length ? items.map((it, i) => it.url
-          ? html`<a data-otd href=${it.url} target="_blank" rel="noopener" class="otd card bg-base-100 border border-base-300 rounded-2xl active:scale-[.99] transition" key=${i}>${body(it)}</a>`
-          : html`<div data-otd class="otd card bg-base-100 border border-base-300 rounded-2xl" key=${i}>${body(it)}</div>`)
+          ? html`<a data-otd href=${it.url} target="_blank" rel="noopener" class=${`otd ${CARD} active:scale-[.99] transition-transform`} key=${i}>${body(it)}</a>`
+          : html`<div data-otd class=${`otd ${CARD}`} key=${i}>${body(it)}</div>`)
         : html`<div class="text-center text-muted py-10">${T(t, "empty")}</div>`}
     </div>
   </div>`;
