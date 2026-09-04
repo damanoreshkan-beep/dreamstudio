@@ -185,3 +185,28 @@ it needs **on-device/emulator verification** before enabling. Deferred, document
 
 - Pure-Deno APK v1 signer + arsc/ZIP surgery → `[[reference_apk_generation]]` memory (numbers above).
 - Sealed-tunnel binary reply pattern (`enc:"b64"`) reused for a generated binary download.
+
+## Design refresh 2026-09-04
+
+State map of the main screen (`[data-forge-screen]`):
+
+- `data-valid="0"` — no URL / no name yet: the identity Panel shows the placeholders and the package
+  glyph in its well; Generate disabled.
+- `data-valid="1"` — URL + name: the site icon (or the letter tile) in the well, the name and the mono URL;
+  Generate enabled.
+- `data-busy="1"` — signing: the button keeps its verb ("Signing…") with three breathing dots after it.
+- `data-done="1"` — the APK downloaded: the sideload note in a `sf-inset` well above the button, the
+  button reads "Done"; `[data-err]` under it when the build failed.
+
+What changed and why:
+
+- **Tokens, not literals**: `rounded-xl/2xl` ×5 → the icon well takes the Panel's inner radius
+  (`--ms-r-in`, concentric), the fields and the note `--ms-r`, the button is a pill; gaps ride `--ms-gap`,
+  the fields' height `--ms-ctl`; `text-xs`/`/55`/`/40` → `text-[length:var(--ms-label)]` + `.text-muted`.
+- **Fields are wells**: `input input-bordered` (a hairline standing in for depth) → `input sf-inset
+  border-0` — the material says "something goes in here".
+- **No pulsing label**: `animate-pulse` on "Signing…" → the verb plus `.af-dots` (head.html), the farm's
+  typographic working pulse, reduced-motion aware.
+- **Colour = meaning**: the sideload note's glyph is `text-warning` (it is a caution), not `text-primary`.
+- The purple `#7C3AED` fallback for the letter-tile canvas is the theme's warm pole now — a canvas MARK,
+  documented at the read.

@@ -11,8 +11,11 @@ import { T } from "/_rt/i18n.js";
 import { mulberry32 } from "/_rt/groove.js";
 import { feedback, solved, makeSecret } from "/_rt/codebreak.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
+import { Island } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the one micro-label recipe (design.md): mono, the density token, uppercased by CSS
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const SLOTS = 4, NCOLORS = 6, MAX = 10;
 
 // Each peg: a saturated hue visible on both themes + a near-black ink for its symbol + a distinct shape,
@@ -74,7 +77,7 @@ export function code({ S }) {
     const p = PEGS[ci], size = big ? "w-11 h-11 text-lg" : "w-7 h-7 text-sm";
     const style = `background:${p.c};color:${p.ink}`;
     return onRemove
-      ? html`<button aria-label=${`${T(t, "remove")} — ${T(t, p.key)}`} onClick=${onRemove} class=${`${size} rounded-full sf-e2 inline-flex items-center justify-center font-bold shrink-0 active:scale-90 transition`} style=${style}>${p.sym}</button>`
+      ? html`<button aria-label=${`${T(t, "remove")} — ${T(t, p.key)}`} onClick=${onRemove} class=${`${size} rounded-full sf-e2 inline-flex items-center justify-center font-bold shrink-0 active:scale-90 transition-transform`} style=${style}>${p.sym}</button>`
       : html`<span role="img" aria-label=${T(t, p.key)} class=${`${size} rounded-full sf-e2 inline-flex items-center justify-center font-bold shrink-0`} style=${style}>${p.sym}</span>`;
   };
 
@@ -91,11 +94,13 @@ export function code({ S }) {
     </div>`;
   };
 
-  return html`<div class="ms-stage z-20 bg-base-200 flex flex-col">
-    <!-- board: past guesses, newest at the bottom -->
-    <div class="flex-1 min-h-0 overflow-y-auto px-4 py-3 flex flex-col gap-2.5 max-w-md w-full mx-auto">
+  return html`<div data-code data-tries=${rows.length} data-over=${won ? "won" : lost ? "lost" : "0"} class="ms-stage z-20 bg-base-200 flex flex-col">
+    <!-- board: past guesses, newest at the bottom. The board is the one scroller on this screen: ten rows
+         plus the deck cannot fit a split window, and a board that clipped would hide the guesses the
+         deduction is made from — the instrument keeps its display (DESIGN_RUBRIC), the deck stays put. -->
+    <div class="flex-1 min-h-0 overflow-y-auto px-[var(--ms-pad)] py-[var(--ms-gap)] flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
       <div class="flex items-center justify-between sticky top-0 bg-base-200 pb-1 z-[1]">
-        <span class="text-[0.62rem] font-mono uppercase tracking-wide text-muted">${T(t, "attemptsLeft", { n: MAX - rows.length })}</span>
+        <span class=${LABEL}>${T(t, "attemptsLeft", { n: MAX - rows.length })}</span>
         <div class="flex items-center gap-0.5">
           <button data-help aria-label=${T(t, "rulesTitle")} onClick=${() => S.screen.set("rules")} class="btn btn-ghost btn-xs btn-circle text-base-content/70">${Icon("lucide:circle-help", "text-base")}</button>
           <button aria-label=${T(t, "newGame")} data-haptic="bump" onClick=${newGame} class="btn btn-ghost btn-xs btn-circle text-base-content/70">${Icon("lucide:rotate-ccw", "text-base")}</button>
@@ -113,49 +118,52 @@ export function code({ S }) {
       })}
     </div>
 
-    <!-- input: current guess + palette + check. The deck is not a bar with a hairline on it — it is the page
-         extruded, so it declares a surface state and the shadow pair draws its own top edge. -->
-    <div class="shrink-0 sf-raised sf-e2 px-4 pt-3 pb-3 flex flex-col gap-3 max-w-md w-full mx-auto">
-      <div class="flex items-center justify-center gap-2 min-h-11">
-        ${Array.from({ length: SLOTS }, (_, i) => cur[i] == null
-          ? html`<span class="w-11 h-11 rounded-full sf-inset shrink-0" key=${i}></span>`
-          : disc(cur[i], true, () => removePeg(i)))}
-      </div>
-      <div class="flex items-center justify-center gap-2">
-        ${/* The palette stays a six-across row of round tokens — the geometry is the game. Only the material
-             changed: each peg is a raised object carrying its own hue (`sf-e2`), matching the discs it drops
-             into the guess row above, so a peg looks the same whether it is in the palette or on the board. */""}
-        ${PEGS.map((p, ci) => html`<button data-peg=${ci} aria-label=${T(t, p.key)} disabled=${over || cur.length >= SLOTS} onClick=${() => addPeg(ci)}
-          class="w-11 h-11 rounded-full sf-e2 inline-flex items-center justify-center font-bold text-lg shrink-0 active:scale-90 transition disabled:opacity-30" style=${`background:${p.c};color:${p.ink}`} key=${ci}>${p.sym}</button>`)}
-      </div>
-      <button data-check disabled=${cur.length < SLOTS || over} onClick=${submit} class="btn btn-primary rounded-2xl w-full disabled:opacity-40">${T(t, "check")}</button>
+    <!-- input: current guess + palette + check. The deck is the kit's Island — the farm's floating material
+         for a tool's persistent controls — sitting in the stage's flow with its own air from the edges, not
+         a bar welded to the bottom. -->
+    <div class="shrink-0 w-full max-w-md mx-auto px-[var(--ms-pad)] pb-[var(--ms-gap)]">
+      <${Island} data-deck className="w-full flex flex-col gap-[var(--ms-gap)]">
+        <div class="flex items-center justify-center gap-2 min-h-11">
+          ${Array.from({ length: SLOTS }, (_, i) => cur[i] == null
+            ? html`<span class="w-11 h-11 rounded-full sf-inset shrink-0" key=${i}></span>`
+            : disc(cur[i], true, () => removePeg(i)))}
+        </div>
+        <div class="flex items-center justify-center gap-2">
+          ${/* The palette stays a six-across row of round tokens — the geometry is the game. Only the material
+               changed: each peg is a raised object carrying its own hue (`sf-e2`), matching the discs it drops
+               into the guess row above, so a peg looks the same whether it is in the palette or on the board. */""}
+          ${PEGS.map((p, ci) => html`<button data-peg=${ci} aria-label=${T(t, p.key)} disabled=${over || cur.length >= SLOTS} onClick=${() => addPeg(ci)}
+            class="w-11 h-11 rounded-full sf-e2 inline-flex items-center justify-center font-bold text-lg shrink-0 active:scale-90 transition-transform disabled:opacity-30" style=${`background:${p.c};color:${p.ink}`} key=${ci}>${p.sym}</button>`)}
+        </div>
+        <button data-check disabled=${cur.length < SLOTS || over} onClick=${submit} class="btn btn-primary rounded-full w-full disabled:opacity-40">${T(t, "check")}</button>
+      <//>
     </div>
 
     <!-- win / lose — a history-backed screen (Back closes it) -->
-    ${scr === "over" ? html`<div class="absolute inset-0 z-30 bg-base-100 flex flex-col items-center justify-center gap-5 px-8 text-center">
+    ${scr === "over" ? html`<div data-over-screen class="absolute inset-0 z-30 bg-base-100 flex flex-col items-center justify-center gap-[calc(var(--ms-gap)*1.5)] px-8 text-center">
       <div class="text-2xl font-bold">${won ? T(t, "titleWon", { n: rows.length }) : T(t, "titleLost")}</div>
       <div class="flex flex-col items-center gap-2">
-        <span class="text-[0.62rem] font-mono uppercase tracking-wide text-muted">${T(t, "theCode")}</span>
+        <span class=${LABEL}>${T(t, "theCode")}</span>
         <div class="flex gap-2">${secret.map((ci) => disc(ci, true))}</div>
       </div>
-      <div class="text-xs font-mono text-base-content/50">#${seed}</div>
+      <div class="font-mono text-[length:var(--ms-label)] text-muted">#${seed}</div>
       <div class="flex flex-col items-center gap-2 w-full max-w-[16rem]">
-        <button data-newgame class="btn btn-primary rounded-2xl w-full gap-2" onClick=${newGame}>${Icon("lucide:rotate-ccw")}${T(t, "newGame")}</button>
-        <button class="btn btn-ghost btn-sm gap-2 text-base-content/70" onClick=${share}>${Icon("lucide:share-2")}${T(t, "share")}</button>
+        <button data-newgame class="btn btn-primary rounded-full w-full gap-2" onClick=${newGame}>${Icon("lucide:rotate-ccw")}${T(t, "newGame")}</button>
+        <button class="btn btn-ghost btn-sm rounded-full gap-2 text-base-content/70" onClick=${share}>${Icon("lucide:share-2")}${T(t, "share")}</button>
       </div>
     </div>` : null}
 
     <!-- rules — opened on demand from the "?" (history-backed; Back or Close dismisses). The pip legend
          reuses the board's own pips, so the feedback is learned once and recognised on the board. -->
-    ${scr === "rules" ? html`<div data-rules class="absolute inset-0 z-30 bg-base-100 flex flex-col items-center justify-center gap-5 px-8 text-center">
+    ${scr === "rules" ? html`<div data-rules class="absolute inset-0 z-30 bg-base-100 flex flex-col items-center justify-center gap-[calc(var(--ms-gap)*1.5)] px-8 text-center">
       <div class="text-xl font-bold">${T(t, "rulesTitle")}</div>
       <p class="text-sm text-base-content/80 max-w-[18rem] leading-relaxed">${T(t, "rulesGoal")}</p>
-      <div class="flex flex-col gap-3 items-start">
+      <div class="flex flex-col gap-[var(--ms-gap)] items-start">
         <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full bg-base-content shrink-0"></span><span class="text-sm text-base-content/80">${T(t, "rulesExact")}</span></div>
         <div class="flex items-center gap-3"><span class="w-3 h-3 rounded-full border-2 border-base-content shrink-0"></span><span class="text-sm text-base-content/80">${T(t, "rulesNear")}</span></div>
       </div>
-      <p class="text-xs text-muted max-w-[16rem]">${T(t, "rulesCount")}</p>
-      <button class="btn btn-primary rounded-2xl w-full max-w-[16rem]" onClick=${() => S.screen.set(null)}>${T(t, "close")}</button>
+      <p class="text-sm text-muted max-w-[16rem]">${T(t, "rulesCount")}</p>
+      <button class="btn btn-primary rounded-full w-full max-w-[16rem]" onClick=${() => S.screen.set(null)}>${T(t, "close")}</button>
     </div>` : null}
   </div>`;
 }
