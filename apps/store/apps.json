@@ -1787,7 +1787,7 @@
     "bg": "#141416",
     "fg": "#D9548E",
     "href": "./hive/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "tools",
     "needs": [
       "compass",
