@@ -51,6 +51,18 @@
     .vy-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(.5rem,2.2vw,.8rem)}
     @media(min-width:640px){.vy-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
     @media(min-width:900px){.vy-grid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+    /* a tiny screen (a 300×300 widget, a split pane): the grid becomes ONE horizontal strip of fixed tiles that
+       snaps, and the strip contains its own axis only — a vertical swipe that starts on it still scrolls the
+       page (the kit's rule for .overflow-x-auto, owner 2026-09-04: "не можу скролити сторінку вниз") */
+    @media(max-height:480px),(max-width:340px){
+      .vy-grid{display:flex;align-items:flex-start;gap:.5rem;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;overscroll-behavior-y:auto;scrollbar-width:none;margin:0 calc(-1*var(--ms-pad));padding:0 var(--ms-pad) .25rem}
+      .vy-grid::-webkit-scrollbar{display:none}
+      /* width AND height, aspect-ratio off: a stretched flex item with an aspect ratio grows its main size from the
+         stretched cross size (measured 222 px on the see pod) — explicit both ways is what a tile is here */
+      .vy-grid>.vy-tile{flex:0 0 auto;width:clamp(88px,30vmin,132px);height:clamp(88px,30vmin,132px);aspect-ratio:auto;scroll-snap-align:start}
+      .vy-grid>.vy-tile .vy-name{font-size:.62rem;padding:.4rem .45rem .4rem}
+      .vy-grid>.vy-tile .vy-side{display:none}
+    }
     .vy-tile{position:relative;display:block;width:100%;aspect-ratio:1;border-radius:var(--radius-box,1rem);overflow:hidden;background:#000;box-shadow:0 0 0 1px rgba(255,255,255,.08) inset;animation:vy-tilein .5s cubic-bezier(.2,.7,.2,1) both;animation-delay:calc(var(--ti,0)*.04s);-webkit-tap-highlight-color:transparent}
     .vy-tile img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .6s ease}
     .vy-tile:active img{transform:scale(1.04)}
