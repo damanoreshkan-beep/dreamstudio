@@ -10,12 +10,14 @@ import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Segmented } from "/_rt/ui.js";
+import { Segmented, Panel, Slider } from "/_rt/ui.js";
 import { CameraPrime } from "/_rt/camprime.js";
 import { gate } from "/_rt/gate.js";
 import { downloadBlob } from "/_rt/apk.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
 
 const FX = [
@@ -120,58 +122,61 @@ export function cam({ S }) {
   const Toggle = (on, icon, label, onClick, extra) => html`<button aria-pressed=${!!on} aria-label=${label} onClick=${onClick} class=${`btn btn-circle btn-sm ${on ? "btn-primary" : "bg-base-100 text-base-content/80"}`}>${extra || Icon(icon, "text-base")}</button>`;
 
   return html`<${Fragment}>
-    <div class="ms-stage z-20 flex items-stretch justify-center px-3 py-2">
+    <div class="ms-stage z-20 flex items-stretch justify-center p-[var(--ms-gap)]" data-facing=${facing} data-aspect=${aspect} data-timer=${timer} data-cam-fx=${FX[fx][0]} data-count=${count}>
       <!-- the console body -->
-      ${/* The chassis is the page extruded (sf-e3), so it needs no outline — and base-100 === base-200 in
-           both themes now, which made the old from/to gradient a one-colour fill pretending to be shading.
-           The BEZEL, LED and flash ring below are a different thing: they depict a physical light source
-           and a real recess, and they keep their hand-drawn shadows on purpose. */""}
-      <div class="w-full max-w-sm mx-auto flex flex-col gap-3 rounded-[1.9rem] bg-base-100 p-4 sf-e3">
+      ${/* The chassis is the kit's Panel — the page extruded, no outline; base-100 === base-200 in both themes,
+           so a from/to gradient here would be a one-colour fill pretending to be shading. */""}
+      <${Panel} className="w-full max-w-sm mx-auto min-h-0">
         <div class="shrink-0 flex items-center justify-between px-0.5">
           <div class="flex items-center gap-1.5">
-            <span class="w-1.5 h-1.5 rounded-full bg-primary/85 shadow-[0_0_7px] shadow-primary/60"></span>
-            <span class="font-mono text-[0.6rem] uppercase tracking-[0.3em] text-muted">${loc === "uk" ? "μКАМ" : "μCAM"}</span>
+            ${/* the power LED is the one MARK on the chassis: the farm's mark colour, no glow of its own */""}
+            <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)]" aria-hidden="true"></span>
+            <span class=${LABEL}>${loc === "uk" ? "μКАМ" : "μCAM"}</span>
           </div>
-          <div class="flex items-center gap-1.5 font-mono text-[0.58rem] uppercase tracking-widest text-base-content/45">
-            <span>${T(t, FX[fx][0])}</span><span class="text-base-content/25">·</span><span>${aspect}</span>${zoom > 1.02 ? html`<span class="text-secondary">· ${zoom.toFixed(1)}×</span>` : null}
+          <div class=${`flex items-center gap-1.5 ${LABEL}`}>
+            <span>${T(t, FX[fx][0])}</span><span class="text-muted">·</span><span>${aspect}</span>${zoom > 1.02 ? html`<span>· ${zoom.toFixed(1)}×</span>` : null}
           </div>
         </div>
 
-        <!-- the square viewfinder screen, set in a bezel -->
+        <!-- the square viewfinder screen, set in a well -->
+        ${/* The viewfinder is a WELL the feed sits in (sf-inset, the concentric radius inside the Panel).
+             Everything drawn OVER it — the grid, the corner marks, the crop bars, the countdown, the flash
+             ring and the flash itself — sits on a PICTURE, not on the page, so those are white/black by
+             design in both themes: the theme never reaches a camera frame. */""}
         <div class="flex-1 min-h-0 flex items-center justify-center">
-          <div data-screen class="relative aspect-square max-h-full max-w-full w-full rounded-2xl overflow-hidden bg-black border-[3px] border-base-300 shadow-[inset_0_2px_10px_rgba(0,0,0,.6)]">
-            ${gate ? html`<div class="absolute inset-0" style="background:radial-gradient(120% 90% at 30% 20%, #2b2540, #0c0c12 70%)"></div>` : null}
+          <div data-screen class="relative aspect-square max-h-full max-w-full w-full rounded-[var(--ms-r-in)] overflow-hidden sf-inset">
+            ${/* the gate has no camera: a flat neutral frame stands in for the feed so the console is shot populated */""}
+            ${gate ? html`<div class="absolute inset-0 bg-neutral" aria-hidden="true"></div>` : null}
             ${enabled && !err && !gate ? html`<video ref=${videoRef} autoplay muted playsinline class="absolute inset-0 w-full h-full object-cover" style=${`filter:${filterStr()};transform:scale(${zoom.toFixed(3)})${showMirror ? " scaleX(-1)" : ""}`}></video>` : null}
             ${grid ? html`<div class="absolute inset-0 pointer-events-none" aria-hidden="true">
               <div class="absolute left-1/3 top-0 bottom-0 w-px bg-white/25"></div><div class="absolute left-2/3 top-0 bottom-0 w-px bg-white/25"></div>
               <div class="absolute top-1/3 left-0 right-0 h-px bg-white/25"></div><div class="absolute top-2/3 left-0 right-0 h-px bg-white/25"></div>
             </div>` : null}
             ${aspect !== "1:1" ? cropBars(aspect) : null}
-            ${frontFlash && facing === "user" && !lit ? html`<div class="absolute inset-0 rounded-[inherit] pointer-events-none shadow-[inset_0_0_0_3px_rgba(255,255,255,.9),inset_0_0_22px_rgba(255,255,255,.35)]" aria-hidden="true"></div>` : null}
-            <div class="absolute inset-0 pointer-events-none" style="background:linear-gradient(135deg,rgba(255,255,255,.08),transparent 42%)"></div>
+            ${/* front flash armed: a white ring on the frame's edge — the screen is about to become the light */""}
+            ${frontFlash && facing === "user" && !lit ? html`<div class="absolute inset-0 rounded-[inherit] pointer-events-none border-[3px] border-white/90" aria-hidden="true"></div>` : null}
             <div class="absolute inset-3 pointer-events-none" aria-hidden="true">
               ${["top-0 left-0 border-t-2 border-l-2 rounded-tl-md", "top-0 right-0 border-t-2 border-r-2 rounded-tr-md", "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-md", "bottom-0 right-0 border-b-2 border-r-2 rounded-br-md"].map((c, i) => html`<span key=${i} class=${`absolute w-5 h-5 border-white/30 ${c}`}></span>`)}
             </div>
-            ${count > 0 ? html`<div class="absolute inset-0 flex items-center justify-center"><div class="text-[3.5rem] font-bold tabular-nums text-white drop-shadow-lg">${count}</div></div>` : null}
+            ${/* the countdown is the hero reading of the frame; the drop-shadow is legibility over a bright feed, not depth */""}
+            ${count > 0 ? html`<div class="absolute inset-0 flex items-center justify-center"><div class="text-[length:var(--ms-hero)] font-bold tabular-nums text-white drop-shadow-lg">${count}</div></div>` : null}
             <div class=${`absolute inset-0 bg-white pointer-events-none transition-opacity duration-150 ${flash ? "opacity-80" : "opacity-0"}`}></div>
           </div>
         </div>
 
         <!-- deck -->
-        <div class="shrink-0 flex flex-col gap-3">
+        <div class="shrink-0 flex flex-col gap-[var(--ms-gap)]">
           <!-- filters -->
           <${Segmented} attr="data-fx" scroll variant="outline" size="sm" label=${T(t, "fxTitle")}
             items=${FX.map(([k], i) => ({ id: String(i), label: T(t, k) }))}
             value=${String(fx)} onChange=${(id) => { buzz(); setFx(Number(id)); }} />
-          <!-- exposure + zoom -->
-          <div class="flex items-center gap-3">
-            ${Icon("lucide:sun", "text-sm text-base-content/55 shrink-0")}
-            <input type="range" min="0.6" max="1.6" step="0.02" value=${expo} aria-label=${T(t, "aExposure")} onInput=${(e) => setExpo(+e.target.value)} class="range range-xs range-primary flex-1" />
-            ${Icon("lucide:search", "text-sm text-base-content/55 shrink-0")}
-            <input type="range" min="1" max="4" step="0.1" value=${zoom} aria-label=${T(t, "aZoom")} onInput=${(e) => setZoom(+e.target.value)} class="range range-xs range-primary flex-1" />
+          <!-- exposure + zoom: two kit sliders, their captions the accessible names -->
+          <div class="grid grid-cols-2 gap-[var(--ms-gap)]">
+            <${Slider} id="expo" attr="data-dial" label=${T(t, "aExposure")} min=${0.6} max=${1.6} step=${0.02} value=${expo} onInput=${setExpo} />
+            <${Slider} id="zoom" attr="data-dial" label=${T(t, "aZoom")} min=${1} max=${4} step=${0.1} value=${zoom} onInput=${setZoom} />
           </div>
           <!-- toggles: a recessed button deck -->
-          <div class="flex items-center justify-center gap-2 flex-wrap rounded-2xl sf-inset px-2.5 py-2.5">
+          <div class="flex items-center justify-center gap-2 flex-wrap rounded-[var(--ms-r-in)] sf-inset px-2.5 py-2.5">
             ${Toggle(facing === "user", "lucide:switch-camera", T(t, "aFlip"), flip)}
             ${facing === "user"
               ? Toggle(frontFlash, "lucide:zap", T(t, "aFrontFlash"), () => { buzz(); setFrontFlash((v) => !v); })
@@ -179,26 +184,27 @@ export function cam({ S }) {
             ${Toggle(grid, "lucide:grid-3x3", T(t, "aGrid"), () => { buzz(); setGrid((v) => !v); })}
             ${Toggle(timer > 0, "lucide:timer", T(t, "aTimer"), cycleTimer, timer > 0 ? html`<span class="text-xs font-mono font-bold">${timer}</span>` : null)}
             ${Toggle(showMirror, "lucide:flip-horizontal-2", T(t, "aMirror"), () => { buzz(); setMirror((v) => !v); })}
-            ${Toggle(false, "lucide:ratio", T(t, "aAspect"), cycleAspect, html`<span class="text-[0.6rem] font-mono font-bold leading-none">${aspect}</span>`)}
+            ${Toggle(false, "lucide:ratio", T(t, "aAspect"), cycleAspect, html`<span class="text-[length:var(--ms-label)] font-mono font-bold leading-none">${aspect}</span>`)}
           </div>
           <!-- shutter row -->
           <div class="flex items-center justify-between px-2 pt-0.5">
             ${/* The last-shot slot is a WELL the frame drops into — sf-inset, the same reading pipette's
                  empty swatches take — not a bordered tile. */""}
-            <div class="w-11 h-11 rounded-xl sf-inset overflow-hidden shrink-0">${shot ? html`<img src=${shot} alt="" class="w-full h-full object-cover" />` : null}</div>
+            <div class="w-11 h-11 rounded-[var(--ms-r-in)] sf-inset overflow-hidden shrink-0">${shot ? html`<img src=${shot} alt="" class="w-full h-full object-cover" />` : null}</div>
             ${/* The shutter is the one object on the chassis you press, so it is the chassis EXTRUDED: the
                  ring keeps the page's own colour and sf-e3 does the lifting. It used to wash the face with
                  `bg-base-content/10` — a tone step doing the job the material already does, and the one
                  move that flattens an extrusion. Size, the 4px gap ring and the inner disc are untouched. */""}
-            <button data-shutter aria-label=${T(t, "aShutter")} onClick=${shoot} class="w-[4.6rem] h-[4.6rem] rounded-full sf-raised flex items-center justify-center active:scale-95 transition sf-e3">
+            <button data-shutter aria-label=${T(t, "aShutter")} onClick=${shoot} class="w-[4.6rem] h-[4.6rem] rounded-full sf-raised flex items-center justify-center active:scale-95 transition-transform sf-e3">
               <span class="w-[3.6rem] h-[3.6rem] rounded-full bg-primary border-4 border-base-100"></span>
             </button>
             <div class="w-11 h-11 shrink-0"></div>
           </div>
         </div>
-      </div>
+      <//>
     </div>
 
+    ${/* the front flash: the whole screen IS the light for 420 ms — white by definition, not a surface */""}
     ${lit ? html`<div class="fixed inset-0 z-40 bg-white" aria-hidden="true"></div>` : null}
     ${!enabled || err ? html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} onEnable=${enable} onSettings=${() => S.screen.set("perms")} denied=${err === "denied"} unavailable=${err === "unavailable" || err === "unsupported"} />` : null}
   </${Fragment}>`;

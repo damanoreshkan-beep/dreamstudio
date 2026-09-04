@@ -41,23 +41,11 @@ const HIT = 0.052;                                  // half-height of a hole's t
 const NAMES = ["До", "До♯", "Ре", "Ре♯", "Мі", "Фа", "Фа♯", "Соль", "Соль♯", "Ля", "Ля♯", "Сі"];
 const LAT = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 
-// The pipe's MATERIAL is fixed, not themed — a wooden sopilka is the same wood under either theme, so the
-// two things drawn ON it are fixed too. This is why the holes do NOT take `sf-inset`: those tokens invert
-// with the theme (--nm-light goes #3A3A3E → #FFFFFF), which would light one unchanging brown pipe from two
-// different suns. The pipe itself sits on the PAGE, so its extrusion IS the page's — `sf-e3`, like
-// handpan's bowl.
-//   The pad also has to be fixed for a second reason: it used to be `bg-base-content`, which is near-WHITE
-// in the dark theme and near-BLACK in the light one. Against a bore that is black in both, "covered" and
-// "open" were one clear pair in dark and an indistinguishable pair in light — the dock's 1.56:1 bug, on the
-// only state this instrument shows you.
-const BORE = "rgba(0,0,0,.72)";        // an open hole: the bore, a hole in wood reads dark in any theme
-const PAD = "#F2EDE4";                 // a fingertip on it — bone, and bone under both themes
-// The labium — the fipple's window, cut into the same wood. It belongs to the PIPE's fixed palette, not to
-// the farm's material, for exactly the reason above: an `sf-inset` here would paint a base-100 face and a
-// theme-inverting sink onto a board that is brown under both themes. It was the one colour on the pipe
-// still written as a loose utility (`bg-black/45`) rather than declared with the other two; same value,
-// now named, so the whole instrument's fixed palette is these three lines and nothing else.
-const WINDOW = "rgba(0,0,0,.45)";
+// The pipe is an OBJECT, not a surface: its wood, bore, pad and labium window are a fixed palette that lives in
+// head.html (.so-pipe / .so-bore / .so-pad / .so-window) with the reasoning next to it. The pipe itself sits on
+// the PAGE, so its extrusion IS the page's — `sf-e3`, like handpan's bowl.
+// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 // The app owns the TUNING; the runtime owns the acoustics (fingeredSemitone in /_rt/wind.js). Same split
 // as groove.js: a rule true of every fipple flute does not belong to one of them.
@@ -144,32 +132,33 @@ export function sopilka({ S }) {
   const semi = blowing ? ((semitoneFor(covered) % 12) + 12) % 12 : null;
   const oct = over ? 6 : 5;
 
-  return html`<div class="flex flex-col items-center gap-4">
+  return html`<div class="flex flex-col items-center gap-[var(--ms-gap)]" data-note=${semi == null ? "" : LAT[semi]} data-blowing=${blowing} data-octave=${oct}>
+    ${/* the note is INK — the reading of the instrument, never a coloured word; colour is for marks */""}
     <div class="text-center min-h-16">
-      <div class="text-[0.62rem] font-mono uppercase text-muted">${T(t, "note")}</div>
-      <div class="text-4xl font-bold leading-none tabular-nums" style="color:light-dark(#7a5c1f,#e8c874)">
+      <div class=${LABEL}>${T(t, "note")}</div>
+      <div class="text-4xl font-bold leading-none tabular-nums">
         ${semi == null ? "—" : NAMES[semi]}
       </div>
       <div class="text-xs text-muted mt-1 font-mono h-4">${semi == null ? "" : `${LAT[semi]}${oct}`}</div>
     </div>
 
     <div ref=${pipe} data-pipe
-      class="relative w-24 rounded-[3rem] sf-e3 touch-none select-none cursor-pointer"
-      style="height:min(60svh,29rem);background:linear-gradient(100deg,#6b4a24,#a9793d 42%,#7d5729)"
+      class="so-pipe relative w-24 rounded-full sf-e3 touch-none select-none cursor-pointer"
+      style="height:min(60svh,29rem)"
       onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${up}>
       <div class="absolute inset-x-0 flex justify-center" style="top:9%">
-        <div class="w-8 h-1.5 rounded-full" style=${`background:${WINDOW}`}></div>
+        <div class="so-window w-8 h-1.5 rounded-full"></div>
       </div>
       ${Array.from({ length: HOLES }, (_, i) => html`<div key=${i} data-hole=${i} aria-hidden="true"
-        class="absolute left-1/2 -translate-x-1/2 w-7 h-7 rounded-full transition-colors"
-        style=${`top:calc(${TOP + i * GAP}% - 0.875rem);background:${covered.has(i) ? PAD : BORE}`}></div>`)}
+        class=${`absolute left-1/2 -translate-x-1/2 w-7 h-7 rounded-full transition-colors ${covered.has(i) ? "so-pad" : "so-bore"}`}
+        style=${`top:calc(${TOP + i * GAP}% - 0.875rem)`}></div>`)}
     </div>
 
     ${/* Передування is ON or OFF — a boolean, not a one-of-N choice, so it stays a button with aria-pressed
           and never becomes a `Segmented` strip (same call as sigil's tilt). The off face carries the raised
           extrusion from theme.css `.btn:not(.btn-ghost)`; the on face is the filled ink pill. */""}
-    <button id="over" data-over aria-pressed=${over} class=${`btn btn-sm rounded-2xl gap-2 ${over ? "btn-primary" : "btn-outline"}`}
+    <button id="over" data-over aria-pressed=${over} class=${`btn btn-sm gap-2 ${over ? "btn-primary" : "btn-outline"}`}
       data-haptic="bump" onClick=${() => setOver((v) => !v)}>${Icon("lucide:wind", "text-base")}${T(t, "overblow")}</button>
-    ${!audioSupported ? html`<div class="text-xs text-base-content/70 text-center">${T(t, "noAudio")}</div>` : null}
+    ${!audioSupported ? html`<div class="text-sm text-muted text-center">${T(t, "noAudio")}</div>` : null}
   </div>`;
 }

@@ -49,6 +49,19 @@
     }
   }
   </script>
+  <style>
+    /* THE PIPE IS AN OBJECT, NOT A SURFACE. A wooden sopilka is the same wood under either theme, so its
+       palette is fixed here rather than read from the material's tokens: the sf-* pair inverts with the theme,
+       which would light one unchanging brown pipe from two different suns. Three fixed things are drawn on the
+       wood — the bore (an open hole reads dark in wood under any light), the pad (a fingertip: bone under both
+       themes; it was `bg-base-content` once, near-white in dark and near-black in light, which made
+       covered/open an indistinguishable pair on paper — the only state the instrument shows you) and the
+       labium, the fipple's window cut into the same board. Nothing else on the pipe carries a colour. */
+    .so-pipe{background:linear-gradient(100deg,#6b4a24,#a9793d 42%,#7d5729)}
+    .so-window{background:rgba(0,0,0,.45)}
+    .so-bore{background:rgba(0,0,0,.72)}
+    .so-pad{background:#F2EDE4}
+  </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
   <div id="boot" aria-hidden="true"><div class="bh"><span class="bm">Сопілка</span></div><div class="bb"><i></i></div><div class="bd"></div></div>

@@ -49,6 +49,18 @@
     }
   }
   </script>
+  <style>
+    /* THE NOAA SCALE'S OWN COLOURS — a value of the data (quiet greens → storm oranges/reds → the G5 purple),
+       painted on MARKS only: the gauge arc, the forecast bars, the storm dot. Never on type — the Kp reading
+       and the G level are ink, and the arc beside them carries the colour. light-dark() picks the deep pair
+       on paper and the bright pair on black, so the scale reads on both grounds. */
+    :root{
+      --kp-0:light-dark(#177F46,#41C06F);--kp-1:light-dark(#177F46,#41C06F);--kp-2:light-dark(#177F46,#41C06F);
+      --kp-3:light-dark(#2E7D3A,#5FB85B);--kp-4:light-dark(#856400,#D8B23C);--kp-5:light-dark(#985800,#E2932F);
+      --kp-6:light-dark(#A24810,#E7742E);--kp-7:light-dark(#B63125,#EC5A4A);--kp-8:light-dark(#A5291F,#E0463A);
+      --kp-9:light-dark(#8E2A86,#C94BBA)
+    }
+  </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
   <div id="boot" aria-hidden="true"><div class="bh"><span class="bm">Магнітні бурі</span></div><div class="bb"><i></i></div><div class="bd"></div></div>
