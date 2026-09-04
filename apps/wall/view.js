@@ -177,11 +177,13 @@ export function wallView({ t, S, openScreen, closeScreen }) {
   // the row that is left, so it is MEASURED between the overlays and never has to know their heights.
   // Fixed black and fixed white on purpose: this is a window onto other people's displays, not a farm
   // surface, and it must read the same whatever theme the owner runs (so the go-live key cannot be
-  // btn-primary — light-theme ink is #0A0A0C, invisible on this stage).
-  const osd = "font-mono text-[var(--ms-label)] text-white/70";
+  // btn-primary — light-theme ink is #0A0A0C, invisible on this stage). The stage is the room's own
+  // `#000` (VIEWER_PAGE above), so the preview is the poster and not a near-black approximation of it.
+  // `length:` on the OSD size is load-bearing — the bare var form is a colour to Tailwind v4.
+  const osd = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-white/70";
   const key = "btn btn-ghost btn-sm btn-circle text-white hover:bg-white/10";
   return html`<div class="h-full min-h-0 px-[var(--ms-pad)] pb-[var(--ms-pad)]">
-    <div data-stage class="h-full min-h-0 rounded-[var(--ms-r)] bg-[#0A0A0B] overflow-hidden
+    <div data-stage data-on=${on ? "yes" : "no"} data-busy=${busy ? "yes" : "no"} data-err=${err || null} class="h-full min-h-0 rounded-[var(--ms-r)] bg-black overflow-hidden
                 grid grid-rows-[auto_minmax(0,1fr)_auto]">
     <div class="flex items-center gap-2 px-[var(--ms-pad)] pt-2 min-h-[var(--ms-ctl)]">
       ${on
@@ -230,7 +232,7 @@ export function wallView({ t, S, openScreen, closeScreen }) {
             ${url
               ? html`<img data-qrimg src=${qrDataUri(url, { margin: 3 })} alt=${T(t, "joinTitle")}
                     class="w-56 h-56 max-w-full rounded-[var(--ms-r-in)] bg-white p-3" />
-                  <code class="block w-full text-center break-all font-mono text-[var(--ms-label)]
+                  <code class="block w-full text-center break-all font-mono text-[length:var(--ms-label)]
                     text-base-content/80 sf-inset rounded-[var(--ms-r-in)] p-2">${url}</code>`
               : html`<span class="text-base-content/70">${T(t, "noWifi")}</span>`}
           </div>`

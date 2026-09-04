@@ -54,3 +54,18 @@ DaisyUI class so it flips with theme — never a JS-baked hex). Granted items dr
 - Currency mixing: never auto-convert; group totals per currency (rates.js conversion is out of scope).
 - `image`/`price` from arbitrary pages are best-effort — always fail-open, never block the manual form.
 - Seed the **widest** state for the gate (long name + large price) so overflow@384 is actually measured.
+
+## Design refresh 2026-09-04
+
+State map of Lists: **no lists** (`data-lists=0`) — the empty state with one verb · **list, no wishes** — the
+switcher, the list head, the empty state with one verb · **populated** (`data-lists=n data-active=id
+data-pending=n`) — the switcher, the head with totals, pending cards, the granted section, the add row ·
+**wish sheet** (`#w-sheet`) · **list sheet** (`#l-sheet`) · **detail** (`#w-detail`) · **confirm** (list delete).
+
+Changed: `LABEL` was the colour trap (`text-[var(--ms-label)]`) — every caption in the sheets rendered at
+body size; it is the length form now. A wish card is the kit's `Panel`, not a DaisyUI card with its own
+radius; the thumbnail plate's colour is a custom property (`--wc`) mixed in CSS (no `#888` fallback, no hex
+arithmetic — a list without a colour takes the warm pole); the list palette stays the user's own hexes (a
+MARK on a dot / a plate). Inputs, selects, textareas and buttons take the theme's radii (25 `rounded-2xl`
+gone); nested plates/palettes are `--ms-r-in`; muted glyphs and the granted name are `.text-muted` (no
+`opacity-60`, no `/45`/`/50`); the palette cells are one geometry (pills); transitions name their property.

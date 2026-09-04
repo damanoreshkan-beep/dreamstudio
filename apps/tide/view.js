@@ -265,7 +265,6 @@ function setCat(id) {
   $cat.set(id);
   const list = stationsIn(id);
   if (!list.some((s) => s.id === $station.get())) select(list[0].id);
-  applyAccent(categoryById(id));
 }
 
 // now-playing: SomaFM's songs JSON (ACAO *), polled while a soma station plays; nothing else exposes it
@@ -344,9 +343,12 @@ function toggleFs(elm) {
 }
 if (typeof document !== "undefined") document.addEventListener("fullscreenchange", () => { $fs.set(!!document.fullscreenElement); if (!document.fullscreenElement && wl && !$playing.get()) { wl.release(); wl = null; } });
 
-// The app's accent follows the current — a MARK colour (dots, rings, the sheet icon), never text.
-const applyAccent = (c) => { try { document.documentElement.style.setProperty("--app-accent", `hsl(${c.hue} 60% 58%)`); } catch { /* */ } };
-applyAccent(curCat());
+// The current's hue is a MARK (the dots on the strip, the transport and the picker), never text — and never
+// the farm's --app-accent: that pair of light is farm-wide (rt/theme-lum.css), and writing it per current
+// repainted every bloom and rim in the material. The hue NUMBER is the current's data; its saturation and
+// lightness are the theme's (`--tide-s` / `--tide-l` in head.html, deeper on paper), so the colour is
+// composed by CSS and flips with the theme instead of being fixed by JS at render.
+const hue = (h) => `hsl(${h} var(--tide-s) var(--tide-l))`;
 
 // ---- the field's signal: read every frame by GlStage through `vary`/`ink` (no second rAF loop) ----
 const env = { bass: 0.25, mid: 0.2, treble: 0.12, phase: 0, last: 0, tick: 0, ready: 0, readyTo: 0 };
@@ -385,11 +387,11 @@ export function tide({ S }) {
   const swipe = useSwipe({ onDown: () => skip(1), onUp: () => skip(-1), onLeft: () => cycleCat(1), onRight: () => cycleCat(-1) });
   const tap = useTap({ onDouble: () => toggleFs(fieldRef.current) });
   const surface = { ...swipe, onClick: tap };
-  const currents = CATEGORIES.map((c) => ({ id: c.id, label: T(t, c.key), dot: `hsl(${c.hue} 60% 58%)` }));
+  const currents = CATEGORIES.map((c) => ({ id: c.id, label: T(t, c.key), dot: hue(c.hue) }));
   const isFav = favs.includes(station.id);
   // the hero's favourites — a frost rail of the hearted stations (each pill wears its current's hue), shown
   // only while nothing plays: once a station is live the void belongs to the track
-  const favItems = favs.map(stationById).filter(Boolean).map((s) => ({ id: s.id, label: s.name, dot: `hsl(${categoryById(s.cat).hue} 60% 58%)` }));
+  const favItems = favs.map(stationById).filter(Boolean).map((s) => ({ id: s.id, label: s.name, dot: hue(categoryById(s.cat).hue) }));
   useEffect(() => { if (screen === "stations") fetchListeners(); }, [screen]);
   // the session drives the sync engine: signed in → the user's room, signed out → torn down. restore() is
   // optimistic and gate-safe (mock session under the gate, so the shot sees the populated Sound sheet).
@@ -404,12 +406,12 @@ export function tide({ S }) {
 
   const stateLine = state === "connecting" ? T(t, "connecting") : state === "reconnecting" ? T(t, "reconnecting") : state === "error" ? T(t, "errStream") : state === "live" ? T(t, "live") : null;
   return html`<${Fragment}>
-    <div ref=${fieldRef} data-field data-fs=${fs ? "yes" : "no"} class="fixed inset-0 z-0 touch-none bg-base-200" ...${surface}>
+    <div ref=${fieldRef} data-field data-fs=${fs ? "yes" : "no"} class="fixed inset-0 z-0 touch-none bg-base-100" ...${surface}>
       <${GlStage} shader=${new URL("tide.frag", import.meta.url)} seed=${seedFor(station)} zClass="z-0"
         ink=${inkFor} vary=${bands} tex=${station.logo || null} texReady=${(r) => { env.readyTo = r; }} />
     </div>
 
-    <div class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]" data-cat=${catId} data-station=${station.id} data-state=${state} data-bg=${bg ? "on" : "off"} data-sync=${syncSt} data-peers=${peers} data-vol=${volPct}>
+    <div class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]" style=${`--tide-hue:${cat.hue}`} data-cat=${catId} data-station=${station.id} data-state=${state} data-bg=${bg ? "on" : "off"} data-sync=${syncSt} data-peers=${peers} data-vol=${volPct}>
       <div class="shrink-0"><${Segmented} attr="data-current" scroll variant="outline" tone="frost" label=${T(t, "tabListen")}
         items=${currents} value=${catId} onChange=${setCat} /></div>
 
@@ -421,7 +423,7 @@ export function tide({ S }) {
              never does, at any height the density ladder reaches */""}
         ${!playing && favItems.length ? html`<div class="shrink-0 self-start max-w-full mb-1" data-favs><${Segmented} attr="data-fav" scroll variant="outline" tone="frost" size="sm" label=${T(t, "favs")}
           items=${favItems} value=${station.id} onChange=${(id) => { const f = stationById(id); if (f && f.cat !== catId) setCat(f.cat); select(id); start(); }} /></div>` : null}
-        ${(now || stateLine) ? html`<div class=${`font-mono uppercase tracking-wide text-[var(--ms-label)] truncate ${state === "error" ? "text-error" : "text-base-content/70"}`}>${[now?.artist, stateLine].filter(Boolean).join(" · ")}</div>` : null}
+        ${(now || stateLine) ? html`<div class=${`font-mono uppercase tracking-wider text-[length:var(--ms-label)] truncate ${state === "error" ? "text-error" : "text-base-content/70"}`}>${[now?.artist, stateLine].filter(Boolean).join(" · ")}</div>` : null}
         ${now ? html`<div class="text-[length:var(--ms-title)] font-semibold leading-tight truncate">${now.title}</div>` : null}
       </div>
 
@@ -429,7 +431,7 @@ export function tide({ S }) {
         <${Transport} locale=${loc} playing=${playing} onToggle=${toggle} onPrev=${() => skip(-1)} onNext=${() => skip(1)}
           moreOpen=${screen === "more"} onMore=${() => S.screen.set("more")} onMoreClose=${() => S.screen.set(null)}
           title=${station.name}
-          subtitle=${html`<span class="inline-flex items-center gap-1.5"><span class="inline-block w-1.5 h-1.5 rounded-full shrink-0" style=${`background:hsl(${cat.hue} 60% 58%)`}></span>${T(t, cat.key)} · ${T(t, station.genre)}</span>`}
+          subtitle=${html`<span class="inline-flex items-center gap-1.5"><span class="tide-dot inline-block w-1.5 h-1.5 rounded-full shrink-0"></span>${T(t, cat.key)} · ${T(t, station.genre)}</span>`}
           actions=${[
             { id: "fav", icon: "lucide:heart", label: T(t, isFav ? "aUnfav" : "aFav"), active: isFav, pressed: isFav, onClick: () => toggleFav(station.id), attr: { "data-fav-btn": "" } },
             // id ≠ the Sound Sheet's dialog id — Transport writes the action id onto the button element,
@@ -454,13 +456,15 @@ function SoundSheet({ S, t, loc, open }) {
   const sync = useStore($sync), peers = useStore($peers), peer = useStore($peer);
   const v = clampVol(useStore($vol));
   const peerStation = peer && stationById(peer.station);
-  const label = "font-mono uppercase tracking-wide font-semibold text-[var(--ms-label)] text-base-content/70";
+  // `length:` is load-bearing — a bare `text-[var(--ms-label)]` is a COLOUR to Tailwind v4
+  const label = "font-mono uppercase tracking-wider font-semibold text-[length:var(--ms-label)] text-base-content/70";
+  const meta = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
   return html`<${Sheet} id="sound" open=${open} onClose=${() => S.screen.set(null)} title=${T(t, "aSound")} icon="lucide:volume-2" tone="frost">
     <div class="flex flex-col gap-[var(--ms-gap)]" data-sound-body>
       <${Slider} id="vol" label=${T(t, "vol")} value=${v} onInput=${setVol} step=${0.05} attr="data-vol-slider" />
       <div class="flex items-center gap-2">
         <span class=${label}>${T(t, "devices")}</span>
-        <span class="font-mono text-xs tabular-nums text-base-content/70">${sync === "on" ? `· ${peers}` : ""}</span>
+        <span class=${meta}>${sync === "on" ? `· ${peers}` : ""}</span>
       </div>
       ${!sess ? html`
         <p class="text-sm text-base-content/75">${T(t, "syncSignIn")}</p>
@@ -473,7 +477,7 @@ function SoundSheet({ S, t, loc, open }) {
             <span class="inline-block w-2 h-2 rounded-full shrink-0" style=${peer.playing ? "background:var(--app-accent)" : "background:color-mix(in srgb, currentColor 30%, transparent)"}></span>
             <span class="flex-1 min-w-0 flex flex-col">
               <span class="truncate font-semibold">${peer.playing && peerStation ? peerStation.name : T(t, "peerIdle")}</span>
-              <span class="font-mono text-xs text-base-content/70 truncate">${T(t, "otherDevice")}</span>
+              <span class=${`${meta} truncate`}>${T(t, "otherDevice")}</span>
             </span>
             <button type="button" data-peer-toggle aria-label=${T(t, peer.playing ? "aPeerPause" : "aPeerPlay")}
               onClick=${() => syncApi?.sendCmd(peer.playing ? "pause" : "play")}
@@ -491,19 +495,20 @@ function SoundSheet({ S, t, loc, open }) {
 function StationSheet({ S, t, open, cat, stId, playing }) {
   const listeners = useStore($listeners);
   const list = stationsIn(cat.id);
+  const meta = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
   return html`<${Sheet} id="stations" open=${open} onClose=${() => S.screen.set(null)} title=${T(t, "stations")} subtitle=${T(t, cat.key)} icon="lucide:list-music" tone="frost">
-    <div class="flex flex-col gap-0.5" data-station-list>
+    <div class="flex flex-col gap-0.5" data-station-list style=${`--tide-hue:${cat.hue}`}>
       ${list.map((s) => {
         const active = s.id === stId, n = s.soma ? listeners[s.soma] : null;
         return html`<button key=${s.id} data-pick=${s.id} aria-pressed=${active ? "true" : "false"} type="button"
           onClick=${() => { select(s.id); if (!playing) start(); S.screen.set(null); }}
           class=${`btn btn-ghost justify-start gap-3 h-[var(--ms-ctl)] min-h-0 px-2 ${active ? "text-primary" : ""}`}>
-          <span class=${`inline-block w-2 h-2 rounded-full shrink-0 ${active ? "" : "opacity-0"}`} style=${`background:hsl(${cat.hue} 60% 58%)`}></span>
+          <span class=${`tide-dot inline-block w-2 h-2 rounded-full shrink-0 ${active ? "" : "opacity-0"}`}></span>
           <span class="flex-1 min-w-0 flex items-baseline gap-2">
             <span class="truncate font-semibold">${s.name}</span>
-            <span class="truncate font-mono text-xs text-base-content/70">${T(t, s.genre)}</span>
+            <span class=${`truncate ${meta}`}>${T(t, s.genre)}</span>
           </span>
-          ${n != null ? html`<span class="font-mono text-xs tabular-nums text-base-content/70 shrink-0">${n}</span>` : null}
+          ${n != null ? html`<span class=${`${meta} shrink-0`}>${n}</span>` : null}
         </button>`;
       })}
     </div>

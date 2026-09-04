@@ -18,6 +18,8 @@ import { Sheet } from "/_rt/ui.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the farm's mono micro-label (`length:` — the bare var form is a colour to Tailwind v4)
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 // on localhost (the gate) render the compass in a ROTATED, located state so the overflow gate + shot see the
 // live layout (headless has no GPS/compass → 0°, which used to hide a rotated-container overflow).
 const KYIV = { lat: 50.45, lng: 30.52, approx: true };
@@ -30,11 +32,12 @@ const bodyLabel = (t, k) => T(t, "b" + k[0].toUpperCase() + k.slice(1));
 // N/E/S/W hug the rim; N is red like a compass needle.
 const CARDINALS = [{ label: "Пн", angle: 0, cls: "text-sm font-bold text-error" }, { label: "Сх", angle: 90 }, { label: "Пд", angle: 180 }, { label: "Зх", angle: 270 }];
 
-// Polaris — a crafted 4-point star with a soft glow. Blue-periwinkle so it reads as a STAR (not a shaded
-// planet sphere) and stays visible on both themes; a faint neutral outline defines it on white.
-const PoleStar = ({ size = 15 }) => html`<span class="relative inline-block align-middle" style=${`width:${size}px;height:${size}px`}>
-  <span class="absolute inset-0" style="background:radial-gradient(circle,rgba(138,162,255,.55),transparent 66%)"></span>
-  <svg viewBox="0 0 24 24" class="relative block" style=${`width:${size}px;height:${size}px`}><path d="M12 1.4l1.95 8.15L22 12l-8.05 2.45L12 22.6l-1.95-8.15L2 12l8.05-2.45z" fill="#8AA2FF" stroke="rgba(90,90,110,.35)" stroke-width="0.6"/></svg>
+// Polaris — a crafted 4-point star with a soft glow. It wears the farm's COOL pole (--app-accent-2, the
+// second mark) so it reads as a star beside the amber sun, not a shaded planet sphere; a faint ink outline
+// (currentColor, so it flips with the theme) defines it on paper.
+const PoleStar = ({ size = 15 }) => html`<span class="relative inline-block align-middle text-base-content" style=${`width:${size}px;height:${size}px`}>
+  <span class="absolute inset-0" style="background:radial-gradient(circle,color-mix(in oklch,var(--app-accent-2) 55%,transparent),transparent 66%)"></span>
+  <svg viewBox="0 0 24 24" class="relative block" style=${`width:${size}px;height:${size}px`}><path d="M12 1.4l1.95 8.15L22 12l-8.05 2.45L12 22.6l-1.95-8.15L2 12l8.05-2.45z" style="fill:var(--app-accent-2)" stroke="currentColor" stroke-opacity="0.35" stroke-width="0.6"/></svg>
 </span>`;
 
 // The dial's cosmic frame: a horizon ring + dashed altitude circles (30° / 60°) + a zenith point, and a
@@ -87,13 +90,13 @@ export function sun({ S, openScreen, closeScreen }) {
       ${screen === "globe" ? html`<${Globe} marker=${tmp ? { lat: tmp.lat, lon: tmp.lng } : null} focus=${focus} spin=${!tmp} onPick=${({ lat, lon, name }) => setTmp({ lat, lng: lon, name })} height=${300} />` : null}
       <div class="text-center min-h-10">
         <div class="font-semibold">${tmp?.name || T(t, "tapGlobe")}</div>
-        <div class="text-xs text-muted tabular-nums">${tmp ? `${tmp.lat.toFixed(2)}°, ${tmp.lng.toFixed(2)}°` : ""}</div>
+        <div class=${`${LABEL} text-muted tabular-nums`}>${tmp ? `${tmp.lat.toFixed(2)}°, ${tmp.lng.toFixed(2)}°` : ""}</div>
       </div>
       ${/* NOT a Segmented: these are JUMPS, not a one-of-N choice. The picked value is any point on the
            globe, so most of the time none of the five is the value — a strip whose active pill is usually
            nowhere is a strip lying about its own state. They stay a wrapping palette of raised chips. */""}
       <div class="flex flex-wrap gap-1.5 justify-center">${PRESETS.map(([n, la, lo]) => html`<button class="btn btn-xs rounded-full" data-city=${n} key=${n} onClick=${() => { setTmp({ lat: la, lng: lo, name: n }); setFocus({ lat: la, lon: lo }); }}>${n}</button>`)}</div>
-      <button id="pick-here" class="btn btn-primary rounded-2xl gap-2" disabled=${!tmp} onClick=${() => { setPicked(tmp); closeScreen(); }}>${Icon("lucide:map-pin")}${T(t, "pickHere")}</button>
+      <button id="pick-here" class="btn btn-primary gap-2" disabled=${!tmp} onClick=${() => { setPicked(tmp); closeScreen(); }}>${Icon("lucide:map-pin")}${T(t, "pickHere")}</button>
     </div>
   <//>`;
 
@@ -133,26 +136,28 @@ export function sun({ S, openScreen, closeScreen }) {
     { label: "sunset", min: minOfDay(times.sunset) },
   ];
 
-  return html`<div class="flex flex-col gap-4 items-center">
+  return html`<div class="flex flex-col gap-[var(--ms-gap)] items-center" data-located=${ready ? "yes" : "no"} data-picked=${picked ? "yes" : "no"} data-heading=${heading == null ? "no" : "yes"}>
     <!-- data-live marks the dial as heading-bearing: display:contents, so it is a claim about state and
          not a box. Without a heading the dial sits at 0° and its rotated bounding box — the thing that
          actually overflows — never exists for a gate to measure. -->
     <div data-live=${heading == null ? null : true} class="contents">
       <${SkyDial} size=${360} rotate=${-(heading || 0)} marks=${marks} rim=${CARDINALS} center=${center}
-        overlay=${html`<${Fragment}>${SKY_RINGS}<div class="absolute left-1/2 -top-1 -translate-x-1/2 text-base-content/50">${Icon("lucide:chevron-up", "text-xl")}</div></${Fragment}>`} />
+        overlay=${html`<${Fragment}>${SKY_RINGS}<div class="absolute left-1/2 -top-1 -translate-x-1/2 text-muted">${Icon("lucide:chevron-up", "text-xl")}</div></${Fragment}>`} />
     </div>
 
-    ${heading == null ? html`<div class="text-xs text-muted flex items-center gap-1.5">${Icon("lucide:compass")}${needPerm ? "" : T(t, "noCompass")}</div>` : null}
-    ${needPerm ? html`<button id="grant" class="btn btn-primary btn-sm rounded-2xl gap-2" onClick=${grant}>${Icon("lucide:compass")}${T(t, "enableCompass")}</button>` : null}
+    ${/* the status lines under the dial are mono micro-labels — one idiom, both themes (text-muted is the
+         designed muted ink; base-content/50-65 failed on paper) */""}
+    ${heading == null ? html`<div class=${`${LABEL} text-muted flex items-center gap-1.5`}>${Icon("lucide:compass")}${needPerm ? "" : T(t, "noCompass")}</div>` : null}
+    ${needPerm ? html`<button id="grant" class="btn btn-primary btn-sm gap-2" onClick=${grant}>${Icon("lucide:compass")}${T(t, "enableCompass")}</button>` : null}
     <div class="flex flex-col items-center gap-1.5">
-      <button id="open-globe" class="btn btn-ghost btn-sm rounded-2xl gap-2" onClick=${openGlobe}>${Icon("lucide:globe")}${T(t, "pickOnGlobe")}</button>
+      <button id="open-globe" class="btn btn-ghost btn-sm gap-2" onClick=${openGlobe}>${Icon("lucide:globe")}${T(t, "pickOnGlobe")}</button>
       ${picked
-        ? html`<button id="clear-pick" class="text-xs text-primary flex items-center gap-1" onClick=${() => setPicked(null)}>${Icon("lucide:map-pin")}${picked.name || `${picked.lat.toFixed(1)}°, ${picked.lng.toFixed(1)}°`} · ${T(t, "myLocation")}</button>`
-        : ready ? (pos?.approx ? html`<div class="text-xs text-base-content/70">${T(t, "approxKyiv")}</div>` : null)
-        : html`<div class="text-xs text-muted flex items-center gap-1.5">${Icon("lucide:map-pin")}${T(t, "locating")}</div>`}
+        ? html`<button id="clear-pick" class=${`${LABEL} text-primary flex items-center gap-1`} onClick=${() => setPicked(null)}>${Icon("lucide:map-pin")}${picked.name || `${picked.lat.toFixed(1)}°, ${picked.lng.toFixed(1)}°`} · ${T(t, "myLocation")}</button>`
+        : ready ? (pos?.approx ? html`<div class=${LABEL}>${T(t, "approxKyiv")}</div>` : null)
+        : html`<div class=${`${LABEL} text-muted flex items-center gap-1.5`}>${Icon("lucide:map-pin")}${T(t, "locating")}</div>`}
     </div>
 
-    ${polarisAlt != null ? html`<div data-polaris-info class="flex items-center gap-1.5 text-xs text-base-content/65 font-mono tabular-nums"><${PoleStar} size=${13} />${T(t, "bPolaris")} · ${polarisAlt}°</div>` : null}
+    ${polarisAlt != null ? html`<div data-polaris-info class=${`${LABEL} text-muted flex items-center gap-1.5 tabular-nums`}><${PoleStar} size=${13} />${T(t, "bPolaris")} · ${polarisAlt}°</div>` : null}
 
     ${ready ? html`<${TimeScale} value=${scrub} now=${now.getHours() * 60 + now.getMinutes()} onChange=${setScrub} t=${t}
       sunrise=${minOfDay(times.sunrise)} sunset=${minOfDay(times.sunset)} anchors=${anchors} />` : null}
