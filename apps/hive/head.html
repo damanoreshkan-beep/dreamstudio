@@ -1,3 +1,15 @@
+  <link rel="stylesheet" href="leaflet.css">
+  <style>
+    /* THE MAP IN THIS INK. OpenStreetMap's tiles are pale paper; inverted and desaturated they become the
+       farm's ground — near-black streets-as-light — with the hue rotated back so water and parks keep
+       their sense. The box is a well in the page and Leaflet draws no chrome of its own inside it. On the
+       paper theme the tiles stay as OSM drew them, only quieter: a dark map on a light page is a hole. */
+    .hv-map{background:#0A0A0D;font-family:var(--font-mono)}
+    .hv-map .leaflet-tile{filter:invert(1) hue-rotate(180deg) saturate(.25) brightness(.82) contrast(1.05)}
+    [data-theme="signal-light"] .hv-map{background:#ECE9E1}
+    [data-theme="signal-light"] .hv-map .leaflet-tile{filter:saturate(.35) brightness(.98)}
+    .hv-map .leaflet-container{outline:0}
+  </style>
   <style>
     /* The living comb. Every motion is transform/opacity (compositor-only) and every transition names its
        property. SVG transform-origin is browser-divergent unless pinned, so every transformed group pins

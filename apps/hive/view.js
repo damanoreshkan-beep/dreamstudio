@@ -18,7 +18,6 @@ import { useStore } from "@nanostores/preact";
 import { atom } from "nanostores";
 import { T } from "/_rt/i18n.js";
 import { Panel, Island, Sheet, Stage } from "/_rt/ui.js";
-import { Globe } from "/_rt/globe.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { shell, ERR } from "/_rt/shell.js";
 import { gate } from "/_rt/gate.js";
@@ -517,8 +516,6 @@ export function listView({ S, t, toast, screen, openScreen, closeScreen }) {
   const oui = useStore($oui);
   const loc = useStore(S.locale);
   const look = useStore($look);
-  const sel = field.find((d) => d.addr === target) || null;
-  const mine = look && sel && look.addr === sel.addr ? look : null;
   const copied = useStore($copied);
   useEffect(loadOui, []);
   // A tap does BOTH: it aims the hunt at this find (the row is the only way into that screen) and puts the
@@ -545,36 +542,23 @@ export function listView({ S, t, toast, screen, openScreen, closeScreen }) {
       <${Reason} t=${t} />
     <//>
 
-    ${/* The selected find, and the one question we can ask about it. The button acts on the SELECTION rather
-         than sitting in every row: a row is already a button (tap = copy + aim), and a control inside a
-         control is neither tappable nor announceable. The verdict lives here too — "nobody surveyed this
-         transmitter" and "the lookup is broken" are different sentences and the app says which. */""}
-    ${sel
-      ? html`<${Panel} title=${T(t, "checkTitle")}>
-        <div data-check-row data-verdict=${mine?.state === "done" ? (mine.v.found ? "found" : mine.v.reason) : mine?.state === "asking" ? "asking" : ""}
-          class="flex items-center gap-[var(--ms-gap)] min-w-0">
-          <span class="flex-1 min-w-0 truncate">${labelOf(sel, t)}</span>
-          <button data-check class="btn btn-primary rounded-full shrink-0" disabled=${mine?.state === "asking"}
-            onClick=${() => askAbout(sel, field, () => openScreen("where"))}>
-            ${T(t, mine?.state === "asking" ? "asking" : "check")}
-          </button>
-        </div>
-        ${mine?.state === "done" && !mine.v.found
-          ? html`<div data-verdict-line class="text-sm text-muted">${T(t, "no_" + mine.v.reason)}</div>`
-          : null}
-        ${mine?.state === "done" && mine.v.found
-          ? html`<button data-open-where class="text-sm text-left underline decoration-dotted" onClick=${() => openScreen("where")}>${T(t, "showOnGlobe")}</button>`
-          : null}
-      <//>`
-      : null}
-
     <${Panel} title=${T(t, "signal")}>
       <div data-live data-copied=${copied?.addr || ""} data-copied-lines=${copied?.lines || 0} data-copied-ok=${copied?.ok ? "1" : "0"} class="flex flex-col">
         ${field.length === 0 ? html`<div class="text-base-content/70 text-sm">${T(t, "nothingYet")}</div>` : null}
-        ${field.map((d) => html`<button key=${d.addr} data-dev=${d.addr} data-kind=${d.kind}
+        ${/* Every row carries its own «Перевірити» (owner: "кнопка одразу має бути на айтемі кожному"). The row
+             is two SIBLING buttons, never one inside the other: the wide one copies + aims (data-dev, the
+             e2e's handle), the round one asks the world where this transmitter was surveyed. Its verdict
+             lands under the same row — "nobody surveyed it" and "the lookup is broken" are different
+             sentences and the row says which; a found place lights the pin and opens the map. */""}
+        ${field.map((d) => {
+          const lk = look && look.addr === d.addr ? look : null;
+          const verdict = lk?.state === "done" ? (lk.v.found ? "found" : lk.v.reason) : lk?.state === "asking" ? "asking" : "";
+          return html`<div key=${d.addr} data-row=${d.addr} data-verdict=${verdict} class="border-b border-base-content/10 last:border-0">
+          <div class="flex items-center gap-1 min-w-0">
+          <button data-dev=${d.addr} data-kind=${d.kind}
           aria-pressed=${String(d.addr === target)}
           onClick=${() => takeIt(d)}
-          class="ms-reveal text-left py-2 border-b border-base-content/10 last:border-0 rounded-[var(--ms-r-in)] transition-colors hover:bg-base-content/5">
+          class="ms-reveal flex-1 min-w-0 text-left py-2 rounded-[var(--ms-r-in)] transition-colors hover:bg-base-content/5">
           <span class="flex items-center gap-2 min-w-0">
             ${Icon(KIND_ICON[d.kind], `text-[length:var(--ms-icon)] shrink-0 ${d.kind === "ble" ? "text-[var(--app-accent)]" : "text-base-content/70"}`)}
             <span class="flex-1 min-w-0 truncate">${labelOf(d, t)}</span>
@@ -600,36 +584,73 @@ export function listView({ S, t, toast, screen, openScreen, closeScreen }) {
               ? html` · <span data-cellid>${[d.cid ? `CID ${d.cid}` : null, d.lac ? `LAC ${d.lac}` : null].filter(Boolean).join(" · ")}</span>`
               : null}
           </span>
-        </button>`)}
+          </button>
+          <button data-check=${d.addr} aria-label=${T(t, "check")} disabled=${verdict === "asking"}
+            class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${verdict === "found" ? "text-[var(--app-accent)]" : "text-base-content/70"}`}
+            onClick=${() => verdict === "found" ? openScreen("where") : askAbout(d, field, () => openScreen("where"))}>
+            ${Icon("lucide:map-pin", "text-xl")}
+          </button>
+          </div>
+          ${lk?.state === "done" && !lk.v.found
+            ? html`<div data-verdict-line class="pb-2 text-sm text-muted">${T(t, "no_" + lk.v.reason)}</div>`
+            : null}
+        </div>`;
+        })}
       </div>
     <//>
 
-    ${/* WHERE IT WAS SURVEYED — the answer as a place, not as two numbers. The halo is the accuracy the
-         database reported, drawn at the same scale as the dot so the reader sees the uncertainty instead of
-         being told it; the globe never spins under an answer. Coordinates stay in the readout because a
-         person copying them into a map needs them exactly. */""}
-    <${Sheet} id="where" open=${screen === "where"} onClose=${closeScreen} title=${T(t, "whereTitle")} icon="lucide:globe">
-      ${/* The globe is mounted only while the sheet is OPEN. A Sheet keeps its children in the DOM, and a
-           canvas that measures itself inside a hidden box takes a zero size: the projection came out at the
-           wrong scale and the accuracy halo landed a continent away from its own dot (measured on the see
-           pod, 2026-09-04). Mounting on open makes it measure the box it will actually be seen in. */""}
-      ${mine?.v?.found && screen === "where"
+    ${/* WHERE IT WAS SURVEYED — a real map (Leaflet on CARTO's dark tiles, in the farm's own ink), the amber
+         pin at the reported position and a circle of the SAME radius the database reported, so the reader
+         sees the uncertainty at true scale. The map is mounted only while the sheet is open: a Sheet keeps
+         its children in the DOM and a map measured inside a hidden box takes a zero size. */""}
+    <${Sheet} id="where" open=${screen === "where"} onClose=${closeScreen} title=${T(t, "whereTitle")} icon="lucide:map-pin">
+      ${look?.v?.found && screen === "where"
         ? html`<div data-where class="flex flex-col gap-[var(--ms-gap)]">
-          ${/* Literal colours, not tokens: these are canvas fillStyle values, and a canvas cannot read a CSS
-               custom property — an unresolvable string leaves the previous fill in place, which is how the
-               halo came out as a filled continent. The pair is the luminous amber at two alphas. */""}
-          <${Globe} points=${[
-            { lat: mine.v.lat, lon: mine.v.lon, r: 16, color: "rgba(242,184,75,.16)" },
-            { lat: mine.v.lat, lon: mine.v.lon, r: 5, color: "#F2B84B" },
-          ]} focus=${{ lat: mine.v.lat, lon: mine.v.lon }} spin=${false} height=${300} />
-          <div class="font-mono tabular-nums">${mine.v.lat.toFixed(5)}, ${mine.v.lon.toFixed(5)}</div>
-          <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">
-            ${T(t, "accuracy")} ±${Math.round(mine.v.accuracy || 0)} m · ${T(t, "source")} ${mine.v.source}
+          <${MapView} lat=${look.v.lat} lon=${look.v.lon} accuracy=${look.v.accuracy} />
+          <div class="flex items-baseline justify-between gap-2 min-w-0">
+            <span class="font-mono tabular-nums">${look.v.lat.toFixed(5)}, ${look.v.lon.toFixed(5)}</span>
+            <span class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted shrink-0">±${Math.round(look.v.accuracy || 0)} m · ${look.v.source}</span>
           </div>
+          ${/* The licence line is a term of the tiles, not decoration: OpenStreetMap's data is ODbL and asks
+               to be named wherever it is drawn. */""}
+          <div class="font-mono text-[length:var(--ms-label)] text-muted">© OpenStreetMap contributors</div>
         </div>`
         : html`<div class="text-sm text-muted">${T(t, "no_unknown")}</div>`}
     <//>
   </div>`;
+}
+
+// The luminous amber, literal: Leaflet paints SVG through style attributes that cannot read a CSS custom
+// property, and the marker must read as a MARK against tiles that are not ours.
+const PIN = "#F2B84B";
+
+// A place on a map, from one lazy import. Leaflet is vendored (apps/hive/leaflet.vendor.js, the self-contained
+// esm.sh bundle) so the service worker can hold it and the gate never loads it — the import happens only
+// when the sheet opens. The tiles are OpenStreetMap's own — the one basemap that still answers without a
+// key (CARTO's dark set watermarks "API KEY REQUIRED" now, measured 2026-09-04) — turned into this farm's
+// ink by a CSS filter in head.html. No Leaflet chrome at all: pinch and drag are the controls, and the
+// licence line is ours (Leaflet's own carries a flag emoji, banned farm-wide). `invalidateSize` after the
+// sheet's own transition: the box is measured mid-slide otherwise and the tiles seam.
+function MapView({ lat, lon, accuracy }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    let map = null, alive = true, timer = 0;
+    (async () => {
+      const mod = await import("./leaflet.vendor.js");
+      const L = mod.default ?? mod;
+      if (!alive || !ref.current) return;
+      map = L.map(ref.current, { zoomControl: false, attributionControl: false, zoomSnap: 0.5 });
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+      const r = Math.max(accuracy || 0, 25);
+      L.circle([lat, lon], { radius: r, color: PIN, weight: 1, opacity: .6, fillColor: PIN, fillOpacity: .14 }).addTo(map);
+      L.circleMarker([lat, lon], { radius: 6, color: "#0A0A0D", weight: 2, fillColor: PIN, fillOpacity: 1 }).addTo(map);
+      // The zoom follows the radius so the circle is always on screen and never a dot: ~1/4 of the box.
+      map.fitBounds(L.latLng(lat, lon).toBounds(r * 2.4), { animate: false });
+      timer = setTimeout(() => { if (alive && map) { map.invalidateSize(); ref.current?.setAttribute("data-map-ready", "1"); } }, 380);
+    })();
+    return () => { alive = false; clearTimeout(timer); map?.remove(); };
+  }, [lat, lon, accuracy]);
+  return html`<div ref=${ref} data-map class="hv-map w-full rounded-[var(--ms-r)] overflow-hidden sf-inset bg-black" style="height:min(60dvh, 380px)"></div>`;
 }
 
 // ── hunt ──────────────────────────────────────────────────────────────────────────────────────────────
