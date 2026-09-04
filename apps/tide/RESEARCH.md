@@ -235,3 +235,18 @@ jump to the target and finish synchronously; visible → drive it with a **timer
 starved of frames while still reporting itself visible, and elapsed-time maths makes a late timer snap the
 fraction to 1 instead of stalling. `packages/gates/preflight.mjs` now fails any app whose `.volume` fade is
 driven by rAF — dry-run across all 73 apps first, where it matched exactly once: this bug.
+
+## Design refresh 2026-09-04
+
+State map of Listen (fit): **idle** (`data-state=idle`) — the current strip, the favourites rail in the void,
+the transport with the station · **connecting / reconnecting** — the mono state line in the void ·
+**live** — artist · LIVE over the title (`data-now=yes`) · **error** — the state line in error ink ·
+**fullscreen** (`data-fs=yes`) — the field alone · **stations / sound / more** — the three Sheets.
+
+Changed: the current's colour no longer WRITES `--app-accent` (the farm's pair of light is farm-wide; the
+override repainted every bloom and rim per current). The hue number stays the current's data; saturation and
+lightness are the theme's (`apps/tide/head.html`: `--tide-s`/`--tide-l`, deeper on paper) — the strip dots
+take `hsl(H var(--tide-s) var(--tide-l))`, the transport and picker dots are `.tide-dot` reading `--tide-hue`
+off the root. The two colour traps (`text-[var(--ms-label)]`) are the length form; the sheets' `text-xs`
+meta is the label token; the field's ground is `bg-base-100`. `inkFor()` still hands the shader an RGB —
+that is the canvas, not the DOM.

@@ -1,0 +1,11 @@
+  <style>
+    /* THE CURRENT'S COLOUR — a MARK (the dots on the strip, under the transport's title, in the station
+       picker). The hue is the current's own DATA (rt/tide.js gives each current a hue); how vivid and how
+       light it is belongs to the THEME: a 58 %-light hue reads on black, and on paper it deepens so the dot
+       stays a mark rather than a pastel smear. The view writes only `--tide-hue` on its root; the colour is
+       composed here, so it flips with the theme instead of being fixed by JS at render. The farm's
+       --app-accent is never written per app (rt/theme-lum.css) — the current no longer overrides it. */
+    :root{--tide-s:60%;--tide-l:58%}
+    [data-theme="signal-light"]{--tide-s:55%;--tide-l:40%}
+    .tide-dot{background:hsl(var(--tide-hue) var(--tide-s) var(--tide-l))}
+  </style>

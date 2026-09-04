@@ -9,7 +9,7 @@ import { atom } from "nanostores";
 import { persistentAtom } from "@nanostores/persistent";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Sheet, Segmented, Island } from "/_rt/ui.js";
+import { Sheet, Segmented, Island, Panel, Row, Slider } from "/_rt/ui.js";
 import { gate } from "/_rt/gate.js";
 import { OOK_FREQS } from "/_rt/ook.js";
 import { usbSupported, USB_FILTERS } from "/_rt/hackrf.js";
@@ -17,6 +17,9 @@ import { createUsbSession } from "/_rt/usbsession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+// mono meta line at the micro-label size (`length:` — the bare form is a colour to Tailwind v4); no uppercase,
+// because these lines carry units ("MHz") that must keep their case
+const META = "font-mono text-[length:var(--ms-label)] tracking-wide tabular-nums";
 const fMhz = (hz) => (hz / 1e6).toFixed(2);
 const JC = (init) => ({ encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return init; } } });
 const uid = () => "s" + Date.now().toString(36) + Math.floor(performance.now() % 1000);
@@ -79,58 +82,60 @@ export function subcloneView({ S, screen, openScreen, closeScreen, undo }) {
 
   if (!connected) {
     const supported = usbSupported() && usbOk;
-    return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto">
-      <div class="w-20 h-20 rounded-3xl grid place-items-center bg-primary/12 text-primary sf-e2">${Icon("lucide:radio-receiver", "text-4xl")}</div>
+    return html`<div data-connected="no" class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto">
+      <div class="w-20 h-20 rounded-[var(--ms-r)] grid place-items-center bg-primary/12 text-primary sf-e2">${Icon("lucide:radio-receiver", "text-4xl")}</div>
       <h2 class="text-2xl font-semibold">${T(t, "connectTitle")}</h2>
       <p class="text-base-content/70 leading-relaxed">${T(t, "connectBody")}</p>
       ${supported
-        ? html`<button id="connect" data-connect class="btn btn-primary btn-lg rounded-2xl gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
-        : html`<div class="alert bg-warning/12 text-warning rounded-2xl text-sm justify-center gap-2">${Icon("lucide:triangle-alert", "shrink-0")}${T(t, "noUsb")}</div>`}
+        ? html`<button id="connect" data-connect class="btn btn-primary btn-lg gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
+        : html`<div class="alert bg-warning/12 text-warning rounded-[var(--ms-r)] text-sm justify-center gap-2">${Icon("lucide:triangle-alert", "shrink-0")}${T(t, "noUsb")}</div>`}
     </div>`;
   }
 
   const recording = rec.state === "recording";
   return html`<${Fragment}>
-    <div class="@container flex flex-col gap-3 max-w-[440px] mx-auto w-full pb-32">
+    <div class="@container flex flex-col gap-[var(--ms-gap)] max-w-[440px] mx-auto w-full pb-32" data-connected="yes" data-rec=${rec.state} data-tx=${tx ? "on" : "off"}>
       <!-- frequency selector -->
       <div class="pt-0.5"><${Segmented} attr="data-freq" size="sm"
         items=${OOK_FREQS.map((f) => ({ id: String(f), label: fMhz(f) }))}
         value=${String(freq)} onChange=${(id) => setFreq(Number(id))} /></div>
 
       <!-- just-captured signal, pending save. Surfaces carry the distinction now that the outlines are
-           gone: the pending capture is lifted (sf-e3 + the accent tint), "nothing captured" is the WELL a
-           signal will land in (sf-inset), and the saved signals below are objects on the page (sf-e2). -->
-      ${rec.state === "captured" && rec.cap ? html`<div class="rounded-3xl bg-primary/5 sf-e3 p-4 flex flex-col gap-3" data-captured>
+           gone: the pending capture is a Panel lifted a rung (sf-e3), "nothing captured" is the WELL a
+           signal will land in (sf-inset), and the saved signals below are Panels on the page (sf-e2). -->
+      ${rec.state === "captured" && rec.cap ? html`<${Panel} className="sf-e3" data-captured>
         <div class="flex items-center gap-2 text-sm font-semibold">${Icon("lucide:radio-receiver", "text-primary")}${T(t, "capturedTitle")}</div>
-        <div class="flex items-center gap-4 text-xs text-base-content/70 font-mono">
+        <div class=${`flex items-center gap-4 ${META} text-base-content/70`}>
           <span>${rec.cap.entries} ${T(t, "entries")}</span><span>×${rec.cap.repeats} ${T(t, "repeats")}</span>
         </div>
         <div class="flex gap-2">
-          <input value=${nm} onInput=${(e) => setNm(e.target.value)} placeholder=${T(t, "namePlaceholder")} class="input input-sm input-bordered flex-1 rounded-xl" />
-          <button data-save class="btn btn-sm btn-primary rounded-xl gap-1.5" onClick=${() => { saveCap(nm); setNm(""); }}>${Icon("lucide:bookmark-plus")}${T(t, "save")}</button>
+          <input value=${nm} onInput=${(e) => setNm(e.target.value)} placeholder=${T(t, "namePlaceholder")} class="input input-sm flex-1" />
+          <button data-save class="btn btn-sm btn-primary gap-1.5" onClick=${() => { saveCap(nm); setNm(""); }}>${Icon("lucide:bookmark-plus")}${T(t, "save")}</button>
           <button data-discard aria-label=${T(t, "discard")} class="btn btn-sm btn-ghost btn-circle" onClick=${discard}>${Icon("lucide:x", "text-lg")}</button>
         </div>
-      </div>` : rec.state === "empty" ? html`<div class="flex items-center gap-2 text-sm text-muted sf-inset rounded-2xl px-4 py-3" data-empty>${Icon("lucide:radio-receiver")}${T(t, "nothingCaptured")}</div>` : null}
+      <//>` : rec.state === "empty" ? html`<div class="flex items-center gap-2 text-sm text-muted sf-inset rounded-[var(--ms-r)] px-[var(--ms-pad)] py-3" data-empty>${Icon("lucide:radio-receiver")}${T(t, "nothingCaptured")}</div>` : null}
 
       <!-- saved signals -->
       ${saved.length ? html`<div class="flex flex-col gap-1.5" data-live data-saved-list>
-        ${saved.map((s) => { const sending = tx === s.id; return html`<div key=${s.id} data-saved class="flex items-center gap-3 rounded-2xl sf-raised sf-e2 px-4 py-2.5">
+        ${saved.map((s) => { const sending = tx === s.id; return html`<${Panel} key=${s.id} data-saved className="py-2.5"><${Row}>
           <div class="flex-1 min-w-0 flex flex-col">
             <span class="font-medium truncate">${s.name}</span>
-            <span class="font-mono text-[0.7rem] text-base-content/55 tabular-nums">${fMhz(s.freq)} MHz · ${s.entries}</span>
+            <span class=${`${META} text-muted`}>${fMhz(s.freq)} MHz · ${s.entries}</span>
           </div>
           <button data-transmit=${s.id} aria-label=${T(t, "transmit")} disabled=${sending} onClick=${() => transmit(s)} class=${`btn btn-sm shrink-0 gap-1.5 ${sending ? "btn-primary" : "btn-outline text-primary"}`}>${Icon("lucide:radio-tower", `text-base ${sending ? "animate-pulse" : ""}`)}<span class="@max-[340px]:hidden">${T(t, sending ? "transmitting" : "transmit")}</span></button>
-          <button data-del aria-label=${T(t, "del")} data-haptic="bump" class="btn btn-ghost btn-sm btn-circle text-base-content/50 shrink-0" onClick=${() => del(s, undo)}>${Icon("lucide:trash-2", "text-lg")}</button>
-        </div>`; })}
-      </div>` : rec.state !== "captured" ? html`<div class="flex flex-col items-center text-base-content/55 py-10 gap-2 text-center px-6">${Icon("lucide:radio-receiver", "text-3xl")}<span class="text-sm">${T(t, "savedEmpty")}</span></div>` : null}
+          <button data-del aria-label=${T(t, "del")} data-haptic="bump" class="btn btn-ghost btn-sm btn-circle text-muted shrink-0" onClick=${() => del(s, undo)}>${Icon("lucide:trash-2", "text-lg")}</button>
+        <//><//>`; })}
+      </div>` : rec.state !== "captured" ? html`<div class="flex flex-col items-center text-muted py-10 gap-2 text-center px-6">${Icon("lucide:radio-receiver", "text-3xl")}<span class="text-sm">${T(t, "savedEmpty")}</span></div>` : null}
     </div>
 
-    <!-- record island: the big capture button + freq + settings/power -->
-    <${Island} pinned data-player className="w-full max-w-[440px] flex items-center gap-3 rounded-[1.5rem] p-2">
-        <button id="record" data-recording=${recording} aria-label=${T(t, recording ? "recording" : "record")} onClick=${record} class=${`w-12 h-12 rounded-full grid place-items-center sf-e3 active:scale-95 transition shrink-0 ${recording ? "bg-error text-error-content animate-pulse" : "bg-primary text-primary-content"}`}>${Icon(recording ? "lucide:square" : "lucide:circle-dot", "text-2xl")}</button>
-        <span class="flex-1 min-w-0 text-sm font-medium truncate">${T(t, recording ? "recording" : "record")} <span class="text-base-content/70 font-mono text-xs">${fMhz(freq)}</span></span>
+    <!-- record island: the big capture button + freq + settings/power. The record key is not a play/pause
+         (it captures), so it stays the app's own control; it names its transition (the material is a
+         box-shadow pair, so an unnamed transition would melt sf-e3 on every press). -->
+    <${Island} pinned data-player className="w-full max-w-[440px] flex items-center gap-[var(--ms-gap)] p-[calc(var(--ms-pad)/2)]">
+        <button id="record" data-recording=${recording} aria-label=${T(t, recording ? "recording" : "record")} onClick=${record} class=${`w-[var(--ms-ctl)] h-[var(--ms-ctl)] rounded-full grid place-items-center sf-e3 active:scale-95 transition-transform shrink-0 ${recording ? "bg-error text-error-content animate-pulse" : "bg-primary text-primary-content"}`}>${Icon(recording ? "lucide:square" : "lucide:circle-dot", "text-2xl")}</button>
+        <span class="flex-1 min-w-0 text-sm font-medium truncate">${T(t, recording ? "recording" : "record")} <span class=${`${META} text-base-content/70`}>${fMhz(freq)}</span></span>
         <button data-settings aria-label=${T(t, "settings")} aria-expanded=${screen === "rf"} class="btn btn-circle btn-ghost btn-sm shrink-0" onClick=${() => { buzz(); openScreen("rf"); }}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
-        <button data-disconnect aria-label=${T(t, "disconnect")} class="btn btn-circle btn-ghost btn-sm text-base-content/55 shrink-0" onClick=${() => { if (!demo) disconnect(); }}>${Icon("lucide:power", "text-lg")}</button>
+        <button data-disconnect aria-label=${T(t, "disconnect")} class="btn btn-circle btn-ghost btn-sm text-muted shrink-0" onClick=${() => { if (!demo) disconnect(); }}>${Icon("lucide:power", "text-lg")}</button>
       <//>
     
 
@@ -147,12 +152,12 @@ function del(s, undo) {
 
 function SettingsSheet({ open, onClose, t, demo }) {
   const g = useStore($txGain), reps = useStore($repeats);
+  // Both ranges are the kit's Slider; the value rides the caption as a mono count ("REPEATS · ×5") because the
+  // kit prints no value of its own. The caption under the repeats slider was hint text on a working control
+  // (copy.md) and is gone — a toggle device is set to 1 by moving the slider, which the slider already says.
   return html`<${Sheet} id="rfsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
-    <div class="flex flex-col gap-1"><div class="flex items-center justify-between text-xs"><span class="uppercase tracking-wide text-base-content/70">${T(t, "txRepeats")}</span><span class="font-mono tabular-nums text-muted">×${reps}</span></div>
-      <input type="range" min="1" max="16" step="1" value=${reps} class="range range-xs range-primary" aria-label=${T(t, "txRepeats")} data-repeats onInput=${(e) => $repeats.set(Number(e.target.value))} />
-      <span class="text-[0.7rem] text-base-content/55 leading-snug">${T(t, "txRepeatsHint")}</span></div>
-    <div class="flex flex-col gap-1"><div class="flex items-center justify-between text-xs"><span class="uppercase tracking-wide text-base-content/70">${T(t, "txGain")}</span><span class="font-mono tabular-nums text-muted">${g} dB</span></div>
-      <input type="range" min="0" max="47" step="1" value=${g} class="range range-xs range-primary" aria-label=${T(t, "txGain")} onInput=${(e) => $txGain.set(Number(e.target.value))} /></div>
+    <${Slider} id="reps" attr="data-repeats" label=${`${T(t, "txRepeats")} · ×${reps}`} min=${1} max=${16} step=${1} value=${reps} onInput=${(v) => $repeats.set(v)} />
+    <${Slider} id="gain" attr="data-gain" label=${`${T(t, "txGain")} · ${g} dB`} min=${0} max=${47} step=${1} value=${g} onInput=${(v) => $txGain.set(v)} />
     <p class="text-xs text-muted leading-relaxed">${T(t, "ownNote")}</p>
     ${!demo ? html`<button data-disconnect class="btn btn-ghost btn-sm gap-2 text-muted self-start" onClick=${() => { disconnect(); onClose(); }}>${Icon("lucide:power")}${T(t, "disconnect")}</button>` : null}
   </${Sheet}>`;

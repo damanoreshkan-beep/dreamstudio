@@ -202,3 +202,17 @@ This is the farm's first browser-free harness for the actual WASM engine — mea
 - That a **stock WebView M140** decodes Telegram Ogg-Opus and honours `AudioContext({sampleRate:16000})`.
 - WebView Cache-Storage origin vs the installed PWA's (one may not see the other's cached model).
 - sherpa `wasm/web` binary size (no prebuilt release of that exact target; must build to learn).
+
+## Design refresh 2026-09-04
+
+State map of Convert (fit): **idle** (`data-phase=idle`) — the language strip, the empty state with the model
+chip (get / cached / downloading) and the pick verb · **working** — the stage Panel with three decoding lines
+and the percent · **result** — the Panel with the detected line, the transcript, copy / share / again ·
+**error** — the Panel with the instruction, retry, the model chip · **audio** (`[data-audio]`) — the clip row
+above any of them · **log** — the Sheet. The root carries `data-phase` / `data-lang-pick` / `data-models`.
+
+Changed: all six micro-labels were the colour trap (`text-[var(--ms-label)]`) and rendered at body size —
+one `LBL` constant (length form, colour left to the caller so success/warning ink still applies). The
+working state renders three `Scramble` lines (the old `lines=4` was not a prop the component has, so it drew
+one bar); the ambiguity note is a sentence, so it is `text-sm text-warning` rather than a micro-label; the
+log's `0.7rem` is the label token. The empty state's `promptHint` stays — it is the screen, not a caption.
