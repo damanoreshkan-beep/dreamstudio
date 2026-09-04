@@ -1,0 +1,15 @@
+  <style>
+    /* THE ORB — the one object on the screen, so it is the one place the app's accent becomes a surface.
+       A sphere shaded from a lit near-white on the upper-left through the accent to its own shadow, all
+       derived from --app-accent by color-mix (no hex: the pair of light is the product's, not this app's).
+       The glow is the material's own bloom — --lm-bloom-hi is the accent at 55 % at night and the deep
+       cool pole on paper, where a wide amber glow would be a smear — so it inverts with the theme for free.
+       will-change:transform stays inline: the rAF loop scales this element sixty times a second. */
+    .br-orb{
+      background:radial-gradient(circle at 38% 32%,
+        color-mix(in oklch,var(--app-accent) 35%,white),
+        var(--app-accent) 56%,
+        color-mix(in oklch,var(--app-accent) 55%,black));
+      box-shadow:0 0 0 1px var(--lm-rim-hi),0 0 70px -6px var(--lm-bloom-hi);
+    }
+  </style>

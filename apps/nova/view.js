@@ -21,10 +21,13 @@ import { fetchJson } from "/_rt/feed.js";
 import { letterTile } from "/_rt/tile.js";
 import { scoreRepo, parseFunding } from "/_rt/underrated.js";
 import { session, MOCK_USER, login, logout, restore, star } from "/_rt/auth.js";
-import { Sheet } from "/_rt/ui.js";
+import { Sheet, Panel } from "/_rt/ui.js";
+import { Scramble } from "/_rt/skeleton.js";
 import { Finale } from "./finale.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
+// the one micro-label recipe (design.md): mono, the density token — repo slugs, counts, the account line
+const LABEL = "font-mono text-[length:var(--ms-label)] tracking-wider";
 const repoKey = (d) => `${d.owner}/${d.repo}`;
 const num = (n) => { const v = Number(n) || 0; return v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : String(v); };
 const avatarSized = (u, s = 160) => (u ? `${u}${u.includes("?") ? "&" : "?"}size=${s}` : "");
@@ -162,49 +165,55 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
 
   // ── signed-out hero ────────────────────────────────────────────────────────────────────────────────────
   if (!loggedIn) {
-    return html`<div class="min-h-[70vh] flex flex-col items-center justify-center text-center gap-6 px-8">
+    return html`<div data-nova data-auth="0" class="min-h-[70vh] flex flex-col items-center justify-center text-center gap-[calc(var(--ms-gap)*2)] px-8">
       <div class="relative">
-        <div class="absolute inset-0 blur-2xl opacity-40" style="background:radial-gradient(circle,var(--color-secondary),transparent 70%)"></div>
+        ${/* the star's bloom: the app's MARK colour as a glow behind a glyph — never behind text */ ""}
+        <div class="absolute inset-0 blur-2xl opacity-30" style="background:radial-gradient(circle,var(--app-accent),transparent 70%)"></div>
         <svg viewBox="0 0 24 24" class="relative w-16 h-16 text-primary" fill="currentColor"><path d="M12 1.6l2.6 6.9 7.4.4-5.8 4.6 2 7.1L12 17.9 5.8 20.6l2-7.1L2 8.9l7.4-.4z"/></svg>
       </div>
       <div class="space-y-2">
         <h1 class="text-2xl font-extrabold tracking-tight">${T(t, "heroTitle")}</h1>
         <p class="text-sm text-base-content/70 leading-relaxed max-w-xs mx-auto">${T(t, "heroBody")}</p>
       </div>
-      <button id="gh-login" class="btn btn-primary rounded-2xl gap-2 px-6" data-haptic="bump"
+      <button id="gh-login" class="btn btn-primary rounded-full gap-2 px-6" data-haptic="bump"
         onClick=${async () => { try { await login(); } catch (e) { if (e?.message !== "popup-closed") toast(T(t, "loginFailed")); } }}>
         ${Icon("lucide:github", "text-lg")} ${T(t, "signIn")}
       </button>
-      <p class="text-xs text-base-content/45 max-w-xs leading-relaxed">${T(t, "scopeNote")}</p>
+      <p class="text-sm text-muted max-w-xs leading-relaxed">${T(t, "scopeNote")}</p>
     </div>`;
   }
 
   // ── LIFTED tab — the separate list of everyone you've starred + the finale entry point ─────────────────
   if (tab?.id === "lifted") {
-    return html`<div class="flex flex-col gap-4">
+    return html`<div data-nova data-auth="1" data-tab="lifted" data-count=${supportedList.length} class="flex flex-col gap-[var(--ms-gap)]">
       <div>
         <h1 class="text-xl font-extrabold tracking-tight">${T(t, "liftedTitle")}</h1>
-        <p class="text-xs text-muted mt-0.5">${T(t, "liftedSub").replace("{n}", String(supportedList.length))}</p>
+        <p class="text-sm text-muted mt-0.5">${T(t, "liftedSub").replace("{n}", String(supportedList.length))}</p>
       </div>
       ${supportedList.length === 0
-        ? html`<div class="flex flex-col items-center text-center gap-3 py-16 px-6">
-            ${Icon("lucide:star", "text-4xl text-base-content/25")}
-            <p class="text-sm text-muted leading-relaxed max-w-xs">${T(t, "liftedEmpty")}</p>
+        // the runtime's own empty-state shape (render.js Empty): mascot hook + glyph + the words; the
+        // data-empty hook hangs the scatter decor behind it
+        ? html`<div data-empty class="flex flex-col items-center text-muted text-center gap-2 py-16 px-6">
+            <span data-mascot aria-hidden="true"></span>${Icon("lucide:star", "text-4xl")}
+            <p class="text-sm leading-relaxed max-w-xs">${T(t, "liftedEmpty")}</p>
           </div>`
         : html`<${Fragment}>
-            <button id="reveal" class="btn btn-primary rounded-2xl gap-2 w-full" data-haptic="bump" onClick=${() => openScreen("finale")}>
+            <button id="reveal" class="btn btn-primary rounded-full gap-2 w-full" data-haptic="bump" onClick=${() => openScreen("finale")}>
               ${Icon("lucide:sparkles")} ${T(t, "reveal")}
             </button>
-            <div class="flex flex-col gap-2.5">
-              ${supportedList.map((d) => html`<article data-lifted key=${repoKey(d)} class="card @container flex-row items-center gap-3 rounded-2xl bg-base-100 p-3">
-                <${Avatar} src=${avatarSized(d.avatar, 96)} seed=${d.owner} size=${42} />
-                <div class="flex-1 min-w-0">
-                  <div class="font-bold tracking-tight truncate">${d.name}</div>
-                  <a href=${d.url} target="_blank" rel="noopener" class="text-xs text-secondary font-mono truncate block">${repoKey(d)}</a>
+            <div class="flex flex-col gap-[var(--ms-gap)]">
+              ${/* a lifted developer is a Panel (the page extruded) — a flat card is invisible on a black page */ ""}
+              ${supportedList.map((d) => html`<${Panel}data-lifted key=${repoKey(d)}>
+                <div class="flex items-center gap-[var(--ms-gap)]">
+                  <${Avatar} src=${avatarSized(d.avatar, 96)} seed=${d.owner} size=${42} />
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold tracking-tight truncate">${d.name}</div>
+                    <a href=${d.url} target="_blank" rel="noopener" class=${`${LABEL} text-secondary truncate block`}>${repoKey(d)}</a>
+                  </div>
+                  <button data-unstar class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "unstar")} data-haptic="bump"
+                    disabled=${!!busy[repoKey(d)]} onClick=${() => toggleStar(d)}>${Icon("lucide:star", "text-warning")}</button>
                 </div>
-                <button data-unstar class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "unstar")} data-haptic="bump"
-                  disabled=${!!busy[repoKey(d)]} onClick=${() => toggleStar(d)}>${Icon("lucide:star", "text-warning")}</button>
-              </article>`)}
+              <//>`)}
             </div>
           </${Fragment}>`}
       ${/* The finale is MOUNTED by the routing atom, not by its own state: S.screen is history-backed, so the
@@ -216,11 +225,12 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
 
   // ── DISCOVER tab — the feed of underrated devs to lift (starred ones are filtered OUT) ─────────────────
   const visible = (devs || []).filter((d) => !isSupported(d));
-  return html`<div class="flex flex-col gap-4">
-    <header class="flex items-center gap-3 pt-1">
+  const feedState = devs == null ? "loading" : err && !devs.length ? "error" : visible.length === 0 ? "empty" : "list";
+  return html`<div data-nova data-auth="1" data-tab="discover" data-feed=${feedState} data-count=${visible.length} class="flex flex-col gap-[var(--ms-gap)]">
+    <header class="flex items-center gap-[var(--ms-gap)] pt-1">
       <${Avatar} src=${avatarSized(user.avatar, 96)} seed=${user.login} size=${36} />
       <div class="flex-1 min-w-0">
-        <div class="text-xs text-base-content/55 leading-none">${T(t, "signedInAs")}</div>
+        <div class=${`${LABEL} uppercase text-base-content/70 leading-none`}>${T(t, "signedInAs")}</div>
         <div class="font-semibold truncate">${user.name || user.login}</div>
       </div>
       <button class="btn btn-ghost btn-xs rounded-full shrink-0" onClick=${() => logout()}>${T(t, "signOut")}</button>
@@ -228,19 +238,27 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
 
     <div>
       <h1 class="text-xl font-extrabold tracking-tight">${T(t, "feedTitle")}</h1>
-      <p class="text-xs text-muted mt-0.5">${T(t, "feedSub")}</p>
+      <p class="text-sm text-muted mt-0.5">${T(t, "feedSub")}</p>
     </div>
 
     ${devs == null
-      ? html`<div class="flex flex-col gap-3" aria-hidden="true">${[0, 1, 2].map((i) => html`<div key=${i} class="skeleton h-40 rounded-3xl"></div>`)}</div>`
+      // the structure renders now: three card-shaped Panels with decoding slots where the values will land
+      ? html`<div class="flex flex-col gap-[var(--ms-gap)]" aria-hidden="true">${[0, 1, 2].map((i) => html`<${Panel} key=${i}>
+          <div class="flex items-start gap-[var(--ms-gap)]">
+            <span class="w-[52px] h-[52px] rounded-full sf-inset shrink-0"></span>
+            <div class="flex-1 min-w-0 flex flex-col gap-1.5 text-muted"><div class="font-bold"><${Scramble} len=${9} /></div><div class=${LABEL}><${Scramble} len=${18} /></div></div>
+          </div>
+          <div class="text-sm text-muted"><${Scramble} len=${44} /></div>
+          <div class="h-8 rounded-full sf-inset"></div>
+        <//>`)}</div>`
       : err && !devs.length
         ? html`<div class="text-center py-16 text-sm text-muted">${T(t, "feedError")}</div>`
         : visible.length === 0
-          ? html`<div class="flex flex-col items-center text-center gap-3 py-16 px-6">
-              ${Icon("lucide:check-check", "text-4xl text-base-content/25")}
-              <p class="text-sm text-muted leading-relaxed max-w-xs">${T(t, "feedEmpty")}</p>
+          ? html`<div data-empty class="flex flex-col items-center text-muted text-center gap-2 py-16 px-6">
+              <span data-mascot aria-hidden="true"></span>${Icon("lucide:check-check", "text-4xl")}
+              <p class="text-sm leading-relaxed max-w-xs">${T(t, "feedEmpty")}</p>
             </div>`
-          : html`<div class="flex flex-col gap-3.5">
+          : html`<div class="flex flex-col gap-[var(--ms-gap)]">
               ${visible.map((d) => html`<${DevCard} key=${repoKey(d)} d=${d} t=${t} busy=${!!busy[repoKey(d)]}
                 onStar=${() => toggleStar(d)} onSupport=${() => openSupport(d)} />`)}
             </div>`}
@@ -268,27 +286,29 @@ function SupportSheet({ open, onClose, target, funding, t, starred, busy, onStar
         <${Avatar} src=${avatarSized(target.avatar, 200)} seed=${target.owner} size=${64} />
         <div class="text-center min-w-0 max-w-full">
           <div class="font-bold tracking-tight truncate">${target.name}</div>
-          <a href=${target.url} target="_blank" rel="noopener" class="text-xs text-secondary font-mono truncate block">${repoKey(target)}</a>
+          <a href=${target.url} target="_blank" rel="noopener" class=${`${LABEL} text-secondary truncate block`}>${repoKey(target)}</a>
         </div>
       </div>
+      ${/* a funding link is a raised row inside the sheet, concentric with its box (--ms-r-in); the
+           skeleton is the same row with a decoding slot, so nothing shifts when the links land */ ""}
       ${loading
-        ? html`<div class="flex flex-col gap-2" aria-hidden="true">${[0, 1].map((i) => html`<div key=${i} class="skeleton h-13 rounded-2xl"></div>`)}</div>`
+        ? html`<div class="flex flex-col gap-2" aria-hidden="true">${[0, 1].map((i) => html`<div key=${i} class="flex items-center gap-3 px-4 h-[var(--ms-ctl)] rounded-[var(--ms-r-in)] sf-raised sf-e2 text-muted"><${Scramble} len=${14} /></div>`)}</div>`
         : links.length
           ? html`<${Fragment}>
               <p class="text-sm text-base-content/70 text-center leading-relaxed">${T(t, "supportBody")}</p>
-              <div class="flex flex-col gap-2.5">
+              <div class="flex flex-col gap-2">
                 ${links.map((l) => html`<a key=${l.url} href=${l.url} target="_blank" rel="noopener" data-fund
-                  class="card flex-row items-center gap-3 px-4 h-13 rounded-2xl bg-base-100 active:scale-[.99] transition">
+                  class="flex items-center gap-3 px-4 h-[var(--ms-ctl)] rounded-[var(--ms-r-in)] sf-raised sf-e2 active:scale-[.99] transition-transform">
                   ${Icon(l.platform === "github" ? "lucide:heart" : "lucide:external-link", "text-lg text-secondary")}
                   <span class="font-semibold flex-1 min-w-0 truncate">${l.label || T(t, "supportGeneric")}</span>
-                  ${Icon("lucide:chevron-right", "text-base-content/40")}
+                  ${Icon("lucide:chevron-right", "text-muted")}
                 </a>`)}
               </div>
             </${Fragment}>`
           : html`<div class="flex flex-col items-center gap-3 text-center">
               ${Icon("lucide:star", "text-3xl text-secondary")}
               <p class="text-sm text-base-content/70 leading-relaxed max-w-xs">${T(t, "noFunding")}</p>
-              <button data-fund-star class="btn btn-primary rounded-2xl gap-2" data-haptic="bump"
+              <button data-fund-star class="btn btn-primary rounded-full gap-2" data-haptic="bump"
                 disabled=${busy} onClick=${onStar}>
                 ${Icon("lucide:star", starred ? "text-warning" : "")}
                 ${starred ? T(t, "starred") : T(t, "starAction")}
@@ -300,37 +320,39 @@ function SupportSheet({ open, onClose, target, funding, t, starred, busy, onStar
 
 // One developer card in the discover feed — avatar, identity, the repo, WHY they're underrated (reason chips
 // = the "analyze" surface), and the two deliberate actions: Star (lift with a star) and Support (funding).
+// The card is the kit's Panel (the page extruded) — a flat `card bg-base-100` is invisible on a page whose
+// base-100 IS the page; Panel's own @container drives the stats row's demotion.
 function DevCard({ d, t, busy, onStar, onSupport }) {
-  return html`<article data-dev class="card @container rounded-3xl bg-base-100 p-4 flex flex-col gap-3">
-    <div class="flex items-start gap-3">
+  return html`<${Panel}data-dev>
+    <div class="flex items-start gap-[var(--ms-gap)]">
       <${Avatar} src=${d.avatar} seed=${d.owner} size=${52} />
       <div class="flex-1 min-w-0">
         <div class="font-bold tracking-tight truncate">${d.name}</div>
-        <a href=${d.url} target="_blank" rel="noopener" class="text-xs text-secondary font-mono truncate block">${d.owner}/${d.repo}</a>
-        <div class="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-xs text-base-content/55 tabular-nums min-w-0 @max-[280px]:hidden">
+        <a href=${d.url} target="_blank" rel="noopener" class=${`${LABEL} text-secondary truncate block`}>${d.owner}/${d.repo}</a>
+        <div class=${`flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 ${LABEL} text-muted tabular-nums min-w-0 @max-[280px]:hidden`}>
           <span class="inline-flex items-center gap-1 shrink-0">${Icon("lucide:star", "align-[-2px]")}${num(d.stars)}</span>
-          ${d.lang ? html`<span class="inline-flex items-center gap-1 min-w-0 max-w-full">${Icon("lucide:circle", "text-[0.55rem] align-[-1px] shrink-0")}<span class="truncate">${d.lang}</span></span>` : null}
+          ${d.lang ? html`<span class="inline-flex items-center gap-1 min-w-0 max-w-full">${Icon("lucide:circle", "text-[0.8em] align-[-1px] shrink-0")}<span class="truncate">${d.lang}</span></span>` : null}
         </div>
       </div>
     </div>
 
     ${d.desc ? html`<p class="text-sm text-base-content/80 leading-relaxed line-clamp-2">${d.desc}</p>` : null}
 
-    ${/* The reason chips are small raised objects sitting ON the card, so they say so — `sf-e2`, the shallow
-         pair the kit gives every badge, because the full extrusion on a 20px chip is a shadow bigger than the
-         thing it belongs to. The signal wash stays: it is the FILL of a raised chip, not its depth. */""}
+    ${/* The reason chips are the Segmented outline recipe — the app's TINT under ink (--app-tint is the
+         16 % mark that is safe under text in both themes), a pill, no hairline. The accent never sits under
+         a word as a fill. */""}
     ${d.reasons?.length ? html`<div class="flex flex-wrap gap-1.5">
-      ${d.reasons.slice(0, 3).map((r) => html`<span key=${r} class="text-[0.68rem] font-medium px-2 py-0.5 rounded-full bg-secondary/12 text-secondary sf-e2">${T(t, r)}</span>`)}
+      ${d.reasons.slice(0, 3).map((r) => html`<span key=${r} class="text-[length:var(--ms-label)] font-medium px-2 py-0.5 rounded-full bg-[var(--app-tint)] text-base-content">${T(t, r)}</span>`)}
     </div>` : null}
 
     <div class="flex flex-wrap items-center gap-2 pt-0.5">
-      <button data-star class="btn btn-sm btn-primary rounded-2xl gap-1.5 flex-1 basis-24 min-w-0"
+      <button data-star class="btn btn-sm btn-primary rounded-full gap-1.5 flex-1 basis-24 min-w-0"
         disabled=${busy} data-haptic="bump" onClick=${onStar}>
         ${Icon("lucide:star", "shrink-0")}<span class="truncate">${T(t, "starAction")}</span>
       </button>
-      <button data-support class="btn btn-sm rounded-2xl gap-1.5 flex-1 basis-24 min-w-0" data-haptic="bump" onClick=${onSupport}>
+      <button data-support class="btn btn-sm rounded-full gap-1.5 flex-1 basis-24 min-w-0" data-haptic="bump" onClick=${onSupport}>
         ${Icon("lucide:heart-handshake", "shrink-0")}<span class="truncate">${T(t, "support")}</span>
       </button>
     </div>
-  </article>`;
+  <//>`;
 }

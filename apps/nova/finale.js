@@ -26,12 +26,14 @@ import { Sheet } from "/_rt/ui.js";
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));   // 137.5° — the angle that spreads points without clumping
 const MAX_AV = 12;                             // constellation caps here; the rest fold into a "+N" chip
 
-// Read the two theme tokens the scene paints with (ink for stars, accent for rings). Re-read on each mount so
-// a theme flip before opening the finale is honoured.
+// Read the two theme tokens the scene paints with: the ink for the stars, and --app-accent — the product's
+// MARK colour, the one hue that is allowed to glow and ring (never text) — for the rings and the glow. Both
+// are read from the theme at mount; the literals are only the fallback for a DOM with no computed style
+// (the warm ink and the warm pole of rt/theme-lum.css, so a gate render matches the product).
 function readTheme() {
   const cs = getComputedStyle(document.documentElement);
   const g = (v, f) => (cs.getPropertyValue(v).trim() || f);
-  return { ink: g("--color-base-content", "#ECECEE"), accent: g("--color-secondary", "#9F8CF6") };
+  return { ink: g("--color-base-content", "#F2EEE6"), accent: g("--app-accent", "#F2B84B") };
 }
 
 // Position n avatars on a golden-angle spiral inside a unit box (0..1), returned as {x,y} fractions. One point
@@ -76,9 +78,10 @@ export function Finale({ devs = [], t, open = false, onClose }) {
       seedStars();
     };
 
+    // a canvas fill needs a real rgba; a token that is not a 6-digit hex falls back to the warm ink
     const hexA = (hex, a) => {
       const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-      if (!m) return `rgba(200,200,220,${a})`;
+      if (!m) return `rgba(242,238,230,${a})`;
       const v = parseInt(m[1], 16);
       return `rgba(${(v >> 16) & 255},${(v >> 8) & 255},${v & 255},${a})`;
     };
@@ -156,20 +159,21 @@ export function Finale({ devs = [], t, open = false, onClose }) {
             class="ms-reveal absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1"
             style=${`left:${pts[i].x * 100}%;top:${pts[i].y * 100}%;animation-delay:${i * 90}ms`}>
             <span class="relative block">
-              <span class="absolute -inset-1.5 rounded-full blur-md" style="background:radial-gradient(circle,var(--color-secondary),transparent 70%);opacity:.5"></span>
+              ${/* the star's halo: the MARK colour as a glow behind the face, never behind the name */ ""}
+              <span class="absolute -inset-1.5 rounded-full blur-md" style="background:radial-gradient(circle,var(--app-accent),transparent 70%);opacity:.5"></span>
               <img src=${avatarSrc(d)} alt=${d.name || d.owner} width="44" height="44" loading="lazy"
                 class="relative w-11 h-11 rounded-full object-cover ring-2 ring-base-100 bg-base-300" />
             </span>
-            <span class="text-[0.6rem] font-mono text-base-content/75 max-w-[5rem] truncate">${d.name || d.owner}</span>
+            <span class="font-mono text-[length:var(--ms-label)] text-base-content/75 max-w-[5rem] truncate">${d.name || d.owner}</span>
           </a>`)}
         </div>
         ${/* Corner, not centre-bottom: the constellation is a disc inscribed in this box, so the corners are
              the one region no avatar can ever land in. */""}
-        ${extra > 0 ? html`<div class="absolute right-3 bottom-2 text-xs font-medium text-muted">${T(t, "andMore").replace("{n}", String(extra))}</div>` : null}
+        ${extra > 0 ? html`<div class="absolute right-3 bottom-2 font-mono text-[length:var(--ms-label)] font-medium text-muted">${T(t, "andMore").replace("{n}", String(extra))}</div>` : null}
       </div>
 
       <p class="text-sm text-base-content/70 leading-relaxed text-center max-w-xs mx-auto">${T(t, "finaleBody")}</p>
-      <button class="btn btn-primary rounded-2xl gap-2 self-center" data-haptic="bump" onClick=${onClose}>
+      <button class="btn btn-primary rounded-full gap-2 self-center" data-haptic="bump" onClick=${onClose}>
         ${T(t, "finaleBack")}<iconify-icon icon="lucide:arrow-right"></iconify-icon>
       </button>
     </div>

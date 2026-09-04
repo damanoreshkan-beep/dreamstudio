@@ -140,3 +140,40 @@ stays nova (not whole-farm).
    zero secrets. 3. `edge/github.js` + compose/hosts/env changes written and committed to the private repo,
    **ready to deploy**. 4. Owner registers the OAuth App + provisions VPS secrets; then wire live OAuth and
    deploy edge. Steps 1–3 need no owner action; step 4 is the owner's activation.
+
+## Design refresh 2026-09-04
+
+State map of the main screen (`[data-nova]`):
+
+- `data-auth="0"` — signed out: the star with its accent bloom, the headline, Sign in with GitHub, the
+  scope note in muted ink.
+- `data-auth="1" data-tab="discover" data-feed=loading|error|empty|list data-count=N` — the feed:
+  three card-shaped Panels with decoding slots while it loads; the error line; the runtime's empty-state
+  shape when every dev is lifted; N `DevCard` Panels (avatar in its well, name, mono slug, stars + language
+  in a micro-label row that demotes under 280 px, the description, up to three reason chips, Star · Support).
+- `S.screen="support"` — the Sheet: the dev, then funding rows (raised, concentric with the sheet) or the
+  no-funding fallback with its Star button; a decoding row while FUNDING.yml is fetched.
+- `data-tab="lifted" data-count=N` — Reveal + N lifted Panels, or the empty state; `S.screen="finale"`
+  mounts the Finale Sheet (the star-field stage with the constellation of avatars).
+
+What changed and why:
+
+- **The retired purple is gone from the canvas**: `finale.js` painted its rings and glow from
+  `--color-secondary` with a `#9F8CF6` fallback; it reads `--app-accent` (the product's MARK colour) with the
+  theme's own warm pole as the fallback, and the ink fallback is the warm `#F2EEE6`. The two DOM glows
+  (hero star, avatar halos) are `--app-accent` too.
+- **Cards are Panels**: `card rounded-3xl bg-base-100` (DevCard, lifted rows) → `Panel` — a flat card is
+  invisible on a black page; funding links inside the sheet are `sf-raised sf-e2 rounded-[var(--ms-r-in)]`
+  rows at `--ms-ctl` height (concentric with the sheet's box).
+- **No `skeleton` placeholders**: the feed and the funding list render their real structure with `Scramble`
+  slots (skeleton.js), not DaisyUI's pulsing blocks.
+- **Micro-labels take the token** (`text-xs` ×9, `text-[0.68rem]`, `text-[0.6rem]` → `font-mono
+  text-[length:var(--ms-label)] tracking-wider`); muted copy is `.text-muted`, never `/25–55`.
+- **The accent never sits under a word as a fill**: the reason chips were `bg-secondary/12 text-secondary`
+  → the Segmented outline recipe, `bg-[var(--app-tint)] text-base-content` (the 16 % tint that is safe under
+  ink in both themes). `text-secondary` on the repo slugs stays — it is tuned per theme and gate-checked as text.
+- Buttons are pills; gaps ride `--ms-gap`; empty states carry the mascot hook and the `data-empty` scatter;
+  `transition` on the funding row → `transition-transform`.
+
+Deliberately kept: `text-secondary` on the repo slugs and the sheet's glyphs (a per-theme text-safe pole);
+`text-warning` on the star of a lifted dev (meaning); no head.html — no CSS of its own.

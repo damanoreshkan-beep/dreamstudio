@@ -157,3 +157,37 @@ plan when it is triggered (that is what makes the export identical to the live p
 the hand would mean re-planning a sounding voice. The bus lowpass is one live `AudioParam`, just as expressive
 under the thumb, and costs the export nothing. Grain size survives on the tilt axis because it is applied at
 fire time, per grain.
+
+## Design refresh 2026-09-04
+
+State map of the main screen (Play, `[data-field]` grid, `fit`):
+
+- no take (live, first run) — the MicPrime over the stage (denied / unavailable variants); the fields are
+  dimmed and disabled, the Transport disabled, `[data-pitch]` says "no take".
+- `arming` / `recording` — the transport's rec action is active and pulses, `[data-level]` is the input
+  meter on the take's own box, the subtitle says "recording".
+- `working` — the take is being conditioned and pitched; subtitle "working".
+- take set — the waveform in its well, the pitch/duration readout inside it, eight fields named by note,
+  the scale strip, the Transport (Flow · Rec · Keep · Export · Clear → "…" past `keep`).
+- `playing` — the current field lights (outline + accent dot), the Transport shows Stop.
+- Shape tab (`[data-shape]`): six Sliders, the 8×16 loop grid, the tilt toggle, the preset Sheet.
+- Takes tab (`[data-takes] data-ready=0|1`, `data-empty`): Panel skeleton → the list of take Panels → the
+  runtime's empty-state shape when nothing is kept.
+
+What changed and why:
+
+- **The label trap, three times**: `text-[var(--ms-label)]` (392, 416) and `text-[var(--ms-title)]` (417)
+  are COLOURS to Tailwind v4 — the readout and the fields' captions were rendering at the default size.
+  All three are `text-[length:var(--ms-…)]` now.
+- **Takes are Panels** (the page extruded), not flat `card bg-base-100 rounded-2xl` boxes that vanish on a
+  black page; the skeleton is the same Panel with `Scramble` slots, the empty state is the runtime's shape
+  (mascot hook + glyph + one line, scatter on `data-empty`).
+- **Presets are raised rows** inside the sheet (`sf-raised sf-e2 rounded-[var(--ms-r-in)]`, concentric with
+  the box), not `btn-outline rounded-xl` hairlines; the tilt toggle is ink pill / ghost, not `btn-outline`.
+- **`text-xs` as a label size is gone** (head/rate line, grid row notes, take duration, preset gloss) →
+  `font-mono text-[length:var(--ms-label)]`; the Shape column's gap and the waveform well's radius ride
+  `--ms-gap`/`--ms-r`; the mic error line is `text-error` (colour = meaning).
+
+Deliberately kept: the per-take `lucide:play` open button — it loads the take into Play and is the row's
+primary verb, not a transport (the Transport is the one on Play); `opacity-40` on a DISABLED field (the
+control's disabled state, not muted text); `pb-40` under Shape for the pinned Island.

@@ -5,9 +5,8 @@ import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Segmented, Transport } from "/_rt/ui.js";
+import { Segmented, Transport, Island } from "/_rt/ui.js";
 
-const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // seconds: inhale · hold · exhale · hold
 const TECHS = {
   box: { name: "tBox", sub: "sBox", in: 4, h1: 4, out: 4, h2: 4 },
@@ -52,25 +51,29 @@ export function breathe({ S }) {
     return () => cancelAnimationFrame(raf);
   }, [tech, playing, t]);
 
-  return html`<div class="flex flex-col items-center gap-5 pt-2">
-    <div class="flex flex-col gap-1 self-stretch min-w-0 px-4">
+  return html`<div data-breathe data-tech=${tech} data-playing=${playing ? "1" : "0"} class="flex flex-col items-center gap-[calc(var(--ms-gap)*1.5)] pt-2">
+    <div class="flex flex-col gap-1 self-stretch min-w-0 px-[var(--ms-pad)]">
       ${/* self-stretch, not w-full: this column is align-items:center, so a child's width is shrink-to-fit
            — `w-full` resolves against a content-sized parent and the rail's w-max row simply pushes it
            wider, overflowing at 320px instead of scrolling. Stretching gives the rail a definite width
-           to scroll inside. */""}
-      <${Segmented} attr="data-tech" scroll
-        items=${ORDER.map((k) => ({ id: k, label: T(t, TECHS[k].name) }))} value=${tech} onChange=${choose} />
-      <div class="text-xs text-base-content/70 text-center">${T(t, TECHS[tech].sub)}</div>
+           to scroll inside. The technique's gloss ("fall asleep easier") rides the option's `title` — the
+           kit's slot for a one-line mood — instead of a caption under a working strip. */""}
+      <${Segmented} attr="data-tech" scroll label=${T(t, "tabBreathe")}
+        items=${ORDER.map((k) => ({ id: k, label: T(t, TECHS[k].name), title: T(t, TECHS[k].sub) }))} value=${tech} onChange=${choose} />
     </div>
 
+    ${/* The orb is the instrument: its material lives in head.html (.br-orb) — a sphere shaded in the
+         app's accent with the luminous bloom, no hex and no shadow written here. */""}
     <div class="w-full flex justify-center py-3">
-      <div ref=${orbRef} data-orb class="w-full max-w-[210px] aspect-square rounded-full" style="background:radial-gradient(circle at 38% 32%, #9FEADE, #35A79B 56%, #1E655C);box-shadow:0 0 70px -6px #35A79B99;will-change:transform"></div>
+      <div ref=${orbRef} data-orb class="br-orb w-full max-w-[210px] aspect-square rounded-full" style="will-change:transform"></div>
     </div>
 
-    <div class="flex flex-col items-center gap-3 -mt-4">
+    <div class="flex flex-col items-center gap-[var(--ms-gap)] -mt-4 self-stretch">
       <div ref=${phaseRef} data-phase class="text-xl font-semibold text-base-content/80 h-7"></div>
       <div ref=${countRef} class="text-6xl font-bold tabular-nums leading-none h-14"></div>
-      <${Transport} locale=${loc} size="sm" playing=${playing} onToggle=${() => setPlaying((p) => !p)} />
+      <${Island} className="w-full max-w-xs mx-auto">
+        <${Transport} locale=${loc} size="sm" playing=${playing} onToggle=${() => setPlaying((p) => !p)} />
+      <//>
     </div>
   </div>`;
 }
