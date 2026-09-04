@@ -1,5 +1,11 @@
 {
   "title": "microspec OS",
+  "dv_absent": "not connected",
+  "dv_present": "attached",
+  "dv_connected": "connected",
+  "dv_active": "streaming",
+  "dv_error": "error",
+  "devNeedApp": "Devices need the app — install to connect USB & BLE",
   "profTagline": "What this device lets an app do",
   "tabCaps": "Access",
   "tabReport": "Report",

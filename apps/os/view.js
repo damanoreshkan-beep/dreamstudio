@@ -24,6 +24,8 @@ import { shell, ERR } from "/_rt/shell.js";
 import { buildApk, apkFilename } from "/_rt/apk.js";
 import { PERMISSIONS, GROUPS, permLabels, permState, permRequest, refreshHeld, heldPermissions } from "/_rt/permissions.js";
 import { classify, orderPorts, tallyPorts } from "/_rt/portid.js";
+import { HeroAura, DeviceConstellation } from "./hero.js";
+import { ROSTER, STATE, classify as classifyDevices, demoStates } from "./devices.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // The two type roles below body text, both on the density token so they step with the ladder:
@@ -1323,7 +1325,16 @@ export function home({ S, t, toast }) {
     ["console", "lucide:terminal", T(t, "tileConsole"), () => open("console")],
   ];
 
-  return html`<div data-home data-screen="home" data-bridge-on=${shell.present ? "1" : "0"} class="flex flex-col gap-[var(--ms-gap)] pt-1">
+  const dvMap = gate ? demoStates() : classifyDevices({ present: shell.present, usb: usb || [], ble });
+  const dv = ROSTER.map((d) => ({ ...d, state: dvMap.get(d.id) || STATE.ABSENT }));
+  const aliveN = dv.filter((d) => d.state === STATE.CONNECTED || d.state === STATE.ACTIVE).length;
+  const alive = 0.4 + 0.6 * (dv.length ? aliveN / dv.length : 0);
+
+  return html`<${Fragment}>
+    <${HeroAura} alive=${alive} />
+    <div data-home data-screen="home" data-bridge-on=${shell.present ? "1" : "0"} class="relative z-10 flex flex-col gap-[var(--ms-gap)] pt-1">
+      <${DeviceConstellation} devices=${dv} t=${t} />
+      ${!shell.present ? html`<div class=${`${CAPTION} text-muted text-center -mt-1`}>${T(t, "devNeedApp")}</div>` : null}
     ${shell.updateAvailable ? html`<${Panel} data-update>
       <div class="flex items-center gap-3">
         ${Icon("lucide:download", "text-xl text-warning shrink-0")}
@@ -1372,7 +1383,8 @@ export function home({ S, t, toast }) {
           : html`<a key=${id} data-go=${id} data-store href="../store/" class="flex flex-col items-center gap-1.5 min-w-0">${inner}</a>`;
       })}
     </div>
-  </div>`;
+  </div>
+  <//>`;
 }
 
 // ---- files: the explorer, promoted out of a tile ----------------------------

@@ -1,5 +1,11 @@
 {
   "title": "microspec OS",
+  "dv_absent": "не підключено",
+  "dv_present": "приєднано",
+  "dv_connected": "підключено",
+  "dv_active": "потік",
+  "dv_error": "помилка",
+  "devNeedApp": "Пристрої працюють у застосунку — встанови, щоб підключати USB і BLE",
   "profTagline": "Що цей пристрій дозволяє застосунку",
   "tabCaps": "Доступ",
   "tabReport": "Звіт",
