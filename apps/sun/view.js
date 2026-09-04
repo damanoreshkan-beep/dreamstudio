@@ -20,6 +20,10 @@ import { isGate, MOCK, gate } from "/_rt/gate.js";
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // the farm's mono micro-label (`length:` — the bare var form is a colour to Tailwind v4)
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
+/* A NAME is not a label: `uppercase` is a CSS transform, and innerText returns the transformed string, so
+   "Полярна"/"Tokyo" reached the gate as "ПОЛЯРНА"/"TOKYO" and two e2e assertions failed on their own copy
+   (CI, 2026-09-04). Proper nouns keep their case and take the label's SIZE only. */
+const NAME_LABEL = "font-mono text-[length:var(--ms-label)] tracking-wide";
 // on localhost (the gate) render the compass in a ROTATED, located state so the overflow gate + shot see the
 // live layout (headless has no GPS/compass → 0°, which used to hide a rotated-container overflow).
 const KYIV = { lat: 50.45, lng: 30.52, approx: true };
@@ -152,12 +156,12 @@ export function sun({ S, openScreen, closeScreen }) {
     <div class="flex flex-col items-center gap-1.5">
       <button id="open-globe" class="btn btn-ghost btn-sm gap-2" onClick=${openGlobe}>${Icon("lucide:globe")}${T(t, "pickOnGlobe")}</button>
       ${picked
-        ? html`<button id="clear-pick" class=${`${LABEL} text-primary flex items-center gap-1`} onClick=${() => setPicked(null)}>${Icon("lucide:map-pin")}${picked.name || `${picked.lat.toFixed(1)}°, ${picked.lng.toFixed(1)}°`} · ${T(t, "myLocation")}</button>`
+        ? html`<button id="clear-pick" class=${`${NAME_LABEL} text-primary flex items-center gap-1`} onClick=${() => setPicked(null)}>${Icon("lucide:map-pin")}${picked.name || `${picked.lat.toFixed(1)}°, ${picked.lng.toFixed(1)}°`} · ${T(t, "myLocation")}</button>`
         : ready ? (pos?.approx ? html`<div class=${LABEL}>${T(t, "approxKyiv")}</div>` : null)
         : html`<div class=${`${LABEL} text-muted flex items-center gap-1.5`}>${Icon("lucide:map-pin")}${T(t, "locating")}</div>`}
     </div>
 
-    ${polarisAlt != null ? html`<div data-polaris-info class=${`${LABEL} text-muted flex items-center gap-1.5 tabular-nums`}><${PoleStar} size=${13} />${T(t, "bPolaris")} · ${polarisAlt}°</div>` : null}
+    ${polarisAlt != null ? html`<div data-polaris-info class=${`${NAME_LABEL} text-muted flex items-center gap-1.5 tabular-nums`}><${PoleStar} size=${13} />${T(t, "bPolaris")} · ${polarisAlt}°</div>` : null}
 
     ${ready ? html`<${TimeScale} value=${scrub} now=${now.getHours() * 60 + now.getMinutes()} onChange=${setScrub} t=${t}
       sunrise=${minOfDay(times.sunrise)} sunset=${minOfDay(times.sunset)} anchors=${anchors} />` : null}

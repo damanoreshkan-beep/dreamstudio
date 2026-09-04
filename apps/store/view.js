@@ -265,7 +265,7 @@ export function store({ S, openScreen, closeScreen }) {
     ? html`<div data-search-open class="flex items-center gap-2 h-[var(--ms-ctl)] px-0.5">
         ${Icon("lucide:search", "text-lg text-muted shrink-0")}
         <input id="store-filter" ref=${fieldRef} type="search" value=${q} onInput=${onType} placeholder=${T(t, "search")} aria-label=${T(t, "search")} autocomplete="off"
-          class="input grow min-w-0 bg-transparent text-base border-0 px-0 outline-none appearance-none focus:outline-none focus:ring-0 shadow-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden" />
+          class="grow min-w-0 bg-transparent text-base border-0 px-0 outline-none appearance-none focus:outline-none focus:ring-0 shadow-none placeholder:text-muted [&::-webkit-search-cancel-button]:hidden" />
         <span id="store-status" class=${`${LABEL} tabular-nums shrink-0`}>${found ? found.length : apps.length}</span>
         <button id="search-close" class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "close")} onClick=${() => S.searchOpen.set(false)}>${Icon("lucide:x", "text-xl")}</button>
       </div>`

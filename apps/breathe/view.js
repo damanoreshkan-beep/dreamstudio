@@ -51,7 +51,10 @@ export function breathe({ S }) {
     return () => cancelAnimationFrame(raf);
   }, [tech, playing, t]);
 
-  return html`<div data-breathe data-tech=${tech} data-playing=${playing ? "1" : "0"} class="flex flex-col items-center gap-[calc(var(--ms-gap)*1.5)] pt-2">
+  // The state hook is data-tech-SEL, never data-tech: the Segmented's own options carry data-tech, so a root
+  // that repeats the name joins the same selector — count("[data-tech]") read 5 instead of 4 and
+  // attr('[data-tech="478"]', "aria-pressed") read the wrapper (CI, 2026-09-04).
+  return html`<div data-breathe data-tech-sel=${tech} data-playing=${playing ? "1" : "0"} class="flex flex-col items-center gap-[calc(var(--ms-gap)*1.5)] pt-2">
     <div class="flex flex-col gap-1 self-stretch min-w-0 px-[var(--ms-pad)]">
       ${/* self-stretch, not w-full: this column is align-items:center, so a child's width is shrink-to-fit
            — `w-full` resolves against a content-sized parent and the rail's w-max row simply pushes it
