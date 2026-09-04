@@ -36,3 +36,32 @@ its mistake was being the only weather.
 `deno run -A tools/art/frame.mjs hunt --dist N --out x.png` (new `--dist` flag fakes only the
 palette input on a state copy) — judge dawn/noon/gold/dusk/night locally through the shipping
 renderFrame before any push.
+
+## Design refresh 2026-09-04
+
+**State map — the console (fit).** `GameConsole` owns the frame; inside the aperture there are exactly four
+states: *loading* (`Pixels` over the canvas), *no engine* (one sentence, terminal), *playing* (the canvas plus
+the HUD dataset), and *over* (the restart card raised over the aperture, DEATH_ARC frames after the flag).
+One overlay screen off the menu: the records `Sheet` — three stat wells and a destructive reset behind
+`confirm`.
+
+**What changed.** Only chrome; the simulation and the deck are untouched.
+
+- The game-over caption and its number, and both lines of every records well, carried the size token in
+  Tailwind's *colour* slot — the browser dropped the declaration, so five micro-labels had been shipping at
+  body size. All five now carry the `length:` hint.
+- Muted ink was `opacity-80` / `opacity-70`. Opacity fades the glyph against whatever is behind it; on the
+  restart card that is the console plate, not the page, so the intended ratio was never the one drawn.
+  Both are the designed `text-base-content/70` step now.
+- The records wells were `rounded-2xl p-3` — a fixed 1rem corner inside a `Sheet` whose own corner steps with
+  the density ladder, which is the concentric-radius mistake. They take `--ms-r-in` and `--ms-pad`; the reset
+  button takes `--ms-r`.
+- The stat captions gained `font-mono` + `tracking-wider`: they were the only labels in the app not written
+  in the farm's one micro-label recipe.
+- "No engine" was rendered at micro-label size. It is the only thing on the screen when it appears, so it is
+  body copy in `.text-muted`.
+
+**Deliberately left.** `PALETTE` in `art.js` and the sky/terrain ramps in `engine.js` are MARKS — pixels the
+wasm paints into a canvas, with no theme to be aware of and no text among them. They stay hex, as documented
+there. The deck, the aperture and the plate belong to `GameConsole`, shared with `brick`; anything changed
+here would silently restyle that app too.

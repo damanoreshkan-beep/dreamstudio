@@ -56,7 +56,7 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
   const dur = mine ? take?.dur : pv?.dur;
   const since = recording ? Math.min(TAKE_MAX, (Date.now() - rec.since) / 1000) : 0;
   const canSay = !!words.trim() && (mine ? !!take : clone ? true : !!named) && !working && !recording && !decoding;
-  const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
+  const label = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
   const fmt = new Intl.DateTimeFormat(LOCALE[loc] || LOCALE.en, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   const takeNote = rec.err === "short" ? T(t, "short") : take?.quiet ? T(t, "quiet") : take?.clipped ? T(t, "clipped") : "";
   const styleName = (id) => (id && characterOf(id) ? T(t, "ch_" + id) : T(t, "sAsIs"));

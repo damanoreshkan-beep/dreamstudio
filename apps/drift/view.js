@@ -222,7 +222,9 @@ export function drift({ S }) {
           subtitle=${html`<span class="inline-flex items-center gap-1.5">${Icon(pack.icon, "text-base")}${T(t, pack.key)}${playing ? html`<span class="inline-block w-1.5 h-1.5 rounded-full bg-primary ml-1 animate-pulse"></span>` : null}</span>`}
           actions=${[{ id: "vary", icon: "lucide:shuffle", label: T(t, "aVary"), onClick: vary, disabled: !playing, haptic: "off" }]} />
       </${Island}>
-      ${!audioSupported ? html`<div class="shrink-0 text-xs text-center text-base-content/70">${T(t, "noAudio")}</div>` : null}
+      ${/* An unsupported-audio line is the screen's CONTENT (there is nothing else to say), not a caption on
+           a control — so it reads at body size in the designed muted ink, not at text-xs. */""}
+      ${!audioSupported ? html`<div class="shrink-0 text-center text-muted">${T(t, "noAudio")}</div>` : null}
     </div>
   </${Fragment}>`;
 }
@@ -238,7 +240,7 @@ export function driftShape({ S }) {
   const packs = PACKS.map((p) => ({ id: p.id, label: T(t, p.key), icon: p.icon }));
   return html`<div class="h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
     <div class="shrink-0 flex flex-col gap-1.5">
-      <div class="font-mono uppercase tracking-wide font-semibold text-[var(--ms-label)] text-base-content/70 px-1">${T(t, "secSound")}</div>
+      <div class="font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70 px-1">${T(t, "secSound")}</div>
       <${Segmented} attr="data-pack" scroll variant="outline" label=${T(t, "secSound")}
         items=${packs} value=${pack.id} onChange=${setPack} />
     </div>

@@ -117,7 +117,7 @@ export function mirage({ S, toast }) {
   const shortName = (id) => { const n = id.split("/").pop(); return n.length > 20 ? n.slice(0, 19) + "…" : n; };
   const optsMeta = modelSel !== "auto" ? shortName(modelSel) : mode === "make" ? T(t, opts.quality === "2k" ? "q2k" : "qFast") : null;
   const styleSel = styleOf(opts.style);   // the chosen style card, null for "none"
-  const label = "font-mono uppercase tracking-wide font-semibold text-[var(--ms-label)] text-base-content/70";
+  const label = "font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70";
   const [body, tags] = (() => { const lines = read.text.trim().split(/\n+/); const last = lines[lines.length - 1] || ""; const isTags = lines.length > 1 && last.split(",").length >= 3 && last.length < 120; return isTags ? [lines.slice(0, -1).join("\n"), last.split(",").map((s) => s.trim()).filter(Boolean)] : [read.text, []]; })();
 
   // ── the stage ─────────────────────────────────────────────────────────────────────────────────────
