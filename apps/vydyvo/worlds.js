@@ -7,14 +7,19 @@
 // як говорить будда вдень … і вночі дух луни" — the persona rides the spark as «Голос: …», the edge's
 // line mode holds its manner without naming it). Voices are Ukrainian: the spark's language, whatever
 // locale the answer lands in.
+// THE SPIRIT SPEAKS, NEVER ABOUT ITS OWN LIGHT (owner 2026-09-04: "слова мають не бути про світло чи тінь, а
+// ніби сама тіньова чи світовий дух говорить"): a voice names WHO speaks and what they care about in LIFE —
+// attention, memory, patience, change, ties, form — and never light, darkness, shadow or glow as a topic; the
+// picture's subject no longer rides the spark either (it is all filaments and bloom, and every thought came
+// out about light). The table of all twelve worlds and their two sides: meta/streams/vydyvo-voices.md.
 export const WORLDS = {
   lum: {
     subject: "a lone tree drawn only with thin glowing light filaments and luminous nodes, a hollow wireframe plexus of bright threads, translucent, nothing solid",
     night: "floating alone in an empty pure black void, no floor, warm amber gold light with clearly visible electric cyan accents, volumetric bloom",
     day: "gilded golden threads on pure white paper, a few teal sparks, delicate fine linework, soft warm glow",
     tint: "luminous, woven of light, glowing filaments, deep and quiet",
-    voiceDay: "Будда: ясний, добрий, простий; говорить про увагу, світло і серединний шлях — без повчань",
-    voiceNight: "Дух луни: тихий нічний голос, що відповідає, як відлуння під місяцем; говорить про тишу, відображення і те, що чути лише в темряві",
+    voiceDay: "Будда: ясний, добрий, простий; говорить про увагу, теперішню мить і серединний шлях — без повчань",
+    voiceNight: "Дух луни: тихий голос, що відповідає, як відлуння; говорить про тишу, повернення сказаного і те, що чути лише коли замовкнеш",
   },
   paper: {
     subject: "a quiet valley with a small house and hills, built as a layered cut-paper diorama, stacked paper bas-relief",
@@ -30,7 +35,7 @@ export const WORLDS = {
     day: "black and vermilion ink in bright water, sumi-e restraint, white air",
     tint: "ink in water, fine tendrils, calligraphic, restrained",
     voiceDay: "Поет хайку: прозорий, спостережливий; кілька простих слів, у яких видно ціле",
-    voiceNight: "Нічний каліграф: зосереджений; говорить про один рух пензля, чорне й біле, незворотність написаного",
+    voiceNight: "Каліграф: зосереджений; говорить про один рух пензля, незворотність написаного і порожнє місце, яке теж говорить",
   },
   mercury: {
     subject: "a slow river of liquid mirror-chrome winding through a plain, molten metal beads along its banks",
@@ -62,15 +67,15 @@ export const WORLDS = {
     day: "fine dark copper traces etched on a pale board, macro, even light",
     tint: "etched circuit traces, precise, geometric, quietly technical",
     voiceDay: "Інженер-мрійник: ясний і цікавий; говорить про сигнали, звʼязки і красу того, що працює",
-    voiceNight: "Машина, якій сняться сни: ніжна і дивна; говорить про струм, памʼять і сни зі світла",
+    voiceNight: "Машина, якій сняться сни: ніжна і дивна; говорить про струм, памʼять і те, що сниться, коли ніхто не питає",
   },
   veil: {
     subject: "a still lake under folds of a translucent aurora curtain, drapery of light with faint stars",
     night: "green and violet aurora light over darkness, long-exposure look",
     day: "pale watercolour aurora ribbons in a bright morning sky, airy",
     tint: "aurora light, translucent drapery, vast and silent",
-    voiceDay: "Небо: широке і привітне; говорить про світло, повітря і те, що видно здалека",
-    voiceNight: "Сторож полярного сяйва: тихий, зачарований; говорить про завісу світла і терпіння довгої ночі",
+    voiceDay: "Небо: широке і привітне; говорить про простір, повітря і те, що видно здалека",
+    voiceNight: "Сторож довгої ночі: тихий, зачарований; говорить про терпіння, завісу і те, що приходить лише до тих, хто чекає",
   },
   ferro: {
     subject: "a garden of glossy black ferrofluid blooms with sharp magnetic spikes, liquid metal sheen",
@@ -78,7 +83,7 @@ export const WORLDS = {
     day: "dark ferrofluid spikes in pale studio light, sharp and clean",
     tint: "ferrofluid, magnetic spikes, glossy liquid metal",
     voiceDay: "Скульптор: точний і стриманий; говорить про форму, силу і те, що тримає притягання",
-    voiceNight: "Чорна вода: глибока і повільна; говорить про глибину, блиск і те, що під поверхнею",
+    voiceNight: "Чорна вода: глибока і повільна; говорить про глибину, тиск і те, що під поверхнею",
   },
   porcelain: {
     subject: "a shoreline of thin backlit porcelain relief, light glowing through translucent bone china",
@@ -86,7 +91,7 @@ export const WORLDS = {
     day: "white porcelain with delicate cobalt blue painted edges, soft bright light",
     tint: "translucent porcelain, backlit, fragile and calm",
     voiceDay: "Гончар: спокійний і вдячний; говорить про глину, руки і недосконале, що стає рідним",
-    voiceNight: "Хранитель крихкого: обережний і ніжний; говорить про світло крізь тонкі стіни і цінність ламкого",
+    voiceNight: "Хранитель крихкого: обережний і ніжний; говорить про тонкі стіни, дотик і цінність ламкого",
   },
   sand: {
     subject: "long dunes drawn as deep incised lines in sand, long shadows inside the grooves",
@@ -111,10 +116,29 @@ export const worldOf = (id) => WORLDS[id] || WORLDS.lum;
  * spirit by night; every theme carries its own pair. */
 export const voiceOf = (world, mode) => (mode === "light" ? world.voiceDay : world.voiceNight);
 
-/** The active theme = the world: applyMaterial stamps `html[data-material]`; before the registry loads
- * (or with no registry at all) the farm's default — lum — speaks. */
-export const activeWorld = () =>
-  (typeof document !== "undefined" && document.documentElement.getAttribute("data-material")) || "lum";
+// THE CHARACTERS ARE THEIR OWN CHOICE (owner 2026-09-04: "не будемо прив'язуватись до теми, давай зробимо окремий
+// вибір персонажів мікрокартинками … сіткою, тикаємо і відкривається на весь екран"): the twelve worlds above are
+// the twelve characters, each with a day side and a night side; the picker's tile names them by the side the
+// phone's mode shows, and the other side small. Short names, both locales — the voices themselves stay Ukrainian.
+export const NAMES = {
+  lum: { day: { uk: "Будда", en: "Buddha" }, night: { uk: "Дух луни", en: "Echo spirit" } },
+  paper: { day: { uk: "Майстер орігамі", en: "Origami master" }, night: { uk: "Літописець", en: "Chronicler" } },
+  ink: { day: { uk: "Поет хайку", en: "Haiku poet" }, night: { uk: "Каліграф", en: "Calligrapher" } },
+  mercury: { day: { uk: "Алхімік", en: "Alchemist" }, night: { uk: "Двійник у дзеркалі", en: "Mirror twin" } },
+  smoke: { day: { uk: "Вітер", en: "Wind" }, night: { uk: "Шаман", en: "Shaman" } },
+  thread: { day: { uk: "Вишивальниця", en: "Embroiderer" }, night: { uk: "Пряля долі", en: "Spinner of fate" } },
+  circuit: { day: { uk: "Інженер-мрійник", en: "Dreaming engineer" }, night: { uk: "Машина, що снить", en: "Dreaming machine" } },
+  veil: { day: { uk: "Небо", en: "Sky" }, night: { uk: "Сторож ночі", en: "Night warden" } },
+  ferro: { day: { uk: "Скульптор", en: "Sculptor" }, night: { uk: "Чорна вода", en: "Black water" } },
+  porcelain: { day: { uk: "Гончар", en: "Potter" }, night: { uk: "Хранитель крихкого", en: "Keeper of the fragile" } },
+  sand: { day: { uk: "Мандрівник", en: "Wanderer" }, night: { uk: "Море", en: "The sea" } },
+  plain: { day: { uk: "Стоїк", en: "Stoic" }, night: { uk: "Тиша", en: "Silence" } },
+};
+/** The character's name for a mode and locale — the side the phone's theme shows. */
+export const nameOf = (id, mode, loc) => (NAMES[id] || NAMES.lum)[mode === "light" ? "day" : "night"][loc === "en" ? "en" : "uk"];
+/** The picker's micro-picture of a character in a mode: assets/char-<id>-<n|d>.webp, generated once on the pods. */
+export const thumbOf = (id, mode) => new URL(`assets/char-${id}-${mode === "light" ? "d" : "n"}.webp`, import.meta.url).href;
+
 
 // The wallpaper contract and the light of each mode — the client's "system prompt". The theme is read off
 // the document when a race starts, so a light-mode phone gets pictures lit for paper, a dark one for black.

@@ -14,8 +14,8 @@ import { wakeLock } from "/_rt/sensors.js";
 import { downloadBlob } from "/_rt/apk.js";
 import { gate } from "/_rt/gate.js";
 import { GlStage, hasWebGL2 } from "/_rt/glstage.js";
-import { LINES, activeWorld } from "./worlds.js";
-import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge, generateNow } from "./state.js";
+import { LINES, WORLDS, nameOf, thumbOf } from "./worlds.js";
+import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge, generateNow, activeWorld } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const fsSupported = typeof document !== "undefined" && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -56,6 +56,24 @@ function ShowType({ t, loc, frame }) {
   </div>`;
 }
 
+// THE CHARACTERS (owner 2026-09-04: "окремий вибір персонажів мікрокартинками … сіткою, тикаємо і відкривається на
+// весь екран"): the twelve worlds as a grid of square micro-pictures in the phone's mode (assets/char-<id>-<n|d>.webp,
+// generated once on the pods with the show's own prompt), the picked one ringed in the accent, the tile named by the
+// side this mode shows and the other side small. A tap PICKS the character and OPENS the show — one gesture, no
+// confirm; the next race paints that world, and the stage behind the grid already belongs to it.
+function CharGrid({ t, loc, mode, picked, onPick }) {
+  return html`<div data-chars class="mb-3">
+    <div class="font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70 mb-2">${T(t, "whoSpeaks")}</div>
+    <div class="vy-grid">
+      ${Object.keys(WORLDS).map((id, i) => html`<button key=${id} type="button" data-char=${id} data-on=${picked === id ? "1" : null} class="vy-tile" style=${`--ti:${i}`}
+        aria-label=${`${nameOf(id, mode, loc)} · ${nameOf(id, mode === "light" ? "dark" : "light", loc)}`} aria-pressed=${picked === id ? "true" : "false"} onClick=${() => onPick(id)}>
+        <img src=${thumbOf(id, mode)} alt="" decoding="async" loading=${i < 6 ? "eager" : "lazy"} onError=${(e) => { e.currentTarget.style.visibility = "hidden"; }} />
+        <span class="vy-name">${nameOf(id, mode, loc)}<span class="vy-side">${nameOf(id, mode === "light" ? "dark" : "light", loc)}</span></span>
+      </button>`)}
+    </div>
+  </div>`;
+}
+
 export function vydyvo({ t, S, screen, closeScreen, toast }) {
   const opts = useStore($opts), frames = useStore($frames), stage = useStore($stage), gen = useStore($gen), loc = useStore(S.locale);
   useStore(S.theme);   // the veil and the field follow the APPLIED mode, re-read off the document below
@@ -66,10 +84,10 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
   const docMode = (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme")) === "signal-light" ? "light" : "dark";
   const docModeRef = useRef(docMode); docModeRef.current = docMode;
   const ambRef = useRef(0);
-  // THE THEME IS THE WORLD (owner: "у нас все тема рішає"): no preset of vydyvo's own, and the island does
-  // not name the theme either (owner 2026-09-02: "прибери все зайве") — the whole page already wears it.
-  useStore(S.material);   // a picker change re-renders, so the veil re-checks the world below
-  const wid = activeWorld();
+  // THE CHARACTER IS THE WORLD (owner 2026-09-04: decoupled from the theme — the grid below picks it; until
+  // 2026-09-02..04 the farm theme decided). The phone's theme still decides the mode: the light in the picture
+  // and which side of the character speaks.
+  const wid = activeWorld();   // opts.char — the store's change re-renders, so the veil re-checks the world below
   const byId = (id) => frames.find((f) => f.id === id) || null;
   const cur = byId(stage.cur);
   const next = unshown()[0];   // preloaded below, so the cross-fade never fades in a half-decoded picture
@@ -129,7 +147,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
 
   const label = "font-mono text-[var(--ms-label)] uppercase tracking-wider text-base-content/70";
   return html`<div class="h-full min-h-0 flex flex-col">
-    <div data-stage ref=${stageRef} data-vy-world=${wid} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
+    <div data-stage ref=${stageRef} data-vy-world=${wid} data-vy-every=${opts.every} data-vy-mode=${cur?.mode || null} data-vy-ahead=${frames.filter((f) => !f.shown).length} data-show=${show ? "1" : null} data-veil=${veiled ? "1" : null}
       class=${`vy-stage fixed inset-0 ${show ? "z-[60]" : "z-0"} bg-black overflow-hidden`}
       onClick=${show ? () => S.screen.set(null) : null}>
       ${[0, 1].map((slot) => {
@@ -155,7 +173,12 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
       ${show ? html`<span class="sr-only">${T(t, "exitShow")}</span>` : null}
     </div>
 
-    <div class="relative z-10 flex-1 min-h-0 flex flex-col justify-end p-[var(--ms-pad)]">
+    <div class="relative z-10 flex-1 min-h-0 flex flex-col p-[var(--ms-pad)]">
+      ${/* the grid scrolls on a short screen; the island stays at the foot */""}
+      <div class="flex-1 min-h-0 overflow-y-auto flex flex-col justify-end">
+        <${CharGrid} t=${t} loc=${loc} mode=${docMode} picked=${wid}
+          onPick=${(id) => { if (id !== wid) { setOpts({ char: id }); nudge(); } S.screen.set("show"); }} />
+      </div>
       <${Island} tone="glass" className="flex flex-col gap-2">
         <div class="flex items-center gap-2">
           <input data-prompt type="text" value=${opts.prompt} spellcheck="false" autocomplete="off"
@@ -199,7 +222,6 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
         <div class=${label}>${T(t, "quality")}</div>
         <${Segmented} attr="data-q" label=${T(t, "quality")} value=${opts.quality} onChange=${(q) => setOpts({ quality: q })}
           items=${[{ id: "fast", label: T(t, "qFast"), icon: "lucide:zap" }, { id: "2k", label: T(t, "q2k"), icon: "lucide:gem" }]} />
-        <div class=${`flex items-center justify-between ${label}`}><span>${T(t, "collection")}</span><span data-collection class="tabular-nums">${frames.length}</span></div>
       </div>
     <//>
   </div>`;

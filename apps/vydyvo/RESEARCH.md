@@ -68,38 +68,49 @@ depend on them.
   layer sits on a photograph, not on a farm surface, and reads the same in both themes.
 - Loading, never a spinner: `Pixels` + `Scramble` from `/_rt/skeleton.js` until the first frame exists.
 
-## The world IS the theme (presets removed, owner 2026-09-02)
+## The characters (their own choice since 2026-09-04; the theme decided until then)
 
-There is no preset UI: "в пресети прибери, то зайве, у нас все тема рішає … закласти це у систему самої
-апки". `worlds.js` carries one WORLD per farm theme (`rt/themes.json` ids) — a default subject (used when
-the prompt is empty), a NIGHT and a DAY light block, and a short mood TINT used when the owner's own words
-drive the picture (70/30). The active world is `html[data-material]` (the profile's theme picker), read at
-race time; before a registry loads, `lum`. Each world also carries a VOICE per mode (owner: "нехай це
-говорить так як говорить будда вдень … і вночі дух луни") — a persona (`voiceDay`/`voiceNight`,
-`voiceOf(world, mode)`) that leads the line spark as «Голос: …»; the edge's line mode holds its manner in
-plain human words without naming it. Сяйво: Будда by day, дух луни by night; every theme continues the
-idea (орігаміст/літописець, хайку-поет/каліграф, алхімік/двійник у дзеркалі, вітер/шаман,
-вишивальниця/пряля долі, інженер/машина-що-снить, небо/сторож сяйва, скульптор/чорна вода,
-гончар/хранитель крихкого, мандрівник/море, стоїк/тиша). The client composes:
+2026-09-02 the farm theme was the world ("у нас все тема рішає"). 2026-09-04 the owner decoupled them: "не
+будемо прив'язуватись до теми, давай зробимо окремий вибір персонажів мікрокартинками … сіткою, тикаємо і
+відкривається на весь екран". `worlds.js` still carries the twelve WORLDS (a default subject, a NIGHT and a
+DAY light block, a mood TINT for the owner's own words, 70/30), but the active one is now `opts.char`
+(`activeWorld()` in state.js, `lum` until a pick), chosen in a GRID of square micro-pictures over the stage
+(`CharGrid` in view.js: `assets/char-<id>-<n|d>.webp`, 512², generated ONCE on the pods with the show's own
+prompt — an instant grid, no quota per visitor; the tile shows the mode's picture, is named by the side the
+phone's mode shows (`NAMES`, `nameOf`) with the other side small, and a tap picks AND opens the show).
+The phone's theme still decides day or night — the light in the picture and WHICH side speaks. Each world
+is a character with two sides (`voiceDay`/`voiceNight`, `voiceOf(world, mode)`) that leads the line spark
+as «Голос: …»; the edge's line mode holds its manner in plain human words without naming it. THE SPIRIT
+SPEAKS ABOUT LIFE, NEVER ABOUT LIGHT (owner 2026-09-04: "слова мають не бути про світло чи тінь, а ніби
+сама тіньова чи світовий дух говорить"): the voices name what the persona cares about (attention, memory,
+patience, change, ties), the picture's subject no longer rides the spark, and the edge prompt forbids
+light/darkness/shadow/glow/night/day and the picture itself as topics. The twelve, day / night: Будда /
+Дух луни · Майстер орігамі / Літописець · Поет хайку / Каліграф · Алхімік / Двійник у дзеркалі · Вітер /
+Шаман · Вишивальниця / Пряля долі · Інженер-мрійник / Машина, що снить · Небо / Сторож ночі · Скульптор /
+Чорна вода · Гончар / Хранитель крихкого · Мандрівник / Море · Стоїк / Тиша. The client composes:
 `[user prompt → English | world.subject], world[mode], SYSTEM[mode], SYSTEM.base` — where `mode` is read
 off `html[data-theme]` at the moment the race starts (the light/dark theme drives the light in the picture,
 which is the owner's "система промпт на клієнті"). `SYSTEM.base` is the wallpaper contract (full-bleed, no
 text, off-centre subject, breathing space). The whole prompt is ≤ 800 chars (the edge slices there,
 `edge/image.js:473`). The island stays MINIMAL (owner: "залиш лише те що реально потрібно"): words + Показ,
-then status/settings + save + wand — no theme label, the whole page already wears the theme. Frames keep
-the world id in their old `preset` IDB field, so a collection painted before the change still restores. A frame FITS the page
+then status/settings + save + wand — no theme label, the whole page already wears the theme; since
+2026-09-04 the character grid sits above the island. Frames carry the world id as `preset`. A frame FITS the page
 only when its mode AND world match the document (2026-09-02, owner: a theme change shows the waiting
 field, never the old world's picture): the veil, `advance`'s preference and the scheduler's `ahead` all
 compare both, the veil fades in over the retiring picture, and its motes take the active theme's
 `--color-accent`.
 
-## The collection
+## Nothing is kept (the collection removed, owner 2026-09-04)
 
-Every landed frame is kept as a blob in IndexedDB (`/_rt/db.js` `collection("vydyvo")`, records
-`{ id, ...value, _ts }`, newest-first `all()`), capped at 24 (oldest SHOWN frames go first, their object
-URLs revoked). On boot the collection restores and the show starts at once — offline, signed-out or
-rate-limited the screensaver still has something to show. Two fresh (unshown) frames are always kept
-"ahead"; when fewer, a race starts.
+Until 2026-09-04 every landed frame was kept as a blob in IndexedDB and the show cycled the collection when
+the GPU said no. The owner saw the same pictures again and again: "не зберігай і не накопичуй в db нічого,
+постійно свіже, а те що пішло то ніколи не повернеш … на клієнті не кешуй, бо я бачу одне і те ж". Now: no
+IndexedDB, no restore, no cycling. Frames live in memory only — the one on stage, the one fading out (kept
+for the cross-fade) and the fresh ones painted ahead (`CAP` = 6 as a memory ceiling); `present()` frees every
+shown frame that is neither of the two on stage; `advance()` picks only a FRESH frame and otherwise leaves the
+stage as it is — the drift keeps the last picture alive until the next race lands. Two fresh frames are kept
+"ahead"; when fewer, a race starts. The gate's proof of the wand is `data-vy-ahead` on the stage (the count of
+fresh frames), not a collection count.
 
 ## Under the gate
 

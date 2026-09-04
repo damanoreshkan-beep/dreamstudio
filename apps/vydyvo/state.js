@@ -7,26 +7,33 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { T } from "/_rt/i18n.js";
 import { toEnglish } from "/_rt/translate.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { collection, idbSupported } from "/_rt/db.js";
 import { suggest } from "/_rt/ai-text.js";
 import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
-import { LINES, worldOf, activeWorld, voiceOf, composePrompt, mockFrame } from "./worlds.js";
+import { LINES, WORLDS, worldOf, voiceOf, composePrompt, mockFrame } from "./worlds.js";
 
 const OPTS_KEY = "ms:vydyvo:opts";
 const BASE = `${VPS_PROXY}/image`;
-const CAP = 24;      // frames kept (blobs in IndexedDB) — an hour of 2K at two per race is ~40 MB, so not unbounded
+// NOTHING IS KEPT (owner, 2026-09-04: "не зберігай і не накопичуй в db нічого, постійно свіже, а те що пішло то
+// ніколи не повернеш … на клієнті не кешуй, бо я бачу одне і те ж"): no IndexedDB, no collection, no cycling.
+// Frames live in memory only — the one on stage, the one fading out, and a couple painted ahead — and a frame
+// that has been shown is freed the moment it leaves the stage. When nothing fresh is ready the stage simply
+// holds its last picture (the drift keeps it alive) until the next race lands.
+const CAP = 2 + 4;   // stage + the fading one + fresh frames ahead — a hard ceiling on memory, never a library
 const AHEAD = 2;     // fresh frames kept ready before the next race starts
 const K = 2;         // pictures per race — a steady trickle, half the races of mirage's 4 for the same spend per race
-// how long to leave the GPU alone after each refusal; the collection carries the show meanwhile
+// how long to leave the GPU alone after each refusal; the stage holds its picture meanwhile
 const BACKOFF = { eRate: 120_000, eBusy: 300_000, eTimeout: 300_000, eFailed: 180_000, eNetwork: 60_000, eSignIn: 600_000, eTranslate: 60_000 };
-// no preset lives here — the farm THEME is the world (owner 2026-09-02: "у нас все тема рішає")
-const DEFAULT = { prompt: "", every: 120, quality: "2k" };
+// the CHARACTER is the owner's own choice (2026-09-04: "не будемо прив'язуватись до теми … окремий вибір
+// персонажів"): `char` = a worlds.js id, picked in the grid; the phone's theme still decides day or night
+const DEFAULT = { prompt: "", every: 120, quality: "2k", char: "lum" };
 export const EVERY = [30, 60, 120, 300];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const loadOpts = () => { try { const v = JSON.parse(localStorage.getItem(OPTS_KEY) || "null"); if (v && EVERY.includes(v.every)) return { ...DEFAULT, ...v }; } catch { /* */ } return DEFAULT; };
 export const $opts = atom(loadOpts());
 export const setOpts = (p) => { const v = { ...$opts.get(), ...p }; $opts.set(v); try { localStorage.setItem(OPTS_KEY, JSON.stringify(v)); } catch { /* */ } };
+/** The chosen character's world id (worlds.js) — the grid's pick, `lum` until one is made or if the id is gone. */
+export const activeWorld = () => { const c = $opts.get().char; return WORLDS[c] ? c : "lum"; };
 
 // frames: { id, url, preset, li, prompt, mode, w, h, ts, shown, shownAt } — oldest first
 export const $frames = atom([]);
@@ -36,7 +43,6 @@ export const $stage = atom({ cur: null, prev: null, since: 0, slot: 0 });
 export const $gen = atom({ phase: "idle", error: null, until: 0, live: null });
 const patchGen = (p) => $gen.set({ ...$gen.get(), ...p });
 
-const store = collection("vydyvo");
 const revoke = (url) => { if (url?.startsWith?.("blob:")) { try { URL.revokeObjectURL(url); } catch { /* */ } } };
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const lineOf = (id) => { let h = 0; for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h % LINES; };
@@ -52,17 +58,16 @@ function addFrame(f) {
   while (list.length > CAP) {
     const gone = list.filter((x) => x.shown && x.id !== cur).sort((a, b) => a.shownAt - b.shownAt)[0] || list.find((x) => x.id !== cur);
     if (!gone) break;
-    list = list.filter((x) => x !== gone); revoke(gone.url); store.remove(gone.id).catch(() => {});
+    list = list.filter((x) => x !== gone); revoke(gone.url);
   }
   $frames.set(list);
-  if (f.blob && idbSupported) store.put(id, { blob: f.blob, preset: f.preset, li: frame.li, prompt: f.prompt, subject: f.subject || null, mode: f.mode, w: f.w, h: f.h }).catch(() => {});
   return id;
 }
 
 // THE WORDS ARE NEVER CANNED (owner, 2026-09-01: "слова мають бути завжди унікальними, юзай наше ai"):
 // every landed frame asks /feed/ai (mode "line", uncached, hot) for ONE fresh thought in the preset's
 // spirit, telling it what has already been shown so nothing repeats. The i18n lines remain only as the
-// OFFLINE/gate fallback — a collection frame without a line still speaks. The line persists with the frame.
+// OFFLINE/gate fallback — a frame without a line still speaks. The line lives with the frame, in memory only.
 // The modes answer STRICT JSON ({"line":…} / {"scene":…}) — free text once echoed the prompt back onto the
 // screen («Прозвучали…»); a keyed field either parses or is discarded, never shown raw. Markdown fences and
 // stray prose around the object are tolerated; a missing key is a miss.
@@ -79,9 +84,11 @@ async function lineFor(id, world, mode, userWords, loc) {
   const avoid = $frames.get().map((f) => f.line).filter(Boolean).slice(-12);
   // the world's PERSONA leads the spark (owner: Buddha by day, the echo's spirit by night) — the edge's
   // line mode carries its manner without naming it, so the words stay human, never a costume
+  // the PERSONA alone carries the essence: the picture's subject (all light filaments and glow) used to ride
+  // here as «Суть», and every thought came out ABOUT light and shadow (owner 2026-09-04: "слова мають не бути
+  // про світло чи тінь, а ніби сама тіньова чи світовий дух говорить") — now the spirit speaks about life
   const spark = [
     `Голос: ${voiceOf(world, mode)}.`,
-    `Суть: ${world.subject}.`,
     userWords ? `Слова власника: ${userWords}.` : "",
     avoid.length ? `Вже прозвучало: ${avoid.join(" | ")}` : "",
   ].filter(Boolean).join("\n");
@@ -90,37 +97,28 @@ async function lineFor(id, world, mode, userWords, loc) {
     const line = jsonField(out, "line").replace(/^["«—–\-\s]+/, "").replace(/["»\s]+$/, "").slice(0, 90);
     if (!line || !$frames.get().some((f) => f.id === id)) return;
     $frames.set($frames.get().map((f) => (f.id === id ? { ...f, line } : f)));
-    if (idbSupported) {
-      const row = await store.get(id).catch(() => null);
-      if (row) store.put(id, { blob: row.blob, preset: row.preset, li: row.li, prompt: row.prompt, subject: row.subject || null, mode: row.mode, w: row.w, h: row.h, line }).catch(() => {});
-    }
   } catch { /* the fallback line stays */ }
 }
 
-// the collection comes back on boot as ALREADY SHOWN: the loop cycles it at once and paints fresh ones ahead
-async function restore() {
-  if (gate || !idbSupported) return;
-  let rows = []; try { rows = await store.all(); } catch { return; }
-  const list = rows.slice(0, CAP).reverse().map((r) => ({ id: r.id, url: URL.createObjectURL(r.blob), preset: r.preset, li: r.li ?? 0, line: r.line || null, subject: r.subject || null, prompt: r.prompt || "", mode: r.mode || "dark", w: r.w, h: r.h, ts: r._ts, shown: true, shownAt: r._ts }));
-  if (list.length) $frames.set([...list, ...$frames.get()]);
-}
-
+// a frame goes on stage ONCE; the one it replaces stays only for the cross-fade, and whatever left the stage
+// before that is freed here — what has been seen is gone (owner: "те що пішло то ніколи не повернеш")
 function present(id, now) {
   const st = $stage.get();
-  $frames.set($frames.get().map((f) => (f.id === id ? { ...f, shown: true, shownAt: now } : f)));
+  const keep = new Set([id, st.cur]);
+  $frames.set($frames.get().filter((f) => { if (!f.shown || keep.has(f.id)) return true; revoke(f.url); return false; })
+    .map((f) => (f.id === id ? { ...f, shown: true, shownAt: now } : f)));
   $stage.set({ cur: id, prev: st.cur, since: now, slot: 1 - st.slot });
 }
-// the next frame: the oldest fresh one; else the one shown longest ago (a collection cycles, never stops).
-// THE THEME IS RESPECTED HERE TOO: every frame remembers the mode AND the world it was painted for, and a
-// frame of the document's current mode+world always wins, then same mode — a paper theme never shows a
-// night frame while a day one exists, and a switched theme never keeps the old world's pictures on stage
-// (owner 2026-09-02: "зміна теми або режиму має бути якісне").
+// the next frame: the oldest FRESH one, or nothing — a shown frame is never shown again; with nothing fresh the
+// stage holds its picture until the next race lands. THE THEME IS RESPECTED HERE TOO: every frame remembers the
+// mode AND the world it was painted for, and a frame of the document's current mode+world always wins, then
+// same mode — a paper theme never shows a night frame while a day one exists (owner 2026-09-02: "зміна теми
+// або режиму має бути якісне").
 function advance(now) {
-  const cur = $stage.get().cur;
   const mode = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
   const wid = activeWorld();
   const pick = (list) => list.find((f) => f.mode === mode && f.preset === wid) || list.find((f) => f.mode === mode) || list[0];
-  const next = pick(unshown()) || pick($frames.get().filter((f) => f.id !== cur).sort((a, b) => a.shownAt - b.shownAt));
+  const next = pick(unshown());
   if (next) present(next.id, now);
 }
 /** Skip to the next frame now (a tap on the picture). */
@@ -132,7 +130,7 @@ export function startLoop(ctx) {
   ctxRef = ctx;
   if (loopId) return;
   loopId = -1;
-  restore().finally(() => { tick(); loopId = setInterval(tick, 1000); });
+  tick(); loopId = setInterval(tick, 1000);      // nothing to restore: every session starts fresh
 }
 function tick() {
   const now = Date.now(), st = $stage.get(), o = $opts.get();

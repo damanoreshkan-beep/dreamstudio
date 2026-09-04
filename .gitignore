@@ -20,3 +20,6 @@ AGENTS.md
 .serena/
 # 8n8 run stamps — a green-gates record is about THIS machine and THIS tree, never shared
 .8n8/
+# the META layer (owner, 2026-09-04): the work's vector, journal, streams, decisions — above the code and the
+# research docs, kept locally, never in git. Recipe: .claude/skills/microspec/rules/meta.md
+meta/

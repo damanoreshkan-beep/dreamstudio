@@ -39,12 +39,28 @@ export default [
     },
   },
   {
-    name: "паличка: явна генерація негайно поповнює колекцію", run: async (h) => {
+    // nothing is kept (owner 2026-09-04): there is no collection to count — the wand's proof is the number of
+    // FRESH frames waiting for the stage, which the stage carries as data-vy-ahead
+    name: "паличка: явна генерація негайно малює свіжі кадри наперед", run: async (h) => {
       await ready(h);
-      const count = async () => { await h.click("[data-settings]"); await h.wait(250); const n = Number(await h.text("[data-collection]")); await h.back(); await h.wait(250); return n; };
-      const before = await count();
+      const ahead = async () => Number(await h.attr("[data-stage]", "data-vy-ahead"));
+      const before = await ahead();
       await h.tap("[data-gen-now]"); await h.wait(1500);
-      h.expect((await count()) > before, "колекція не виросла після явної генерації");
+      h.expect((await ahead()) > before, "свіжих кадрів наперед не побільшало після явної генерації");
+    },
+  },
+  {
+    // the characters are their own choice (owner 2026-09-04): twelve tiles, a tap picks the character AND opens the
+    // show; the pick survives a reload as opts.char, and the stage now belongs to that world
+    name: "персонажі: сітка з дванадцяти, тап обирає і відкриває показ", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-chars] [data-char]")) === 12, "у сітці має бути дванадцять персонажів");
+      h.expect((await h.count("[data-char='lum'][data-on]")) === 1, "до вибору обраний lum");
+      await h.tap("[data-char='ink']"); await h.wait(400);
+      h.expect((await h.count("[data-stage][data-show]")) === 1, "тап по персонажу не відкрив показ");
+      h.expect((await h.attr("[data-stage]", "data-vy-world")) === "ink", "сцена не перейшла у світ обраного персонажа");
+      await h.back(); await h.wait(300);
+      h.expect((await h.count("[data-char='ink'][data-on]")) === 1, "вибір не позначено в сітці");
     },
   },
   {
