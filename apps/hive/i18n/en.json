@@ -89,5 +89,15 @@
   "serving": "serving",
   "neighbour": "neighbour",
   "firstSeen": "First seen",
-  "lastSeen": "Last"
+  "lastSeen": "Last",
+  "checkTitle": "The selected find",
+  "check": "Check",
+  "asking": "Asking…",
+  "showOnGlobe": "Show on the globe",
+  "whereTitle": "Where it was surveyed",
+  "accuracy": "Accuracy",
+  "source": "Source",
+  "no_unknown": "Nobody has surveyed this transmitter yet.",
+  "no_unavailable": "The lookup is unavailable. Try later.",
+  "no_tooLittle": "This find did not say enough about itself to be looked up."
 }

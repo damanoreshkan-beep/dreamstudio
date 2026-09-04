@@ -68,6 +68,26 @@ export default [
     },
   },
   {
+    // «Перевірити» has three answers and they must stay three: a place, "nobody surveyed it", and "the
+    // lookup is broken". The gate answers from a fixture, so this exercises the UI, not the network.
+    name: "check: a find is placed on the globe, or the app says why not", run: async (h) => {
+      await h.click('[data-tab="list"]'); await h.wait(400);
+      await h.tap('[data-dev="24:0A:C4:11:22:33"]'); await h.wait(300);
+      h.expect((await h.count("[data-check]")) === 1, "немає кнопки Перевірити для обраної знахідки");
+      await h.tap("[data-check]"); await h.wait(600);
+      h.expect((await h.attr("[data-check-row]", "data-verdict")) === "found", "Wi-Fi не знайдено у фікстурі");
+      h.expect((await h.count("[data-where]")) === 1, "глобус не відкрився");
+      await h.back(); await h.wait(300);
+      h.expect((await h.count("[data-where]")) === 0, "Back не закрив глобус");
+      // A cell the database does not know says so, in words, and opens nothing.
+      await h.tap('[data-dev="lte:301"]'); await h.wait(300);
+      await h.tap("[data-check]"); await h.wait(600);
+      h.expect((await h.attr("[data-check-row]", "data-verdict")) === "unknown", "невідома сота не назвалась невідомою");
+      h.expect((await h.count("[data-verdict-line]")) === 1, "немає пояснення, чому немає місця");
+      h.expect((await h.count("[data-where]")) === 0, "глобус відкрився без координат");
+    },
+  },
+  {
     name: "list: the order is systemic, persisted, and does not reshuffle", run: async (h) => {
       await h.click('[data-tab="list"]'); await h.wait(400);
       // The rendered text carries the order, so no new helper is needed to see a reshuffle.
