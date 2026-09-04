@@ -7,7 +7,7 @@ export default [
     name: "глобус рендериться (canvas)", run: async (h) => {
       await seed(h);
       h.expect((await h.count("canvas")) === 1, "немає глобуса");
-      h.expect(/globe|глобус|крути|spin/i.test(await h.bodyText()), "немає підказки/чрому");
+      h.expect((await h.count("#country-search")) === 1, "немає пошуку країни");   // the globe carries no caption; the search is the chrome
     },
   },
   {

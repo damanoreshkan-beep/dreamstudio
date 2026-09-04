@@ -19,13 +19,15 @@ import { geo } from "/_rt/sensors.js";
 import { stationaryTail, meanFix, segErr, totalErr, usableFix } from "/_rt/geofix.js";
 import { collection } from "/_rt/db.js";
 import { Scramble } from "/_rt/skeleton.js";
+import { Panel } from "/_rt/ui.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The trace + points are MARKS (canvas fills/strokes), so they carry the one farm accent — read the token,
-// never a hardcoded hue. Fixed at load: --app-accent is the same neon in both themes. Falls back for the
-// preflight stub where getComputedStyle has no real document.
-const ACCENT = (() => { try { return getComputedStyle(document.documentElement).getPropertyValue("--app-accent").trim() || "#C13BFF"; } catch { return "#C13BFF"; } })();
+// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
+const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
+// The vertex dots are painted --app-accent — one amber in both themes — so the number on a dot is a fixed
+// ink too: black on amber reads on either page. The only colour draw() does not read off the element.
+const DOT_INK = "#000";
 // a deterministic sample path so the gate/mock sees the live layout (headless has no GPS)
 const SAMPLE = [{ lat: 50.4501, lng: 30.5234, accuracy: 8 }, { lat: 50.4509, lng: 30.5240, accuracy: 8 }, { lat: 50.4512, lng: 30.5258, accuracy: 8 }, { lat: 50.4506, lng: 30.5266, accuracy: 8 }];
 const SAMPLE_CUR = { lat: 50.4500, lng: 30.5270, accuracy: 6, t: 0 };
@@ -68,7 +70,13 @@ function draw(cv, pts, cur) {
   const fit = fitCanvas(cv); if (!fit) return;
   const { W, H, dpr } = fit;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-  const ink = getComputedStyle(cv).color || "#888";
+  // Every colour comes off the canvas's computed style — the page's own tokens, read at draw time, so the
+  // plot is right in both themes: the ink for the trace and labels, --app-accent for the marks (the trace's
+  // points, the live segment, the accuracy disc), base-100 as the halo behind a label (the well the canvas
+  // sits in is transparent, so its own background is nothing to halo with), the theme's mono for the type.
+  const cs = getComputedStyle(cv), tok = (n) => cs.getPropertyValue(n).trim();
+  const ink = cs.color, accent = tok("--app-accent") || ink, halo = tok("--color-base-100") || "transparent";
+  const mono = tok("--font-mono") || "ui-monospace,monospace";
   const all = cur ? [...pts, cur] : pts.slice(); if (!all.length) return;
   const o = all[0], q = all.map((p) => proj(o, p));
   let minX = Math.min(...q.map((p) => p.x)), maxX = Math.max(...q.map((p) => p.x)), minY = Math.min(...q.map((p) => p.y)), maxY = Math.max(...q.map((p) => p.y));
@@ -77,13 +85,13 @@ function draw(cv, pts, cur) {
   const cx = (W - s * (minX + maxX)) / 2, cy = (H - s * (minY + maxY)) / 2;
   const X = (p) => proj(o, p).x * s + cx, Y = (p) => proj(o, p).y * s + cy;
 
-  if (pts.length >= 3) { ctx.fillStyle = ACCENT + "1f"; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)))); ctx.closePath(); ctx.fill(); }
+  // the area fill and the accuracy disc are the accent at a low alpha — globalAlpha, so the token's format never matters
+  if (pts.length >= 3) { ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = accent; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)))); ctx.closePath(); ctx.fill(); ctx.restore(); }
   if (pts.length >= 2) { ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)))); ctx.stroke(); }
-  if (pts.length && cur) { ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = ACCENT; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(pts[pts.length - 1]), Y(pts[pts.length - 1])); ctx.lineTo(X(cur), Y(cur)); ctx.stroke(); ctx.restore(); }
+  if (pts.length && cur) { ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(pts[pts.length - 1]), Y(pts[pts.length - 1])); ctx.lineTo(X(cur), Y(cur)); ctx.stroke(); ctx.restore(); }
   // Segment labels: pushed off the segment along its NORMAL and haloed. Centred on the midpoint they sat
   // right on the line they measure — unreadable exactly where it matters, and worse over the area fill.
-  ctx.font = "600 11px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const halo = getComputedStyle(cv).backgroundColor || "#0a0a0b";
+  ctx.font = `600 11px ${mono}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (let i = 1; i < pts.length; i++) {
     const d = hav(pts[i - 1], pts[i]);
     const x1 = X(pts[i - 1]), y1 = Y(pts[i - 1]), x2 = X(pts[i]), y2 = Y(pts[i]);
@@ -92,14 +100,15 @@ function draw(cv, pts, cur) {
     ctx.lineWidth = 3.5; ctx.strokeStyle = halo; ctx.lineJoin = "round"; ctx.strokeText(fmt(d), lx, ly);
     ctx.fillStyle = ink; ctx.fillText(fmt(d), lx, ly);
   }
-  pts.forEach((p, i) => { ctx.fillStyle = ACCENT; ctx.beginPath(); ctx.arc(X(p), Y(p), 5, 0, 7); ctx.fill(); ctx.fillStyle = getComputedStyle(cv).getPropertyValue("background-color") || "#0a0a0b"; ctx.font = "700 9px ui-monospace,monospace"; ctx.textBaseline = "middle"; ctx.fillStyle = "#04120c"; ctx.fillText(String(i + 1), X(p), Y(p) + 0.5); });
-  if (cur) { const ar = Math.max(4, (cur.accuracy || 0) * s); ctx.fillStyle = ACCENT + "26"; ctx.beginPath(); ctx.arc(X(cur), Y(cur), ar, 0, 7); ctx.fill(); ctx.fillStyle = ACCENT; ctx.beginPath(); ctx.arc(X(cur), Y(cur), 5.5, 0, 7); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5; ctx.stroke(); }
+  pts.forEach((p, i) => { ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(X(p), Y(p), 5, 0, 7); ctx.fill(); ctx.font = `700 9px ${mono}`; ctx.textBaseline = "middle"; ctx.fillStyle = DOT_INK; ctx.fillText(String(i + 1), X(p), Y(p) + 0.5); });
+  // the live position: the accuracy disc, the dot, and a page-coloured ring that lifts the dot off the disc
+  if (cur) { const ar = Math.max(4, (cur.accuracy || 0) * s); ctx.save(); ctx.globalAlpha = 0.15; ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(X(cur), Y(cur), ar, 0, 7); ctx.fill(); ctx.restore(); ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(X(cur), Y(cur), 5.5, 0, 7); ctx.fill(); ctx.strokeStyle = halo; ctx.lineWidth = 1.5; ctx.stroke(); }
   // scale bar (bottom-left) — a round metre value ≈70px wide
   const perPx = 1 / s; let target = 70 * perPx, mag = 10 ** Math.floor(Math.log10(target)), n = [1, 2, 5, 10].find((k) => k * mag >= target) * mag; const barPx = n / perPx;
   ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(12, H - 14); ctx.lineTo(12 + barPx, H - 14); ctx.moveTo(12, H - 18); ctx.lineTo(12, H - 10); ctx.moveTo(12 + barPx, H - 18); ctx.lineTo(12 + barPx, H - 10); ctx.stroke();
-  ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = "600 10px ui-monospace,monospace"; ctx.fillText(fmt(n), 16, H - 18);
+  ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = `600 10px ${mono}`; ctx.fillText(fmt(n), 16, H - 18);
   // north arrow (top-right)
-  ctx.save(); ctx.translate(W - 20, 22); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(0, 8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(-4, -6); ctx.lineTo(4, -6); ctx.closePath(); ctx.fill(); ctx.font = "700 9px ui-monospace,monospace"; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("N", 0, 9); ctx.restore();
+  ctx.save(); ctx.translate(W - 20, 22); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(0, 8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(-4, -6); ctx.lineTo(4, -6); ctx.closePath(); ctx.fill(); ctx.font = `700 9px ${mono}`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("N", 0, 9); ctx.restore();
 }
 
 let _t;   // set inside the component so fmt can reach the dict (kept module-level for draw())
@@ -199,7 +208,7 @@ export function ruler({ S, toast }) {
   const shownAcc = pend?.accuracy ?? cur?.accuracy ?? 0;
   const tErr = pts.length >= 2 ? totalErr(pts.slice(1).map((p, i) => segErr(pts[i], p))) : null;
 
-  return html`<div class="flex flex-col gap-3">
+  return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-points=${pts.length} data-ready=${ready} data-fixed=${canAdd}>
       ${/* The plot is something you look INTO — the page pressed in, with the polyline lying at the bottom
            of it. It used to be `border border-base-300 bg-base-200/40`, which is now literally nothing:
            base-200 IS base-100 in this material, so the only thing left drawing the frame was the hairline.
@@ -209,39 +218,42 @@ export function ruler({ S, toast }) {
            it has to be the right size from the first frame — before the generated sheet exists — and it must
            not take its height from the thing it sizes. `clamp()` is the same flexible height the canvas used
            to carry as `h-[52svh] min-h-[280px] max-h-[460px]`, in one property that needs no sheet. */""}
-      <div class="rounded-2xl sf-inset overflow-hidden" style="height:clamp(280px,52svh,460px)">
+      <div class="rounded-[var(--ms-r)] sf-inset overflow-hidden" style="height:clamp(280px,52svh,460px)">
         <canvas ref=${cv} aria-hidden="true" class="w-full h-full block text-base-content"></canvas>
       </div>
-      <div class="flex items-end justify-between gap-3 px-1">
+      ${/* the readout, the fix line and the verbs are one raised surface: the instrument's panel under its plot */""}
+      <${Panel} data-readout>
+      <div class="flex items-end justify-between gap-3">
         <div class="min-w-0">
-          <div class="text-[0.62rem] font-mono uppercase text-muted">${T(t, "total")}</div>
+          <div class=${LABEL}>${T(t, "total")}</div>
           <div class="flex items-baseline gap-2 flex-wrap">
             <div class="text-3xl font-bold tabular-nums leading-none">${pts.length >= 2 ? fmt(total) : (ready || err) ? "—" : html`<${Scramble} len=${5} />`}</div>
             ${tErr != null ? html`<span data-err class="text-xs font-mono tabular-nums text-muted">${fmtErr(tErr)}</span>` : null}
           </div>
-          ${area != null ? html`<div class="text-xs text-base-content/70 mt-1 tabular-nums">${T(t, "area")}: ${fmtArea(area)}</div>` : null}
+          ${area != null ? html`<div class="text-sm text-muted mt-1 tabular-nums">${T(t, "area")}: ${fmtArea(area)}</div>` : null}
         </div>
         <div class="text-right shrink-0">
-          <div class="text-[0.62rem] font-mono uppercase text-muted">${live != null ? T(t, "live") : T(t, "points")}</div>
+          <div class=${LABEL}>${live != null ? T(t, "live") : T(t, "points")}</div>
           <div class="text-lg font-semibold tabular-nums">${live != null ? fmt(live) : String(pts.length)}</div>
         </div>
       </div>
-      <div class="flex items-center justify-between gap-2 text-xs px-1 min-h-4">
+      <div class="flex items-center justify-between gap-2 text-xs min-h-4">
         ${err ? html`<span class="text-error flex items-center gap-1">${Icon("lucide:map-pin-off")}${T(t, "no" + (err === "denied" ? "Perm" : "Gps"))}</span>`
           : ready ? html`<span data-fix data-live class=${`flex items-center gap-1 shrink-0 tabular-nums ${canAdd ? "text-base-content/70" : "text-warning"}`}>
               ${Icon(canAdd ? "lucide:satellite-dish" : "lucide:satellite", "shrink-0")}
               ±${shownAcc < 10 ? Math.round(shownAcc * 10) / 10 : Math.round(shownAcc)} ${T(t, "uM")}
               ${depth >= 2 ? html`<span class="text-[0.9em]">${depth}×</span>` : null}
             </span>`
-          : html`<span class="text-muted flex items-center gap-1.5">${Icon("lucide:loader-circle")}${T(t, "locating")}</span>`}
-        ${ready ? html`<button id="coords" data-coords aria-label=${T(t, "copyCoords")} class="font-mono tabular-nums text-base-content/70 flex items-center gap-1.5 min-w-0 active:opacity-60" onClick=${copyCoords}>
-          <span class="truncate">${coordStr(cur)}</span>${Icon("lucide:copy", "text-[0.9em] shrink-0 opacity-60")}
+          : html`<span data-locating class="text-muted flex items-center gap-1.5">${Icon("lucide:satellite")}<${Scramble} text=${T(t, "locating")} /></span>`}
+        ${ready ? html`<button id="coords" data-coords aria-label=${T(t, "copyCoords")} class="font-mono tabular-nums text-base-content/70 flex items-center gap-1.5 min-w-0 active:text-muted" onClick=${copyCoords}>
+          <span class="truncate">${coordStr(cur)}</span>${Icon("lucide:copy", "text-[0.9em] shrink-0 text-muted")}
         </button>` : null}
       </div>
       <div class="flex items-center gap-2">
-        <button id="add" aria-label=${T(t, "addPoint")} disabled=${!canAdd} class="btn btn-primary flex-1 min-w-0 rounded-2xl gap-2 disabled:opacity-40" onClick=${add}>${Icon("lucide:map-pin-plus", "text-lg shrink-0")}<span class="truncate">${T(t, "addPoint")}</span></button>
-        <button id="undo" aria-label=${T(t, "undo")} disabled=${!pts.length} class="btn btn-outline btn-square rounded-2xl disabled:opacity-40" onClick=${undo}>${Icon("lucide:undo-2", "text-lg")}</button>
-        <button id="clear" data-haptic="bump" aria-label=${T(t, "clear")} disabled=${!pts.length} class="btn btn-ghost btn-square rounded-2xl disabled:opacity-40" onClick=${clear}>${Icon("lucide:eraser", "text-lg")}</button>
+        <button id="add" aria-label=${T(t, "addPoint")} disabled=${!canAdd} class="btn btn-primary flex-1 min-w-0 gap-2" onClick=${add}>${Icon("lucide:map-pin-plus", "text-lg shrink-0")}<span class="truncate">${T(t, "addPoint")}</span></button>
+        <button id="undo" aria-label=${T(t, "undo")} disabled=${!pts.length} class="btn btn-outline btn-square" onClick=${undo}>${Icon("lucide:undo-2", "text-lg")}</button>
+        <button id="clear" data-haptic="bump" aria-label=${T(t, "clear")} disabled=${!pts.length} class="btn btn-ghost btn-square" onClick=${clear}>${Icon("lucide:eraser", "text-lg")}</button>
       </div>
+      <//>
   </div>`;
 }
