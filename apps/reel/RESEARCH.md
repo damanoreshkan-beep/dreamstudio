@@ -269,3 +269,39 @@ Java change. The one party that already fetches the page is the proxy, and the t
   the path and `humanName` ignores bitrate tokens (61 clean items). Gitignored local suites carry the real page:
   `edge/core.local_test.js` (ph-root fixture) and `edge/session.local_test.js` (redirect chain, anonymous vs
   cookie, consent flags, egress).
+
+## 7. The black dive, the main list, and where the page is (2026-09-04)
+
+Three reports from the phone, one day: a **black screen** after swiping into a clip; **shorts spliced into the
+site's video list**; and a decision about the tap. Measured with the farm's driver (`vps/drive.sh reel …`,
+[[reference_drive]]) and fresh phone captures of the site, not from the description.
+
+- **The black dive was two facts, neither of them the swipe.** (1) The edge returned the player's own quality
+  ladder — five poster-less, page-less rows titled `mpeg2_ts` — at the TOP of the dive feed, because the phone's
+  clip page now renders its rail as `<li>` × 24 plus `<li class="hidden">` × 21 and the two signatures split
+  the plurality (take-all). (2) The rail's tile posters answer **403 without a referer and 206 with the
+  page's** (curl from the box and from the phone); the client removed the `<img>` on error, and a poster that
+  removes itself over a preview is a black slide. The clip path had answered the referer question through the
+  sealed proxy since 2026-08; the posters never had. `usePosterSrc` (view.js) now loads a poster the way a clip
+  is loaded — direct, once through `sealedFrameUrl` on failure, gone only after a proxied failure — and one
+  hook feeds the blurred fill, the sharp fill and the `<video poster>` so the three cannot disagree. The
+  liked grid still loads posters direct (a like keeps its poster URL; not in this pass).
+- **The main list is the edge's job, and the recipe is written there:** `microspec-edge/docs/research/main-list.md`
+  (private repo — real hosts). In one line: records are clustered by KIND (tag + classes minus state words, or a
+  JSON entry's shape — key set / arity), the dominant kind is the list; then one kind of PAGE ROUTE must hold ≥ 60 %
+  and the rest (`/shorties/<id>`, `/gif/<id>`) go; an ad guard that would take half the list stands down; a
+  ladder's rungs dedupe to one clip; an `hdnea` token is a signature. Fields, not counts: the clip page went
+  25 (5 junk) → 45 (0 junk), a model page 8 gifs → 19 videos, mixkit/commons/xvideos/redtube byte-identical.
+- **The tap opens the PAGE; the in-app player is a beta behind its name (owner, 2026-09-04).** From
+  2026-08-20 the tap opened the full clip in the app; the owner sent that back: a tap on a reel promises the
+  clip's page — the site's own player, the rest of the page, the comments, the account — and the parse of the
+  page's ladder (`/feed/stream`) is a beta that works where it works. So: tap → `openExternal(page)`; the
+  island's filled circle is the same trip (external-link glyph, "Відкрити сторінку кліпу" — the keyboard's
+  statement of the tap); the More sheet's "Відкрити у браузері" row is REPLACED by "Дивитись тут (бета)" →
+  `openFull`. `openBrowser` left both locales; `openPage` and `watchHere` arrived. The e2e proves the pair: a
+  tap opens no overlay; the sheet row does, and Back closes it.
+- **A shortie's page is a player, not a list.** `/shorties/<id>` carries five ladders and names no rail
+  (`relatedEndpoint` → null), so a dive into one is "На цій сторінці відео не знайдено" — by design, not a
+  defect; the tap opens it on the site. Its rail is the site's JS.
+- **The eye cannot decode H.264** (Playwright's Chromium: `canPlayType('video/mp4; codecs="avc1…"')` is
+  empty), so `video.error.code === 4` in a drive is the eye, not production; judge the posters and the wire.

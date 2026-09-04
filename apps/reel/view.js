@@ -482,12 +482,32 @@ function Favicon({ url, size = "w-6 h-6" }) {
     : html`<img src=${`https://${hostOf(url)}/favicon.ico`} alt="" loading="lazy" class=${`${cls} bg-base-content/10`} onError=${() => setFailed(true)} />`;
 }
 
+/* A poster the CDN refuses to hand this origin is not a missing poster. Measured 2026-09-04 on a clip page's
+   related rail: the tile poster answers 403 without a referer and 206 with the page's — the same hotlink
+   check the clips get, and the clip path already answers it by going through the sealed proxy, which is the
+   one party that can state the referer. The posters never learned that: a direct failure simply REMOVED the
+   <img>, and on a dive every slide of the rail was a poster that had removed itself over a preview the eye's
+   Chromium could not decode — a black screen, the whole feed long. So a poster is loaded the way a clip is:
+   direct first (most sources need no help and every proxied byte crosses our box), once through the proxy on
+   failure, and only a proxied failure is really the end. One hook, so the fill and the <video poster> agree. */
+function usePosterSrc(poster, page) {
+  const [src, setSrc] = useState(poster || null);
+  useEffect(() => { setSrc(poster || null); }, [poster]);
+  const fail = () => {
+    if (!src || src !== poster || poster.startsWith("data:")) return setSrc(null);       // already the proxied one, or inline → gone
+    framed(poster, page).then((s) => setSrc(s || null)).catch(() => setSrc(null));
+  };
+  return [src, fail];
+}
 // Blanking fill: a poster shown full-frame (object-contain) over a blurred scaled copy of itself — no black bars,
 // nothing cropped. Reused by the preview/inactive slides and the video-error fallback.
-const PosterFill = ({ poster }) => poster ? html`<${Fragment}>
-  <img src=${poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-55" onError=${(e) => e.currentTarget.remove()} />
-  <img src=${poster} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain" onError=${(e) => e.currentTarget.remove()} />
-</${Fragment}>` : null;
+function PosterFill({ poster, page }) {
+  const [src, fail] = usePosterSrc(poster, page);
+  return src ? html`<${Fragment}>
+    <img src=${src} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-55" />
+    <img src=${src} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain" onError=${fail} />
+  </${Fragment}>` : null;
+}
 // A live <video>, mounted for the active slide AND its neighbours (see PRELOAD). Exactly one PLAYS; the rest
 // are attached and buffering, paused. createPlayer handles mp4 vs HLS and tears down on unmount. On failure it
 // falls back to the poster — the island's way out is already there either way, so no failure flag has to
@@ -516,6 +536,7 @@ function VideoLayer({ item, playing, ephemeral }) {
   const ref = useRef(), bgRef = useRef();
   const [errored, setErrored] = useState(false);
   const [viaProxy, setViaProxy] = useState(!!ephemeral);
+  const [poster, posterFail] = usePosterSrc(item.poster, item.page);                    // direct, then once through the proxy
   // Sealing is WebCrypto, so a proxied src cannot be derived during render any more. Direct stays synchronous
   // (the common path pays nothing); only the proxied one resolves in an effect, and `src` is null until it
   // does — which the attach effect below treats as "not ready yet" rather than as a failure.
@@ -577,27 +598,27 @@ function VideoLayer({ item, playing, ephemeral }) {
   // The ambient backdrop, for clips with no poster: a muted copy of the same video, blurred, filling the
   // letterbox. Active slide only, and only once the main one has data — see the note above.
   useEffect(() => {
-    if (!playing || !ready || item.poster || errored) return;
+    if (!playing || !ready || poster || errored) return;
     const bg = bgRef.current; if (!bg) return;
     bg.muted = true; bg.loop = true;
     let handle, dead = false;
     createPlayer(bg, src, { onReady: () => { if (!dead) bg.play?.().catch(() => {}); } })
       .then((h) => { if (dead) h?.destroy?.(); else handle = h; });
     return () => { dead = true; handle?.destroy?.(); };
-  }, [playing, ready, src, item.poster, errored]);
+  }, [playing, ready, src, poster, errored]);
 
   return html`<${Fragment}>
     ${errored
-      ? html`<${PosterFill} poster=${item.poster} />`
-      : item.poster
-        ? html`<img src=${item.poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" onError=${(e) => e.currentTarget.remove()} />`
+      ? html`<${PosterFill} poster=${item.poster} page=${item.page} />`
+      : poster
+        ? html`<img src=${poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" onError=${posterFail} />`
         : html`<video ref=${bgRef} aria-hidden="true" muted loop playsinline class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"></video>`}
     <div class="absolute inset-0 bg-black/25" aria-hidden="true"></div>
     ${/* `data-playing` mirrors which element owns playback. A <video> is opaque to every gate this farm has
           — `paused` is a property, not an attribute, so no selector can see it — and the whole claim of the
           preload window is "several are mounted, exactly ONE plays". State the claim in the DOM or it
           cannot be tested, and a window that quietly plays all three is the regression to catch. */""}
-    <video ref=${ref} data-main data-playing=${playing ? "" : null} poster=${item.poster || null} playsinline loop muted class=${`absolute inset-0 w-full h-full object-contain ${errored ? "opacity-0" : ""}`}></video>
+    <video ref=${ref} data-main data-playing=${playing ? "" : null} poster=${poster} playsinline loop muted class=${`absolute inset-0 w-full h-full object-contain ${errored ? "opacity-0" : ""}`}></video>
   </${Fragment}>`;
 }
 
@@ -625,15 +646,16 @@ function HeartBurst({ x, y, onDone }) {
 function Slide({ S, item, idx, active, near, ephemeral }) {
   const secRef = useRef();
   const [burst, setBurst] = useState(null);
-  // Systemic tap dispatch (runtime useTap): SINGLE tap toggles pause on a clip that plays inline, else opens the
-  // source page; DOUBLE tap likes + blooms a heart — and never fires the single (so a like never pauses/navigates).
-  /* SINGLE tap opens the full clip — for every slide, not just a dead one. It used to toggle pause, and to
-     open the page in a browser tab only when the clip could not play here; that made the most valuable action
-     on the surface reachable only by failure. The reel is the trailer and the tap is how you watch the thing.
-     Pause is not lost: the reel suspends by itself while the overlay is up (see FeedSurface), and swiping away
-     is what "not this one" already meant. */
+  // Systemic tap dispatch (runtime useTap): SINGLE tap opens the clip's PAGE; DOUBLE tap likes + blooms a
+  // heart — and never fires the single (so a like never navigates).
+  /* SINGLE tap opens the clip's page in the browser — for every slide. It opened the in-app full clip for a
+     while (2026-08-20 → 2026-09-04), and the owner sent that back: the page is what a tap on a reel promises —
+     the site's own player, the rest of the page, the comments, the account — and the in-app player is a BETA:
+     a parse of the page's ladder that works where it works. So the page is the tap, and the beta sits behind
+     its name in the More sheet (see MoreSheet), where a word can say "beta"; a glyph on the surface cannot.
+     Pause is not lost: swiping away is what "not this one" already meant. */
   const onTap = useTap({
-    onSingle: () => openFull(S, item),
+    onSingle: () => openExternal(item.page || item.orig || item.video),
     onDouble: (p) => { setBurst({ x: p.x, y: p.y, k: Date.now() }); addLike(item); navigator.vibrate?.(12); },
   });
   return html`<section ref=${secRef} data-reel data-idx=${idx} onClick=${onTap} class="snap-start snap-always relative h-[100dvh] w-full flex items-center justify-center bg-black overflow-hidden">
@@ -644,7 +666,7 @@ function Slide({ S, item, idx, active, near, ephemeral }) {
     ${near
       ? html`<${VideoLayer} item=${item} playing=${active} ephemeral=${ephemeral} />`
       : item.poster
-        ? html`<${PosterFill} poster=${item.poster} />`
+        ? html`<${PosterFill} poster=${item.poster} page=${item.page} />`
         : null}
     ${burst ? html`<${HeartBurst} x=${burst.x} y=${burst.y} key=${burst.k} onDone=${() => setBurst(null)} />` : null}
   </section>`;
@@ -763,7 +785,7 @@ async function exportClip({ item, format, mode, t, toast }) {
    that is a decision rather than a reflex moved in here.
    A Sheet and not a popover: it is the kit's, it drag-dismisses, and it is routed through S.screen, so the
    system Back closes it like every other dismissable surface in this farm. */
-function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
+function MoreSheet({ S, t, item, src, title, subbed, watchHere, toast }) {
   const busy = useStore($busy), loc = useStore(S.locale), mono = useStore($mono);
   const close = () => S.screen.set(null);
   const row = "btn btn-ghost justify-start gap-3 rounded-2xl w-full font-normal";
@@ -812,7 +834,12 @@ function MoreSheet({ S, t, item, src, title, subbed, openIn, toast }) {
             the outside would leave both numbers describing chrome that is no longer on screen. */""}
       <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg opacity-70")}${sys("clean", loc)}</button>
       ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg opacity-70")}${T(t, "sub")}</button>` : null}
-      ${openIn ? html`<button data-open-page class=${row} onClick=${() => { close(); openIn(); }}>${Icon("lucide:external-link", "text-lg opacity-70")}${T(t, "openBrowser")}</button>` : null}
+      ${/* The in-app player — a BETA, and named so. It parses the clip's page for its quality ladder on the box
+            (/feed/stream) and plays it here; it works where the page's player is one of the shapes the parser
+            knows, and the owner's rule (2026-09-04) is that a beta is reached by name, one tap deeper, while
+            the page itself is the tap on the reel and the island's circle. This row REPLACED "Open in
+            browser": the trip out is the surface's own tap now, so the sheet's row is the one that stays in. */""}
+      ${watchHere ? html`<button data-watch-here class=${row} onClick=${() => { close(); watchHere(); }}>${Icon("lucide:play", "text-lg opacity-70")}${T(t, "watchHere")}</button>` : null}
     </div>
   <//>`;
 }
@@ -844,11 +871,11 @@ function SourceIsland({ S, t, src, title, depth, dive, watch }) {
             blank. The page is always worth reaching, so the control is always there. It stays a circle and
             never carries a word: filled with a word, on a black media surface, it was the brightest thing on
             the screen.
-            It plays HERE, so the glyph stays `play` and never becomes an external-link — an external-link on
-            a control that opens an in-app player is the icon lying about where the tap goes. The trip that
-            really leaves (what only the site itself has: the rest of the page, its comments, an account)
-            moved into the sheet, where it can afford to carry its name instead of a glyph. */""}
-      ${watch ? html`<button data-watch class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "watch")} onClick=${watch}>${Icon("lucide:play", "text-base")}</button>` : null}
+            It is the clip's PAGE — the same trip the tap on the slide takes, stated here so a keyboard can
+            take it too — so the glyph is the external-link, and never `play`: a play glyph on a control that
+            leaves the app is the icon lying about where the tap goes. The in-app player (a beta) lives in
+            the sheet, where it can afford to carry its name and the word "beta" beside it. */""}
+      ${watch ? html`<button data-watch class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "openPage")} onClick=${watch}>${Icon("lucide:external-link", "text-base")}</button>` : null}
       ${/* forward is the mirror of back: the page this clip lives on. The destination's NAME is not written
             here — it is what the drag reveals under the finger — so the label rides the a11y name instead. */""}
       ${dive ? html`<button data-dive class=${act} aria-label=${`${T(t, "dive")}: ${dive.label}`} onClick=${dive.go}>${Icon("lucide:chevron-right", "text-lg")}</button>` : null}
@@ -980,12 +1007,12 @@ function FeedSurface({ S, t, toast }) {
           off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
           transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
-      dive=${dive} watch=${watch ? () => openFull(S, cur) : null} />`}
+      dive=${dive} watch=${watch ? () => openExternal(watch) : null} />`}
     ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
           tab plays through too — hanging it off the tab would give the same feed two different sets of
           actions depending on which way you arrived at it. */""}
     ${screen === "more" ? html`<${MoreSheet} S=${S} t=${t} toast=${toast} item=${cur} src=${src} title=${title}
-      subbed=${subs.some((s) => s.url === src)} openIn=${watch ? () => openExternal(watch) : null} />` : null}
+      subbed=${subs.some((s) => s.url === src)} watchHere=${watch ? () => openFull(S, cur) : null} />` : null}
     ${/* Lives with the feed, not with the tab, so it works identically from Liked — one engine, one overlay. */""}
     ${suspended ? html`<${FullClip} S=${S} t=${t} />` : null}
   </${Fragment}>`;
