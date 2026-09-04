@@ -54,6 +54,9 @@ const $now = atom(Date.now());
 // the hive itself never needs it. A failure is silent by design: a missing vendor is exactly what the
 // lookup returns for most addresses anyway, so the UI already handles its absence.
 const $oui = atom(null);
+// What the last tap put on the clipboard — the only observable proof of a copy, since a headless browser
+// refuses to paste it back.
+const $copied = atom(null);
 let ouiPending = false;
 function loadOui() {
   if (ouiPending || $oui.get()) return;
@@ -384,15 +387,93 @@ export function hiveView({ S, t }) {
   </div>`;
 }
 
+// A find, written out in full — what the tap copies. Every line is something a radio actually said: the
+// same honesty rule the row itself follows, so an absent field is ABSENT, never a dash or a zero dressed
+// as data. Identifiers keep their protocol spelling (BSSID, CID, dBm); only the labels are the reader's
+// language, because the text is for a person to paste into a note, a ticket or a message.
+function dossier(d, t, oui, loc) {
+  const L = (k) => T(t, k);
+  const time = (ms) => new Date(ms).toLocaleTimeString(loc === "en" ? "en-GB" : "uk-UA", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const rssi = Math.round(d.smooth ?? d.rssi);
+  const lines = [
+    `${labelOf(d, t)} · ${L("k" + d.kind[0].toUpperCase() + d.kind.slice(1))}`,
+    `${d.kind === "wifi" ? "BSSID" : d.kind === "lte" ? L("cellId") : L("address")} ${d.addr}`,
+    `${L("signal")} ${rssi} dBm · ${d.percent}% · ${L("band_" + band(d.smooth ?? d.rssi))}`,
+  ];
+  const vendor = vendorOf(d.addr, d.kind, oui);
+  if (vendor) lines.push(`${L("vendor")} ${vendor}`);
+  if (d.kind === "ble") {
+    if (rotates(d.addr)) lines.push(L("rotating"));
+    if (d.cls?.protocols?.length) lines.push(`${L("protocols")} ${d.cls.protocols.join(", ")}`);
+    if (d.cls?.tracker && d.cls.tracker !== "none") lines.push(`${L("tracker")} ${L(d.cls.tracker === "separated" ? "separatedNow" : "watching")}`);
+    if (d.raw) lines.push(`${L("advert")} ${d.raw}`);
+  }
+  if (d.kind === "wifi") {
+    if (d.freq) lines.push(`${L("freq")} ${d.freq} MHz${chanOf(d.freq) ? ` · ${L("channel")} ${chanOf(d.freq)}` : ""}`);
+    if (d.ftm != null) lines.push(`FTM (802.11mc) ${L(d.ftm ? "yes" : "no")}`);
+  }
+  if (d.kind === "lte") {
+    lines.push(`${L("role")} ${L(d.serving ? "serving" : "neighbour")}`);
+    if (d.cid) lines.push(`CID ${d.cid}`);
+    if (d.lac) lines.push(`LAC ${d.lac}`);
+  }
+  lines.push(`${L("firstSeen")} ${time(d.first)} · ${L("lastSeen")} ${time(d.at)} · ${L("samples")} ${d.sightings?.length ?? 0}`);
+  return lines.join("\n");
+}
+
+// Copying with a floor under it. `navigator.clipboard.writeText` is the modern path and the one a phone
+// takes, but it is refused outright in contexts that have no clipboard permission — measured on the see pod,
+// where the async API rejects and the user would have read "could not copy" for a copy that could have
+// happened. The old textarea + execCommand still works there, so it is the fallback rather than the error.
+async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; } catch { /* fall through to the old path */ }
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch { return false; }
+}
+
+// The Wi-Fi channel a frequency belongs to — arithmetic, not a table: 2.4 GHz counts 5 MHz per channel from
+// 2412 (14 is the exception Japan kept), 5 GHz and 6 GHz count from their own anchors.
+function chanOf(mhz) {
+  if (mhz === 2484) return 14;
+  if (mhz >= 2412 && mhz <= 2472) return (mhz - 2407) / 5;
+  if (mhz >= 5160 && mhz <= 5885) return (mhz - 5000) / 5;
+  if (mhz >= 5955 && mhz <= 7115) return (mhz - 5950) / 5;
+  return null;
+}
+
 // ── list ──────────────────────────────────────────────────────────────────────────────────────────────
 // Rows never jump. Ordering is systemic (S.filters.sort, persisted) and "by signal" sorts on the BAND
 // rather than the live number, because a stationary device fades 5-15 dB on its own — sorting on that
 // reshuffles the screen several times a second and makes the list unreadable.
-export function listView({ S, t }) {
+export function listView({ S, t, toast }) {
   const field = useField(S);
   const target = useStore($target);
   const oui = useStore($oui);
+  const loc = useStore(S.locale);
+  const copied = useStore($copied);
   useEffect(loadOui, []);
+  // A tap does BOTH: it aims the hunt at this find (the row is the only way into that screen) and puts the
+  // whole find on the clipboard — the owner asked for the second and the first has no other entrance.
+  const takeIt = async (d) => {
+    $target.set(d.addr);
+    if (gate) seedRose(); else { rose = newRose(72, HUNT_TAU); $roseAt.set(Date.now()); }
+    const text = dossier(d, t, oui, loc);
+    const ok = await copyText(text);
+    // The clipboard cannot be read back in a headless context (paste is refused), so what WAS copied is
+    // mirrored into the DOM: the gate and the driver assert the dossier by its address and its line count
+    // rather than by a toast that would look the same for an empty string.
+    $copied.set(ok ? { addr: d.addr, lines: text.split("\n").length } : null);
+    toast?.(T(t, ok ? "copied" : "copyFail"));
+  };
   return html`<div class="flex flex-col gap-[var(--ms-gap)]">
     <${Panel}>
       <div class="flex items-center gap-[var(--ms-gap)] min-w-0">
@@ -403,11 +484,11 @@ export function listView({ S, t }) {
     <//>
 
     <${Panel} title=${T(t, "signal")}>
-      <div data-live class="flex flex-col">
+      <div data-live data-copied=${copied?.addr || ""} data-copied-lines=${copied?.lines || 0} class="flex flex-col">
         ${field.length === 0 ? html`<div class="text-base-content/70 text-sm">${T(t, "nothingYet")}</div>` : null}
         ${field.map((d) => html`<button key=${d.addr} data-dev=${d.addr} data-kind=${d.kind}
           aria-pressed=${String(d.addr === target)}
-          onClick=${() => { $target.set(d.addr); if (gate) seedRose(); else { rose = newRose(72, HUNT_TAU); $roseAt.set(Date.now()); } }}
+          onClick=${() => takeIt(d)}
           class="ms-reveal text-left py-2 border-b border-base-content/10 last:border-0 rounded-[var(--ms-r-in)] transition-colors hover:bg-base-content/5">
           <span class="flex items-center gap-2 min-w-0">
             ${Icon(KIND_ICON[d.kind], `text-[length:var(--ms-icon)] shrink-0 ${d.kind === "ble" ? "text-[var(--app-accent)]" : "text-base-content/70"}`)}

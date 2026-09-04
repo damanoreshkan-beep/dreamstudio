@@ -72,5 +72,22 @@
   "tooOften": "Android is throttling scans. It will resume shortly.",
   "needsShell": "This needs the Android app.",
   "needsNewer": "This needs a newer build of the Android app.",
-  "failed": "The scan stopped."
+  "failed": "The scan stopped.",
+  "copied": "Copied",
+  "copyFail": "Could not copy",
+  "address": "Address",
+  "cellId": "Cell",
+  "vendor": "Vendor",
+  "protocols": "Protocols",
+  "tracker": "Tag",
+  "advert": "Advertisement",
+  "freq": "Frequency",
+  "channel": "channel",
+  "yes": "yes",
+  "no": "no",
+  "role": "Role",
+  "serving": "serving",
+  "neighbour": "neighbour",
+  "firstSeen": "First seen",
+  "lastSeen": "Last"
 }
