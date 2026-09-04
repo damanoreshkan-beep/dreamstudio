@@ -15,7 +15,7 @@ import { useState, useEffect, useRef } from "preact/hooks";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { Sheet, Segmented, Transport, Island } from "/_rt/ui.js";
+import { Sheet, Segmented, Transport, Island, Slider } from "/_rt/ui.js";
 import { audioSupported, midiToFreq, createEngine } from "/_rt/audio.js";
 import { generateMelody } from "/_rt/melody.js";
 import { collection } from "/_rt/db.js";
@@ -35,6 +35,7 @@ const label = (m) => letter(m) + (Math.floor(m / 12) - 1);
 const randSeed = () => (Math.random() * 0xffffffff) >>> 0;
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const reducedMotion = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 // ---- scales: ding (index 0, the deep centre note) + tone fields ascending, as absolute MIDI. The famous
 // handpan tunings; switching retunes every field. mood is a one-word feel used in the picker. ----
@@ -284,13 +285,12 @@ export function handpan({ S }) {
             { id: "flow", icon: "lucide:sparkles", label: T(t, "genFlow"), onClick: newFlow, tone: "accent", active: sweep >= 0, pulse: sweep >= 0, attr: { "data-flow": true } },
             { id: "rec", icon: "lucide:circle-dot", label: T(t, "rec"), onClick: toggleRec, tone: "error", active: recording, pulse: recording, pressed: recording, attr: { "data-rec": true } },
           ]} />
-        <label class="flex items-center gap-1.5 flex-1 min-w-0">
-          ${Icon("lucide:cloudy", "text-base text-muted shrink-0")}
-          <input data-space type="range" min="0" max="1" step="0.02" value=${space} aria-label=${T(t, "space")} onInput=${(e) => { $space.set(Number(e.target.value)); applySpace(); }} class="range range-xs range-secondary flex-1 min-w-0" />
-        </label>
+        <div class="flex-1 min-w-0">
+          <${Slider} id="space" attr="data-space" label=${T(t, "space")} value=${space} min=${0} max=${1} step=${0.02} onInput=${(v) => { $space.set(v); applySpace(); }} />
+        </div>
       <//>
     </div>
-    ${!audioSupported ? html`<div class="shrink-0 text-center text-xs text-base-content/70 pb-1">${T(t, "noAudio")}</div>` : null}
+    ${!audioSupported ? html`<div class="shrink-0 text-center text-sm text-muted pb-1">${T(t, "noAudio")}</div>` : null}
     </div>
   </div>`;
 }
@@ -357,33 +357,29 @@ export function handpanWeave({ S, toast, screen, openScreen, closeScreen }) {
 function SettingsSheet({ open, onClose, t }) {
   const bpm = useStore($bpm), space = useStore($space), shimmer = useStore($shimmer), drone = useStore($drone), timbre = useStore($timbre), scaleId = useStore($scale);
   return html`<${Sheet} id="setsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
+    ${/* Two kit sliders. Tempo carries its number in the caption (a BPM is a unit the ear can act on — the
+         mono "label · count" shape), space is a macro and prints nothing, as the kit intends. */""}
     <div class="grid grid-cols-2 gap-x-4 gap-y-2">
-      <div class="flex flex-col gap-0.5">
-        <div class="flex items-center justify-between text-[0.6rem] uppercase tracking-wide text-base-content/70"><span>${T(t, "tempo")}</span><span class="font-semibold tabular-nums">${bpm}</span></div>
-        <input type="range" min="52" max="132" value=${bpm} class="range range-xs range-primary w-full" aria-label=${T(t, "tempo")} onInput=${(e) => $bpm.set(Number(e.target.value))} />
-      </div>
-      <div class="flex flex-col gap-0.5">
-        <div class="flex items-center gap-1 text-[0.6rem] uppercase tracking-wide text-base-content/70">${Icon("lucide:cloudy", "text-[0.85em]")}<span>${T(t, "space")}</span></div>
-        <input data-set="space" type="range" min="0" max="1" step="0.02" value=${space} class="range range-xs range-secondary w-full" aria-label=${T(t, "space")} onInput=${(e) => { $space.set(Number(e.target.value)); applySpace(); }} />
-      </div>
+      <${Slider} id="tempo" attr="data-set" label=${`${T(t, "tempo")} · ${bpm}`} value=${bpm} min=${52} max=${132} step=${1} onInput=${(v) => $bpm.set(v)} />
+      <${Slider} id="space" attr="data-set" label=${T(t, "space")} value=${space} min=${0} max=${1} step=${0.02} onInput=${(v) => { $space.set(v); applySpace(); }} />
     </div>
     <div class="flex gap-2">
       <button data-set="shimmer" aria-pressed=${shimmer} onClick=${() => { buzz(); $shimmer.set(!shimmer); }} class=${`btn btn-sm flex-1 gap-1.5 ${shimmer ? "btn-secondary" : "btn-outline"}`}>${Icon("lucide:stars", "text-base")}${T(t, "shimmer")}</button>
       <button data-set="drone" aria-pressed=${drone} onClick=${() => { buzz(); ensure(); $drone.set(!drone); applyDrone(); }} class=${`btn btn-sm flex-1 gap-1.5 ${drone ? "btn-secondary" : "btn-outline"}`}>${Icon("lucide:waves", "text-base")}${T(t, "drone")}</button>
     </div>
     <div class="flex flex-col gap-1">
-      <div class="text-[0.6rem] uppercase tracking-wide text-base-content/70 flex items-center gap-1">${Icon("lucide:music", "text-[0.85em]")}${T(t, "timbre")}</div>
+      <div class=${`${LBL} flex items-center gap-1`}>${Icon("lucide:music", "text-[0.85em]")}${T(t, "timbre")}</div>
       <${Segmented} attr="data-tb" scroll size="sm" label=${T(t, "timbre")}
         items=${TIMBRES.map((tb) => ({ id: tb.id, label: T(t, tb.name) }))} value=${timbre}
         onChange=${(id) => { buzz(); ensure(); $timbre.set(id); }} />
     </div>
     <div class="flex flex-col gap-1">
-      <div class="text-[0.6rem] uppercase tracking-wide text-base-content/70 flex items-center gap-1">${Icon("lucide:disc-3", "text-[0.85em]")}${T(t, "scale")}</div>
+      <div class=${`${LBL} flex items-center gap-1`}>${Icon("lucide:disc-3", "text-[0.85em]")}${T(t, "scale")}</div>
       <${Segmented} attr="data-setscale" scroll size="sm" label=${T(t, "scale")}
         items=${SCALES.map((sc) => ({ id: sc.id, label: T(t, sc.name), title: T(t, sc.mood) }))} value=${scaleId}
         onChange=${(id) => { buzz(); ensure(); $scale.set(id); applyDrone(); }} />
     </div>
-    ${!audioSupported ? html`<div class="text-xs text-base-content/70 text-center">${T(t, "noAudio")}</div>` : null}
+    ${!audioSupported ? html`<div class="text-sm text-muted text-center">${T(t, "noAudio")}</div>` : null}
   </${Sheet}>`;
 }
 
@@ -406,17 +402,17 @@ export function handpanSaved({ S, undo }) {
   const play = (it) => { buzz(); if (isCur(it)) { stop(); return; } loadLoop(it); start(); };
   const del = async (it) => { const { id, _ts, ...rec } = it; try { await SAVES.remove(id); } catch { /* */ } load(); undo?.(async () => { try { await SAVES.put(id, rec); } catch { /* */ } load(); }, it.name || T(t, "loopWord")); };
 
-  if (!useReveal(list !== null)) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel class="card bg-base-100 rounded-2xl overflow-hidden" key=${i}><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${12} /></div><div class="h-5"><${Scramble} len=${16} /></div></div></div></div>`)}</div>`;
+  if (!useReveal(list !== null)) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel class="card bg-base-100 rounded-[var(--ms-r)] overflow-hidden" key=${i}><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${12} /></div><div class="h-5"><${Scramble} len=${16} /></div></div></div></div>`)}</div>`;
   if (!list.length) return html`<div class="flex flex-col items-center text-base-content/70 py-20 gap-2 text-center px-6">${Icon("lucide:bookmark", "text-4xl")}<span>${T(t, "savedEmpty")}</span></div>`;
 
   return html`<div class="flex flex-col gap-2">
     ${/* No hairline on either card: `.card` already declares the shallow pair, and an outline on top of an
          extrusion is the edge drawn twice. The skeleton's avatar slot is a WELL waiting to be filled. */""}
-    ${list.map((it) => { const on = isCur(it); return html`<div data-saved class="card bg-base-100 rounded-2xl transition" key=${it.id}>
+    ${list.map((it) => { const on = isCur(it); return html`<div data-saved class="card bg-base-100 rounded-[var(--ms-r)] transition-colors" key=${it.id}>
       <div class="card-body p-3 flex-row items-center gap-3">
         <button data-play aria-label=${on ? T(t, "aStop") : T(t, "aPlay")} class=${`btn btn-circle btn-sm shrink-0 ${on ? "btn-secondary" : "btn-primary"}`} onClick=${() => play(it)}>${Icon(on ? "lucide:square" : "lucide:play", "text-base")}</button>
         <button data-load class="flex-1 min-w-0 text-left flex flex-col gap-1.5" onClick=${() => open(it)}>
-          <span class="flex items-baseline justify-between gap-2"><span class="font-semibold truncate">${it.name || T(t, "loopWord")}</span><span class="text-xs text-base-content/70 tabular-nums shrink-0">${it.bpm || 80} BPM</span></span>
+          <span class="flex items-baseline justify-between gap-2"><span class="font-semibold truncate">${it.name || T(t, "loopWord")}</span><span class="font-mono text-[length:var(--ms-label)] text-base-content/70 tabular-nums shrink-0">${it.bpm || 80} BPM</span></span>
           <${Spectrum} loop=${it.loop} live=${on} cur=${cur} />
         </button>
         <button data-del aria-label=${T(t, "del")} data-haptic="bump" class="btn btn-ghost btn-sm btn-circle text-muted" onClick=${() => del(it)}>${Icon("lucide:trash-2", "text-lg")}</button>

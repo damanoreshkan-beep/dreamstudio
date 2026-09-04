@@ -150,10 +150,10 @@ function TimeDial({ p, t }) {
   const shift = dayShift(p.off);
   return html`<label ...${{ [`data-dial-${p.key}`]: p.key }} class="flex flex-col gap-1">
     <span class="flex items-baseline gap-2">
-      <span class="text-[0.62rem] font-mono uppercase tracking-[0.12em] text-base-content/65 truncate">${p.label}</span>
+      <span class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70 truncate">${p.label}</span>
       <span class="flex-1"></span>
-      <span class="text-xs font-mono tabular-nums text-base-content/80">${clock(p.off)}
-        ${shift ? html`<span class="text-base-content/55">${shift > 0 ? "+1" : "−1"}</span>` : null} UTC</span>
+      <span class="text-[0.78rem] font-mono tabular-nums text-base-content/80">${clock(p.off)}
+        ${shift ? html`<span class="text-base-content/70">${shift > 0 ? "+1" : "−1"}</span>` : null} UTC</span>
     </span>
     <div class="relative">
       <input type="range" min=${-SPAN} max=${SPAN} step=${STEP} value=${p.off} aria-label=${p.label}
@@ -174,7 +174,7 @@ function Ring({ score, t }) {
       </svg>
       <div class="absolute inset-0 flex flex-col items-center justify-center">
         <div data-overall class="text-[2.6rem] font-bold tabular-nums leading-none" style=${`color:${col}`}>${score}</div>
-        <div class="text-[0.55rem] font-mono uppercase tracking-widest text-base-content/65 mt-0.5">${T(t, "overall")}</div>
+        <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-widest text-base-content/70 mt-0.5">${T(t, "overall")}</div>
       </div>
     </div>
     <div class="text-sm font-semibold" style=${`color:${col}`}>${T(t, "band" + bi)}</div>
@@ -191,20 +191,20 @@ function Person({ label, pos, t, unsettled, attr }) {
   // "МІСЯЦЬВЕНЕРАМАРС" on a 384 px screen. A grid gives each an equal, bounded third of the card, and
   // `min-w-0` is what lets `truncate` actually apply inside it.
   const sun = signOf(bodyOf(pos, "sun").lon);
-  return html`<div ...${{ [attr]: "1" }} class="rounded-2xl sf-raised sf-e2 p-3 flex flex-col items-center gap-2">
-    <div class="text-[0.6rem] font-mono uppercase tracking-[0.12em] text-base-content/70">${label}</div>
+  return html`<div ...${{ [attr]: "1" }} class="rounded-[var(--ms-r)] sf-raised sf-e2 p-3 flex flex-col items-center gap-2">
+    <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70">${label}</div>
     <${Sign} i=${sun} cls="w-9 h-9 text-secondary" />
     <div class="text-sm font-semibold leading-tight text-center">${T(t, "sign" + sun)}</div>
     <div class="grid grid-cols-3 gap-1 w-full mt-1">
       ${["moon", "venus", "mars"].map((pl) => {
         const soft = pl === "moon" && unsettled;
         return html`<div class="flex flex-col items-center gap-1 min-w-0" key=${pl}>
-          <${Sign} i=${signOf(bodyOf(pos, pl).lon)} cls=${`w-4 h-4 ${soft ? "text-warning" : "text-base-content/65"}`} />
-          <span class=${`text-[0.5rem] font-mono uppercase tracking-wide truncate w-full text-center ${soft ? "text-warning" : "text-base-content/65"}`}>${T(t, "pl_" + pl)}</span>
+          <${Sign} i=${signOf(bodyOf(pos, pl).lon)} cls=${`w-4 h-4 ${soft ? "text-warning" : "text-base-content/70"}`} />
+          <span class=${`font-mono text-[length:var(--ms-label)] uppercase tracking-wider truncate w-full text-center ${soft ? "text-warning" : "text-base-content/70"}`}>${T(t, "pl_" + pl)}</span>
         </div>`;
       })}
     </div>
-    ${unsettled ? html`<div data-moon-open class="text-[0.55rem] leading-tight text-center text-warning/90">${T(t, "moonOpen")}</div>` : null}
+    ${unsettled ? html`<div data-moon-open class="font-mono text-[length:var(--ms-label)] leading-tight text-center text-warning">${T(t, "moonOpen")}</div>` : null}
   </div>`;
 }
 
@@ -215,9 +215,9 @@ function Bars({ r, t }) {
   // the page, so the empty part of every bar had quietly gone invisible and a low score looked like no bar.
   return html`<div class="flex flex-col gap-2.5">
     ${axes.map(([key, v]) => html`<div class="flex items-center gap-3" key=${key}>
-      <div class="w-20 shrink-0 text-xs font-medium truncate">${T(t, key)}</div>
+      <div class="w-20 shrink-0 text-[0.78rem] font-medium truncate">${T(t, key)}</div>
       <div class="flex-1 h-2 rounded-full sf-inset overflow-hidden"><div class="h-full rounded-full" style=${`width:${v}%;background:${BAND_COLOR[band(v)]}`}></div></div>
-      <div class="w-8 shrink-0 text-right text-xs font-mono tabular-nums text-base-content/70">${v}</div>
+      <div class="w-8 shrink-0 text-right text-[0.78rem] font-mono tabular-nums text-base-content/70">${v}</div>
     </div>`)}
   </div>`;
 }
@@ -232,20 +232,20 @@ function Bars({ r, t }) {
 // laid out to match the two cards above, partner on the left and you on the right, so whose planet is whose
 // needs no caption.
 function Contacts({ list, t }) {
-  if (!list.length) return html`<div data-contacts class="text-[0.8rem] text-base-content/65 py-1">${T(t, "matchNoContacts")}</div>`;
+  if (!list.length) return html`<div data-contacts class="text-[0.8rem] text-muted py-1">${T(t, "matchNoContacts")}</div>`;
   return html`<div data-contacts class="flex flex-col gap-1.5">
-    <div class="text-[0.62rem] font-mono uppercase tracking-[0.12em] text-base-content/70">${T(t, "matchContacts")}</div>
+    <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70">${T(t, "matchContacts")}</div>
     ${list.slice(0, 5).map((c) => html`<div data-contact class="flex items-center gap-1.5 py-1.5 border-b border-base-300/40 last:border-0" key=${`${c.a}-${c.b}-${c.type}`}>
       <span class="flex items-center gap-1 min-w-0 flex-1">
         <span class="shrink-0"><${Planet} body=${c.a} /></span>
-        <span class="text-[0.7rem] truncate">${T(t, "pl_" + c.a)}</span>
+        <span class="text-[0.78rem] truncate">${T(t, "pl_" + c.a)}</span>
       </span>
-      <span class="shrink-0 text-[0.66rem] font-mono uppercase tracking-wide text-muted">${T(t, ASPECT_KEY[c.type])}</span>
+      <span class="shrink-0 font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, ASPECT_KEY[c.type])}</span>
       <span class="flex items-center justify-end gap-1 min-w-0 flex-1">
-        <span class="text-[0.7rem] truncate">${T(t, "pl_" + c.b)}</span>
+        <span class="text-[0.78rem] truncate">${T(t, "pl_" + c.b)}</span>
         <span class="shrink-0"><${Planet} body=${c.b} /></span>
       </span>
-      <span class="shrink-0 w-16 text-right text-[0.66rem] font-mono tabular-nums text-muted">${c.orb.toFixed(1)}°/${c.limit}°</span>
+      <span class="shrink-0 w-16 text-right font-mono text-[length:var(--ms-label)] tabular-nums text-muted">${c.orb.toFixed(1)}°/${c.limit}°</span>
     </div>`)}
   </div>`;
 }
@@ -270,7 +270,7 @@ function Verdict({ people, settled, locale, t }) {
   }, [people[0].date, people[1].date, bo, ao]);
   if (!built) return null;
   return html`<div class="flex flex-col gap-1.5 pt-1">
-    <div class="text-[0.62rem] font-mono uppercase tracking-[0.12em] text-base-content/70">${T(t, "verdictTitle")}</div>
+    <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70">${T(t, "verdictTitle")}</div>
     <${Reading} sig=${built.sig} input=${built.text} loc=${locale} api=${AI_MATCH} t=${t}
       gateText=${GATE_MATCH[locale] || GATE_MATCH.en} lines=${[27, 31, 24, 29, 18]} />
   </div>`;

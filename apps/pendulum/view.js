@@ -40,8 +40,10 @@ const GATE_PH = 0.12;  // a still, deterministic frame for the gate / screenshot
 const PIVOT = "9vh";   // pivot near the top
 const ARM = "47vh";    // rod length — a jewel in the lower-centre, not a wall
 
-// A luminous orb: a bright highlight fading to a deep lavender body, with soft inner depth.
-const BOB_BG = "radial-gradient(circle at 42% 36%, #ffffff 0%, #ECE7FF 12%, #BBA9F6 46%, #6E5CC9 78%, #40367F 100%)";
+// The orb and its halo are painted in head.html (.pd-bob / .pd-halo): the app's mark colour shaded in
+// oklch, the theme's own bloom — no literal colour, so the same orb reads in both themes.
+// The pole words crossfade between 70% and full ink: /70 is the floor that stays legible on the light theme.
+const poleInk = (w) => (0.7 + 0.3 * w).toFixed(3);
 
 export function pendulum({ S }) {
   const t = useStore(S.t);
@@ -57,7 +59,7 @@ export function pendulum({ S }) {
   const paint = (st, bloom) => {
     if (armRef.current) armRef.current.style.transform = `rotate(${st.angle.toFixed(2)}deg)`;
     if (bobRef.current) bobRef.current.style.transform = `translate(-50%,-50%) scale(${(1 + 0.14 * bloom).toFixed(3)})`;
-    const set = (el, w) => { if (el) { el.style.opacity = (0.6 + 0.4 * w).toFixed(3); el.style.color = w >= 0.5 ? "var(--color-accent)" : ""; } };
+    const set = (el, w) => { if (el) { el.style.opacity = poleInk(w); el.style.color = w >= 0.5 ? "var(--color-accent)" : ""; } };
     set(aRef.current, st.weightA);
     set(bRef.current, st.weightB);
   };
@@ -92,18 +94,18 @@ export function pendulum({ S }) {
 
   const [aKey, bKey] = DUALITIES[durIdx];
   const init = gate ? pstate(GATE_PH * PERIOD, PERIOD, AMP) : pstate(0, PERIOD, AMP);
-  const poleStyle = (w) => `opacity:${(0.6 + 0.4 * w).toFixed(3)};color:${w >= 0.5 ? "var(--color-accent)" : "inherit"}`;
+  const poleStyle = (w) => `opacity:${poleInk(w)};color:${w >= 0.5 ? "var(--color-accent)" : "inherit"}`;
 
   return html`<${Fragment}>
     <!-- full-screen pendulum body; tap (or Enter) turns to the next duality -->
-    <button data-stage type="button" class="fixed inset-0 z-0 overflow-hidden cursor-pointer appearance-none bg-transparent border-0 p-0 block" onClick=${advance} aria-label=${T(t, "aTurn")}>
+    <button data-stage data-pair=${durIdx} type="button" class="fixed inset-0 z-0 overflow-hidden cursor-pointer appearance-none bg-transparent border-0 p-0 block" onClick=${advance} aria-label=${T(t, "aTurn")}>
       <div aria-hidden="true">
         <div ref=${armRef} style=${`position:absolute;left:50%;top:${PIVOT};transform-origin:top center;transform:rotate(${init.angle.toFixed(2)}deg)`}>
           <div style="position:absolute;top:-5px;left:-5px;width:9px;height:9px;border-radius:9999px;background:var(--color-base-content);opacity:0.35"></div>
           <div style=${`width:2px;height:${ARM};margin-left:-1px;background:linear-gradient(to bottom, transparent, color-mix(in oklch, var(--color-base-content) 70%, transparent));opacity:0.28`}></div>
           <div ref=${bobRef} data-bob style=${`position:absolute;top:${ARM};left:0;width:6rem;height:6rem;transform:translate(-50%,-50%)`}>
-            <div style="position:absolute;left:50%;top:50%;width:15rem;height:15rem;transform:translate(-50%,-50%);border-radius:9999px;background:radial-gradient(circle, rgba(159,140,246,.34) 0%, rgba(159,140,246,.12) 30%, rgba(159,140,246,0) 62%)"></div>
-            <div style=${`position:absolute;inset:0;border-radius:9999px;background:${BOB_BG};box-shadow:inset 0 -5px 13px rgba(52,42,102,.55), 0 3px 12px rgba(0,0,0,.28)`}></div>
+            <div class="pd-halo" style="position:absolute;left:50%;top:50%;width:15rem;height:15rem;transform:translate(-50%,-50%)"></div>
+            <div class="pd-bob" style="position:absolute;inset:0"></div>
           </div>
         </div>
       </div>
