@@ -52,41 +52,6 @@ export default [
     },
   },
   {
-    // A tap copies the whole find. The clipboard cannot be read back in a headless browser (paste is
-    // refused), so the copy is asserted through the hook the view mirrors it into — the address that was
-    // copied and how many lines it carried, which is what tells a Wi-Fi dossier from a bare one.
-    name: "list: a tap copies the find and still aims the hunt", run: async (h) => {
-      await h.click('[data-tab="list"]'); await h.wait(400);
-      await h.tap('[data-dev="24:0A:C4:11:22:33"]'); await h.wait(400);
-      h.expect((await h.attr("[data-live]", "data-copied")) === "24:0A:C4:11:22:33", "копію не зафіксовано");
-      const wifiLines = Number(await h.attr("[data-live]", "data-copied-lines"));
-      h.expect(wifiLines >= 6, `досьє Wi-Fi надто коротке: ${wifiLines} рядків`);
-      h.expect((await h.attr('[data-dev="24:0A:C4:11:22:33"]', "aria-pressed")) === "true", "тап перестав обирати ціль");
-      await h.tap('[data-dev="lte:301"]'); await h.wait(400);
-      h.expect((await h.attr("[data-live]", "data-copied")) === "lte:301", "копія соти не зафіксована");
-      h.expect(Number(await h.attr("[data-live]", "data-copied-lines")) >= 6, "досьє соти надто коротке");
-    },
-  },
-  {
-    // «Перевірити» has three answers and they must stay three: a place, "nobody surveyed it", and "the
-    // lookup is broken". The gate answers from a fixture, so this exercises the UI, not the network.
-    name: "check: a find is placed on the globe, or the app says why not", run: async (h) => {
-      await h.click('[data-tab="list"]'); await h.wait(400);
-      await h.tap('[data-dev="24:0A:C4:11:22:33"]'); await h.wait(300);
-      h.expect((await h.count("[data-check]")) === 1, "немає кнопки Перевірити для обраної знахідки");
-      await h.tap("[data-check]"); await h.wait(600);
-      h.expect((await h.attr("[data-check-row]", "data-verdict")) === "found", "Wi-Fi не знайдено у фікстурі");
-      h.expect((await h.count("[data-where]")) === 1, "глобус не відкрився");
-      await h.back(); await h.wait(300);
-      h.expect((await h.count("[data-where]")) === 0, "Back не закрив глобус");
-      // A cell the database does not know says so, in words, and opens nothing.
-      await h.tap('[data-dev="lte:301"]'); await h.wait(300);
-      await h.tap("[data-check]"); await h.wait(600);
-      h.expect((await h.attr("[data-check-row]", "data-verdict")) === "unknown", "невідома сота не назвалась невідомою");
-      h.expect((await h.count("[data-verdict-line]")) === 1, "немає пояснення, чому немає місця");
-      h.expect((await h.count("[data-where]")) === 0, "глобус відкрився без координат");
-    },
-  },
   {
     name: "list: the order is systemic, persisted, and does not reshuffle", run: async (h) => {
       await h.click('[data-tab="list"]'); await h.wait(400);
@@ -153,6 +118,45 @@ export default [
       await h.back(); await h.wait(300);
       h.expect((await h.count('[role="dialog"]')) === 0, "Back не закрив екран дозволів");
       await h.click('[data-tab="hive"]'); await h.wait(150);
+    },
+  },
+  {
+    // These two run LAST on purpose: they leave a find SELECTED, and the hunt screen's own test asserts that
+    // no petal exists until something is chosen. A suite that shares one page shares its state.
+    //
+    // A tap copies the whole find. The clipboard cannot be read back in a headless browser (paste is refused)
+    // and CI refuses the write as well, so the assertion is on the DOSSIER the view mirrors into the DOM —
+    // the address and its line count — while `data-copied-ok` carries whether the clipboard actually took it.
+    name: "list: a tap copies the find and still aims the hunt", run: async (h) => {
+      await h.click('[data-tab="list"]'); await h.wait(400);
+      await h.tap('[data-dev="24:0A:C4:11:22:33"]'); await h.wait(400);
+      h.expect((await h.attr("[data-live]", "data-copied")) === "24:0A:C4:11:22:33", "досьє не зібралось");
+      const wifiLines = Number(await h.attr("[data-live]", "data-copied-lines"));
+      h.expect(wifiLines >= 6, `досьє Wi-Fi надто коротке: ${wifiLines} рядків`);
+      h.expect((await h.attr('[data-dev="24:0A:C4:11:22:33"]', "aria-pressed")) === "true", "тап перестав обирати ціль");
+      await h.tap('[data-dev="lte:301"]'); await h.wait(400);
+      h.expect((await h.attr("[data-live]", "data-copied")) === "lte:301", "досьє соти не зібралось");
+      h.expect(Number(await h.attr("[data-live]", "data-copied-lines")) >= 6, "досьє соти надто коротке");
+    },
+  },
+  {
+    // «Перевірити» has three answers and they must stay three: a place, "nobody surveyed it", and "the
+    // lookup is broken". The gate answers from a fixture, so this exercises the UI, not the network.
+    name: "check: a find is placed on the globe, or the app says why not", run: async (h) => {
+      await h.click('[data-tab="list"]'); await h.wait(400);
+      await h.tap('[data-dev="24:0A:C4:11:22:33"]'); await h.wait(300);
+      h.expect((await h.count("[data-check]")) === 1, "немає кнопки Перевірити для обраної знахідки");
+      await h.tap("[data-check]"); await h.wait(600);
+      h.expect((await h.attr("[data-check-row]", "data-verdict")) === "found", "Wi-Fi не знайдено у фікстурі");
+      h.expect((await h.count("[data-where]")) === 1, "глобус не відкрився");
+      await h.back(); await h.wait(300);
+      h.expect((await h.count("[data-where]")) === 0, "Back не закрив глобус");
+      // A cell the database does not know says so, in words, and opens nothing.
+      await h.tap('[data-dev="lte:301"]'); await h.wait(300);
+      await h.tap("[data-check]"); await h.wait(600);
+      h.expect((await h.attr("[data-check-row]", "data-verdict")) === "unknown", "невідома сота не назвалась невідомою");
+      h.expect((await h.count("[data-verdict-line]")) === 1, "немає пояснення, чому немає місця");
+      h.expect((await h.count("[data-where]")) === 0, "глобус відкрився без координат");
     },
   },
 ];

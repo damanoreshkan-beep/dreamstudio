@@ -528,10 +528,12 @@ export function listView({ S, t, toast, screen, openScreen, closeScreen }) {
     if (gate) seedRose(); else { rose = newRose(72, HUNT_TAU); $roseAt.set(Date.now()); }
     const text = dossier(d, t, oui, loc);
     const ok = await copyText(text);
-    // The clipboard cannot be read back in a headless context (paste is refused), so what WAS copied is
-    // mirrored into the DOM: the gate and the driver assert the dossier by its address and its line count
-    // rather than by a toast that would look the same for an empty string.
-    $copied.set(ok ? { addr: d.addr, lines: text.split("\n").length } : null);
+    // The clipboard cannot be read back in a headless context (paste is refused), so the DOSSIER is mirrored
+    // into the DOM — the address and the line count, which is what tells a Wi-Fi write-up from a bare one.
+    // It records what the app PRODUCED, and `data-copied-ok` separately whether the clipboard took it: in CI
+    // both the async API and execCommand are refused, and an assertion on the text must not depend on a
+    // permission the browser withheld. The toast still reports the truth to the person.
+    $copied.set({ addr: d.addr, lines: text.split("\n").length, ok });
     toast?.(T(t, ok ? "copied" : "copyFail"));
   };
   return html`<div class="flex flex-col gap-[var(--ms-gap)]">
@@ -567,7 +569,7 @@ export function listView({ S, t, toast, screen, openScreen, closeScreen }) {
       : null}
 
     <${Panel} title=${T(t, "signal")}>
-      <div data-live data-copied=${copied?.addr || ""} data-copied-lines=${copied?.lines || 0} class="flex flex-col">
+      <div data-live data-copied=${copied?.addr || ""} data-copied-lines=${copied?.lines || 0} data-copied-ok=${copied?.ok ? "1" : "0"} class="flex flex-col">
         ${field.length === 0 ? html`<div class="text-base-content/70 text-sm">${T(t, "nothingYet")}</div>` : null}
         ${field.map((d) => html`<button key=${d.addr} data-dev=${d.addr} data-kind=${d.kind}
           aria-pressed=${String(d.addr === target)}
