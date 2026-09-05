@@ -92,7 +92,33 @@ reads the camera through the same three primitives, all in the shader:
 Legibility: the island and the strip sit on their own glass; nothing else is typed over the field, so the
 shader carries no luma clamp — the camera is the content.
 
-## The keeper — `/feed/image/edit`, one picture
+## The keeper, final — the MATERIAL API (`/feed/image/material`, 2026-09-05 ~15:00)
+
+Owner, after a landscape came back as a woman: "це має бути окреме апі яке прийме наше зображення і сервер
+порішає… промпти мають бути на сервері під це окреме апі"; "мені гонка хто швидше не треба, мені один якісний
+спейс треба"; "візьми фото природи і сам експерементуй на усіх стилях і сам лагоди промпти". So:
+
+- **The client sends `{ image, material, seed }` and phrases nothing** (`state.js` `shoot()`); `followOne` reads
+  the bytes; `busy` arrives as `busy` (the k=1 GET now carries `error` — it dropped it before, which is why
+  every refusal read "не вдалося" on the phone).
+- **The server** (`microspec-edge/edge/image.js`: `MATERIAL_PROMPTS`, `MATERIAL_SPACES`, `runMaterialJob`) holds
+  eleven SCENE prompts and an ordered list of Spaces — ONE at a time, one pod at a time (the pods are walked for
+  their quota buckets, never raced); the next Space only when the previous gave nothing.
+- **Why the Make blocks were wrong here, measured** (scratch sheets r1/r2/r3 on a fjord photo, picsum 1015):
+  a Make block ("sculpted from smoke … in a black void") is a generation prompt for a SUBJECT in a void — the
+  edit models obeyed it and erased the scene (six Spaces on a canoe photo: five turned the whole picture into a
+  smoke figure; `QWEN_EDIT_IMAGE` replaced the person; `krea2-identity-edit` only laid smoke over the photo).
+  With "the same scene … every object where it is, only its substance becomes X", `JitRoy2024/Qwen_Img_Space`
+  kept the fjord a fjord and sculpted it (r1; `ovi054/Qwen-Image-Edit-2511-LoRA` and `Pro-Realism-Edit-Studio`
+  close behind — they are the fallbacks). Across the eleven materials (r2) seven landed at once; ink ("blooming
+  in clear water"), veil ("folds of a curtain"), ferro ("formed from ferrofluid") and sand ("drawn as lines") each
+  invented a subject — an ink cloud, an aurora sky, a spiked ball, a sunset — because the material was named as
+  a THING; naming the scene's parts as the material ("every ridge, shoreline and cloud drawn in ink…") fixed all
+  four and strengthened thread (r3, 5/5). The prompts in `image.js` are the r3 set.
+- The fjord photo carries tiny hikers; none of the eleven invented anyone. The owner's phone is the judge of
+  real scenes; the sheets are the calibration.
+
+## The keeper, first cut — `/feed/image/edit`, one picture (superseded)
 
 - Body `{ image, prompt, seed, k: 1 }` to `${VPS_PROXY}/image/edit` (`apps/mirage/state.js:170-181`,
   `rework()`); the prompt is English by construction and it is THE FIRST ONE, word for word:
