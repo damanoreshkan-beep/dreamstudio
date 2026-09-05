@@ -90,8 +90,12 @@ shader carries no luma clamp — the camera is the content.
 ## The keeper — `/feed/image/edit`, one picture
 
 - Body `{ image, prompt, seed, k: 1 }` to `${VPS_PROXY}/image/edit` (`apps/mirage/state.js:170-181`,
-  `rework()`); the prompt is English by construction: `"the same photograph reimagined, " + block` where
-  `block` is the material's `rt/styles.js` block — no translation step, no user text. `startJob` +
+  `rework()`); the prompt is English by construction and it is an EDIT contract: `"edit this photo, keep the
+  same scene with every object, person, pose, framing and composition exactly as photographed and clearly
+  recognisable; change only the surface material and the rendering, rich in detail and saturated: " + block`
+  (`rt/styles.js`) — no translation step, no user text. The first wording, "the same photograph reimagined,
+  <block>", let the thread material repaint the scene beyond recognition on the phone (owner, the same day);
+  the subject is pinned before the material is named. `startJob` +
   **`followOne`** from `/_rt/imagejob.js`: at k = 1 the edge answers the BYTES on the status URL (the
   one-picture contract zir and rukh follow), not a slide list — MEASURED by the pre-push drive on the see pod
   (`vps/drive.sh lychyna --see …`, 2026-09-05): `/feed/image/edit/get?job=…` turned `image/webp` at 95 s while
@@ -120,17 +124,25 @@ One `fit` tool tab. STAGE = `GlStage` full-bleed (`fixed inset-0 z-0`, the trans
 ISLAND = one glass island at the bottom: the MATERIAL STRIP (11 round thumbs from `assets/style-<id>.webp`,
 `aria-pressed`, the active one ringed in the accent and named beside the strip in mono) and the ACTION ROW.
 
-| state | stage | island row | primary | demotes at 412×430 / 360×340 |
-|---|---|---|---|---|
-| prime | black + `CameraPrime` overlay (reason, honest privacy, Enable) | strip (inert), row hidden | Enable (the kit's) | prime overlay compacts by its own rules |
-| live | the camera in the material, `data-live` | strip · [flip] [SHUTTER] | shutter | strip 44 px tiles, name hidden under 20 rem |
-| frozen → working | the frozen frame in the material, breathing (`vary.x`); mono status `Проявляю · m:ss` over the island | strip disabled · [×] [status] | cancel (×) | same |
-| done | the keeper `<img>` fades over the frame (`vary.y` bloom); tap it = full view | strip (re-inks nothing: the keeper is a picture) · [live again] [save] [share] | live again | actions become circles |
-| error | frozen frame stays; `data-error role=alert` line in the island | [live again] | live again | — |
-| denied / unavailable | the prime overlay's own states (Open permissions) | strip inert | — | — |
+**v2, the same day — ONE-SHOT operations** (owner: "сфоткав. проявив. перемикаю стиль — має відкритись знову камера,
+проявлене зникає. одноразові операції з можливістю зберегти (більшу кнопку). мінімалістично. це мистецтво"). The
+strip is ALWAYS live and is the only way back; the row holds one verb in the middle and small tools at the sides.
 
-Transitions in the table only. A material tap in `live` re-inks instantly (`vary.z`); in `done` it is ignored
-until "live again" (the keeper was painted in one material — mixing is a lie).
+| state | stage | island row (left · CENTRE · right) | demotes at 412×430 / 360×340 |
+|---|---|---|---|
+| prime | black + `CameraPrime` overlay (reason, honest privacy, Enable) | strip · (row: shutter + flip disabled) | prime overlay compacts by its own rules |
+| live | the camera in the material, `data-live`; pinch = zoom within `caps.zoom`, tap = focus at the point (one ring, `data-focus`) | [torch — only when `caps.torch`] · **SHUTTER** · [flip]; both disabled until the track PLAYS (`data-ready`) | strip 44 px tiles |
+| working | the frozen frame in the material, breathing (`vary.x`) | [×] · `Проявляю · m:ss` · — | — |
+| done | the keeper `<img>` fades over the frame (`vary.y` bloom); tap on the stage = full view (the gesture layer is above the keeper) | [×4] · **ЗБЕРЕГТИ (big pill)** · [share] | the pill keeps its word |
+| enhancing | the keeper stays, a scan line sweeps it (`.ly-scan`), the material breathes | [×] · `Збільшую · m:ss` · — | — |
+| done · hd | the ×4 keeper replaces the picture (`data-hd`), the old blob freed | [W×H mono] · **ЗБЕРЕГТИ** · [share] | W×H truncates |
+| error | the frozen frame stays in the material; `data-error role=alert` line under the row | — · **СПРОБУВАТИ ЩЕ (big)** · — | — |
+| denied / unavailable | the prime overlay's own states (Open permissions) | strip · — | — |
+
+A material tap in ANY state = the camera in that material (`setMat` → `again()` first: a running keeper is
+cancelled, a developed one let go). No "live again" button exists — the material IS the way back. The flip waits
+for `playing` (a second open while the first camera lets go is the kit's retry, core 1.2.32); the controls are
+`camera.controls(video)` (core 1.2.33): nothing shows that the track does not declare.
 
 Precedents copied: zir (`data-go`/`data-act`/`data-error`, the working readout, save/share via `apk.js`),
 mirage (the style cards, `rework()`), pipette (the camera lifecycle + the seeded gate), vydyvo (wake lock).

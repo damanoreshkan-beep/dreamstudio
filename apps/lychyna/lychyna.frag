@@ -15,9 +15,11 @@
 //   camAspect.y == 0 → no frame yet: a quiet dark field, not a grey square
 //
 // Judged on vps/frag.sh --cam --sheet 4x3 --vz (2026-09-05). Two numbers decide the whole look: the Sobel
-// texel is 3 camera pixels (2 read JPEG grain and sensor noise as filaments) and the luma it reads is a 5-tap
-// blur at that radius; the wide gradient (8 px) is the bloom and every material that shades a surface uses
-// it for the normal — a normal from the fine gradient speckles. The recipes are tabled in RESEARCH.md.
+// texel is 3 camera pixels (2 read JPEG grain and sensor noise as filaments), its taps land on pixel corners so
+// bilinear filtering smooths them; the wide gradient (8 px) is the bloom and every material that shades a
+// surface uses it for the normal — a normal from the fine gradient speckles. The budget: ~26 texture samples
+// per fragment (1 + 5 tone + 8 + 8 + the material's own); the exposure is ONE number from the app (ink.w).
+// The recipes are tabled in RESEARCH.md.
 precision highp float;
 out vec4 o;
 uniform vec2 res; uniform float time; uniform float seed;
@@ -44,12 +46,13 @@ vec3 pick(vec2 p){ return texture(cam, clamp(p, 0.0, 1.0)).rgb; }
 float lum(vec2 p){ return luma(pick(p)); }
 // luma smoothed by a 5-tap cross of radius `r` (in cam uv): the grain goes, the edges stay
 float lumS(vec2 p, vec2 r){ return (lum(p)*2.0 + lum(p+vec2(r.x,0)) + lum(p-vec2(r.x,0)) + lum(p+vec2(0,r.y)) + lum(p-vec2(0,r.y)))/6.0; }
-// Sobel on smoothed luma, texel `t`
-vec2 sobel(vec2 p, vec2 t){
-  vec2 h = t*0.5;
-  float l00=lumS(p+t*vec2(-1,-1),h), l10=lumS(p+t*vec2(0,-1),h), l20=lumS(p+t*vec2(1,-1),h);
-  float l01=lumS(p+t*vec2(-1, 0),h),                            l21=lumS(p+t*vec2(1, 0),h);
-  float l02=lumS(p+t*vec2(-1, 1),h), l12=lumS(p+t*vec2(0, 1),h), l22=lumS(p+t*vec2(1, 1),h);
+// Sobel on luma, texel `t`: EIGHT taps. Each tap lands on a pixel CORNER (the half-texel `h`), so bilinear filtering
+// averages 2×2 pixels for free — the smoothing the first cut paid 5 taps per tap for (72 → 8 samples).
+vec2 sobel(vec2 p, vec2 t, vec2 h){
+  p += h;
+  float l00=lum(p+t*vec2(-1,-1)), l10=lum(p+t*vec2(0,-1)), l20=lum(p+t*vec2(1,-1));
+  float l01=lum(p+t*vec2(-1, 0)),                          l21=lum(p+t*vec2(1, 0));
+  float l02=lum(p+t*vec2(-1, 1)), l12=lum(p+t*vec2(0, 1)), l22=lum(p+t*vec2(1, 1));
   return vec2((l20+2.0*l21+l22)-(l00+2.0*l01+l02), (l02+2.0*l12+l22)-(l00+2.0*l10+l20));
 }
 // a screen point (px, GL origin) → the camera uv it shows
@@ -72,14 +75,15 @@ void main(){
   vec3 c = pick(p); float l = luma(c);
   vec2 ts = vec2(textureSize(cam, 0));
   vec2 tx = 3.0/ts, tw = 8.0/ts;
-  // a nine-tap mean of the frame = the exposure: a night street and a bright window both land their forms in
-  // the material's mid band (measured: the same shader on a dusk photo was 90 % black without it)
-  float meanL = 0.0;
-  for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) meanL += lumS(vec2(0.2 + 0.3*float(i), 0.2 + 0.3*float(j)), tw);
-  float gain = clamp(0.42/max(meanL/9.0, 0.02), 1.0, 2.8);
+  // the exposure arrives in ink.w: the app measures the frame's mean luma on a 16×16 canvas four times a second
+  // and sends gain 1..2.8 — a night street and a bright window both land their forms in the material's mid band
+  // (measured: a dusk photo was 90 % black without it). The first cut summed nine 5-tap means PER PIXEL: 45
+  // samples for one number the whole frame shares, and the phone stuttered (owner, 2026-09-05).
+  float gain = max(ink.w, 1.0);
   float ls = clamp(lumS(p, tx)*gain, 0.0, 1.0);            // the smoothed, exposed luma every tone map reads
-  vec2 g = sobel(p, tx); float e = length(g);              // fine: lines
-  vec2 gW = sobel(p, tw); float eW = length(gW);           // wide: bloom and every surface normal
+  vec2 hf = 0.5/ts;
+  vec2 g = sobel(p, tx, hf); float e = length(g);          // fine: lines
+  vec2 gW = sobel(p, tw, hf); float eW = length(gW);       // wide: bloom and every surface normal
   float rad = length((uv-0.5)*vec2(asp, 1.0));             // 0 centre → ~0.7 corner (portrait)
 
   if (m == 0) {          // ── lum: the luminous plexus — filaments on the black void ───────────────────
@@ -147,7 +151,7 @@ void main(){
     float ang = atan(gW.y, gW.x);
     float trace = smoothstep(0.16, 0.42, eW) * (0.3 + 0.7*smoothstep(0.5, 1.0, abs(cos(ang*4.0))));
     vec2 cellP = camAt((floor(gq) + 0.5)*G);
-    float busy = length(sobel(cellP, tw));
+    float busy = length(sobel(cellP, tw, hf));
     float pad = smoothstep(0.13, 0.09, length(gf - 0.5)) * smoothstep(0.10, 0.25, busy) * step(0.35, lumS(cellP, tx));
     vec3 gold = vec3(0.92, 0.76, 0.36);
     col = vec3(0.02, 0.03, 0.025) + grid + ls*0.10*vec3(0.9, 0.55, 0.25) + gold*(trace*0.95 + pad*0.9);
