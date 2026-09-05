@@ -29,6 +29,7 @@
     "theme": true,
     "lang": true,
     "install": true,
+    "apk": "godot",
     "permissions": [
       "camera"
     ]

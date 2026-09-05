@@ -1,11 +1,12 @@
-// portal — the camera as art at 60 fps on a READY system: PixiJS 8 + pixi-filters (MIT), chosen by
-// docs/research/portal.md. ONE fit screen: the kit's CamStage owns the camera (priming, the stream, the flip, the
-// torch, the pinch that zooms, the tap that focuses and takes the stage fullscreen — core 1.2.39, once for every
-// mirror app); the portal draws the video it is handed through a PRESET GRAPH (graph.js — TouchDesigner's TOPs on
-// pixi's own machinery: the contours traced and drawn by the material's texture, rippled, fed back with trails,
-// added over the drained camera, then the post chain); the strip picks the material, the theme picks light or
-// dark, SAVE writes the frame from the canvas. The fine settings of the material live behind ONE icon (a sheet of
-// sliders, each theme its own set, remembered per material). Nothing else exists. State map: RESEARCH.md.
+// portal — the camera as art at 60 fps on a READY system. ONE fit screen with TWO stages, chosen by where the
+// page runs (docs/research/portal-godot.md):
+//   · inside the shell's `godot` flavour (the APK) the stage is the kit's GodotStage — the Godot project in
+//     godot/portal/ renders the camera and the materials under the page, the page is the UI (owner, 2026-09-05:
+//     "тачдизайнер хочу … не окремий застосунок, у нас вже є механізм збірки apk");
+//   · in a browser the stage is the kit's CamStage + the pixi graph (graph.js — the TD-style TOP network on
+//     pixi's machinery: trace, hatch, feedback, the camera as is).
+// Either way: the strip picks the material, the theme picks light or dark, the knobs behind one icon are the
+// material's own set (presets.js KNOBS, remembered per material), SAVE writes the frame. State map: RESEARCH.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
@@ -14,6 +15,7 @@ import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { Island, Stage, Sheet } from "/_rt/ui.js";
 import { CamStage } from "/_rt/camstage.js";
+import { GodotStage, godotAvailable, godotSave } from "/_rt/godotstage.js";
 import { downloadUrl } from "/_rt/apk.js";
 import { PRESETS, IDS, KNOBS, tuned, knobValue, buildChain } from "./presets.js";
 import { createGraph } from "./graph.js";
@@ -23,6 +25,7 @@ const tool = "btn btn-ghost btn-sm btn-circle text-base-content/70";
 const thumb = (id) => new URL(`assets/style-${id}.webp`, import.meta.url).href;
 const texUrl = (id) => new URL(`assets/tex-${id}.webp`, import.meta.url).href;
 const mockURL = new URL("assets/mock.webp", import.meta.url).href;
+const packURL = new URL("assets/portal.pck", import.meta.url).href;   // the Godot project, exported by CI
 const KEY = "portal:preset";
 const TUNE = (id) => `portal:tune:${id}`;
 const docMaterial = () => document.documentElement.getAttribute("data-material") || "lum";
@@ -42,14 +45,16 @@ const fmt = (v, step) => (step >= 1 ? String(Math.round(v)) : v.toFixed(step >= 
 
 export function portal({ S, toast, screen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale);
+  const engine = godotAvailable();                // the APK with the engine, or a browser
   const [ready, setReady] = useState(false);      // a picture is on the stage
-  const [caps, setCaps] = useState(null);         // what the track declares: torch · zoom · focus
+  const [caps, setCaps] = useState(null);         // what the track declares: torch · zoom · focus (web stage)
   const [torch, setTorch] = useState(false);
   const [preset, setPreset] = useState(firstPreset);
   const [light, setLight] = useState(docLight);
   const [facing, setFacing] = useState("environment");
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(() => loadTune(firstPreset()));   // the knobs of the current material
+  const [fps, setFps] = useState(0);              // what the engine reports
   const canvasRef = useRef();
   const px = useRef({ P: null, F: null, app: null, graph: null, filters: [], source: null, pending: null }).current;
 
@@ -60,10 +65,10 @@ export function portal({ S, toast, screen, closeScreen }) {
     return () => mo.disconnect();
   }, []);
 
+  // ---- the web stage: the pixi graph on the element CamStage hands over ------------------------------
   const presetRef = useRef(preset); presetRef.current = preset;
   const lightRef = useRef(light); lightRef.current = light;
   const overRef = useRef(over); overRef.current = over;
-  // the graph + the post chain for the current preset, mode and knobs — built once per change, never per frame
   const apply = async () => {
     const { graph, F } = px; if (!graph || !F) return;
     const id = presetRef.current, lite = lightRef.current, o = overRef.current;
@@ -72,19 +77,15 @@ export function portal({ S, toast, screen, closeScreen }) {
     px.filters = buildChain(F, id, lite, o);
     graph.out.filters = px.filters.length ? px.filters : null;
   };
-  useEffect(() => { apply(); }, [preset, light, ready, over]);
-  // the stage hands the playing element over (or takes it back); the system may still be loading — keep it
+  useEffect(() => { if (!engine) apply(); }, [preset, light, ready, over]);
   const onVideo = (el, { mirror }) => {
     px.pending = el ? { el, mirror } : null;
     const { graph, P } = px; if (!graph || !P) return;
     if (el) { px.source = P.Texture.from(el); graph.setSource(px.source, mirror); setReady(true); }
     else setReady(false);
   };
-
-  // THE SYSTEM, loaded lazily (the heavy-dep pattern of the farm's three apps): pixi owns the canvas; the ticker
-  // runs the graph and advances the time-driven filters
   useEffect(() => {
-    if (!hasGL() || !canvasRef.current) return;
+    if (engine || !hasGL() || !canvasRef.current) return;
     let alive = true;
     (async () => {
       let P, F;
@@ -105,21 +106,33 @@ export function portal({ S, toast, screen, closeScreen }) {
       if (px.pending) onVideo(px.pending.el, px.pending);   // the stage was faster than the system
     })();
     return () => { alive = false; try { px.graph?.destroy(); px.app?.destroy(); } catch { /* gone */ } px.app = null; px.graph = null; };
-  }, []);
+  }, [engine]);
+
+  // ---- the engine stage: what the project is told, and what it says back ------------------------------
+  // one object per change: GodotStage diffs it by key and sends only what moved
+  const params = { facing, preset, light, knobs: over, mark: gate };
+  const onEngineState = (f) => {
+    if (f.state === "running") { setReady(true); if (typeof f.fps === "number") setFps(Math.round(f.fps)); }
+    else if (f.state === "stopped" || f.state === "failed") { setReady(false); if (f.state === "failed") toast?.(T(t, "eEngine")); }
+  };
 
   const pick = (id) => { setPreset(id); setOver(loadTune(id)); try { localStorage.setItem(KEY, id); } catch { /* */ } };
   const turn = (path, v) => { const o = { ...overRef.current, [path]: v }; setOver(o); saveTune(preset, o); };
   const resetTune = () => { setOver({}); saveTune(preset, {}); };
   const flip = () => { setTorch(false); setFacing((f) => f === "user" ? "environment" : "user"); };
   const save = async () => {
-    const { app, graph } = px; if (!app || !graph || busy) return;
+    if (busy || !ready) return;
     setBusy(true);
     try {
-      const c = app.renderer.extract.canvas(app.stage);
-      const blob = await new Promise((r) => c.toBlob(r, "image/png"));
-      if (!blob) throw new Error("no frame");
-      const url = URL.createObjectURL(blob);
-      try { await downloadUrl(url, `portal-${preset}-${Date.now()}.png`); toast?.(T(t, "saved")); } finally { URL.revokeObjectURL(url); }
+      if (engine) { await godotSave(`portal-${preset}-${Date.now()}.png`); }
+      else {
+        const { app } = px; if (!app) throw new Error("no stage");
+        const c = app.renderer.extract.canvas(app.stage);
+        const blob = await new Promise((r) => c.toBlob(r, "image/png"));
+        if (!blob) throw new Error("no frame");
+        const url = URL.createObjectURL(blob);
+        try { await downloadUrl(url, `portal-${preset}-${Date.now()}.png`); toast?.(T(t, "saved")); } finally { URL.revokeObjectURL(url); }
+      }
     } catch { toast?.(T(t, "eSave")); }
     finally { setBusy(false); }
   };
@@ -127,15 +140,18 @@ export function portal({ S, toast, screen, closeScreen }) {
   const knobs = KNOBS[preset] || KNOBS.plain;
   return html`<${Fragment}>
     <style>${CSS}</style>
-    <div data-live="1" data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} data-tuned=${Object.keys(over).length ? "1" : null} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
+    <div data-live="1" data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} data-stage=${engine ? "godot" : "web"} data-tuned=${Object.keys(over).length ? "1" : null} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       <${Stage}>
-        ${/* THE STAGE — the kit's: it opens the camera and hands the video over; the canvas is its child so a
-             fullscreen of the stage shows the picture alone */""}
-        <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} facing=${facing} torch=${torch} still=${gate ? mockURL : null}
-          onVideo=${onVideo} onState=${(s) => setCaps(s.caps)}>
-          <canvas ref=${canvasRef} data-portal aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
-          <div aria-hidden="true" class="pt-scrim fixed inset-x-0 top-0 z-[1] pointer-events-none"></div>
-        <//>
+        ${engine
+          ? html`<${GodotStage} pack=${packURL} params=${params} onState=${onEngineState}>
+              <div aria-hidden="true" class="pt-scrim fixed inset-x-0 top-0 z-[1] pointer-events-none"></div>
+              ${fps ? html`<span data-fps class="absolute left-3 top-[calc(var(--hdr-h,3.5rem)+0.25rem)] z-[2] font-mono text-[length:var(--ms-label)] text-muted tabular-nums pointer-events-none">${fps} fps</span>` : null}
+            <//>`
+          : html`<${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} facing=${facing} torch=${torch} still=${gate ? mockURL : null}
+              onVideo=${onVideo} onState=${(s) => setCaps(s.caps)}>
+              <canvas ref=${canvasRef} data-portal aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
+              <div aria-hidden="true" class="pt-scrim fixed inset-x-0 top-0 z-[1] pointer-events-none"></div>
+            <//>`}
       <//>
       <div class="shrink-0 relative z-[2]">
       <${Island} className="w-full max-w-xl mx-auto flex flex-col gap-[var(--ms-gap)]">
