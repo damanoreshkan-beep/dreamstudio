@@ -67,3 +67,11 @@ faint reflection at 512 px. Not a candidate for a fourth round.
 fps p50/p95 per preset × mode on the S25 Ultra at DPR 2; the camera constraint (720p30 / 1080p30); the save
 blob's size; which presets fall under 60 (cut, not tuned forever). Phase 2 (owner): generated material
 TEXTURES per theme as sprites/displacement maps over the feed; phase 3: the MediaPipe person/world mask.
+
+## Phase 2 — the graph (2026-09-05, product ff0bc32)
+
+`graph.js`: TD's TOPs from pixi's own machinery, from the preset's data — feedback (RenderTexture ping-pong),
+displacement by the material's generated texture (`assets/tex-<id>.webp`, a scrolling TilingSprite as the map),
+the same texture composited over the loop, mirror (right half as the source), LFOs per second; the phase-1 chain
+on top. Full table + the two structural rules (no screen/add inside a feedback loop; a mask Graphics not
+consumed draws white) in `docs/research/portal.md` §7. Twelve see-pod sheets judged before the push.

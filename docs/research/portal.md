@@ -96,3 +96,28 @@ ColorOverlay/ColorGradient so a preset follows the material theme without a seco
   thumbnails), light/dark by the document theme, Save (frame) — NOTHING else; presets as data; gate = a still.
 - **Ф2** — the fps sheet on the phone (the 24 states), the cut list; the icon on the pods; store captures.
 - **Ф3** — the portal mask (MediaPipe in a Worker) as a measured experiment, shipped only if the base holds 60.
+
+## 7. Phase 2 — the graph (built 2026-09-05)
+
+The owner on phase 1: "звичайний фільтр" — a colour grade over the camera is not TouchDesigner. What makes TD
+art is the GRAPH, and pixi already ships every node of it; `apps/portal/graph.js` assembles them from data:
+
+| TD TOP | pixi node | in the preset |
+|---|---|---|
+| Feedback | two `RenderTexture`s ping-pong: the previous frame under the new one, faded, zoomed, turned | `echo {decay, zoom, rot}` |
+| Displace | `DisplacementFilter` on the camera sprite, the map a scrolling `TilingSprite` of the material's generated texture | `disp {amount, speed}` |
+| Composite | the same texture as a `TilingSprite` layer over the loop's output — `add / screen / multiply`, alpha, breathing | `mat {blend, alpha, scale, speed, breathe, rate}` |
+| Mirror | the world twice, the twin flipped and masked to one half (the right half is the source) | `mirror: "x"` |
+| LFO | every speed per second, every breath an amplitude on a rate | `speed`, `breathe/rate` |
+| post | the phase-1 filter chain on the composite | `chain` |
+
+The textures are the 11 material textures generated on the pods (`assets/tex-<id>.webp`, 512²), one per theme.
+The loop renders at CSS resolution 1 into the feedback textures (two extra passes a frame) and the screen shows
+it upscaled.
+
+Two rules learnt on the see pod, both structural:
+- **A layer with `screen`/`add` inside a feedback loop sums without bound** (six presets burnt to white, veil to
+  pure green). The loop holds only the echo and the camera; the camera enters at the preset's alpha (0.45–0.7),
+  which bounds the trail by the picture; the material composites AFTER the loop.
+- **A mask `Graphics` no preset consumes is a white rect drawn over everything** — the masks join the tree only
+  while a preset mirrors. Also: `DisplacementFilter.scale` is a `Point` (`.set(x, y)`), not a number.
