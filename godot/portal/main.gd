@@ -53,7 +53,19 @@ func _pick_feed() -> void:
 func _use(f: CameraFeed) -> void:
 	if feed != null and feed != f: feed.feed_is_active = false
 	feed = f
-	feed.format_changed.connect(_on_format_changed)
+	if not feed.format_changed.is_connected(_on_format_changed):
+		feed.format_changed.connect(_on_format_changed)
+	# 4.5+: a feed must be given a FORMAT before it activates ("format needs to be set before activating",
+	# measured on apk-see) — the largest one under 1280 px wide, its planes delivered separately (Y + CbCr)
+	var best := -1
+	var best_w := 0
+	for i in feed.formats.size():
+		var w := int(feed.formats[i].get("width", 0))
+		if w <= 1280 and w > best_w:
+			best = i
+			best_w = w
+	if best < 0 and feed.formats.size() > 0: best = 0
+	if best >= 0: feed.set_format(best, {"output": "separate"})
 	feed.feed_is_active = true
 	_bind()
 
