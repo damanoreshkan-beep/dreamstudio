@@ -51,6 +51,7 @@ func _pick_feed() -> void:
 	_use(best)
 
 func _use(f: CameraFeed) -> void:
+	if feed == f and feed.feed_is_active: return   # already on it — a format cannot be set on an active feed
 	if feed != null and feed != f: feed.feed_is_active = false
 	feed = f
 	if not feed.format_changed.is_connected(_on_format_changed):
