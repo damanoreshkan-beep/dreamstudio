@@ -149,3 +149,26 @@ step, floor}`, `lines {alpha, speed, scale, ripple, fieldSpeed, breathe, rate, b
 {tint, sat}`, `mirror`, `chain` with `null` = "not on this theme"; `LIGHT` = the pale drained ground + `normal`
 lines, pale materials `invert` + `multiply` (the light theme is a contour drawing, the dark a light drawing).
 Sheets: 12 dark + 9 light on the see pod before the push.
+
+## 9. Phase 3 — the material as a property of the surface (built 2026-09-05, product 5d6ad8b)
+
+The owner, moving the phone: "текстури не цепляються до обʼєктів … виглядає як фільтр звичайний поверх",
+"якість камери не порти", "дрібні текстурочки атомні, а не великі поверх усього", "фурмули математики алгоритми
+мають працювати … на старому желізі бездоганно", "ми володіємо глибиною". §8 scrolled the material in SCREEN
+space — a film. TD's answer is Optical Flow → Feedback → Remap: the texture coordinates travel with the scene.
+
+| pass | resolution | reads/px | what |
+|---|---|---|---|
+| luma | 1/4 CSS | 1 | the camera, small, a pair (now / last) |
+| **flow** | 1/4 CSS | 54 | Lucas–Kanade, 3×3 window: `A = Σ[Ix², IxIy; IxIy, Iy²]`, `b = −Σ[IxIt, IyIt]`, `f = A⁻¹b`, det-guarded, clamped to ±6 low-res px, mixed ½ with the last flow; encoded `0.5 ± f/12` in RG |
+| **anchor** | detail | 2 | the material's tile PHASE per pixel: `a(p) = fract(a_prev(p − f) − f/period + drift)` — the phase moves with the scene; 8 bits hold a 256-px tile to a pixel |
+| cam | detail | 1 | the camera at cover into a full-frame RT (so the trace's UV is the screen's) |
+| **trace** | detail | ~12 | Sobel contours `e` + tone hatching `shade·smoothstep(band, tone)` (the shadows or the lights take the material); the material sampled at `screen/period + a(p)`; premultiplied `(m·w, w)` |
+| **echo** | detail | 1 | the last loop frame sampled at `p − f` (the trail follows the scene), then faded, zoomed, turned |
+| loop / out | detail / stage | — | echo under fresh; the loop added (or multiplied) over the camera AS IS |
+
+Every custom filter renders at its target's resolution (`resolution: "inherit"`), all full-frame sprites sit at
+(0,0) w×h so one RT samples another at the same `vTextureCoord`, and a cleared flow is 0.5 grey (zero), never
+black (−max). Atomic grain: the tile = `lines.scale × 1024 px` (0.12–0.25 → 123–256 px), a knob. Dark drawing
+materials (ink, thread, sand, paper) multiply on both themes; luminous ones add. The still on the see pod cannot
+show the anchoring (flow = 0); the phone can.

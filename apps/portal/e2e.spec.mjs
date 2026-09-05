@@ -30,7 +30,10 @@ export default [
     name: "тонкі налаштування: іконка відкриває панель, у матеріалу свій набір ручок, ручка змінює сцену", run: async (h) => {
       await ready(h);
       await h.click('[data-mat="lum"]'); await h.wait(150);
-      await h.click("[data-tune]"); await h.wait(300);
+      await h.click("[data-tune]");
+      // the sheet opens through the screen atom and a dialog's showModal — after a first frame that may be
+      // busy building the graph, so the wait is a poll, never a fixed pause
+      for (let i = 0; i < 12 && (await h.count("#tune[open]")) === 0; i++) await h.wait(250);
       h.expect((await h.count("#tune[open]")) === 1, "панель налаштувань не відкрилась");
       const n = await h.count("[data-knob]");
       h.expect(n >= 6, `у Сяйва замало ручок: ${n}`);
