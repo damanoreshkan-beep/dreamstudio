@@ -17,6 +17,7 @@ import { Island, Stage, Sheet } from "/_rt/ui.js";
 import { CamStage } from "/_rt/camstage.js";
 import { GodotStage, godotAvailable, godotSave } from "/_rt/godotstage.js";
 import { downloadUrl } from "/_rt/apk.js";
+import { report } from "/_rt/telemetry.js";
 import { PRESETS, IDS, KNOBS, tuned, knobValue, buildChain } from "./presets.js";
 import { createGraph } from "./graph.js";
 
@@ -113,7 +114,11 @@ export function portal({ S, toast, screen, closeScreen }) {
   const params = { facing, preset, light, knobs: over, mark: gate };
   const onEngineState = (f) => {
     if (f.state === "running") { setReady(true); if (typeof f.fps === "number") setFps(Math.round(f.fps)); }
-    else if (f.state === "stopped" || f.state === "failed") { setReady(false); if (f.state === "failed") toast?.(T(t, "eEngine")); }
+    else if (f.state === "stopped" || f.state === "failed") {
+      setReady(false);
+      // the reason goes to our client log — a phone's toast says nothing to the log reader (vps/logs.sh portal)
+      if (f.state === "failed") { report("engine.fail", { detail: f.detail || "" }); toast?.(T(t, "eEngine")); }
+    }
   };
 
   const pick = (id) => { setPreset(id); setOver(loadTune(id)); try { localStorage.setItem(KEY, id); } catch { /* */ } };
