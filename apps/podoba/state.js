@@ -14,6 +14,7 @@ import { STYLES, styleOf } from "/_rt/styles.js";
 
 const EDIT = `${VPS_PROXY}/image/edit`;
 const UPSCALE = `${VPS_PROXY}/image/upscale`;
+const MATERIAL = `${VPS_PROXY}/image/material`;
 const MAT_KEY = "podoba:mat";
 const savedMat = () => { try { const m = localStorage.getItem(MAT_KEY); return STYLES.some((s) => s.id === m) ? m : "lum"; } catch { return "lum"; } };
 /** The gate's camera: a still of our own (assets/mock.webp) — the shot, the store's captures, the keeper's stand-in. */
@@ -62,13 +63,16 @@ export async function shoot(frame, ctx) {
   if (gate) { await sleep(120); if (r === run) patch({ phase: "done", out: { url: mockURL, w: 768, h: 1024, ext: "webp", by: "" }, live: null }); return; }
   if (frame.length > 9_000_000) return fail(r, "eBig");
   notifyAsk();
-  const block = styleOf(st.mat)?.block || STYLES[0].block;
-  jobBase = EDIT;
-  try { job = await startJob(EDIT, { image: frame, prompt: `the same photograph reimagined, ${block}`, seed, k: 1 }); }
+  // THE MATERIAL API (owner, 2026-09-05: "окреме апі яке прийме наше зображення і сервер порішає… промпти мають
+  // бути на сервері"): the frame and the material's id, nothing else — the scene prompt, the one quality Space
+  // and its fallbacks live on the edge (edge/image.js MATERIAL_PROMPTS / MATERIAL_SPACES), measured on a
+  // landscape across all eleven materials. The client never phrases anything.
+  jobBase = MATERIAL;
+  try { job = await startJob(MATERIAL, { image: frame, material: st.mat, seed }); }
   catch (e) { return fail(r, e.code || "eNetwork"); }
-  if (r !== run) { cancelJob(EDIT, job); return; }
+  if (r !== run) { cancelJob(MATERIAL, job); return; }
   hold = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, "working") });
-  const res = await followOne({ base: EDIT, job, alive: () => r === run, onLive: (live) => patch({ live }) });
+  const res = await followOne({ base: MATERIAL, job, alive: () => r === run, onLive: (live) => patch({ live }) });
   if (res.status === "stale") return;
   hold?.(); hold = null; job = null;
   if (res.status !== "done") return fail(r, res.status === "timeout" ? "eTimeout" : res.status === "busy" ? "eBusy" : "eFailed");

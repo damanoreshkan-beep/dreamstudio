@@ -95,12 +95,13 @@ shader carries no luma clamp — the camera is the content.
 ## The keeper — `/feed/image/edit`, one picture
 
 - Body `{ image, prompt, seed, k: 1 }` to `${VPS_PROXY}/image/edit` (`apps/mirage/state.js:170-181`,
-  `rework()`); the prompt is English by construction: `"the same photograph reimagined, " + block + ", the
-  photograph's own scene and objects kept"` (`rt/styles.js`) — no translation step, no user text. Two rewrites
-  were tried the same day and reverted: "keep … every object, person, pose …" and "no people, faces or figures"
-  each NAMED a person, and a person appeared in a photo that had none (owner: "не потрібно вигадувати, має бути
-  80% реальності" and then "найперший варіант до змін у промптах дуже гарно робив"). A prompt paints what it
-  mentions; the anchor is the photo's own scene, said once, positively. `startJob` +
+  `rework()`); the prompt is English by construction and it is THE FIRST ONE, word for word:
+  `"the same photograph reimagined, " + block` (`rt/styles.js`) — no translation step, no user text, no tail.
+  Four variants ran on the phone the same day; the owner's verdict closed it ("самий найперший варіант було дуже
+  якісні промпти"): (1) the first — good; (2) "keep … every object, person, pose …" and (3) "no people, faces or
+  figures" — each NAMED a person and a person appeared in a photo that had none; (4) `/feed/image/style` with the
+  material's card (the fox) as the reference — the FOX appeared in the scene: a reference that has a subject
+  transfers the subject. A prompt paints what it mentions; a reference lends what it shows. `startJob` +
   **`followOne`** from `/_rt/imagejob.js`: at k = 1 the edge answers the BYTES on the status URL (the
   one-picture contract zir and rukh follow), not a slide list — MEASURED by the pre-push drive on the see pod
   (`vps/drive.sh lychyna --see …`, 2026-09-05): `/feed/image/edit/get?job=…` turned `image/webp` at 95 s while
