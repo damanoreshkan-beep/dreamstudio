@@ -1,11 +1,11 @@
 // portal — the camera as art at 60 fps on a READY system: PixiJS 8 + pixi-filters (MIT), chosen by
-// docs/research/portal.md. ONE fit screen: the camera goes through a PRESET GRAPH (graph.js — TouchDesigner's
-// TOPs on pixi's own machinery: the contours traced and drawn by the material's texture, rippled, fed back with
-// trails, added over the drained camera, then the post chain), the strip picks the material, the theme picks
-// light or dark, SAVE writes the frame from the canvas. The fine settings of the material live behind ONE icon
-// (a sheet of sliders, each theme its own set, remembered per material). Nothing else exists (owner, 2026-09-05:
-// "готові пресети під наші теми … канвас з камерою в 60фпс і все. і кнопка зберегти"; later: "сховай їх за
-// кнопкою іконкою"). State map: RESEARCH.md.
+// docs/research/portal.md. ONE fit screen: the kit's CamStage owns the camera (priming, the stream, the flip, the
+// torch, the pinch that zooms, the tap that focuses and takes the stage fullscreen — core 1.2.39, once for every
+// mirror app); the portal draws the video it is handed through a PRESET GRAPH (graph.js — TouchDesigner's TOPs on
+// pixi's own machinery: the contours traced and drawn by the material's texture, rippled, fed back with trails,
+// added over the drained camera, then the post chain); the strip picks the material, the theme picks light or
+// dark, SAVE writes the frame from the canvas. The fine settings of the material live behind ONE icon (a sheet of
+// sliders, each theme its own set, remembered per material). Nothing else exists. State map: RESEARCH.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
@@ -13,8 +13,7 @@ import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { Island, Stage, Sheet } from "/_rt/ui.js";
-import { camera, wakeLock } from "/_rt/sensors.js";
-import { CameraPrime } from "/_rt/camprime.js";
+import { CamStage } from "/_rt/camstage.js";
 import { downloadUrl } from "/_rt/apk.js";
 import { PRESETS, IDS, KNOBS, tuned, knobValue, buildChain } from "./presets.js";
 import { createGraph } from "./graph.js";
@@ -30,8 +29,10 @@ const docMaterial = () => document.documentElement.getAttribute("data-material")
 const docLight = () => (document.documentElement.getAttribute("data-theme") || "").includes("light");
 // probe-guarded like GlStage: preflight's canvas stub answers null and the system is never loaded there
 const hasGL = () => { try { return !!document.createElement("canvas").getContext("webgl2"); } catch { return false; } };
-// the wordmark sits on foreign content whose ground the theme cannot know — a theme-aware gradient keeps it legible
+// the wordmark sits on foreign content whose ground the theme cannot know — a theme-aware gradient keeps it
+// legible; in the stage's fullscreen there is no wordmark and the scrim goes with it
 const CSS = `.pt-scrim{height:calc(var(--hdr-h,3.5rem) * 1.9);background:linear-gradient(to bottom,light-dark(rgba(246,244,238,.72),rgba(0,0,0,.62)) 0%,light-dark(rgba(246,244,238,.36),rgba(0,0,0,.32)) 35%,light-dark(rgba(246,244,238,.08),rgba(0,0,0,.07)) 75%,transparent 100%)}
+[data-fullscreen] .pt-scrim{display:none}
 .pt-swatch{background:radial-gradient(circle at 35% 35%,color-mix(in oklch,var(--app-accent) 55%,white) 0%,var(--app-accent) 45%,color-mix(in oklch,var(--app-accent) 40%,black) 100%)}`;
 
 const firstPreset = () => { try { const v = localStorage.getItem(KEY); if (v && PRESETS[v]) return v; } catch { /* */ } return PRESETS[docMaterial()] ? docMaterial() : "lum"; };
@@ -41,17 +42,16 @@ const fmt = (v, step) => (step >= 1 ? String(Math.round(v)) : v.toFixed(step >= 
 
 export function portal({ S, toast, screen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale);
-  const [enabled, setEnabled] = useState(gate);   // the camera opens only after the tap on Enable (gate: at once)
-  const [err, setErr] = useState(null);
   const [ready, setReady] = useState(false);      // a picture is on the stage
+  const [caps, setCaps] = useState(null);         // what the track declares: torch · zoom · focus
+  const [torch, setTorch] = useState(false);
   const [preset, setPreset] = useState(firstPreset);
   const [light, setLight] = useState(docLight);
   const [facing, setFacing] = useState("environment");
   const [busy, setBusy] = useState(false);
   const [over, setOver] = useState(() => loadTune(firstPreset()));   // the knobs of the current material
-  const canvasRef = useRef(), videoRef = useRef();
-  const px = useRef({ P: null, F: null, app: null, graph: null, filters: [], source: null }).current;
-  const on = enabled && !err;
+  const canvasRef = useRef();
+  const px = useRef({ P: null, F: null, app: null, graph: null, filters: [], source: null, pending: null }).current;
 
   // the document's theme, observed — the view does not re-render on a toggle
   useEffect(() => {
@@ -73,10 +73,16 @@ export function portal({ S, toast, screen, closeScreen }) {
     graph.out.filters = px.filters.length ? px.filters : null;
   };
   useEffect(() => { apply(); }, [preset, light, ready, over]);
-  const mount = (texture, mirror) => { const { graph } = px; if (!graph) return; px.source = texture; graph.setSource(texture, mirror); setReady(true); };
+  // the stage hands the playing element over (or takes it back); the system may still be loading — keep it
+  const onVideo = (el, { mirror }) => {
+    px.pending = el ? { el, mirror } : null;
+    const { graph, P } = px; if (!graph || !P) return;
+    if (el) { px.source = P.Texture.from(el); graph.setSource(px.source, mirror); setReady(true); }
+    else setReady(false);
+  };
 
   // THE SYSTEM, loaded lazily (the heavy-dep pattern of the farm's three apps): pixi owns the canvas; the ticker
-  // runs the graph and advances the time-driven filters; the gate mounts the farm's own still
+  // runs the graph and advances the time-driven filters
   useEffect(() => {
     if (!hasGL() || !canvasRef.current) return;
     let alive = true;
@@ -96,30 +102,15 @@ export function portal({ S, toast, screen, closeScreen }) {
       px.P = P; px.F = F; px.app = app; px.graph = graph;
       canvasRef.current.dataset.render = "pixi";
       app.ticker.add((tk) => { const dt = tk.deltaMS / 1000; for (const f of px.filters) if (typeof f.time === "number") f.time += dt; graph.tick(dt); });
-      if (gate) { const tex = await P.Assets.load(mockURL); if (alive) mount(tex, false); }
-      else if (videoRef.current && videoRef.current.readyState >= 2) mount(P.Texture.from(videoRef.current), facing === "user");
+      if (px.pending) onVideo(px.pending.el, px.pending);   // the stage was faster than the system
     })();
     return () => { alive = false; try { px.graph?.destroy(); px.app?.destroy(); } catch { /* gone */ } px.app = null; px.graph = null; };
   }, []);
 
-  // the camera: the kit's lifecycle (the retry after a flip is the kit's, core ≥ 1.2.32), never cold; the
-  // picture mounts when the track PLAYS; the screen stays awake while the portal runs
-  useEffect(() => {
-    if (gate || !enabled) return;
-    if (!camera.supported) { setErr("unsupported"); return; }
-    let alive = true, stop = () => {};
-    setReady(false);
-    const wl = wakeLock.acquire();
-    const v = videoRef.current;
-    const onPlaying = () => { if (!alive || !px.P) return; mount(px.P.Texture.from(v), facing === "user"); };
-    v?.addEventListener("playing", onPlaying);
-    camera.start(v, (e) => { if (alive) setErr(e); }, { facingMode: facing }).then((s) => { if (alive) stop = s; else s(); });
-    return () => { alive = false; v?.removeEventListener("playing", onPlaying); stop(); wl?.release?.(); };
-  }, [enabled, facing]);
-
   const pick = (id) => { setPreset(id); setOver(loadTune(id)); try { localStorage.setItem(KEY, id); } catch { /* */ } };
   const turn = (path, v) => { const o = { ...overRef.current, [path]: v }; setOver(o); saveTune(preset, o); };
   const resetTune = () => { setOver({}); saveTune(preset, {}); };
+  const flip = () => { setTorch(false); setFacing((f) => f === "user" ? "environment" : "user"); };
   const save = async () => {
     const { app, graph } = px; if (!app || !graph || busy) return;
     setBusy(true);
@@ -136,15 +127,17 @@ export function portal({ S, toast, screen, closeScreen }) {
   const knobs = KNOBS[preset] || KNOBS.plain;
   return html`<${Fragment}>
     <style>${CSS}</style>
-    <canvas ref=${canvasRef} data-portal aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
-    <div aria-hidden="true" class="pt-scrim fixed inset-x-0 top-0 z-[2] pointer-events-none"></div>
-
-    <div data-live=${on || gate ? "1" : null} data-ready=${ready ? "1" : null} data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} data-tuned=${Object.keys(over).length ? "1" : null} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
+    <div data-live="1" data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} data-tuned=${Object.keys(over).length ? "1" : null} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       <${Stage}>
-        <video ref=${videoRef} autoplay muted playsinline aria-hidden="true" class="absolute w-px h-px opacity-0 pointer-events-none"></video>
-        ${on || gate ? null : html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} onEnable=${() => { setErr(null); setEnabled(true); }} onSettings=${() => S.screen.set("perms")} denied=${err === "denied"} unavailable=${err === "unavailable" || err === "unsupported"} />`}
+        ${/* THE STAGE — the kit's: it opens the camera and hands the video over; the canvas is its child so a
+             fullscreen of the stage shows the picture alone */""}
+        <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} facing=${facing} torch=${torch} still=${gate ? mockURL : null}
+          onVideo=${onVideo} onState=${(s) => setCaps(s.caps)}>
+          <canvas ref=${canvasRef} data-portal aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
+          <div aria-hidden="true" class="pt-scrim fixed inset-x-0 top-0 z-[1] pointer-events-none"></div>
+        <//>
       <//>
-      <div class="shrink-0">
+      <div class="shrink-0 relative z-[2]">
       <${Island} className="w-full max-w-xl mx-auto flex flex-col gap-[var(--ms-gap)]">
         ${/* THE STRIP — the twelve themes as material cards, on the screen; a tap re-builds the graph in one frame */""}
         <div data-strip role="group" aria-label=${T(t, "material")} class="overflow-x-auto flex items-start gap-1 -mx-1 px-1">
@@ -155,14 +148,16 @@ export function portal({ S, toast, screen, closeScreen }) {
             <span class=${`font-mono uppercase tracking-wide text-[0.58rem] leading-none truncate max-w-full ${active ? "text-base-content" : "text-base-content/70"}`}>${T(t, p.key)}</span>
           </button>`; })}
         </div>
-        ${/* THE ROW — one verb: SAVE, big, centred; the knobs icon at the left, the flip at the right. Nothing else. */""}
+        ${/* THE ROW — one verb: SAVE, big, centred; the knobs icon (and the torch, when the track has one) at the
+             left, the flip at the right. Nothing else. */""}
         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 min-h-[3.9rem]">
-          <div class="flex items-center justify-start">
+          <div class="flex items-center justify-start gap-1">
             <button data-tune class=${`${tool} ${Object.keys(over).length ? "text-[var(--app-accent)]" : ""}`} aria-label=${T(t, "tune")} title=${T(t, "tune")} onClick=${() => S.screen.set("tune")}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
+            ${caps?.torch ? html`<button data-torch aria-pressed=${torch} class=${`${tool} ${torch ? "text-[var(--app-accent)]" : ""}`} aria-label=${T(t, "torch")} title=${T(t, "torch")} onClick=${() => setTorch((v) => !v)}>${Icon(torch ? "lucide:zap" : "lucide:zap-off", "text-lg")}</button>` : null}
           </div>
           <button data-save aria-busy=${busy ? "true" : null} disabled=${!ready || busy} class="btn btn-primary rounded-full h-[3.25rem] min-h-0 px-7 gap-2 text-base shrink-0" onClick=${save}>${Icon("lucide:download", "text-xl")}<span>${T(t, "save")}</span></button>
           <div class="flex items-center justify-end">
-            <button data-flip class=${tool} aria-label=${T(t, "flip")} title=${T(t, "flip")} disabled=${!(gate || (on && ready))} onClick=${() => setFacing((f) => f === "user" ? "environment" : "user")}>${Icon("lucide:switch-camera", "text-lg")}</button>
+            <button data-flip class=${tool} aria-label=${T(t, "flip")} title=${T(t, "flip")} disabled=${!ready} onClick=${flip}>${Icon("lucide:switch-camera", "text-lg")}</button>
           </div>
         </div>
       <//>
