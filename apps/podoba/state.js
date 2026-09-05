@@ -7,14 +7,13 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { T } from "/_rt/i18n.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { startJob, follow, followOne, cancelJob } from "/_rt/imagejob.js";
+import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
 import { extOf, sizeOf, toDataURL } from "/_rt/intake.js";
 import { report } from "/_rt/telemetry.js";
 import { STYLES, styleOf } from "/_rt/styles.js";
 
 const EDIT = `${VPS_PROXY}/image/edit`;
 const UPSCALE = `${VPS_PROXY}/image/upscale`;
-const STYLE = `${VPS_PROXY}/image/style`;
 const MAT_KEY = "podoba:mat";
 const savedMat = () => { try { const m = localStorage.getItem(MAT_KEY); return STYLES.some((s) => s.id === m) ? m : "lum"; } catch { return "lum"; } };
 /** The gate's camera: a still of our own (assets/mock.webp) — the shot, the store's captures, the keeper's stand-in. */
@@ -47,14 +46,13 @@ export const liveOf = (live) => {
   return { key: /queue|waiting/i.test(s) ? "queued" : "working" };
 };
 
-// The keeper: the frozen frame (a capped, mirrored JPEG data URL from the view) in the material.
-// THE MATERIAL IS A PICTURE, NOT A SENTENCE (owner, 2026-09-05: "вхідне зображення редагувати, а не в текст
-// конвертувати"): the frame and the material's own card (the fox rendered in it, assets/style-<id>.webp) go to
-// /feed/image/style — the Spaces that borrow a LOOK from a reference picture and keep the subject (mirage's
-// Style: USO, flux-style-shaping). A text-driven edit painted what its block NAMED — a person appeared in a photo
-// with none, a thread scene lost its objects. Two pods race (k: 2, the slides contract), the first slide wins
-// and the job is cancelled. The edit route with the first wording ("the same photograph reimagined, <block>" —
-// the owner liked it) is the fallback ONLY when the style route answers nothing at all, never on busy.
+// The keeper: the frozen frame (a capped, mirrored JPEG data URL from the view) reimagined in the material by
+// the pods' edit race (/feed/image/edit, k = 1 → the BYTES on the status URL, `followOne`). THE PROMPT IS THE
+// VERY FIRST ONE, word for word — the owner, four rewrites later (2026-09-05): "самий найперший варіант було
+// дуже якісні промпти". What was tried and lost the same day, so nobody tries it again: naming the subject
+// ("keep every object, person…", "no people, faces") put a person into a photo with none; the STYLE route with
+// the material's card as a reference (assets/style-<id>.webp, the fox) painted the FOX into the scene — a
+// reference that has a subject transfers the subject. Only the block, after the photo, nothing else.
 export async function shoot(frame, ctx) {
   const st = $st.get();
   if (!frame || st.phase === "working") return;
@@ -64,48 +62,20 @@ export async function shoot(frame, ctx) {
   if (gate) { await sleep(120); if (r === run) patch({ phase: "done", out: { url: mockURL, w: 768, h: 1024, ext: "webp", by: "" }, live: null }); return; }
   if (frame.length > 9_000_000) return fail(r, "eBig");
   notifyAsk();
-  hold = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, "working") });
-  let got = await styleKeeper(r, frame, st.mat, seed);
-  if (r !== run) return;
-  if (got === null) { report("keeper.fallback", { mat: st.mat }); got = await editKeeper(r, frame, st.mat, seed); }
-  if (r !== run) return;
-  hold?.(); hold = null; job = null;
-  if (!got || typeof got === "string") return fail(r, got === "busy" ? "eBusy" : got === "timeout" ? "eTimeout" : got === "eSignIn" || got === "eNetwork" || got === "eRate" || got === "eBig" ? got : "eFailed");
-  patch({ phase: "done", out: got, live: null });
-  if (document.visibilityState === "hidden") notify({ id: "podoba-done", title: T(ctx.t, "title"), body: T(ctx.t, "notifDone"), url: "./" }).catch(() => {});
-}
-
-/** The material card the style Spaces read the look from — the same 512² webp the strip shows. */
-const cardOf = (mat) => new URL(`assets/style-${mat}.webp`, import.meta.url).href;
-// → a picture { url, w, h, by, ext } · "busy" | "timeout" | an error code · null = nothing came (fallback territory)
-async function styleKeeper(r, frame, mat, seed) {
-  let ref;
-  try { ref = (await toDataURL(cardOf(mat))).data; } catch { return null; }
-  if (r !== run) return null;
-  jobBase = STYLE;
-  try { job = await startJob(STYLE, { images: [frame, ref], prompt: "the same scene as in the first picture, in the material of the second", seed, k: 2 }); }
-  catch (e) { return e.code === "eFailed" ? null : e.code || "eNetwork"; }
-  if (r !== run) { cancelJob(STYLE, job); return null; }
-  let got = null;
-  const status = await follow({
-    base: STYLE, job, alive: () => r === run && !got,
-    onLive: (live) => patch({ live }),
-    onSlide: (s) => { if (got) return; got = { url: s.url, w: s.w, h: s.h, by: s.by, ext: extOf(s.blob) }; cancelJob(STYLE, job); },   // the first slide wins, the other pod is freed
-  });
-  if (got) return got;
-  return status === "busy" ? "busy" : status === "timeout" ? "timeout" : null;
-}
-async function editKeeper(r, frame, mat, seed) {
-  const block = styleOf(mat)?.block || STYLES[0].block;
+  const block = styleOf(st.mat)?.block || STYLES[0].block;
   jobBase = EDIT;
-  try { job = await startJob(EDIT, { image: frame, prompt: `the same photograph reimagined, ${block}, the photograph's own scene and objects kept`, seed, k: 1 }); }
-  catch (e) { return e.code || "eNetwork"; }
-  if (r !== run) { cancelJob(EDIT, job); return null; }
-  const res = await followOne({ base: EDIT, job, alive: () => r === run, onLive: (live) => patch({ live }) });   // k = 1 answers BYTES on the status URL
-  if (res.status !== "done") return res.status === "busy" ? "busy" : res.status === "timeout" ? "timeout" : null;
+  try { job = await startJob(EDIT, { image: frame, prompt: `the same photograph reimagined, ${block}`, seed, k: 1 }); }
+  catch (e) { return fail(r, e.code || "eNetwork"); }
+  if (r !== run) { cancelJob(EDIT, job); return; }
+  hold = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, "working") });
+  const res = await followOne({ base: EDIT, job, alive: () => r === run, onLive: (live) => patch({ live }) });
+  if (res.status === "stale") return;
+  hold?.(); hold = null; job = null;
+  if (res.status !== "done") return fail(r, res.status === "timeout" ? "eTimeout" : res.status === "busy" ? "eBusy" : "eFailed");
   const size = await sizeOf(res.blob);   // measured, never assumed (naturalWidth lies on a scaled <img>)
-  if (r !== run) { revoke(res.url); return null; }
-  return { url: res.url, w: size?.w || 0, h: size?.h || 0, by: res.by, ext: extOf(res.blob) };
+  if (r !== run) { revoke(res.url); return; }
+  patch({ phase: "done", out: { url: res.url, w: size?.w || 0, h: size?.h || 0, by: res.by, ext: extOf(res.blob) }, live: null });
+  if (document.visibilityState === "hidden") notify({ id: "podoba-done", title: T(ctx.t, "title"), body: T(ctx.t, "notifDone"), url: "./" }).catch(() => {});
 }
 
 function fail(r, code) {
