@@ -1,0 +1,104 @@
+# Портал на Godot — усередині нашого APK-shell (дослідження, 2026-09-05)
+
+Власник: «тачдизайнер хочу… не через веб, а просити встановити… але не окремий застосунок, у нас вже є
+механізм збірки apk. там можна все». Нижче — що є, що дає Godot, як вони склеюються, і план по фазах.
+Кожне твердження — з джерела; де джерела не було, стоїть «(перевірити)».
+
+## 1. Що у нас є (shell)
+
+- **Один шаблон APK, дві версії** (`microspec-edge/template/`, Java, AGP 8.5.2, `minSdk 24`, `targetSdk 31`,
+  `namespace apk.microspec`): `lite` = WebView без мосту (27 КБ у base64), `full` = міст `__msShell` +
+  системні можливості (1.39 МБ у base64, ~1 МБ APK). Збирається ОДИН раз у GitHub Actions
+  (`build-template-apk.yml`, гілка `apk-template`), вбудовується як `edge/apk/template-{lite,full}.b64.js`,
+  і **чистий Deno патчить його на кожен запит** (start URL, назва, іконка, package = digest URL, `bridge.json`)
+  і підписує v2 (`edge/apk/sign2.js`). `jniLibs.useLegacyPackaging = true` → .so витягуються при інсталяції,
+  тож перепакування в Deno не потребує вирівнювання сторінок (уже доведено на `libax56rf.so`).
+- **Міст = каталог** `packages/shell/actions.json` (id, capability, call/subscribe, JSON-схеми, дозволи,
+  `minBridge`, мок для гейта) → `deno task shell` генерує таблицю рантайму, `apk/java-gen.mjs` — `Catalogue.java`.
+  Апка бачить усе лише через `/_rt/shell.js` (`has/why/call/subscribe`, версійне узгодження). Origin-lock на
+  кожній навігації; `full` лише для наших origin-ів.
+- Правило `rules/shell.md`: «Zero AndroidX, zero FCM, zero Play Services» — заради розміру. WebView сам по собі
+  слабший за браузер (без Notification/Push; camera/mic — через `onPermissionRequest`).
+- Web-половина будь-якого фіксу шелла не потребує переінсталяції (сторінка з github.io); Java — дорога половина.
+
+## 2. Що дає Godot (факти)
+
+- **Godot як бібліотека для чужого Android-застосунку** — офіційно: Maven `org.godotengine:godot:<v>`;
+  `GodotFragment` у Activity, що реалізує `GodotHost`; проєкт з `assets/` або `--main-pack res://x.pck` через
+  `GodotHost#getCommandLine()`; двосторонній звʼязок через `GodotPlugin` (`@UsedByGodot`-методи з GDScript,
+  `emitSignal` у GDScript, `Engine.get_singleton("Name")`). Обмеження (дослівно): один інстанс Godot на процес;
+  автоматичний resize/зміна орієнтації не підтримуються й можуть крашити.
+- **Maven Central**: остання `4.7.2.stable` (є 4.5.2, 4.6.x). AAR `4.5.2.stable` = **100.7 МБ** (усі ABI:
+  arm64-v8a, armeabi-v7a, x86, x86_64) → з `abiFilters 'arm64-v8a'` в APK іде ~¼. Залежності POM:
+  `kotlin-stdlib`, **`androidx.fragment`** — тобто «Zero AndroidX» для цієї версії шелла доведеться зняти.
+- **Камера**: `CameraServer` «реалізовано на Linux, Android, macOS, iOS»; Android-фід влито окремим PR
+  #106094 (початковий #98416 розбили). NV12 з Camera2 → YUV-текстури, конвертація на GPU. Брати 4.7.2.
+- **PCK**: `godot --headless --export-pack` дає `.pck` без збірки APK; у рантаймі
+  `ProjectSettings.load_resource_pack(path)` або `--main-pack` (перевірити, чи `--export-pack` потребує
+  експорт-шаблонів — у документації не сказано; у CI шаблони можна просто мати).
+- **Редактор на Android** — офіційний, у Play Store (4.7.2), експортує/ставить APK на пристрої; обмеження:
+  Forward+ не радять (беремо Mobile), UX не для телефонів. VisualShader — вузловий редактор шейдерів.
+- Ліцензія MIT.
+
+## 3. Як склеїти (архітектура)
+
+```
+ ┌──────────────── MainActivity (apk.microspec, flavour godot) ────────────────┐
+ │  FrameLayout                                                                │
+ │   ├─ GodotFragment  ── Vulkan Mobile, повний екран, камера через CameraServer│
+ │   │      pck: portal.pck (завантажений з нашого origin, оновлюється як web)   │
+ │   └─ WebView (прозорий фон) ── сторінка порталу з github.io: стрічка, ручки, │
+ │          «Зберегти», прайминг; жести сцени → міст → Godot                    │
+ │  ShellBridge  ── godot.* (каталог) ⇄ GodotPlugin "MsPortal" (signals)        │
+ └──────────────────────────────────────────────────────────────────────────────┘
+```
+
+- **Третя версія шаблону `godot`** (flavour dimension `power` лишається): = `full` + `org.godotengine:godot`
+  + `androidx.fragment`, `abiFilters arm64-v8a`. `lite`/`full` не змінюються ні на байт. Edge обирає `godot`
+  лише для origin-ів наших апок, що оголосили `needs: ["godot"]` (portal). Розмір APK порталу ≈ 25–30 МБ
+  (перевірити на першій збірці).
+- **Godot під WebView**: WebView з `setBackgroundColor(0)`; сторінка в режимі shell-godot малює прозорий фон
+  там, де сцена. Дотики: WebView споживає все → сторінка пересилає жести сцени мостом (`godot.input`:
+  тап, пінч, фокус) — дешево і зберігає CamStage-логіку в web-половині (fullscreen = сховати острів + Godot
+  на весь екран, без Android-fullscreen).
+- **Камера — в Godot** (CameraServer), не у WebView: два власники одного сенсора не буває. Прайминг лишається
+  web (CameraPrime), дозвіл CAMERA у маніфесті вже є.
+- **Каталог `godot.*`** (capability `godot`, bridge N+1): `godot.start {pack, scene, params}`, `godot.stop`,
+  `godot.set {key, value}` (параметри пресету/ручки → GDScript), `godot.input {type, x, y, scale}`,
+  `godot.save` (Godot рендерить viewport → PNG → `MediaStore.Downloads` тим самим шляхом, що `files`),
+  `godot.state` (subscribe: ready/fps/caps/error). У гейті — детермінований мок з каталогу, як у всіх.
+- **PCK з продукту**: `godot/portal/` у репо продукту (сцени, VisualShader-пресети, GDScript), CI експортує
+  `portal.pck` headless (Godot Linux-бінарник ~100 МБ у CI, GPU не треба) → `dist/portal/portal.pck` поруч із
+  веб-апкою → шелл завантажує/кешує за версією. Оновлення пресетів = звичайний деплой продукту, без
+  переінсталяції.
+- **Що робить сам Godot, а не ми**: камера → текстура; feedback = `SubViewport` пінг-понг; трасування/штрих/
+  композит = VisualShader-графи (вузли, не GLSL руками); bloom/тон — `Environment`/Compositor; збереження —
+  `Viewport.get_texture().get_image().save_png()`. Оптичний потік у Godot вузлом нема (у TD є) — якщо знадобиться,
+  це compute-шейдер у рушії, де це штатний інструмент; але спершу без нього: якір через feedback + `UV`-вузли.
+
+## 4. Ризики (чесно)
+
+1. **Godot-камера на Android у бібліотечному режимі** — Camera2 живе у Godot-плагіні; у `GodotFragment`
+   всередині чужої Activity дозвіл питає хост. Перевірити на першій збірці.
+2. **Один Godot на процес + orientation crash** — фіксуємо `portrait` у маніфесті (уже так).
+3. **AndroidX у шелі** — лише у flavour `godot`; правило «Zero AndroidX» переписати як «lite/full — zero».
+4. **Розмір і памʼять**: +25 МБ APK, Godot-рантайм ~100–200 МБ RAM; WebView поруч. На S25 норм; «старе залізо»
+   = Mobile-рендер + `detail` як зараз.
+5. **Пʼять ABI vs Deno-патчер**: `.so` у legacy-пакуванні стиснуті → патчер їх не чіпає (як з `libax56rf.so`).
+6. **CI шаблону**: AAR 100 МБ тягнеться з Maven на кожну збірку шаблону (рідко) — ок.
+
+## 5. План по фазах
+
+- **Ф0 — цей документ; рішення власника** щодо: (а) flavour `godot` з AndroidX і +25 МБ; (б) камера в Godot;
+  (в) 4.7.2.
+- **Ф1 — шаблон `godot` + міст**: gradle flavour, `GodotFragment` під прозорим WebView, плагін `MsPortal`,
+  каталог `godot.*` (start/stop/set/input/save/state), `Catalogue.java`, edge вибирає `godot` для `needs:godot`.
+  Доказ: APK з `/feed/apk` для порталу ставиться на S25, Godot стартує з тестовим PCK (кольоровий квад +
+  камера), `os` → Run all зелений на новому мосту.
+- **Ф2 — Godot-проєкт порталу**: `godot/portal/` — камера → SubViewport-feedback → VisualShader-пресети
+  (12 тем × 2 режими, ті самі текстури 1024²), параметри з `godot.set`, збереження; CI експортує PCK.
+  Веб-портал у shell-режимі: прозорий фон, стрічка/ручки → міст. Доказ: 60 fps на S25 (Godot `Performance`
+  через `godot.state`), матеріал тримається на поверхнях (feedback у просторі камери), «Зберегти» у Downloads.
+- **Ф3 — глибина**: якщо якір потребує потоку — compute-шейдер у Godot; MediaPipe-маска — окреме рішення.
+- **Поза shell** портал лишається веб-версією (pixi) як є — «просити встановити» = профільний рядок APK, який
+  уже існує в кожній апці.
