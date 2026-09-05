@@ -67,8 +67,14 @@ func _use(f: CameraFeed) -> void:
 			best_w = w
 	if best < 0 and feed.formats.size() > 0: best = 0
 	if best >= 0: feed.set_format(best, {"output": "separate"})
+	if not feed.frame_changed.is_connected(_on_first_frame):
+		feed.frame_changed.connect(_on_first_frame, CONNECT_ONE_SHOT)
 	feed.feed_is_active = true
 	_bind()
+
+func _on_first_frame() -> void:
+	# said once: the proof that the sensor delivers, with what the feed became
+	_report({"state": "running", "detail": "camera frame %dx%d type %d" % [int(feed.formats[0].get("width", 0)) if feed.formats.size() else 0, int(feed.formats[0].get("height", 0)) if feed.formats.size() else 0, feed.get_datatype()]})
 
 func _on_format_changed() -> void:
 	_bind()
