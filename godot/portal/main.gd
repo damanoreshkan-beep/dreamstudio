@@ -1,20 +1,42 @@
-# The portal's stage, phase 1: the camera through Godot's CameraServer, on the screen, under the page.
-# The page (the portal's web view on a transparent WebView above) is the UI; it reaches this scene through the
-# shell's MsPortal singleton — signals in (set / input / save / stop), methods out (state / saved).
-# The camera dance follows the Android camera author's sample (shiena/GodotCameraFeedSample): monitor feeds,
-# pick one, set a FORMAT while it is inactive, activate, and bind the textures on the FIRST FRAME — the feed's
-# datatype, size and transform are only known then.
+# The portal's stage — the material as a property of the picture, on TD's nodes as Godot has them:
+#   Cam        the camera surface, as is (cam.gdshader on the feed's own planes)
+#   LoopA/B    Feedback TOP: two SubViewports ping-pong; the one rendered this frame holds Echo (the other's last
+#              frame, faded, zoomed, turned) under Fresh (the trace of the sensor's luminance, drawn by the material)
+#   Out        the loop over the camera — add / multiply / normal by preset and theme
+#   Still      a save: the feed switched to its LARGEST format, the trace re-run at the sensor's own resolution into
+#              StillLoop, composited over the camera into Still, written to user:// and handed to the shell as a
+#              file (owner: "4 мегапікселі — не ок, ми не маємо обмежувати")
+# The page (a transparent WebView above) is the UI; it speaks through the shell's MsPortal singleton — signals in
+# (set / input / save / stop), methods out (state / savedFile). The camera dance is the camera author's own
+# (shiena/GodotCameraFeedSample): format before activating, textures bound on the first frame.
 extends Control
 
-var portal = null            # the MsPortal plugin singleton, when the shell provides one
+const TEX_PX := 1024.0          # the material textures' side
+const REF_W := 1080.0           # the width every px number in the presets is written for
+
+var portal = null
 var feed: CameraFeed = null
 var y_tex := CameraTexture.new()
 var cbcr_tex := CameraTexture.new()
 var rgb_tex := CameraTexture.new()
-var params := {}             # every set() key/value the page handed over
+var params := {}                # every set() key/value the page handed over
+var preset := {}                # the tuned graph of the current material
+var mat_tex: Texture2D = null
+var phase := Vector2.ZERO
 var beat := 0.0
-var bound := false           # textures bound to the running feed
+var bound := false
 var frames := 0
+var flip_a := true              # which loop viewport renders this frame
+var quarter := 0
+var mirror := 0
+var saving := false
+
+@onready var cam: ShaderMaterial = $Cam.material
+@onready var trace: ShaderMaterial = $LoopA/Fresh.material
+@onready var echo_a: ShaderMaterial = $LoopA/Echo.material
+@onready var echo_b: ShaderMaterial = $LoopB/Echo.material
+@onready var out: ShaderMaterial = $Out.material
+@onready var still_trace: ShaderMaterial = $StillLoop/Fresh.material
 
 func _ready() -> void:
 	if Engine.has_singleton("MsPortal"):
@@ -26,16 +48,90 @@ func _ready() -> void:
 	y_tex.which_feed = CameraServer.FeedImage.FEED_Y_IMAGE
 	cbcr_tex.which_feed = CameraServer.FeedImage.FEED_CBCR_IMAGE
 	rgb_tex.which_feed = CameraServer.FeedImage.FEED_RGBA_IMAGE
+	for m in [cam, trace, still_trace]:
+		m.set_shader_parameter("y_tex", y_tex)
+		m.set_shader_parameter("cbcr_tex", cbcr_tex)
+		m.set_shader_parameter("rgb_tex", rgb_tex)
+	echo_a.set_shader_parameter("prev_tex", $LoopB.get_texture())
+	echo_b.set_shader_parameter("prev_tex", $LoopA.get_texture())
+	$Still/Out.material = out.duplicate()
+	get_viewport().size_changed.connect(_layout)
+	_layout()
+	_apply()
 	CameraServer.camera_feeds_updated.connect(_on_feeds_updated, CONNECT_DEFERRED)
-	# 4.5+: feeds are enumerated only while monitored — the camera stays untouched until then
 	CameraServer.monitoring_feeds = true
 	_report({"state": "running", "width": int(size.x), "height": int(size.y)})
 
+# the loop viewports at the pass resolution: detail 2 = the screen's own pixels, 1 = half (old hardware)
+func _layout() -> void:
+	var s := Vector2i(get_viewport().get_visible_rect().size)
+	var d: float = float(preset.get("detail", 2))
+	var vs := Vector2i(maxi(1, int(s.x * d / 2.0)), maxi(1, int(s.y * d / 2.0)))
+	for vp in [$LoopA, $LoopB]:
+		vp.size = vs
+		for child in vp.get_children(): child.size = Vector2(vs)
+	trace.set_shader_parameter("size", Vector2(vs))
+	_tile()
+
+func _tile() -> void:
+	var vs: Vector2 = Vector2($LoopA.size)
+	var scale_v: float = float(preset.get("lines", {}).get("scale", 0.25))
+	trace.set_shader_parameter("period", scale_v * TEX_PX * vs.x / REF_W)
+
 func _process(dt: float) -> void:
+	if saving: return
+	# the tile drifts (px/s in the reference width) — a shimmer, never a film
+	var sp: Array = preset.get("lines", {}).get("speed", [0, 0])
+	var tempo: float = float(preset.get("lines", {}).get("tempo", 1.0))
+	var period: float = float(trace.get_shader_parameter("period"))
+	var vs: Vector2 = Vector2($LoopA.size)
+	phase += Vector2(float(sp[0]), float(sp[1])) * tempo * dt * (vs.x / REF_W) / period
+	phase = Vector2(fposmod(phase.x, 1.0), fposmod(phase.y, 1.0))
+	trace.set_shader_parameter("phase", phase)
+	# the ping-pong: one viewport renders this frame, reading the other's last; Out shows it
+	var vp: SubViewport = $LoopA if flip_a else $LoopB
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	out.set_shader_parameter("loop_tex", vp.get_texture())
+	flip_a = not flip_a
 	beat += dt
 	if beat >= 1.0:
 		beat = 0.0
 		_report({"state": "running", "fps": Engine.get_frames_per_second(), "width": int(size.x), "height": int(size.y), "camera": feed != null and feed.feed_is_active, "frames": frames})
+
+# ---- the preset ------------------------------------------------------------------------------------------
+
+func _apply() -> void:
+	var id: String = str(params.get("preset", "lum"))
+	var light: bool = bool(params.get("light", false))
+	var knobs = params.get("knobs", {})
+	preset = Presets.tuned(id, light, knobs if typeof(knobs) == TYPE_DICTIONARY else {})
+	var tex_id: String = str(preset.get("tex", ""))
+	# no texture (Просто) = a plain white line: the material is light itself
+	mat_tex = load("res://tex/%s.webp" % tex_id) if tex_id != "" else ImageTexture.create_from_image(_white())
+	var e: Dictionary = preset.get("edge", {})
+	var li: Dictionary = preset.get("lines", {})
+	var sh: Dictionary = preset.get("shade", {})
+	var ec: Dictionary = preset.get("echo", {})
+	for m in [trace, still_trace]:
+		m.set_shader_parameter("mat_tex", mat_tex)
+		m.set_shader_parameter("strength", float(e.get("strength", 2.0)))
+		m.set_shader_parameter("step_px", float(e.get("step", 1.0)))
+		m.set_shader_parameter("floor_v", float(e.get("floor", 0.15)))
+		m.set_shader_parameter("invert", 1.0 if int(li.get("invert", 0)) == 1 else 0.0)
+		m.set_shader_parameter("shade", float(sh.get("amount", 0.0)))
+		m.set_shader_parameter("shade_on_light", 1.0 if str(sh.get("on", "dark")) == "light" else 0.0)
+		var band: Array = sh.get("band", [0.35, 0.75])
+		m.set_shader_parameter("shade_band", Vector2(float(band[0]), float(band[1])))
+		m.set_shader_parameter("alpha", float(li.get("alpha", 0.7)))
+	for m in [echo_a, echo_b]:
+		m.set_shader_parameter("decay", float(ec.get("decay", 0.9)))
+		m.set_shader_parameter("zoom", float(ec.get("zoom", 1.0)))
+		m.set_shader_parameter("rot", float(ec.get("rot", 0.0)))
+	var blend: String = str(li.get("blend", "add"))
+	var mode := 0 if blend == "add" else (1 if blend == "multiply" else 2)
+	out.set_shader_parameter("mode", mode)
+	($Still/Out.material as ShaderMaterial).set_shader_parameter("mode", mode)
+	_layout()
 
 # ---- the camera ----------------------------------------------------------------------------------------
 
@@ -43,32 +139,50 @@ func _on_feeds_updated() -> void:
 	if feed == null: _pick_feed()
 
 func _pick_feed() -> void:
-	var want := CameraFeed.FEED_FRONT if params.get("facing", "environment") == "user" else CameraFeed.FEED_BACK
+	var want := CameraFeed.FEED_FRONT if str(params.get("facing", "environment")) == "user" else CameraFeed.FEED_BACK
 	var best: CameraFeed = null
 	for f in CameraServer.feeds():
 		if best == null or f.get_position() == want: best = f
 		if f.get_position() == want: break
 	if best == null: return
-	_use(best)
+	_use(best, _preview_format(best))
 
-func _use(f: CameraFeed) -> void:
-	if feed == f and feed.feed_is_active: return   # already on it — a format cannot be set on an active feed
-	if feed != null and feed != f:
-		feed.feed_is_active = false
-		if feed.frame_changed.is_connected(_on_frame): feed.frame_changed.disconnect(_on_frame)
-	feed = f
-	bound = false
-	frames = 0
-	# the largest format under 1280 px wide; NV12 as two planes (Y + CbCr) — what the phone gives anyway
+# the largest format under 1280 px wide for the live view — the screen needs no more, the sensor is spared
+func _preview_format(f: CameraFeed) -> int:
 	var best := -1
 	var best_w := 0
-	for i in feed.formats.size():
-		var w := int(feed.formats[i].get("width", 0))
+	for i in f.formats.size():
+		var w := int(f.formats[i].get("width", 0))
 		if w <= 1280 and w > best_w:
 			best = i
 			best_w = w
-	if best < 0 and feed.formats.size() > 0: best = 0
-	if best >= 0: feed.set_format(best, {"output": "separate"})
+	return best if best >= 0 else (0 if f.formats.size() > 0 else -1)
+
+# the largest format the sensor offers — the still is saved at its full size, whatever that is; the one bound
+# is the GPU's own (a texture side it cannot allocate), never a number of ours
+func _largest_format(f: CameraFeed) -> int:
+	var best := -1
+	var best_px := 0
+	var side := 16384
+	var rd := RenderingServer.get_rendering_device()
+	if rd != null: side = rd.limit_get(RenderingDevice.LIMIT_MAX_TEXTURE_SIZE_2D)
+	for i in f.formats.size():
+		var w := int(f.formats[i].get("width", 0))
+		var h := int(f.formats[i].get("height", 0))
+		var px := w * h
+		if px > best_px and maxi(w, h) <= side:
+			best = i
+			best_px = px
+	return best
+
+func _use(f: CameraFeed, fmt: int) -> void:
+	if feed != null:
+		if feed.feed_is_active: feed.feed_is_active = false
+		if feed != f and feed.frame_changed.is_connected(_on_frame): feed.frame_changed.disconnect(_on_frame)
+	feed = f
+	bound = false
+	frames = 0
+	if fmt >= 0: feed.set_format(fmt, {"output": "separate"})
 	if not feed.frame_changed.is_connected(_on_frame):
 		feed.frame_changed.connect(_on_frame)
 	feed.feed_is_active = true
@@ -80,28 +194,25 @@ func _on_frame() -> void:
 func _bind() -> void:
 	if feed == null: return
 	var id := feed.get_id()
-	var mat: ShaderMaterial = $Cam.material
+	var mode := 0
 	match feed.get_datatype():
 		CameraFeed.FEED_RGB:
 			rgb_tex.camera_feed_id = id
-			mat.set_shader_parameter("rgb_tex", rgb_tex)
-			mat.set_shader_parameter("mode", 1)
+			mode = 1
 		CameraFeed.FEED_YCBCR_SEP, CameraFeed.FEED_YCBCR:
 			y_tex.camera_feed_id = id
 			cbcr_tex.camera_feed_id = id
-			mat.set_shader_parameter("y_tex", y_tex)
-			mat.set_shader_parameter("cbcr_tex", cbcr_tex)
-			mat.set_shader_parameter("mode", 2)
-		_:
-			mat.set_shader_parameter("mode", 0)
-	# the sensor's own transform says how the picture must turn to stand up; Android delivers video range
-	var quarter := int(round(feed.feed_transform.get_rotation() / (PI / 2.0))) % 4
+			mode = 2
+	quarter = int(round(feed.feed_transform.get_rotation() / (PI / 2.0))) % 4
 	if quarter < 0: quarter += 4
-	mat.set_shader_parameter("rotate", quarter)
-	mat.set_shader_parameter("video_range", 1 if OS.get_name() == "Android" else 0)
-	mat.set_shader_parameter("mirror", 1 if feed.get_position() == CameraFeed.FEED_FRONT else 0)
+	mirror = 1 if feed.get_position() == CameraFeed.FEED_FRONT else 0
+	for m in [cam, trace, still_trace]:
+		m.set_shader_parameter("mode", mode)
+		m.set_shader_parameter("rotate", quarter)
+		m.set_shader_parameter("mirror", mirror)
+	cam.set_shader_parameter("video_range", 1.0 if OS.get_name() == "Android" else 0.0)
 	bound = true
-	_report({"state": "running", "detail": "camera bound: %s type %d rot %d size %s" % [feed.get_name(), feed.get_datatype(), quarter, str(y_tex.get_size() if feed.get_datatype() != CameraFeed.FEED_RGB else rgb_tex.get_size())]})
+	_report({"state": "running", "detail": "camera bound: %s type %d rot %d" % [feed.get_name(), feed.get_datatype(), quarter]})
 
 # ---- the page's words -----------------------------------------------------------------------------------
 
@@ -113,29 +224,85 @@ func _on_set(key: String, json: String) -> void:
 		"facing":
 			feed = null
 			_pick_feed()
-		"tint":
-			($Cam.material as ShaderMaterial).set_shader_parameter("tint", Color(str(v)))
 		"mark":
 			$Mark.visible = bool(v)
+		"preset", "light", "knobs":
+			_apply()
 
 func _on_input(json: String) -> void:
 	var g = JSON.parse_string(json)
 	if typeof(g) != TYPE_DICTIONARY: return
-	# phase 1 acknowledges the gesture; focus and zoom arrive with the camera controls of a later phase
 	_report({"state": "running", "detail": "input " + str(g.get("type", ""))})
 
+# ---- the save, at the sensor's full size ------------------------------------------------------------------
+
 func _on_save(name: String) -> void:
+	if saving or feed == null or portal == null: return
+	saving = true
+	var preview := _preview_format(feed)
+	var big := _largest_format(feed)
+	var f: Dictionary = feed.formats[big] if big >= 0 else {}
+	var w := int(f.get("width", 0))
+	var h := int(f.get("height", 0))
+	if w <= 0 or h <= 0:
+		saving = false
+		_report({"state": "running", "detail": "save: no format"})
+		return
+	# the sensor at its largest: switch, wait for its second frame (the first may still be the old size)
+	_use(feed, big)
+	if not await _frames(2, 4.0):
+		_use(feed, preview)
+		saving = false
+		_report({"state": "running", "detail": "save: no frame at %dx%d" % [w, h]})
+		return
+	# portrait canvas when the sensor is turned
+	var cs := Vector2i(h, w) if quarter % 2 == 1 else Vector2i(w, h)
+	$StillLoop.size = cs
+	$StillLoop/Fresh.size = Vector2(cs)
+	$Still.size = cs
+	$Still/Cam.size = Vector2(cs)
+	$Still/Out.size = Vector2(cs)
+	still_trace.set_shader_parameter("size", Vector2(cs))
+	still_trace.set_shader_parameter("period", float(preset.get("lines", {}).get("scale", 0.25)) * TEX_PX * cs.x / REF_W)
+	still_trace.set_shader_parameter("phase", phase)
+	($Still/Out.material as ShaderMaterial).set_shader_parameter("loop_tex", $StillLoop.get_texture())
+	$StillLoop.render_target_update_mode = SubViewport.UPDATE_ONCE
 	await RenderingServer.frame_post_draw
-	var img := get_viewport().get_texture().get_image()
-	var png := img.save_png_to_buffer()
-	if portal != null:
-		portal.saved(name, Marshalls.raw_to_base64(png))
+	$Still.render_target_update_mode = SubViewport.UPDATE_ONCE
+	await RenderingServer.frame_post_draw
+	var img: Image = $Still.get_texture().get_image()
+	var dir := "user://saves"
+	DirAccess.make_dir_recursive_absolute(dir)
+	var path := "%s/%s" % [dir, name]
+	var err: int = img.save_png(path)
+	# the sensor back to the live size
+	_use(feed, preview)
+	saving = false
+	if err != OK:
+		_report({"state": "running", "detail": "save: png %d" % err})
+		return
+	_report({"state": "running", "detail": "saved %dx%d" % [img.get_width(), img.get_height()]})
+	portal.savedFile(name, ProjectSettings.globalize_path(path))
 
 func _on_stop() -> void:
 	if feed != null:
 		feed.feed_is_active = false
 	CameraServer.monitoring_feeds = false
 	_report({"state": "stopped"})
+
+# true once `n` more camera frames arrived, false after `timeout` seconds without them
+func _frames(n: int, timeout: float) -> bool:
+	var want := frames + n
+	var t := 0.0
+	while frames < want and t < timeout:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+	return frames >= want
+
+static func _white() -> Image:
+	var im := Image.create(4, 4, false, Image.FORMAT_RGB8)
+	im.fill(Color.WHITE)
+	return im
 
 func _report(o: Dictionary) -> void:
 	if portal != null:

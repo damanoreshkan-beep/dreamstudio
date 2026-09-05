@@ -15,6 +15,15 @@ window/handheld/orientation=1
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[importer_defaults]
+; the material textures ship INSIDE the pack the phone downloads on every update: lossy WebP at 0.85 keeps the
+; eleven 1024² materials near 3 MB where lossless would be 30
+texture={
+"compress/mode": 1,
+"compress/lossy_quality": 0.85,
+"mipmaps/generate": true
+}
+
 [rendering]
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"

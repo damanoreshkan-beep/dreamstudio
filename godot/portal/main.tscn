@@ -1,14 +1,28 @@
-[gd_scene load_steps=4 format=3 uid="uid://portal_main"]
+[gd_scene load_steps=12 format=3 uid="uid://portal_main"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_main"]
-[ext_resource type="Shader" path="res://cam.gdshader" id="2_cam"]
+[ext_resource type="Shader" path="res://shaders/cam.gdshader" id="2_cam"]
+[ext_resource type="Shader" path="res://shaders/trace.gdshader" id="3_trace"]
+[ext_resource type="Shader" path="res://shaders/echo.gdshader" id="4_echo"]
+[ext_resource type="Shader" path="res://shaders/out.gdshader" id="5_out"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_cam"]
+[sub_resource type="ShaderMaterial" id="M_cam"]
 shader = ExtResource("2_cam")
-shader_parameter/rotate = 1
-shader_parameter/mirror = 0
-shader_parameter/mode = 0
-shader_parameter/tint = Color(1, 1, 1, 1)
+
+[sub_resource type="ShaderMaterial" id="M_trace"]
+shader = ExtResource("3_trace")
+
+[sub_resource type="ShaderMaterial" id="M_echoA"]
+shader = ExtResource("4_echo")
+
+[sub_resource type="ShaderMaterial" id="M_echoB"]
+shader = ExtResource("4_echo")
+
+[sub_resource type="ShaderMaterial" id="M_out"]
+shader = ExtResource("5_out")
+
+[sub_resource type="ShaderMaterial" id="M_stillTrace"]
+shader = ExtResource("3_trace")
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -19,24 +33,58 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
 
-[node name="Ground" type="ColorRect" parent="."]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-color = Color(0.08, 0.06, 0.2, 1)
-
 [node name="Cam" type="ColorRect" parent="."]
-material = SubResource("ShaderMaterial_cam")
+material = SubResource("M_cam")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-color = Color(1, 1, 1, 1)
+
+[node name="LoopA" type="SubViewport" parent="."]
+transparent_bg = true
+render_target_update_mode = 0
+
+[node name="Echo" type="ColorRect" parent="LoopA"]
+material = SubResource("M_echoA")
+
+[node name="Fresh" type="ColorRect" parent="LoopA"]
+material = SubResource("M_trace")
+
+[node name="LoopB" type="SubViewport" parent="."]
+transparent_bg = true
+render_target_update_mode = 0
+
+[node name="Echo" type="ColorRect" parent="LoopB"]
+material = SubResource("M_echoB")
+
+[node name="Fresh" type="ColorRect" parent="LoopB"]
+material = SubResource("M_trace")
+
+[node name="Out" type="ColorRect" parent="."]
+material = SubResource("M_out")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="StillLoop" type="SubViewport" parent="."]
+transparent_bg = true
+render_target_update_mode = 0
+
+[node name="Fresh" type="ColorRect" parent="StillLoop"]
+material = SubResource("M_stillTrace")
+
+[node name="Still" type="SubViewport" parent="."]
+render_target_update_mode = 0
+
+[node name="Cam" type="ColorRect" parent="Still"]
+material = SubResource("M_cam")
+
+[node name="Out" type="ColorRect" parent="Still"]
 
 [node name="Mark" type="ColorRect" parent="."]
 layout_mode = 1
@@ -48,3 +96,4 @@ offset_top = 48.0
 offset_right = -48.0
 offset_bottom = 96.0
 color = Color(0.95, 0.72, 0.29, 1)
+visible = false
