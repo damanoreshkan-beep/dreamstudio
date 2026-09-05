@@ -2,8 +2,8 @@
 // Scope comes from this file's own path, so every app needs its own worker; the logic lives once in
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
-  app: "lychyna",
-  version: "7cd17b7f0c",
+  app: "podoba",
+  version: "c7d03127ed",
   precache: [
     "./",
     "./i18n/en.json",
@@ -11,8 +11,8 @@ self.MS = {
     "./icon.svg",
     "./icons/apple-touch-icon.png",
     "./index.html",
-    "./lychyna.frag",
     "./manifest.json",
+    "./podoba.frag",
     "./spec.json",
     "./state.js",
     "./view.js",

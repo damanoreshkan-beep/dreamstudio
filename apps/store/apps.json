@@ -1033,43 +1033,6 @@
     "needs": []
   },
   {
-    "id": "lychyna",
-    "title": "Личина",
-    "titles": {
-      "uk": "Личина",
-      "en": "Lychyna"
-    },
-    "tagline": "камера в наших матеріалах",
-    "taglines": {
-      "uk": "камера в наших матеріалах",
-      "en": "the camera in our materials"
-    },
-    "glyph": "lucide:venetian-mask",
-    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M2 12a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V7h-5a8 8 0 0 0-5 2 8 8 0 0 0-5-2H2Z\"/><path d=\"M6 11c1.5 0 3 .5 3 2-2 0-3 0-3-2Z\"/><path d=\"M18 11c-1.5 0-3 .5-3 2 2 0 3 0 3-2Z\"/></svg>",
-    "icon": true,
-    "screens": {
-      "uk": [
-        "Дзеркало"
-      ],
-      "en": [
-        "Mirror"
-      ]
-    },
-    "shots": [
-      "mirror"
-    ],
-    "bg": "#000000",
-    "fg": "#E6C98A",
-    "href": "./lychyna/",
-    "version": "1.2",
-    "category": "creative",
-    "needs": [
-      "camera",
-      "wakeLock"
-    ],
-    "added": "2026-09-05"
-  },
-  {
     "id": "hunt",
     "title": "Лови",
     "titles": {
@@ -1345,6 +1308,41 @@
     "needs": [
       "geo"
     ]
+  },
+  {
+    "id": "podoba",
+    "title": "Подоба",
+    "titles": {
+      "uk": "Подоба",
+      "en": "Podoba"
+    },
+    "tagline": "камера в наших матеріалах",
+    "taglines": {
+      "uk": "камера в наших матеріалах",
+      "en": "the camera in our materials"
+    },
+    "glyph": "lucide:venetian-mask",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\"><path d=\"M2 12a5 5 0 0 0 5 5 8 8 0 0 1 5 2 8 8 0 0 1 5-2 5 5 0 0 0 5-5V7h-5a8 8 0 0 0-5 2 8 8 0 0 0-5-2H2Z\"/><path d=\"M6 11c1.5 0 3 .5 3 2-2 0-3 0-3-2Z\"/><path d=\"M18 11c-1.5 0-3 .5-3 2 2 0 3 0 3-2Z\"/></svg>",
+    "icon": true,
+    "screens": {
+      "uk": [
+        "Дзеркало"
+      ],
+      "en": [
+        "Mirror"
+      ]
+    },
+    "shots": [],
+    "bg": "#000000",
+    "fg": "#E6C98A",
+    "href": "./podoba/",
+    "version": "1.0",
+    "category": "creative",
+    "needs": [
+      "camera",
+      "wakeLock"
+    ],
+    "added": "2026-09-05"
   },
   {
     "id": "flux",

@@ -1,4 +1,4 @@
-// lychyna — state outside the mount (the runtime mounts one tab at a time). The LIVE layer is the shader's
+// podoba — state outside the mount (the runtime mounts one tab at a time). The LIVE layer is the shader's
 // (view.js hands GlStage the camera); this file owns what the KEEPER needs: the material, the frozen frame,
 // the job on /feed/image/edit, the result and its failures. Contract and the state map: RESEARCH.md.
 import { atom } from "nanostores";
@@ -14,7 +14,7 @@ import { STYLES, styleOf } from "/_rt/styles.js";
 
 const EDIT = `${VPS_PROXY}/image/edit`;
 const UPSCALE = `${VPS_PROXY}/image/upscale`;
-const MAT_KEY = "lychyna:mat";
+const MAT_KEY = "podoba:mat";
 const savedMat = () => { try { const m = localStorage.getItem(MAT_KEY); return STYLES.some((s) => s.id === m) ? m : "lum"; } catch { return "lum"; } };
 /** The gate's camera: a still of our own (assets/mock.webp) — the shot, the store's captures, the keeper's stand-in. */
 export const mockURL = new URL("assets/mock.webp", import.meta.url).href;
@@ -65,7 +65,11 @@ export async function shoot(frame, ctx) {
   // the scene into something unrecognisable (owner, 2026-09-05: "не видно що було сфоткано … має бути насичено,
   // але зберігатись обʼєкти з камери"). The subject, every object and the framing are pinned first; the block
   // changes only the material and the rendering.
-  const prompt = `edit this photo, keep the same scene with every object, person, pose, framing and composition exactly as photographed and clearly recognisable; change only the surface material and the rendering, rich in detail and saturated: ${block}`;
+  // THE FIRST WORDING, kept (owner, 2026-09-05: "найперший варіант до змін у промптах дуже гарно робив"). Two
+  // rewrites were tried the same day and both were worse: "keep every object, person, pose…" and "no people, faces
+  // or figures" each NAMED a person — and a person appeared in a photo that had none. The model paints what the
+  // prompt mentions; the only safe anchor is the photograph's own scene, said once and positively.
+  const prompt = `the same photograph reimagined, ${block}, the photograph's own scene and objects kept`;
   jobBase = EDIT;
   try { job = await startJob(EDIT, { image: frame, prompt, seed, k: 1 }); }
   catch (e) { return fail(r, e.code || "eNetwork"); }
@@ -78,7 +82,7 @@ export async function shoot(frame, ctx) {
   const size = await sizeOf(res.blob);   // measured, never assumed (naturalWidth lies on a scaled <img>)
   if (r !== run) { revoke(res.url); return; }
   patch({ phase: "done", out: { url: res.url, w: size?.w || 0, h: size?.h || 0, by: res.by, ext: extOf(res.blob) }, live: null });
-  if (document.visibilityState === "hidden") notify({ id: "lychyna-done", title: T(ctx.t, "title"), body: T(ctx.t, "notifDone"), url: "./" }).catch(() => {});
+  if (document.visibilityState === "hidden") notify({ id: "podoba-done", title: T(ctx.t, "title"), body: T(ctx.t, "notifDone"), url: "./" }).catch(() => {});
 }
 
 function fail(r, code) {

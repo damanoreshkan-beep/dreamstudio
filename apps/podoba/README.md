@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="icon.svg" width="84" height="84" alt="Личина">
+<img src="icon.svg" width="84" height="84" alt="Подоба">
 
-# Личина
+# Подоба
 
 **камера в наших матеріалах**
 

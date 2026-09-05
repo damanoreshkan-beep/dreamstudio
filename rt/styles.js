@@ -1,9 +1,9 @@
-// The farm's MATERIALS — the style cards of mirage's Make and the looks of lychyna's mirror, one list.
+// The farm's MATERIALS — the style cards of mirage's Make and the looks of podoba's mirror, one list.
 // Each style is an English prompt block appended after a subject, exactly the way the farm's own icons were
 // art-directed (docs/research/luminous-icons.md — the first card IS that contract). The owner's idea the set
 // continues: a style is a MATERIAL or a TECHNIQUE the subject is built from — light filaments, frozen smoke,
 // stitched thread — never a genre tag ("anime", "oil painting") the whole internet already makes.
-// The ORDER is a contract: lychyna.frag selects its look by index (vary.z = index / 10), so a new material is
+// The ORDER is a contract: podoba.frag selects its look by index (vary.z = index / 10), so a new material is
 // appended, never inserted. Thumbnails stay per app (assets/style-<id>.webp: the same fox through every block).
 export const STYLES = [
   { id: "lum", key: "styleLum",

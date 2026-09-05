@@ -1,5 +1,5 @@
 {
-  "id": "lychyna",
+  "id": "podoba",
   "theme": "signal",
   "category": "creative",
   "accent": "#E6C98A",
@@ -9,7 +9,7 @@
       "type": "tool",
       "icon": "lucide:venetian-mask",
       "label": "tabMirror",
-      "view": "lychyna",
+      "view": "podoba",
       "fit": true,
       "needs": [
         "camera",

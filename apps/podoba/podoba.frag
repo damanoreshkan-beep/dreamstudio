@@ -1,6 +1,6 @@
 #version 300 es
 // (#version stays on line 1: ANGLE refuses a directive that is not the first line, comments or not.)
-// lychyna — the camera in our materials (GLSL ES 3.00, mounted by /_rt/glstage.js with `cam`).
+// podoba — the camera in our materials (GLSL ES 3.00, mounted by /_rt/glstage.js with `cam`).
 //
 // ONE shader, ELEVEN looks. The camera frame is `cam` (full resolution, core ≥ 1.2.31) and every material is a
 // different reading of the same three primitives — luma, a Sobel gradient, fbm — so the strip switches with a

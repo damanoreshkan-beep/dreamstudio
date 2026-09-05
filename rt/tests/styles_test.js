@@ -1,5 +1,5 @@
 // rt/styles.js — the materials list is a CONTRACT two apps and one shader share: ids unique, every card an
-// English block with the farm's void words, the order fixed (lychyna.frag indexes it).
+// English block with the farm's void words, the order fixed (podoba.frag indexes it).
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { STYLES, styleOf, styleIndex } from "../styles.js";
 

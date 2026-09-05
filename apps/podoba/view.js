@@ -1,5 +1,5 @@
-// lychyna — the camera in our materials, live. ONE fit screen: the STAGE is the kit's GlStage projecting the
-// camera (or the frozen frame, or the gate's still) through lychyna.frag, and the ISLAND holds the material
+// podoba — the camera in our materials, live. ONE fit screen: the STAGE is the kit's GlStage projecting the
+// camera (or the frozen frame, or the gate's still) through podoba.frag, and the ISLAND holds the material
 // strip and the one verb of the moment. ONE-SHOT operations (owner, 2026-09-05): shoot → the keeper develops
 // over the stage → save (the big verb) or share or enlarge; choosing a material at ANY point is the way back
 // to the camera. State and the jobs live in state.js, outside the mount. State map: RESEARCH.md.
@@ -47,7 +47,7 @@ const camPoint = (u, v, vw, vh, mirror) => {
   return { x: Math.min(1, Math.max(0, mirror ? 1 - x : x)), y: Math.min(1, Math.max(0, y)) };
 };
 
-export function lychyna({ S, toast }) {
+export function podoba({ S, toast }) {
   const t = useStore(S.t), loc = useStore(S.locale), screen = useStore(S.screen);
   const st = useStore(M.$st);
   const live = st.phase === "live", working = st.phase === "working", enhancing = st.phase === "enhancing", failed = st.phase === "error";
@@ -161,7 +161,7 @@ export function lychyna({ S, toast }) {
     M.shoot(c.toDataURL("image/jpeg", 0.9), ctx);
   };
   const toggleTorch = async () => { const next = !torch; if (await ctl.current?.torch(next)) setTorch(next); };
-  const name = () => `lychyna-${st.mat}-${Date.now()}.${st.out?.ext || "png"}`;
+  const name = () => `podoba-${st.mat}-${Date.now()}.${st.out?.ext || "png"}`;
   const save = async () => { if (!st.out) return; try { await downloadUrl(st.out.url, name()); toast?.(T(t, "saved")); } catch { toast?.(T(t, "eNetwork")); } };
   const share = async () => { if (!st.out) return; try { const r = await shareFile(await (await fetch(st.out.url)).blob(), name()); if (r === "saved") toast?.(T(t, "saved")); } catch { toast?.(T(t, "eNetwork")); } };
   const lv = M.liveOf(st.live);
@@ -172,7 +172,7 @@ export function lychyna({ S, toast }) {
 
   return html`<${Fragment}>
     <style>${CSS}</style>
-    <${GlStage} shader=${new URL("lychyna.frag", import.meta.url)} seed=${0.21} ink=${ink} vary=${vary} cam=${cam} zClass="z-0" />
+    <${GlStage} shader=${new URL("podoba.frag", import.meta.url)} seed=${0.21} ink=${ink} vary=${vary} cam=${cam} zClass="z-0" />
     ${shown ? html`<img data-keeper data-hd=${st.out.hd ? "1" : null} src=${st.out.url} alt=${T(t, "keeper")} decoding="async" class="ly-in fixed inset-0 z-[1] w-full h-full object-cover cursor-zoom-in" onClick=${() => done && S.screen.set("view")} />` : null}
     ${enhancing ? html`<div aria-hidden="true" class="fixed inset-0 z-[1] pointer-events-none overflow-hidden"><div class="ly-scan"></div></div>` : null}
     ${/* The wordmark sits on FOREIGN content whose ground the theme cannot know — black for seven materials, white
