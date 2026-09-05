@@ -75,3 +75,11 @@ displacement by the material's generated texture (`assets/tex-<id>.webp`, a scro
 the same texture composited over the loop, mirror (right half as the source), LFOs per second; the phase-1 chain
 on top. Full table + the two structural rules (no screen/add inside a feedback loop; a mask Graphics not
 consumed draws white) in `docs/research/portal.md` §7. Twelve see-pod sheets judged before the push.
+
+## Phase 2.1 — the TRACED graph (2026-09-05, product f9e3109)
+
+Owner from the phone: "лінії наших текстур на краях обʼєктів", "воно має ожити". The picture is traced now:
+`EdgeFilter` (ours, Sobel × material, premultiplied alpha = edge, `uInvert` for pale materials on the light
+theme) → linesRT → the feedback loop (`fresh` at alpha with a DisplacementFilter ripple over the `echo`) →
+`add` over the dimmed, drained camera; mirror twins the right half. Data shape and the pixi traps
+(`Filter.from` needs the vertex; resources re-assignable) in `docs/research/portal.md` §8.

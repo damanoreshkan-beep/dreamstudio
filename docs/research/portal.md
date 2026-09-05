@@ -121,3 +121,31 @@ Two rules learnt on the see pod, both structural:
   which bounds the trail by the picture; the material composites AFTER the loop.
 - **A mask `Graphics` no preset consumes is a white rect drawn over everything** — the masks join the tree only
   while a preset mirrors. Also: `DisplacementFilter.scale` is a `Point` (`.set(x, y)`), not a number.
+
+## 8. Phase 2.1 — the TRACED graph (built 2026-09-05, product f9e3109)
+
+The owner on §7 from the phone: "статичні фільтри замість динаміки, немає текстур", "я очікував якісь лінії наших
+текстур на краях обʼєктів а не просто статику", "воно має ожити". §7 laid the material over the whole frame at
+alpha 0.3 moving 5 px/s — a film, not a drawing. The TD answer is three TOPs: **Edge** (Sobel) → **Composite**
+(multiply the edge by a moving texture) → **Feedback**, then Over the dimmed source. Research done by hand (Codex
+is down): the Edge TOP's parameters (`strength`, sample `offset`, `combineinput`, `operand`) from docs.derivative.ca;
+pixi 8's custom-filter contract from the official `pixijs-filters` skill and the DisplacementFilter source
+(`Filter.from({gl:{vertex, fragment}, resources})`, `uInputSize`/`uInputClamp` provided, textures as resources
+`uX: source, uXSampler: source.style`, resources re-assignable through the accessor); skills installed globally:
+`pixijs`, `pixijs-filters`, `shader-programming`, `touchdesigner` (MCP-shaped; its feedback notes hold: one
+resolution across the loop, soft boundaries). 21st.dev holds React hero backgrounds, no camera pipeline — no fit.
+
+The graph now (`graph.js`), three passes at CSS resolution 1 + the stage:
+
+| pass | node | what |
+|---|---|---|
+| lines | `traced` sprite + **EdgeFilter** (ours, 25 lines GLSL) | Sobel on luminance × the material sampled at `uMatScale/uMatOffset` (scrolling), `uInvert` for pale materials; writes premultiplied `vec4(m·e, e)` — a line or nothing |
+| loop | `echo` (prev RT: decay, zoom, rot) + `fresh` (linesRT at alpha, `DisplacementFilter` by the material field) | trails on a transparent ground: bounded, alive on a still scene |
+| out | `base` (camera: tint + `ColorMatrixFilter.saturate`) + `view`/`twin` (loop, blend `add`, masked halves when mirroring) | the post chain of §5 on top |
+
+`Filter.from` with only a fragment threw `Cannot read properties of undefined (reading 'substring')` — GlProgram
+needs the vertex; pixi's default filter vertex is inlined verbatim. Preset data (`presets.js`): `edge {strength,
+step, floor}`, `lines {alpha, speed, scale, ripple, fieldSpeed, breathe, rate, blend, invert}`, `echo`, `base
+{tint, sat}`, `mirror`, `chain` with `null` = "not on this theme"; `LIGHT` = the pale drained ground + `normal`
+lines, pale materials `invert` + `multiply` (the light theme is a contour drawing, the dark a light drawing).
+Sheets: 12 dark + 9 light on the see pod before the push.
