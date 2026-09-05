@@ -27,6 +27,18 @@ export default [
     },
   },
   {
+    name: "тонкі налаштування: іконка відкриває панель, у матеріалу свій набір ручок, ручка змінює сцену", run: async (h) => {
+      await ready(h);
+      await h.click('[data-mat="lum"]'); await h.wait(150);
+      await h.click("[data-tune]"); await h.wait(300);
+      h.expect((await h.count("#tune[open]")) === 1, "панель налаштувань не відкрилась");
+      const n = await h.count("[data-knob]");
+      h.expect(n >= 6, `у Сяйва замало ручок: ${n}`);
+      h.expect((await h.count('[data-knob="chain.0.bloomScale"]')) === 1, "Сяйво без ручки сяйва");
+      h.expect((await h.count("[data-reset]:disabled")) === 1, "«Скинути» активна без змін");
+    },
+  },
+  {
     name: "режим сцени слідує за темою документа", run: async (h) => {
       await ready(h);
       const mode = await h.attr("[data-live]", "data-mode");

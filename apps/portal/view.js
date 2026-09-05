@@ -1,20 +1,22 @@
 // portal — the camera as art at 60 fps on a READY system: PixiJS 8 + pixi-filters (MIT), chosen by
 // docs/research/portal.md. ONE fit screen: the camera goes through a PRESET GRAPH (graph.js — TouchDesigner's
-// TOPs on pixi's own machinery: feedback, displacement by the material's texture, the material as a composite
-// layer, a mirror, LFOs, then the post chain), the strip picks the material, the theme picks light or dark,
-// SAVE writes the frame from the canvas. Nothing else exists (owner, 2026-09-05: "готові пресети під наші теми …
-// канвас з камерою в 60фпс і все. і кнопка зберегти. всьо"). State map: RESEARCH.md.
+// TOPs on pixi's own machinery: the contours traced and drawn by the material's texture, rippled, fed back with
+// trails, added over the drained camera, then the post chain), the strip picks the material, the theme picks
+// light or dark, SAVE writes the frame from the canvas. The fine settings of the material live behind ONE icon
+// (a sheet of sliders, each theme its own set, remembered per material). Nothing else exists (owner, 2026-09-05:
+// "готові пресети під наші теми … канвас з камерою в 60фпс і все. і кнопка зберегти"; later: "сховай їх за
+// кнопкою іконкою"). State map: RESEARCH.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
-import { Island, Stage } from "/_rt/ui.js";
+import { Island, Stage, Sheet } from "/_rt/ui.js";
 import { camera, wakeLock } from "/_rt/sensors.js";
 import { CameraPrime } from "/_rt/camprime.js";
 import { downloadUrl } from "/_rt/apk.js";
-import { PRESETS, IDS, graphOf, buildChain } from "./presets.js";
+import { PRESETS, IDS, KNOBS, tuned, knobValue, buildChain } from "./presets.js";
 import { createGraph } from "./graph.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -23,6 +25,7 @@ const thumb = (id) => new URL(`assets/style-${id}.webp`, import.meta.url).href;
 const texUrl = (id) => new URL(`assets/tex-${id}.webp`, import.meta.url).href;
 const mockURL = new URL("assets/mock.webp", import.meta.url).href;
 const KEY = "portal:preset";
+const TUNE = (id) => `portal:tune:${id}`;
 const docMaterial = () => document.documentElement.getAttribute("data-material") || "lum";
 const docLight = () => (document.documentElement.getAttribute("data-theme") || "").includes("light");
 // probe-guarded like GlStage: preflight's canvas stub answers null and the system is never loaded there
@@ -32,8 +35,11 @@ const CSS = `.pt-scrim{height:calc(var(--hdr-h,3.5rem) * 1.9);background:linear-
 .pt-swatch{background:radial-gradient(circle at 35% 35%,color-mix(in oklch,var(--app-accent) 55%,white) 0%,var(--app-accent) 45%,color-mix(in oklch,var(--app-accent) 40%,black) 100%)}`;
 
 const firstPreset = () => { try { const v = localStorage.getItem(KEY); if (v && PRESETS[v]) return v; } catch { /* */ } return PRESETS[docMaterial()] ? docMaterial() : "lum"; };
+const loadTune = (id) => { try { const v = JSON.parse(localStorage.getItem(TUNE(id)) || "null"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
+const saveTune = (id, over) => { try { if (Object.keys(over).length) localStorage.setItem(TUNE(id), JSON.stringify(over)); else localStorage.removeItem(TUNE(id)); } catch { /* */ } };
+const fmt = (v, step) => (step >= 1 ? String(Math.round(v)) : v.toFixed(step >= 0.01 ? 2 : 3).replace(/\.?0+$/, ""));
 
-export function portal({ S, toast }) {
+export function portal({ S, toast, screen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale);
   const [enabled, setEnabled] = useState(gate);   // the camera opens only after the tap on Enable (gate: at once)
   const [err, setErr] = useState(null);
@@ -42,6 +48,7 @@ export function portal({ S, toast }) {
   const [light, setLight] = useState(docLight);
   const [facing, setFacing] = useState("environment");
   const [busy, setBusy] = useState(false);
+  const [over, setOver] = useState(() => loadTune(firstPreset()));   // the knobs of the current material
   const canvasRef = useRef(), videoRef = useRef();
   const px = useRef({ P: null, F: null, app: null, graph: null, filters: [], source: null }).current;
   const on = enabled && !err;
@@ -55,16 +62,17 @@ export function portal({ S, toast }) {
 
   const presetRef = useRef(preset); presetRef.current = preset;
   const lightRef = useRef(light); lightRef.current = light;
-  // the graph + the post chain for the current preset and mode — built once per change, never per frame
+  const overRef = useRef(over); overRef.current = over;
+  // the graph + the post chain for the current preset, mode and knobs — built once per change, never per frame
   const apply = async () => {
     const { graph, F } = px; if (!graph || !F) return;
-    const id = presetRef.current, lite = lightRef.current;
-    await graph.setPreset(graphOf(id, lite), texUrl);
-    if (presetRef.current !== id || lightRef.current !== lite) return;
-    px.filters = buildChain(F, id, lite);
+    const id = presetRef.current, lite = lightRef.current, o = overRef.current;
+    await graph.setPreset(tuned(id, lite, o), texUrl);
+    if (presetRef.current !== id || lightRef.current !== lite || overRef.current !== o) return;
+    px.filters = buildChain(F, id, lite, o);
     graph.out.filters = px.filters.length ? px.filters : null;
   };
-  useEffect(() => { apply(); }, [preset, light, ready]);
+  useEffect(() => { apply(); }, [preset, light, ready, over]);
   const mount = (texture, mirror) => { const { graph } = px; if (!graph) return; px.source = texture; graph.setSource(texture, mirror); setReady(true); };
 
   // THE SYSTEM, loaded lazily (the heavy-dep pattern of the farm's three apps): pixi owns the canvas; the ticker
@@ -109,7 +117,9 @@ export function portal({ S, toast }) {
     return () => { alive = false; v?.removeEventListener("playing", onPlaying); stop(); wl?.release?.(); };
   }, [enabled, facing]);
 
-  const pick = (id) => { setPreset(id); try { localStorage.setItem(KEY, id); } catch { /* */ } };
+  const pick = (id) => { setPreset(id); setOver(loadTune(id)); try { localStorage.setItem(KEY, id); } catch { /* */ } };
+  const turn = (path, v) => { const o = { ...overRef.current, [path]: v }; setOver(o); saveTune(preset, o); };
+  const resetTune = () => { setOver({}); saveTune(preset, {}); };
   const save = async () => {
     const { app, graph } = px; if (!app || !graph || busy) return;
     setBusy(true);
@@ -123,12 +133,13 @@ export function portal({ S, toast }) {
     finally { setBusy(false); }
   };
 
+  const knobs = KNOBS[preset] || KNOBS.plain;
   return html`<${Fragment}>
     <style>${CSS}</style>
     <canvas ref=${canvasRef} data-portal aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
     <div aria-hidden="true" class="pt-scrim fixed inset-x-0 top-0 z-[2] pointer-events-none"></div>
 
-    <div data-live=${on || gate ? "1" : null} data-ready=${ready ? "1" : null} data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
+    <div data-live=${on || gate ? "1" : null} data-ready=${ready ? "1" : null} data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} data-tuned=${Object.keys(over).length ? "1" : null} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       <${Stage}>
         <video ref=${videoRef} autoplay muted playsinline aria-hidden="true" class="absolute w-px h-px opacity-0 pointer-events-none"></video>
         ${on || gate ? null : html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} onEnable=${() => { setErr(null); setEnabled(true); }} onSettings=${() => S.screen.set("perms")} denied=${err === "denied"} unavailable=${err === "unavailable" || err === "unsupported"} />`}
@@ -144,9 +155,11 @@ export function portal({ S, toast }) {
             <span class=${`font-mono uppercase tracking-wide text-[0.58rem] leading-none truncate max-w-full ${active ? "text-base-content" : "text-base-content/70"}`}>${T(t, p.key)}</span>
           </button>`; })}
         </div>
-        ${/* THE ROW — one verb: SAVE, big, centred; the flip small at the right. Nothing else. */""}
+        ${/* THE ROW — one verb: SAVE, big, centred; the knobs icon at the left, the flip at the right. Nothing else. */""}
         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 min-h-[3.9rem]">
-          <div></div>
+          <div class="flex items-center justify-start">
+            <button data-tune class=${`${tool} ${Object.keys(over).length ? "text-[var(--app-accent)]" : ""}`} aria-label=${T(t, "tune")} title=${T(t, "tune")} onClick=${() => S.screen.set("tune")}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
+          </div>
           <button data-save aria-busy=${busy ? "true" : null} disabled=${!ready || busy} class="btn btn-primary rounded-full h-[3.25rem] min-h-0 px-7 gap-2 text-base shrink-0" onClick=${save}>${Icon("lucide:download", "text-xl")}<span>${T(t, "save")}</span></button>
           <div class="flex items-center justify-end">
             <button data-flip class=${tool} aria-label=${T(t, "flip")} title=${T(t, "flip")} disabled=${!(gate || (on && ready))} onClick=${() => setFacing((f) => f === "user" ? "environment" : "user")}>${Icon("lucide:switch-camera", "text-lg")}</button>
@@ -155,5 +168,19 @@ export function portal({ S, toast }) {
       <//>
       </div>
     </div>
+
+    ${/* THE KNOBS — the material's own set of fine settings, live on the picture behind the frost, remembered per material */""}
+    <${Sheet} id="tune" open=${screen === "tune"} onClose=${closeScreen} title=${T(t, "tune")} subtitle=${T(t, PRESETS[preset].key)} icon="lucide:sliders-horizontal" tone="frost" locale=${loc}>
+      <div data-knobs class="flex flex-col gap-3">
+        ${knobs.map((k) => { const v = knobValue(preset, light, over, k); return html`<label key=${k.path} class="flex flex-col gap-1">
+          <span class="flex items-baseline justify-between gap-2">
+            <span class="text-sm">${T(t, k.id)}</span>
+            <span class="font-mono text-[length:var(--ms-label)] text-base-content/70 tabular-nums">${fmt(v, k.step)}</span>
+          </span>
+          <input type="range" data-knob=${k.path} class="range range-xs range-primary" min=${k.min} max=${k.max} step=${k.step} value=${v} onInput=${(e) => turn(k.path, Number(e.currentTarget.value))} />
+        </label>`; })}
+      </div>
+      <button data-reset class="btn btn-ghost btn-sm self-end gap-2" disabled=${!Object.keys(over).length} onClick=${resetTune}>${Icon("lucide:rotate-ccw", "text-base")}<span>${T(t, "reset")}</span></button>
+    </${Sheet}>
   </${Fragment}>`;
 }

@@ -94,16 +94,16 @@ export async function createGraph(P, app, opts = {}) {
   const maskL = new P.Graphics(), maskR = new P.Graphics();
   out.addChild(base, view, twin, field);
   const textures = new Map();
-  let linesRT = null, rt = [null, null], flip = 0, size = { w: 0, h: 0 }, mirror = false, preset = null, time = 0;
+  let linesRT = null, rt = [null, null], flip = 0, size = { w: 0, h: 0, r: 1 }, mirror = false, preset = null, time = 0;
   const scroll = { x: 0, y: 0 };
 
   const W = () => app.screen.width, H = () => app.screen.height;
   const ensure = () => {
-    const w = W(), h = H();
-    if (size.w === w && size.h === h && rt[0]) return;
-    size = { w, h };
+    const w = W(), h = H(), r = Math.min(preset?.detail || 1, app.renderer.resolution);
+    if (size.w === w && size.h === h && size.r === r && rt[0]) return;
+    size = { w, h, r };
     rt.forEach((t) => t?.destroy(true)); linesRT?.destroy(true);
-    const mk = () => P.RenderTexture.create({ width: w, height: h, resolution: 1 });
+    const mk = () => P.RenderTexture.create({ width: w, height: h, resolution: r });
     rt = [mk(), mk()]; linesRT = mk();
     field.width = w; field.height = h;
     for (const s of [echo, fresh, view, twin]) s.position.set(w / 2, h / 2);
@@ -147,7 +147,7 @@ export async function createGraph(P, app, opts = {}) {
         fresh.filters = [ripple];
       } else fresh.filters = null;
       echo.visible = !!p.echo;
-      base.tint = p.base?.tint ?? 0xffffff;
+      base.tint = p.base?.dim != null ? Math.round(p.base.dim * 255) * 0x010101 : (p.base?.tint ?? 0xffffff);
       drain.reset(); if (p.base?.sat) drain.saturate(p.base.sat, false);
       base.filters = p.base?.sat ? [drain] : null;
       view.blendMode = twin.blendMode = p.lines?.blend || "add";
@@ -163,8 +163,9 @@ export async function createGraph(P, app, opts = {}) {
       const p = preset; if (!p) return;
       time += dt;
       const u = edge.resources.edgeUniforms.uniforms;
-      const sp = p.lines?.speed; if (sp) { scroll.x += sp[0] * dt; scroll.y += sp[1] * dt; u.uMatOffset.set(scroll.x * u.uMatScale.x, scroll.y * u.uMatScale.y); }
-      const fs = p.lines?.fieldSpeed; if (fs) { field.tilePosition.x += fs[0] * dt; field.tilePosition.y += fs[1] * dt; }
+      const k = p.lines?.tempo ?? 1;
+      const sp = p.lines?.speed; if (sp) { scroll.x += sp[0] * k * dt; scroll.y += sp[1] * k * dt; u.uMatOffset.set(scroll.x * u.uMatScale.x, scroll.y * u.uMatScale.y); }
+      const fs = p.lines?.fieldSpeed; if (fs) { field.tilePosition.x += fs[0] * k * dt; field.tilePosition.y += fs[1] * k * dt; }
       if (p.lines?.breathe) fresh.alpha = (p.lines.alpha ?? 0.6) * (1 + p.lines.breathe * Math.sin(time * (p.lines.rate || 0.8)));
       app.renderer.render({ container: traced, target: linesRT, clear: true });
       fresh.texture = linesRT;
