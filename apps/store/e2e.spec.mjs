@@ -125,10 +125,13 @@ export default [
       h.expect((await h.count('#p-material [data-material-id="plain"]')) === 1, "у стрічці немає картинки «Просто»");
       await h.click('[data-material-id="plain"]'); await h.wait(300);
       h.expect((await h.attr("html", "data-material")) === "plain", "html[data-material] не став plain");
-      h.expect(/theme-plain\.css$/.test(await h.attr('link[rel="stylesheet"][href*="theme"]', "href")), "лінк теми не переключився на theme-plain.css");
+      // the FARM's theme link, by its file name — `[href*="theme"]` picked daisyui's `themes.css` (linked first), which
+      // the old material.js wrongly rewrote, so this test was green on the bug itself (core 1.2.38, 2026-09-05)
+      h.expect((await h.count('link[rel="stylesheet"][href$="/_rt/theme-plain.css"]')) === 1, "лінк теми не переключився на theme-plain.css");
+      h.expect((await h.count('link[rel="stylesheet"][href*="daisyui"][href$="themes.css"]')) === 1, "daisyui-ний themes.css мав лишитись незайманим");
       await h.click('[data-material-id="lum"]'); await h.wait(300);
       h.expect((await h.attr("html", "data-material")) === "lum", "повернення до «Сяйва» не спрацювало");
-      h.expect(/theme-lum\.css$/.test(await h.attr('link[rel="stylesheet"][href*="theme"]', "href")), "лінк теми не повернувся до theme-lum.css");
+      h.expect((await h.count('link[rel="stylesheet"][href$="/_rt/theme-lum.css"]')) === 1, "лінк теми не повернувся до theme-lum.css");
       await h.click('#p-theme [data-mode="day"]'); await h.wait(200);
       h.expect((await h.attr("html", "data-theme")) === "signal-light", "«День» не перемкнув html[data-theme]");
       await h.click('#p-theme [data-mode="night"]'); await h.wait(200);
