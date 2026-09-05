@@ -52,6 +52,7 @@ import "./tests/scifi_test.js";
 import "./tests/sigil_test.js";
 import "./tests/signif_test.js";
 import "./tests/sonar_test.js";
+import "./tests/styles_test.js";
 import "./tests/swarm_test.js";
 import "./tests/sweep_test.js";
 import "./tests/sync_test.js";

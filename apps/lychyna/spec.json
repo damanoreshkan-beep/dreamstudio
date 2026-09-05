@@ -1,0 +1,38 @@
+{
+  "id": "lychyna",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#E6C98A",
+  "tabs": [
+    {
+      "id": "mirror",
+      "type": "tool",
+      "icon": "lucide:venetian-mask",
+      "label": "tabMirror",
+      "view": "lychyna",
+      "fit": true,
+      "needs": [
+        "camera",
+        "wakeLock"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:venetian-mask",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "permissions": [
+      "camera"
+    ],
+    "account": "any"
+  },
+  "added": "2026-09-05"
+}
