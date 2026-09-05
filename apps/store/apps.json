@@ -1055,11 +1055,13 @@
         "Mirror"
       ]
     },
-    "shots": [],
+    "shots": [
+      "mirror"
+    ],
     "bg": "#000000",
     "fg": "#E6C98A",
     "href": "./lychyna/",
-    "version": "1.0",
+    "version": "1.2",
     "category": "creative",
     "needs": [
       "camera",
@@ -2589,7 +2591,7 @@
     "bg": "#221C29",
     "fg": "#C9A7E0",
     "href": "./mirage/",
-    "version": "1.20",
+    "version": "1.21",
     "category": "creative",
     "needs": [
       "camera"
