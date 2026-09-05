@@ -23,7 +23,8 @@ export default [
       await h.click('[data-mat="ink"]'); await h.wait(120);
       h.expect(await h.attr('[data-mat="ink"]', "aria-pressed") === "true", "Туш не активна");
       h.expect(await h.attr('[data-mat="lum"]', "aria-pressed") === "false", "Сяйво лишилось активним");
-      h.expect(await h.attr("[data-live]", "data-mat") === "ink", "сцена не знає про Туш");
+      // the stage's own attribute is data-material: a data-mat on the wrapper collided with the tiles' selector in CI (12 matches, 2026-09-05)
+      h.expect(await h.attr("[data-live]", "data-material") === "ink", "сцена не знає про Туш");
     },
   },
   {

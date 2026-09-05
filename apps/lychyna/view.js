@@ -106,7 +106,7 @@ export function lychyna({ S, toast }) {
       <button data-lightbox-close aria-label=${T(t, "close")} class="absolute top-3 right-3 btn btn-circle btn-sm bg-black/50 text-white border-0" onClick=${() => S.screen.set(null)}>${Icon("lucide:x", "text-base")}</button>
     </div>` : null}
 
-    <div data-live=${on || gate ? "1" : null} data-phase=${st.phase} data-mat=${st.mat} data-facing=${st.facing} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
+    <div data-live=${on || gate ? "1" : null} data-phase=${st.phase} data-material=${st.mat} data-facing=${st.facing} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       <${Stage}>
         <video ref=${videoRef} autoplay muted playsinline aria-hidden="true" class="absolute w-px h-px opacity-0 pointer-events-none"></video>
         ${gate ? html`<img ref=${mockRef} src=${M.mockURL} alt="" aria-hidden="true" class="absolute w-px h-px opacity-0 pointer-events-none" />` : null}
