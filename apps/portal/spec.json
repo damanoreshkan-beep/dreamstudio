@@ -1,0 +1,37 @@
+{
+  "id": "portal",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#F2B84B",
+  "tabs": [
+    {
+      "id": "portal",
+      "type": "tool",
+      "icon": "lucide:aperture",
+      "label": "tabPortal",
+      "view": "portal",
+      "fit": true,
+      "needs": [
+        "camera",
+        "wakeLock"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:aperture",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "permissions": [
+      "camera"
+    ]
+  },
+  "added": "2026-09-05"
+}

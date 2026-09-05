@@ -5,7 +5,7 @@
     "jsr:@b-fuze/deno-dom@0.1.48": "0.1.48",
     "jsr:@deno-library/progress@^1.5.1": "1.5.1",
     "jsr:@deno/cache-dir@0.22.2": "0.22.2",
-    "jsr:@microspec/core@1": "1.2.36",
+    "jsr:@microspec/core@1": "1.2.38",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/async@1": "1.4.0",
@@ -34,7 +34,7 @@
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.26",
     "npm:@jsquash/png@3.0.1": "3.0.1",
     "npm:@jsquash/webp@1.4.0": "1.4.0",
-    "npm:@jsr/microspec__core@1": "1.2.36",
+    "npm:@jsr/microspec__core@1": "1.2.38",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:@resvg/resvg-wasm@2.6.2": "2.6.2",
@@ -831,6 +831,54 @@
         "npm:topojson-client"
       ]
     },
+    "@microspec/core@1.2.37": {
+      "integrity": "a3d25a3696240f88b370c13a35f476b1289afae4fd3a9789b945b372c952a2a2",
+      "dependencies": [
+        "jsr:@astral/astral",
+        "jsr:@b-fuze/deno-dom",
+        "jsr:@std/assert@1",
+        "jsr:@std/http",
+        "npm:@jsquash/png",
+        "npm:@jsquash/webp",
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:@resvg/resvg-wasm",
+        "npm:ajv",
+        "npm:ajv-formats",
+        "npm:d3-geo",
+        "npm:daisyui",
+        "npm:htm",
+        "npm:linkedom",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:tailwindcss",
+        "npm:topojson-client"
+      ]
+    },
+    "@microspec/core@1.2.38": {
+      "integrity": "c7db61cac4f20190c36d66865aa4683441bdcb6c0cc0bb60c8a0b04af673ef9c",
+      "dependencies": [
+        "jsr:@astral/astral",
+        "jsr:@b-fuze/deno-dom",
+        "jsr:@std/assert@1",
+        "jsr:@std/http",
+        "npm:@jsquash/png",
+        "npm:@jsquash/webp",
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:@resvg/resvg-wasm",
+        "npm:ajv",
+        "npm:ajv-formats",
+        "npm:d3-geo",
+        "npm:daisyui",
+        "npm:htm",
+        "npm:linkedom",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:tailwindcss",
+        "npm:topojson-client"
+      ]
+    },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
@@ -966,8 +1014,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.36": {
-      "integrity": "sha512-Zqj6MIH5DV/qmwbHAi25OhRaaMJsq2mo7FkYMlzankyRKTwCwaQlGXBJ7g4fOW3OHqZ/dYs98MnF4gIJ4Iyzvw==",
+    "@jsr/microspec__core@1.2.38": {
+      "integrity": "sha512-G74+JvhbrbryBXiCQph7zdlHUjGEZQ7v4Tgwo1zvRg3tqoS/BlMDlmvYZ4es7z4TdPE4rR7wRrHtBjwccDYvfA==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -989,7 +1037,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.36.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.38.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",
@@ -1306,6 +1354,8 @@
     "https://esm.sh/topojson-client@3": "https://esm.sh/topojson-client@3.1.0"
   },
   "remote": {
+    "https://cdn.jsdelivr.net/npm/pixi-filters@6.1.5/dist/pixi-filters.min.mjs": "9b65dcf5bb7903766e93e65374b6c40db932ca067c663091a090f1e86b5b32e4",
+    "https://cdn.jsdelivr.net/npm/pixi.js@8.20.1/dist/pixi.min.mjs": "efc469a3839f80d6b55f8041c498e84fa271991166d45f37c9d8511f914a65f4",
     "https://esm.sh/@nanostores/persistent@0.10.2/X-ZW5hbm9zdG9yZXM/denonext/persistent.mjs": "4755f1857c16d69f678729535a440aaba8ea17217b4b822c28ac51a38bd0dbdb",
     "https://esm.sh/@nanostores/persistent@0.10.2?external=nanostores": "d9cb444852f3ea8016242dffaf86afc4985dc802c1e0b85afd45fd31dc454496",
     "https://esm.sh/@nanostores/preact@0.5.2/X-ZW5hbm9zdG9yZXMscHJlYWN0/denonext/preact.mjs": "712efdcec54dcda04b6ed9bd23bc42be49bc599572a3ce60a5d1818662dccbb1",
