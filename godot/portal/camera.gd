@@ -156,6 +156,8 @@ func _start_camera_feed() -> void:
 # portal: the demo's list — select another feed (facing) or another format (the save) from outside
 func select_position(position: CameraFeed.FeedPosition) -> void:
 	want_position = position
+	if not CameraServer.is_monitoring_feeds:   # before start(): the position is remembered for the first list
+		return
 	var feeds := CameraServer.feeds()
 	if feeds.is_empty():
 		return

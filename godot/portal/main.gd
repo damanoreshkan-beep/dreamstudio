@@ -217,12 +217,19 @@ func _largest_format(formats: Array) -> int:
 			best_px = w * h
 	return best
 
-# the demo's first frame: what it wrote into its shader goes into every material that reads the sensor
+# the demo's first frame: what it wrote into its shader goes into every material that reads the sensor —
+# INCLUDING the four textures again: a CameraTexture's RID is the feed's texture at the moment the parameter is
+# set (a placeholder before the feed is bound — 4×4 blocks stretched over the screen, the S25 2026-09-06), so the
+# demo's _setup_textures re-sets them after camera_feed_id, and so does this
 func _on_bound(info: Dictionary) -> void:
 	quarter = int(round(float(info.rotation) / (PI / 2.0))) % 4
 	if quarter < 0: quarter += 4
 	mirror = 1 if bool(info.mirror) else 0
 	for m in _sensor_materials():
+		m.set_shader_parameter("rgb_texture", cam.rgb_texture)
+		m.set_shader_parameter("y_texture", cam.y_texture)
+		m.set_shader_parameter("cbcr_texture", cam.cbcr_texture)
+		m.set_shader_parameter("ycbcr_texture", cam.ycbcr_texture)
 		m.set_shader_parameter("mode", int(info.mode))
 		m.set_shader_parameter("rotate", quarter)
 		m.set_shader_parameter("mirror", mirror)
