@@ -27,6 +27,8 @@ uniform float shade = 0.0;                       // tone hatching amount
 uniform float shade_on_light = 0.0;
 uniform vec2 shade_band = vec2(0.35, 0.75);
 uniform float motion_gain = 0.0;                 // the line lifts where the picture moves
+uniform sampler2D rd_tex : filter_linear;        // reaction-diffusion: G = B, the growth
+uniform float rd_gain = 0.0;                     // the material grows where B is
 uniform float alpha = 0.7;                       // into the loop
 
 void fragment() {
@@ -34,7 +36,8 @@ void fragment() {
 	float e = smoothstep(floor_v, 1.0, sobel(rgb_texture, y_texture, ycbcr_texture, mode, UV, texel, step_px, rotate, mirror) * strength);
 	float l = cam_luma(rgb_texture, y_texture, ycbcr_texture, mode, UV, rotate, mirror);
 	float m = texture(motion_tex, UV).g;
-	float w = clamp(e + shade * tone_band(l, shade_on_light, shade_band), 0.0, 1.0) * alpha * (1.0 + motion_gain * m);
+	float g = smoothstep(0.15, 0.4, texture(rd_tex, UV).g) * rd_gain;
+	float w = clamp(e + shade * tone_band(l, shade_on_light, shade_band) + g, 0.0, 1.0) * alpha * (1.0 + motion_gain * m);
 	vec2 ph = phase + shimmer * warp_field(UV, TIME, 3.0) * 0.5;
 	vec3 mat = material_at(mat_tex, UV * size, period, ph, invert);
 	w = clamp(w, 0.0, 1.0);

@@ -1,20 +1,18 @@
-# The portal's stage — the material as a property of the picture, on TD's nodes as Godot has them:
-#   Camera     Godot's own camera demo as a node (camera.gd = camerafeed.gd of godot-demo-projects, verbatim
-#              in its dance; it hands over the demo's four CameraTextures and, on the first frame, what the
-#              demo wrote into its shader: mode, color_range, size, rotation, mirror)
-#   LookView   the camera through the material's eye (look.gdshader = the demo's ycbcr_to_rgb + the CC0 looks)
-#   Cam        that picture on the screen, as is (blit)
-#   MotionA/B  Cache + difference: where the picture moves (a small ping-pong; energy decays)
-#   LoopA/B    Feedback TOP: two SubViewports ping-pong; the one rendered this frame holds Echo (the other's last
-#              frame, faded, zoomed, turned, pushed by the flow and the warp field, smeared where it moves) under
-#              Fresh (the trace of the sensor's luminance, drawn by the material, lifted where it moves)
-#   Out        the loop over the camera — add / multiply / normal by preset and theme
-#   Still      a save: the feed switched to its LARGEST format (the demo's format selection), look + trace re-run
-#              at the sensor's own size, composited, written to user:// and handed to the shell as a file
-# Every preset number that is a rate is written per 1/30 s (the web portal's frame) and converted with the real
-# dt each frame, so the trails and the drift look the same at 60 fps and on old hardware.
-# The page (a transparent WebView above) is the UI; it speaks through the shell's MsPortal singleton — signals in
-# (set / input / save / stop), methods out (state / savedFile).
+# The portal's stage — the picture as a MEDIUM WITH PHYSICS the person disturbs (docs/research/portal-art.md),
+# on TD's nodes as Godot has them (every SubViewport = one pass per frame; a chain in tree order = several):
+#   Camera      Godot's own camera demo as a node (camera.gd)
+#   LookView    the camera through the material's eye (look.gdshader)
+#   MotionA/B   ping-pong ¼: R luminance · G energy · BA OPTICAL FLOW (keeffEoghan)
+#   Vel→Div→P1..P4→VelOut→Curl   the FLUID (PavelDoGreat), ¼, chained per frame; the flow is its splat
+#   DyeA/B      ping-pong ½: the camera as a liquid (advected picture)
+#   RD1..RD4    Gray–Scott growth, ½, four steps per frame, seeded by contours × motion
+#   Slots       a 4×4 ring of the last 16 looks (time)
+#   LoopA/B     Feedback TOP: Echo (the last frame carried by the fluid) under Fresh (the trace by the material)
+#   Cam         the dye through the surface (screen.gdshader: as is / time / glass / sort)
+#   Out         the loop over the picture
+#   Still       a save at the sensor's largest format (StillLook / StillLoop / Still)
+# Every preset rate is per 1/30 s and converted with the real dt. The page (a transparent WebView) speaks through
+# the shell's MsPortal singleton — signals in (set / input / save / stop), methods out (state / savedFile).
 extends Control
 
 const TEX_PX := 1024.0          # the material textures' side
@@ -28,22 +26,32 @@ var preset := {}                # the tuned graph of the current material
 var mat_tex: Texture2D = null
 var phase := Vector2.ZERO
 var beat := 0.0
-var flip_a := true              # which loop / motion viewport renders this frame
+var flip_a := true              # which ping-pong viewport renders this frame
+var slot := 0                   # the newest time slot
 var quarter := 0
 var mirror := 0
 var saving := false
 var previewing := false         # the one-time move from the demo's format 0 to the preview format
 
 @onready var cam: PortalCamera = $Camera
-@onready var look: ShaderMaterial = $LookView/Look.material
-@onready var blit: ShaderMaterial = $Cam.material
-@onready var blit_still: ShaderMaterial = $Still/Cam.material
-@onready var motion_a: ShaderMaterial = $MotionA/Motion.material
-@onready var motion_b: ShaderMaterial = $MotionB/Motion.material
+@onready var look: ShaderMaterial = $LookView/Pass.material
+@onready var motion_a: ShaderMaterial = $MotionA/Pass.material
+@onready var motion_b: ShaderMaterial = $MotionB/Pass.material
+@onready var vel: ShaderMaterial = $Vel/Pass.material
+@onready var div: ShaderMaterial = $Div/Pass.material
+@onready var pressures: Array = [$P1/Pass.material, $P2/Pass.material, $P3/Pass.material, $P4/Pass.material]
+@onready var velout: ShaderMaterial = $VelOut/Pass.material
+@onready var curl: ShaderMaterial = $Curl/Pass.material
+@onready var dye_a: ShaderMaterial = $DyeA/Pass.material
+@onready var dye_b: ShaderMaterial = $DyeB/Pass.material
+@onready var rds: Array = [$RD1/Pass.material, $RD2/Pass.material, $RD3/Pass.material, $RD4/Pass.material]
+@onready var slot_pass: ColorRect = $Slots/Pass
 @onready var trace: ShaderMaterial = $LoopA/Fresh.material
 @onready var still_trace: ShaderMaterial = $StillLoop/Fresh.material
 @onready var echo_a: ShaderMaterial = $LoopA/Echo.material
 @onready var echo_b: ShaderMaterial = $LoopB/Echo.material
+@onready var screen: ShaderMaterial = $Cam.material
+@onready var screen_still: ShaderMaterial = $Still/Cam.material
 @onready var out: ShaderMaterial = $Out.material
 
 func _ready() -> void:
@@ -53,17 +61,40 @@ func _ready() -> void:
 		portal.connect("input", _on_input)
 		portal.connect("save", _on_save)
 		portal.connect("stop", _on_stop)
-	for m in _sensor_materials():
-		m.set_shader_parameter("rgb_texture", cam.rgb_texture)
-		m.set_shader_parameter("y_texture", cam.y_texture)
-		m.set_shader_parameter("cbcr_texture", cam.cbcr_texture)
-		m.set_shader_parameter("ycbcr_texture", cam.ycbcr_texture)
-	blit.set_shader_parameter("tex", $LookView.get_texture())
-	blit_still.set_shader_parameter("tex", $StillLook.get_texture())
-	echo_a.set_shader_parameter("prev_tex", $LoopB.get_texture())
-	echo_b.set_shader_parameter("prev_tex", $LoopA.get_texture())
+	_bind_textures()
+	# the graph's wires (docs/research/portal-art.md §3) — each reads a viewport rendered before it in the
+	# tree (this frame) or after it (last frame)
 	motion_a.set_shader_parameter("prev_tex", $MotionB.get_texture())
 	motion_b.set_shader_parameter("prev_tex", $MotionA.get_texture())
+	vel.set_shader_parameter("vel_tex", $VelOut.get_texture())
+	vel.set_shader_parameter("curl_tex", $Curl.get_texture())
+	div.set_shader_parameter("vel_tex", $Vel.get_texture())
+	var pvs: Array = [$P1, $P2, $P3, $P4]
+	for i in 4:
+		pressures[i].set_shader_parameter("div_tex", $Div.get_texture())
+		pressures[i].set_shader_parameter("pressure_tex", (pvs[i - 1] if i > 0 else $P4).get_texture())
+		pressures[i].set_shader_parameter("warm", 1.0 if i > 0 else 0.8)
+	velout.set_shader_parameter("vel_tex", $Vel.get_texture())
+	velout.set_shader_parameter("pressure_tex", $P4.get_texture())
+	curl.set_shader_parameter("vel_tex", $VelOut.get_texture())
+	for m in [dye_a, dye_b]:
+		m.set_shader_parameter("look_tex", $LookView.get_texture())
+		m.set_shader_parameter("vel_tex", $VelOut.get_texture())
+	dye_a.set_shader_parameter("prev_tex", $DyeB.get_texture())
+	dye_b.set_shader_parameter("prev_tex", $DyeA.get_texture())
+	var rvs: Array = [$RD1, $RD2, $RD3, $RD4]
+	for i in 4:
+		rds[i].set_shader_parameter("prev_tex", (rvs[i - 1] if i > 0 else $RD4).get_texture())
+	slot_pass.material.set_shader_parameter("tex", $LookView.get_texture())
+	slot_pass.material.set_shader_parameter("mode", 0)
+	echo_a.set_shader_parameter("prev_tex", $LoopB.get_texture())
+	echo_b.set_shader_parameter("prev_tex", $LoopA.get_texture())
+	for m in [echo_a, echo_b]: m.set_shader_parameter("vel_tex", $VelOut.get_texture())
+	for m in [trace, still_trace]: m.set_shader_parameter("rd_tex", $RD4.get_texture())
+	for m in [screen, screen_still]:
+		m.set_shader_parameter("slots_tex", $Slots.get_texture())
+		m.set_shader_parameter("vel_tex", $VelOut.get_texture())
+	screen_still.set_shader_parameter("tex", $StillLook.get_texture())
 	$Still/Out.material = out.duplicate()
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -76,26 +107,44 @@ func _ready() -> void:
 
 # every material that reads the sensor's planes
 func _sensor_materials() -> Array:
-	return [look, trace, still_trace, motion_a, motion_b]
+	return [look, trace, still_trace, motion_a, motion_b] + rds
 
-# the viewports: the look at the screen's own pixels (the camera is never downsampled), the loops at `detail`
-# (2 = the screen, 1 = half — old hardware), the motion at a quarter of the loop
+# the demo's four CameraTextures into every sensor material — again on every bind: a CameraTexture's RID is
+# the feed's texture at the moment the parameter is set (a placeholder before the feed is bound)
+func _bind_textures() -> void:
+	for m in _sensor_materials():
+		m.set_shader_parameter("rgb_texture", cam.rgb_texture)
+		m.set_shader_parameter("y_texture", cam.y_texture)
+		m.set_shader_parameter("cbcr_texture", cam.cbcr_texture)
+		m.set_shader_parameter("ycbcr_texture", cam.ycbcr_texture)
+
+# the viewports: the look and the slots at the screen's own pixels, the loops at `detail` (2 = the screen,
+# 1 = half), the dye and the growth at half the loop, the motion and the fluid at a quarter
 func _layout() -> void:
 	var s := Vector2i(get_viewport().get_visible_rect().size)
 	var d: float = float(preset.get("detail", 2))
 	var ls := Vector2i(maxi(1, int(s.x * d / 2.0)), maxi(1, int(s.y * d / 2.0)))
-	var ms := Vector2i(maxi(1, ls.x / 4), maxi(1, ls.y / 4))
+	var hs := Vector2i(maxi(1, ls.x / 2), maxi(1, ls.y / 2))
+	var fs := Vector2i(maxi(1, ls.x / 4), maxi(1, ls.y / 4))
 	_size_vp($LookView, s)
+	_size_vp($Slots, s)
+	slot_pass.size = Vector2(s) / 4.0
 	for vp in [$LoopA, $LoopB]: _size_vp(vp, ls)
-	for vp in [$MotionA, $MotionB]: _size_vp(vp, ms)
+	for vp in [$DyeA, $DyeB, $RD1, $RD2, $RD3, $RD4]: _size_vp(vp, hs)
+	for vp in [$MotionA, $MotionB, $Vel, $Div, $P1, $P2, $P3, $P4, $VelOut, $Curl]: _size_vp(vp, fs)
 	look.set_shader_parameter("size", Vector2(s))
 	trace.set_shader_parameter("size", Vector2(ls))
+	for m in [motion_a, motion_b, vel, div, velout, curl] + pressures: m.set_shader_parameter("size", Vector2(fs))
+	for m in rds: m.set_shader_parameter("size", Vector2(hs))
+	for m in [echo_a, echo_b, dye_a, dye_b, screen, screen_still]: m.set_shader_parameter("fluid_size", Vector2(fs))
 	for m in [echo_a, echo_b]: m.set_shader_parameter("size", Vector2(ls))
+	screen.set_shader_parameter("size", Vector2(s))
 	_tile()
 
 func _size_vp(vp: SubViewport, s: Vector2i) -> void:
 	vp.size = s
-	for child in vp.get_children(): child.size = Vector2(s)
+	for child in vp.get_children():
+		if child != slot_pass: child.size = Vector2(s)
 
 func _tile() -> void:
 	var vs := Vector2($LoopA.size)
@@ -116,24 +165,33 @@ func _process(dt: float) -> void:
 	phase += Vector2(float(sp[0]), float(sp[1])) * float(li.get("tempo", 1.0)) * dt * (vs.x / REF_W) / period
 	phase = Vector2(fposmod(phase.x, 1.0), fposmod(phase.y, 1.0))
 	trace.set_shader_parameter("phase", phase)
-	# the echo's rates for THIS frame
+	# this frame's rates
 	var fl: Array = ec.get("flow", [0, 0])
 	for m in [echo_a, echo_b]:
+		m.set_shader_parameter("dt", k)
 		m.set_shader_parameter("decay", pow(float(ec.get("decay", 0.9)), k))
 		m.set_shader_parameter("zoom", pow(float(ec.get("zoom", 1.0)), k))
 		m.set_shader_parameter("rot", float(ec.get("rot", 0.0)) * k)
-		m.set_shader_parameter("flow", Vector2(float(fl[0]), float(fl[1])) * k * (vs.x / REF_W))
-	# the ping-pong: one motion and one loop viewport render this frame, reading the other's last
+		m.set_shader_parameter("flow", Vector2(float(fl[0]), float(fl[1])) * (vs.x / REF_W))
+	vel.set_shader_parameter("dt", k)
+	for m in [dye_a, dye_b]: m.set_shader_parameter("dt", k)
+	# the ping-pongs: one of each pair renders this frame, reading the other's last
 	var mv: SubViewport = $MotionA if flip_a else $MotionB
+	var dv: SubViewport = $DyeA if flip_a else $DyeB
 	var lv: SubViewport = $LoopA if flip_a else $LoopB
-	mv.render_target_update_mode = SubViewport.UPDATE_ONCE
-	lv.render_target_update_mode = SubViewport.UPDATE_ONCE
+	for v in [mv, dv, lv]: v.render_target_update_mode = SubViewport.UPDATE_ONCE
 	var mt := mv.get_texture()
-	trace.set_shader_parameter("motion_tex", mt)
-	still_trace.set_shader_parameter("motion_tex", mt)
-	(echo_a if flip_a else echo_b).set_shader_parameter("motion_tex", mt)
+	for m in [trace, still_trace, vel, screen, screen_still] + rds: m.set_shader_parameter("motion_tex", mt)
+	screen.set_shader_parameter("tex", dv.get_texture())
 	out.set_shader_parameter("loop_tex", lv.get_texture())
 	flip_a = not flip_a
+	# the growth: four steps a frame, only while a preset grows
+	var growing := float(preset.get("rd", {}).get("seed", 0.0)) > 0.0
+	for v in [$RD1, $RD2, $RD3, $RD4]: v.render_target_update_mode = SubViewport.UPDATE_ONCE if growing else SubViewport.UPDATE_DISABLED
+	# the ring of time: this frame's look into the next slot
+	slot = (slot + 1) % 16
+	slot_pass.position = Vector2(float(slot % 4), float(slot / 4)) * (Vector2($Slots.size) / 4.0)
+	for m in [screen, screen_still]: m.set_shader_parameter("slot", slot)
 	beat += dt
 	if beat >= 1.0:
 		beat = 0.0
@@ -151,15 +209,35 @@ func _apply() -> void:
 	# no texture (Просто) = a plain white line: the material is light itself
 	mat_tex = load("res://tex/%s.webp" % tex_id) if tex_id != "" else ImageTexture.create_from_image(_white())
 	var lk: Dictionary = preset.get("look", {})
+	var sc: Dictionary = preset.get("screen", {})
+	var fd: Dictionary = preset.get("fluid", {})
+	var dy: Dictionary = preset.get("dye", {})
+	var rd: Dictionary = preset.get("rd", {})
 	var e: Dictionary = preset.get("edge", {})
 	var li: Dictionary = preset.get("lines", {})
 	var sh: Dictionary = preset.get("shade", {})
 	var ec: Dictionary = preset.get("echo", {})
 	var mo: Dictionary = preset.get("motion", {})
-	var lp: Array = lk.get("p", [0, 0, 0, 0])
 	look.set_shader_parameter("style", int(lk.get("style", 0)))
 	look.set_shader_parameter("amount", float(lk.get("amount", 1.0)))
-	look.set_shader_parameter("p", Vector4(float(lp[0]), float(lp[1]), float(lp[2]), float(lp[3])))
+	look.set_shader_parameter("p", _v4(lk.get("p", [0, 0, 0, 0])))
+	for m in [screen, screen_still]:
+		m.set_shader_parameter("mode", int(sc.get("mode", 0)))
+		m.set_shader_parameter("amount", float(sc.get("amount", 1.0)))
+		m.set_shader_parameter("p", _v4(sc.get("p", [0, 0, 0, 0])))
+	vel.set_shader_parameter("curl", float(fd.get("curl", 30.0)))
+	vel.set_shader_parameter("force", float(fd.get("force", 8.0)))
+	vel.set_shader_parameter("dissipation", float(fd.get("dissipation", 0.2)))
+	for m in [echo_a, echo_b]:
+		m.set_shader_parameter("carry", float(fd.get("carry", 1.0)))
+		m.set_shader_parameter("warp", float(ec.get("warp", 0.0)))
+	for m in [dye_a, dye_b]: m.set_shader_parameter("hold", float(dy.get("hold", 0.0)))
+	for m in rds:
+		m.set_shader_parameter("feed", float(rd.get("feed", 0.055)))
+		m.set_shader_parameter("kill", float(rd.get("kill", 0.062)))
+		m.set_shader_parameter("dA", float(rd.get("dA", 1.0)))
+		m.set_shader_parameter("dB", float(rd.get("dB", 0.5)))
+		m.set_shader_parameter("seed", float(rd.get("seed", 0.0)))
 	for m in [trace, still_trace]:
 		m.set_shader_parameter("mat_tex", mat_tex)
 		m.set_shader_parameter("strength", float(e.get("strength", 2.0)))
@@ -172,10 +250,8 @@ func _apply() -> void:
 		var band: Array = sh.get("band", [0.35, 0.75])
 		m.set_shader_parameter("shade_band", Vector2(float(band[0]), float(band[1])))
 		m.set_shader_parameter("motion_gain", float(mo.get("lift", 0.0)))
+		m.set_shader_parameter("rd_gain", float(rd.get("gain", 0.0)))
 		m.set_shader_parameter("alpha", float(li.get("alpha", 0.7)))
-	for m in [echo_a, echo_b]:
-		m.set_shader_parameter("warp", float(ec.get("warp", 0.0)))
-		m.set_shader_parameter("motion_push", float(ec.get("motion_push", 0.0)))
 	for m in [motion_a, motion_b]:
 		m.set_shader_parameter("gain", float(mo.get("gain", 6.0)))
 		m.set_shader_parameter("decay", float(mo.get("decay", 0.9)))
@@ -184,6 +260,9 @@ func _apply() -> void:
 	out.set_shader_parameter("mode", mode)
 	($Still/Out.material as ShaderMaterial).set_shader_parameter("mode", mode)
 	_layout()
+
+static func _v4(a: Array) -> Vector4:
+	return Vector4(float(a[0]), float(a[1]), float(a[2]), float(a[3]))
 
 # ---- the camera (the demo's node) --------------------------------------------------------------------------
 
@@ -217,19 +296,13 @@ func _largest_format(formats: Array) -> int:
 			best_px = w * h
 	return best
 
-# the demo's first frame: what it wrote into its shader goes into every material that reads the sensor —
-# INCLUDING the four textures again: a CameraTexture's RID is the feed's texture at the moment the parameter is
-# set (a placeholder before the feed is bound — 4×4 blocks stretched over the screen, the S25 2026-09-06), so the
-# demo's _setup_textures re-sets them after camera_feed_id, and so does this
+# the demo's first frame: what it wrote into its shader goes into every material that reads the sensor
 func _on_bound(info: Dictionary) -> void:
 	quarter = int(round(float(info.rotation) / (PI / 2.0))) % 4
 	if quarter < 0: quarter += 4
 	mirror = 1 if bool(info.mirror) else 0
+	_bind_textures()
 	for m in _sensor_materials():
-		m.set_shader_parameter("rgb_texture", cam.rgb_texture)
-		m.set_shader_parameter("y_texture", cam.y_texture)
-		m.set_shader_parameter("cbcr_texture", cam.cbcr_texture)
-		m.set_shader_parameter("ycbcr_texture", cam.ycbcr_texture)
 		m.set_shader_parameter("mode", int(info.mode))
 		m.set_shader_parameter("rotate", quarter)
 		m.set_shader_parameter("mirror", mirror)
@@ -287,6 +360,7 @@ func _on_save(name: String) -> void:
 	var cs := Vector2i(h, w) if quarter % 2 == 1 else Vector2i(w, h)
 	for vp in [$StillLook, $StillLoop, $Still]: _size_vp(vp, cs)
 	look.set_shader_parameter("size", Vector2(cs))
+	screen_still.set_shader_parameter("size", Vector2(cs))
 	still_trace.set_shader_parameter("size", Vector2(cs))
 	still_trace.set_shader_parameter("period", _period(cs.x))
 	still_trace.set_shader_parameter("phase", phase)

@@ -145,7 +145,10 @@ const GLOW = (i) => K("kGlow", `chain.${i}.bloomScale`, 0, 2, 0.05);
 export const ENGINE_KNOBS = [
   K("kLook", "look.amount", 0, 1, 0.05, 1),
   K("kLife", "motion.lift", 0, 6, 0.1, 2.5),
-  K("kWind", "echo.warp", 0, 20, 0.5, 4),
+  K("kCurrent", "fluid.force", 0, 20, 0.5, 8),
+  K("kVortex", "fluid.curl", 0, 50, 1, 30),
+  K("kMemory", "dye.hold", 0, 0.98, 0.02, 0),
+  K("kGrowth", "rd.seed", 0, 1, 0.05, 0),
   K("kShimmer", "lines.shimmer", 0, 1, 0.05, 0.15),
 ];
 export const KNOBS = {

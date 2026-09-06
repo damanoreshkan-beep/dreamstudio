@@ -1,22 +1,23 @@
-[gd_scene load_steps=19 format=3 uid="uid://portal_main"]
+[gd_scene load_steps=41 format=3 uid="uid://portal_main"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_main"]
-[ext_resource type="Script" path="res://camera.gd" id="8_camera"]
-[ext_resource type="Shader" path="res://shaders/look.gdshader" id="2_look"]
-[ext_resource type="Shader" path="res://shaders/blit.gdshader" id="3_blit"]
+[ext_resource type="Script" path="res://camera.gd" id="2_camera"]
+[ext_resource type="Shader" path="res://shaders/look.gdshader" id="3_look"]
 [ext_resource type="Shader" path="res://shaders/motion.gdshader" id="4_motion"]
-[ext_resource type="Shader" path="res://shaders/trace.gdshader" id="5_trace"]
-[ext_resource type="Shader" path="res://shaders/echo.gdshader" id="6_echo"]
-[ext_resource type="Shader" path="res://shaders/out.gdshader" id="7_out"]
+[ext_resource type="Shader" path="res://shaders/fluid_vel.gdshader" id="5_vel"]
+[ext_resource type="Shader" path="res://shaders/fluid_div.gdshader" id="6_div"]
+[ext_resource type="Shader" path="res://shaders/fluid_pressure.gdshader" id="7_pressure"]
+[ext_resource type="Shader" path="res://shaders/fluid_grad.gdshader" id="8_grad"]
+[ext_resource type="Shader" path="res://shaders/fluid_curl.gdshader" id="9_curl"]
+[ext_resource type="Shader" path="res://shaders/dye.gdshader" id="10_dye"]
+[ext_resource type="Shader" path="res://shaders/rd.gdshader" id="11_rd"]
+[ext_resource type="Shader" path="res://shaders/screen.gdshader" id="12_screen"]
+[ext_resource type="Shader" path="res://shaders/trace.gdshader" id="13_trace"]
+[ext_resource type="Shader" path="res://shaders/echo.gdshader" id="14_echo"]
+[ext_resource type="Shader" path="res://shaders/out.gdshader" id="15_out"]
 
 [sub_resource type="ShaderMaterial" id="M_look"]
-shader = ExtResource("2_look")
-
-[sub_resource type="ShaderMaterial" id="M_blit"]
-shader = ExtResource("3_blit")
-
-[sub_resource type="ShaderMaterial" id="M_blitStill"]
-shader = ExtResource("3_blit")
+shader = ExtResource("3_look")
 
 [sub_resource type="ShaderMaterial" id="M_motionA"]
 shader = ExtResource("4_motion")
@@ -24,20 +25,71 @@ shader = ExtResource("4_motion")
 [sub_resource type="ShaderMaterial" id="M_motionB"]
 shader = ExtResource("4_motion")
 
+[sub_resource type="ShaderMaterial" id="M_vel"]
+shader = ExtResource("5_vel")
+
+[sub_resource type="ShaderMaterial" id="M_div"]
+shader = ExtResource("6_div")
+
+[sub_resource type="ShaderMaterial" id="M_p1"]
+shader = ExtResource("7_pressure")
+
+[sub_resource type="ShaderMaterial" id="M_p2"]
+shader = ExtResource("7_pressure")
+
+[sub_resource type="ShaderMaterial" id="M_p3"]
+shader = ExtResource("7_pressure")
+
+[sub_resource type="ShaderMaterial" id="M_p4"]
+shader = ExtResource("7_pressure")
+
+[sub_resource type="ShaderMaterial" id="M_velout"]
+shader = ExtResource("8_grad")
+
+[sub_resource type="ShaderMaterial" id="M_curl"]
+shader = ExtResource("9_curl")
+
+[sub_resource type="ShaderMaterial" id="M_dyeA"]
+shader = ExtResource("10_dye")
+
+[sub_resource type="ShaderMaterial" id="M_dyeB"]
+shader = ExtResource("10_dye")
+
+[sub_resource type="ShaderMaterial" id="M_rd1"]
+shader = ExtResource("11_rd")
+
+[sub_resource type="ShaderMaterial" id="M_rd2"]
+shader = ExtResource("11_rd")
+
+[sub_resource type="ShaderMaterial" id="M_rd3"]
+shader = ExtResource("11_rd")
+
+[sub_resource type="ShaderMaterial" id="M_rd4"]
+shader = ExtResource("11_rd")
+
+[sub_resource type="ShaderMaterial" id="M_slot"]
+shader = ExtResource("12_screen")
+
+[sub_resource type="ShaderMaterial" id="M_screen"]
+shader = ExtResource("12_screen")
+
+[sub_resource type="ShaderMaterial" id="M_screenStill"]
+shader = ExtResource("12_screen")
+
 [sub_resource type="ShaderMaterial" id="M_trace"]
-shader = ExtResource("5_trace")
+shader = ExtResource("13_trace")
 
 [sub_resource type="ShaderMaterial" id="M_stillTrace"]
-shader = ExtResource("5_trace")
+shader = ExtResource("13_trace")
 
 [sub_resource type="ShaderMaterial" id="M_echoA"]
-shader = ExtResource("6_echo")
+shader = ExtResource("14_echo")
 
 [sub_resource type="ShaderMaterial" id="M_echoB"]
-shader = ExtResource("6_echo")
+shader = ExtResource("14_echo")
 
 [sub_resource type="ShaderMaterial" id="M_out"]
-shader = ExtResource("7_out")
+shader = ExtResource("15_out")
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -49,34 +101,130 @@ grow_vertical = 2
 script = ExtResource("1_main")
 
 [node name="Camera" type="Node" parent="."]
-script = ExtResource("8_camera")
-
-[node name="Cam" type="ColorRect" parent="."]
-material = SubResource("M_blit")
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+script = ExtResource("2_camera")
 
 [node name="LookView" type="SubViewport" parent="."]
 render_target_update_mode = 4
 
-[node name="Look" type="ColorRect" parent="LookView"]
+[node name="Pass" type="ColorRect" parent="LookView"]
 material = SubResource("M_look")
 
 [node name="MotionA" type="SubViewport" parent="."]
+use_hdr_2d = true
 render_target_update_mode = 0
 
-[node name="Motion" type="ColorRect" parent="MotionA"]
+[node name="Pass" type="ColorRect" parent="MotionA"]
 material = SubResource("M_motionA")
 
 [node name="MotionB" type="SubViewport" parent="."]
+use_hdr_2d = true
 render_target_update_mode = 0
 
-[node name="Motion" type="ColorRect" parent="MotionB"]
+[node name="Pass" type="ColorRect" parent="MotionB"]
 material = SubResource("M_motionB")
+
+[node name="Vel" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="Vel"]
+material = SubResource("M_vel")
+
+[node name="Div" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="Div"]
+material = SubResource("M_div")
+
+[node name="P1" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="P1"]
+material = SubResource("M_p1")
+
+[node name="P2" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="P2"]
+material = SubResource("M_p2")
+
+[node name="P3" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="P3"]
+material = SubResource("M_p3")
+
+[node name="P4" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="P4"]
+material = SubResource("M_p4")
+
+[node name="VelOut" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="VelOut"]
+material = SubResource("M_velout")
+
+[node name="Curl" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="Curl"]
+material = SubResource("M_curl")
+
+[node name="DyeA" type="SubViewport" parent="."]
+render_target_update_mode = 0
+
+[node name="Pass" type="ColorRect" parent="DyeA"]
+material = SubResource("M_dyeA")
+
+[node name="DyeB" type="SubViewport" parent="."]
+render_target_update_mode = 0
+
+[node name="Pass" type="ColorRect" parent="DyeB"]
+material = SubResource("M_dyeB")
+
+[node name="RD1" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 0
+
+[node name="Pass" type="ColorRect" parent="RD1"]
+material = SubResource("M_rd1")
+
+[node name="RD2" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 0
+
+[node name="Pass" type="ColorRect" parent="RD2"]
+material = SubResource("M_rd2")
+
+[node name="RD3" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 0
+
+[node name="Pass" type="ColorRect" parent="RD3"]
+material = SubResource("M_rd3")
+
+[node name="RD4" type="SubViewport" parent="."]
+use_hdr_2d = true
+render_target_update_mode = 0
+
+[node name="Pass" type="ColorRect" parent="RD4"]
+material = SubResource("M_rd4")
+
+[node name="Slots" type="SubViewport" parent="."]
+render_target_clear_mode = 2
+render_target_update_mode = 4
+
+[node name="Pass" type="ColorRect" parent="Slots"]
+material = SubResource("M_slot")
 
 [node name="LoopA" type="SubViewport" parent="."]
 transparent_bg = true
@@ -98,6 +246,15 @@ material = SubResource("M_echoB")
 [node name="Fresh" type="ColorRect" parent="LoopB"]
 material = SubResource("M_trace")
 
+[node name="Cam" type="ColorRect" parent="."]
+material = SubResource("M_screen")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
 [node name="Out" type="ColorRect" parent="."]
 material = SubResource("M_out")
 layout_mode = 1
@@ -110,7 +267,7 @@ grow_vertical = 2
 [node name="StillLook" type="SubViewport" parent="."]
 render_target_update_mode = 0
 
-[node name="Look" type="ColorRect" parent="StillLook"]
+[node name="Pass" type="ColorRect" parent="StillLook"]
 material = SubResource("M_look")
 
 [node name="StillLoop" type="SubViewport" parent="."]
@@ -124,7 +281,7 @@ material = SubResource("M_stillTrace")
 render_target_update_mode = 0
 
 [node name="Cam" type="ColorRect" parent="Still"]
-material = SubResource("M_blitStill")
+material = SubResource("M_screenStill")
 
 [node name="Out" type="ColorRect" parent="Still"]
 
