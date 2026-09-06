@@ -1,28 +1,42 @@
-[gd_scene load_steps=12 format=3 uid="uid://portal_main"]
+[gd_scene load_steps=18 format=3 uid="uid://portal_main"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_main"]
-[ext_resource type="Shader" path="res://shaders/cam.gdshader" id="2_cam"]
-[ext_resource type="Shader" path="res://shaders/trace.gdshader" id="3_trace"]
-[ext_resource type="Shader" path="res://shaders/echo.gdshader" id="4_echo"]
-[ext_resource type="Shader" path="res://shaders/out.gdshader" id="5_out"]
+[ext_resource type="Shader" path="res://shaders/look.gdshader" id="2_look"]
+[ext_resource type="Shader" path="res://shaders/blit.gdshader" id="3_blit"]
+[ext_resource type="Shader" path="res://shaders/motion.gdshader" id="4_motion"]
+[ext_resource type="Shader" path="res://shaders/trace.gdshader" id="5_trace"]
+[ext_resource type="Shader" path="res://shaders/echo.gdshader" id="6_echo"]
+[ext_resource type="Shader" path="res://shaders/out.gdshader" id="7_out"]
 
-[sub_resource type="ShaderMaterial" id="M_cam"]
-shader = ExtResource("2_cam")
+[sub_resource type="ShaderMaterial" id="M_look"]
+shader = ExtResource("2_look")
+
+[sub_resource type="ShaderMaterial" id="M_blit"]
+shader = ExtResource("3_blit")
+
+[sub_resource type="ShaderMaterial" id="M_blitStill"]
+shader = ExtResource("3_blit")
+
+[sub_resource type="ShaderMaterial" id="M_motionA"]
+shader = ExtResource("4_motion")
+
+[sub_resource type="ShaderMaterial" id="M_motionB"]
+shader = ExtResource("4_motion")
 
 [sub_resource type="ShaderMaterial" id="M_trace"]
-shader = ExtResource("3_trace")
-
-[sub_resource type="ShaderMaterial" id="M_echoA"]
-shader = ExtResource("4_echo")
-
-[sub_resource type="ShaderMaterial" id="M_echoB"]
-shader = ExtResource("4_echo")
-
-[sub_resource type="ShaderMaterial" id="M_out"]
-shader = ExtResource("5_out")
+shader = ExtResource("5_trace")
 
 [sub_resource type="ShaderMaterial" id="M_stillTrace"]
-shader = ExtResource("3_trace")
+shader = ExtResource("5_trace")
+
+[sub_resource type="ShaderMaterial" id="M_echoA"]
+shader = ExtResource("6_echo")
+
+[sub_resource type="ShaderMaterial" id="M_echoB"]
+shader = ExtResource("6_echo")
+
+[sub_resource type="ShaderMaterial" id="M_out"]
+shader = ExtResource("7_out")
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -34,13 +48,31 @@ grow_vertical = 2
 script = ExtResource("1_main")
 
 [node name="Cam" type="ColorRect" parent="."]
-material = SubResource("M_cam")
+material = SubResource("M_blit")
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="LookView" type="SubViewport" parent="."]
+render_target_update_mode = 4
+
+[node name="Look" type="ColorRect" parent="LookView"]
+material = SubResource("M_look")
+
+[node name="MotionA" type="SubViewport" parent="."]
+render_target_update_mode = 0
+
+[node name="Motion" type="ColorRect" parent="MotionA"]
+material = SubResource("M_motionA")
+
+[node name="MotionB" type="SubViewport" parent="."]
+render_target_update_mode = 0
+
+[node name="Motion" type="ColorRect" parent="MotionB"]
+material = SubResource("M_motionB")
 
 [node name="LoopA" type="SubViewport" parent="."]
 transparent_bg = true
@@ -71,6 +103,12 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="StillLook" type="SubViewport" parent="."]
+render_target_update_mode = 0
+
+[node name="Look" type="ColorRect" parent="StillLook"]
+material = SubResource("M_look")
+
 [node name="StillLoop" type="SubViewport" parent="."]
 transparent_bg = true
 render_target_update_mode = 0
@@ -82,7 +120,7 @@ material = SubResource("M_stillTrace")
 render_target_update_mode = 0
 
 [node name="Cam" type="ColorRect" parent="Still"]
-material = SubResource("M_cam")
+material = SubResource("M_blitStill")
 
 [node name="Out" type="ColorRect" parent="Still"]
 
