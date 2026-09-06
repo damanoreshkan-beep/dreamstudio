@@ -1,6 +1,7 @@
-[gd_scene load_steps=18 format=3 uid="uid://portal_main"]
+[gd_scene load_steps=19 format=3 uid="uid://portal_main"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_main"]
+[ext_resource type="Script" path="res://camera.gd" id="8_camera"]
 [ext_resource type="Shader" path="res://shaders/look.gdshader" id="2_look"]
 [ext_resource type="Shader" path="res://shaders/blit.gdshader" id="3_blit"]
 [ext_resource type="Shader" path="res://shaders/motion.gdshader" id="4_motion"]
@@ -46,6 +47,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_main")
+
+[node name="Camera" type="Node" parent="."]
+script = ExtResource("8_camera")
 
 [node name="Cam" type="ColorRect" parent="."]
 material = SubResource("M_blit")

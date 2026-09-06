@@ -4,9 +4,10 @@
 shader_type canvas_item;
 #include "res://lib/portal.gdshaderinc"
 
-uniform sampler2D y_tex : filter_linear;
-uniform sampler2D rgb_tex : filter_linear;
-uniform int mode = 0;
+uniform sampler2D rgb_texture : filter_linear;
+uniform sampler2D y_texture : filter_linear;
+uniform sampler2D ycbcr_texture : filter_linear;
+uniform int mode : hint_range(0, 2) = 0;
 uniform int rotate = 0;
 uniform int mirror = 0;
 uniform sampler2D prev_tex : filter_linear;
@@ -14,7 +15,7 @@ uniform float gain = 6.0;      // difference → energy
 uniform float decay = 0.9;     // energy kept per frame
 
 void fragment() {
-	float l = cam_luma(y_tex, rgb_tex, mode, UV, rotate, mirror);
+	float l = cam_luma(rgb_texture, y_texture, ycbcr_texture, mode, UV, rotate, mirror);
 	vec2 prev = texture(prev_tex, UV).rg;
 	float e = clamp(abs(l - prev.r) * gain, 0.0, 1.0);
 	COLOR = vec4(l, max(e, prev.g * decay), 0.0, 1.0);

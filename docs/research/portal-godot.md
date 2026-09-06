@@ -153,8 +153,28 @@ Downloads (`MainActivity.saveFile`) і видаляє його; feed повер�
 circuit = glitch, veil/sand = grain(+pixel), lum/smoke/plain = як є. Ручки рушія на сторінці лише в APK
 (`ENGINE_KNOBS`: Погляд, Життя, Вітер, Мерехтіння).
 
-Камера: `_switch` чекає закриття пристрою (0.3 с, повтор 0.7 с) перед `set_format` і перевіряє кадр —
-гіпотеза «зеленого»: після збереження перемикання назад на прев'ю без паузи лишило Y-кадр без CbCr (зелений
-= порожня хрома) і завмерло. Сторінка тепер шле `engine.note` (camera bound … plane WxH of N formats / saved /
-save:) у клієнт-лог. Шелл: `GodotLayer.onDestroy` завершує процес — бібліотека дозволяє один рушій на процес
-(`engine.fail: Unable to setup the Godot engine` у логах 00:56).
+Сторінка шле `engine.note` (camera bound … / saved / save:) у клієнт-лог. Шелл: `GodotLayer.onDestroy`
+завершує процес — бібліотека дозволяє один рушій на процес (`engine.fail: Unable to setup the Godot engine`
+у логах 00:56).
+
+## 8. Камера = офіційне демо, не наш код (2026-09-06, власник: «є стандарти. найди. не вигадуй код… бери за основу робочий і збагачуй»)
+
+Клієнт-лог після Ф2.1: `camera: no frame on format 19` двічі — наш власний танець камери. Стандарт:
+**godot-demo-projects `misc/camera_feed`** (PR #1225) = `shiena/godot-camerafeed-demo` (MIT) — `camerafeed.gd` +
+`ycbcr_to_rgb.gdshader`; клон у scratchpad `camdemo/`. Наш камерний код ВИДАЛЕНО; `godot/portal/camera.gd`
+(`PortalCamera`) = `camerafeed.gd` функція в функцію (ті самі імена: `_reload_camera_list`,
+`_on_camera_feeds_updated`, `_on_camera_list_item_selected`, `_update_format_list`,
+`_on_format_list_item_selected`, `_start_camera_feed`, `_on_frame_changed`, `_setup_textures`,
+`_get_color_range`, `_request_camera_permission`, `_exit_tree`), лише списки замінено на два значення
+(`want_position`, `format_index`) і матеріал прев'ю — на сигнал `bound(info)`. Що в демо інакше, ніж було в нас:
+- `set_format(index, {})` — ПОРОЖНІЙ словник (ми слали `{"output":"separate"}`);
+- після `set_format` — `await get_tree().process_frame`, і лише тоді `feed_is_active = true` (ми — в тому ж кадрі);
+- перед перемиканням — деактивація і `CAMERA_DEACTIVATION_DELAY` 0.1 с;
+- дозвіл: `OS.get_granted_permissions()` → `OS.request_permission("CAMERA")` → `await on_request_permissions_result`
+  ДО `monitoring_feeds` (рушій сам не повторює активацію після дозволу);
+- формат за замовчуванням 0; наш «≤1280» — одне зайве вибирання формату після першого `bound` (як тап у списку);
+- шейдер: 4 текстури (`rgb/y/cbcr/ycbcr_texture`), mode 0 RGB · 1 YCbCr SEP · 2 YCbCr **interleaved** (парність
+  пікселя через `TEXTURE_PIXEL_SIZE`) — у нас FEED_YCBCR (type 2) трактувався як SEP → порожня хрома = ЗЕЛЕНЕ;
+  `color_range` з `format.color_range`, інакше Android = video. Усе це тепер у `lib/portal.gdshaderinc`
+  (`normalize_ycbcr`, `ycbcr_to_srgb`, `sensor_rgb`, `sensor_luma`) — look/trace/motion читають через нього.
+Збереження = `cam.select_format(big)` (демо-функція) → 2 кадри → рендер → `cam.select_format(preview)`.

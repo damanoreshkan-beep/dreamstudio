@@ -1,44 +1,40 @@
 # The portal's stage — the material as a property of the picture, on TD's nodes as Godot has them:
-#   LookView   the camera through the material's eye (look.gdshader: as is, oil, halftone, posterize, chromatic,
-#              glitch, grain, scanlines — CC0 originals from godotshaders.com on the sensor's own planes)
+#   Camera     Godot's own camera demo as a node (camera.gd = camerafeed.gd of godot-demo-projects, verbatim
+#              in its dance; it hands over the demo's four CameraTextures and, on the first frame, what the
+#              demo wrote into its shader: mode, color_range, size, rotation, mirror)
+#   LookView   the camera through the material's eye (look.gdshader = the demo's ycbcr_to_rgb + the CC0 looks)
 #   Cam        that picture on the screen, as is (blit)
 #   MotionA/B  Cache + difference: where the picture moves (a small ping-pong; energy decays)
 #   LoopA/B    Feedback TOP: two SubViewports ping-pong; the one rendered this frame holds Echo (the other's last
 #              frame, faded, zoomed, turned, pushed by the flow and the warp field, smeared where it moves) under
 #              Fresh (the trace of the sensor's luminance, drawn by the material, lifted where it moves)
 #   Out        the loop over the camera — add / multiply / normal by preset and theme
-#   Still      a save: the feed switched to its LARGEST format, look + trace re-run at the sensor's own size,
-#              composited, written to user:// and handed to the shell as a file (owner: "4 мегапікселі — не ок")
+#   Still      a save: the feed switched to its LARGEST format (the demo's format selection), look + trace re-run
+#              at the sensor's own size, composited, written to user:// and handed to the shell as a file
 # Every preset number that is a rate is written per 1/30 s (the web portal's frame) and converted with the real
 # dt each frame, so the trails and the drift look the same at 60 fps and on old hardware.
 # The page (a transparent WebView above) is the UI; it speaks through the shell's MsPortal singleton — signals in
-# (set / input / save / stop), methods out (state / savedFile). The camera dance is the camera author's own
-# (shiena/GodotCameraFeedSample): format before activating, textures bound on the first frame — and a format
-# switch waits for the device to close before it asks for the next (the S25 froze on a switch that did not).
+# (set / input / save / stop), methods out (state / savedFile).
 extends Control
 
 const TEX_PX := 1024.0          # the material textures' side
 const REF_W := 1080.0           # the width every px number in the presets is written for
 const BASE_FPS := 30.0          # the frame the presets' rates are written for
+const PREVIEW_W := 1280         # the live view's format: the widest under this — the screen needs no more
 
 var portal = null
-var feed: CameraFeed = null
-var y_tex := CameraTexture.new()
-var cbcr_tex := CameraTexture.new()
-var rgb_tex := CameraTexture.new()
 var params := {}                # every set() key/value the page handed over
 var preset := {}                # the tuned graph of the current material
 var mat_tex: Texture2D = null
 var phase := Vector2.ZERO
 var beat := 0.0
-var bound := false
-var frames := 0
 var flip_a := true              # which loop / motion viewport renders this frame
 var quarter := 0
 var mirror := 0
 var saving := false
-var switching := false
+var previewing := false         # the one-time move from the demo's format 0 to the preview format
 
+@onready var cam: PortalCamera = $Camera
 @onready var look: ShaderMaterial = $LookView/Look.material
 @onready var blit: ShaderMaterial = $Cam.material
 @onready var blit_still: ShaderMaterial = $Still/Cam.material
@@ -57,13 +53,11 @@ func _ready() -> void:
 		portal.connect("input", _on_input)
 		portal.connect("save", _on_save)
 		portal.connect("stop", _on_stop)
-	y_tex.which_feed = CameraServer.FeedImage.FEED_Y_IMAGE
-	cbcr_tex.which_feed = CameraServer.FeedImage.FEED_CBCR_IMAGE
-	rgb_tex.which_feed = CameraServer.FeedImage.FEED_RGBA_IMAGE
 	for m in _sensor_materials():
-		m.set_shader_parameter("y_tex", y_tex)
-		m.set_shader_parameter("cbcr_tex", cbcr_tex)
-		m.set_shader_parameter("rgb_tex", rgb_tex)
+		m.set_shader_parameter("rgb_texture", cam.rgb_texture)
+		m.set_shader_parameter("y_texture", cam.y_texture)
+		m.set_shader_parameter("cbcr_texture", cam.cbcr_texture)
+		m.set_shader_parameter("ycbcr_texture", cam.ycbcr_texture)
 	blit.set_shader_parameter("tex", $LookView.get_texture())
 	blit_still.set_shader_parameter("tex", $StillLook.get_texture())
 	echo_a.set_shader_parameter("prev_tex", $LoopB.get_texture())
@@ -74,8 +68,10 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 	_apply()
-	CameraServer.camera_feeds_updated.connect(_on_feeds_updated, CONNECT_DEFERRED)
-	CameraServer.monitoring_feeds = true
+	cam.bound.connect(_on_bound)
+	cam.note.connect(func(text: String): _report({"state": "running", "detail": text}))
+	cam.want_position = _wanted_position()
+	cam.start()
 	_report({"state": "running", "width": int(size.x), "height": int(size.y)})
 
 # every material that reads the sensor's planes
@@ -141,7 +137,8 @@ func _process(dt: float) -> void:
 	beat += dt
 	if beat >= 1.0:
 		beat = 0.0
-		_report({"state": "running", "fps": Engine.get_frames_per_second(), "width": int(size.x), "height": int(size.y), "camera": feed != null and feed.feed_is_active, "frames": frames})
+		var live := cam.camera_feed != null and cam.camera_feed.feed_is_active
+		_report({"state": "running", "fps": Engine.get_frames_per_second(), "width": int(size.x), "height": int(size.y), "camera": live, "frames": cam.frames})
 
 # ---- the preset ------------------------------------------------------------------------------------------
 
@@ -188,98 +185,56 @@ func _apply() -> void:
 	($Still/Out.material as ShaderMaterial).set_shader_parameter("mode", mode)
 	_layout()
 
-# ---- the camera ----------------------------------------------------------------------------------------
+# ---- the camera (the demo's node) --------------------------------------------------------------------------
 
-func _on_feeds_updated() -> void:
-	if feed == null: _pick_feed()
+func _wanted_position() -> CameraFeed.FeedPosition:
+	return CameraFeed.FeedPosition.FEED_FRONT if str(params.get("facing", "environment")) == "user" else CameraFeed.FeedPosition.FEED_BACK
 
-func _pick_feed() -> void:
-	var want := CameraFeed.FEED_FRONT if str(params.get("facing", "environment")) == "user" else CameraFeed.FEED_BACK
-	var best: CameraFeed = null
-	for f in CameraServer.feeds():
-		if best == null or f.get_position() == want: best = f
-		if f.get_position() == want: break
-	if best == null: return
-	_switch(best, _preview_format(best))
-
-# the largest format under 1280 px wide for the live view — the screen needs no more, the sensor is spared
-func _preview_format(f: CameraFeed) -> int:
-	var best := -1
+# the widest format under PREVIEW_W for the live view; the demo's own default (0) when there is none
+func _preview_format(formats: Array) -> int:
+	var best := 0
 	var best_w := 0
-	for i in f.formats.size():
-		var w := int(f.formats[i].get("width", 0))
-		if w <= 1280 and w > best_w:
+	for i in formats.size():
+		var w := int(formats[i].get("width", 0))
+		if w <= PREVIEW_W and w > best_w:
 			best = i
 			best_w = w
-	return best if best >= 0 else (0 if f.formats.size() > 0 else -1)
+	return best
 
 # the largest format the sensor offers — the still is saved at its full size, whatever that is; the one bound
 # is the GPU's own (a texture side it cannot allocate), never a number of ours
-func _largest_format(f: CameraFeed) -> int:
+func _largest_format(formats: Array) -> int:
 	var best := -1
 	var best_px := 0
 	var side := 16384
 	var rd := RenderingServer.get_rendering_device()
 	if rd != null: side = rd.limit_get(RenderingDevice.LIMIT_MAX_TEXTURE_SIZE_2D)
-	for i in f.formats.size():
-		var w := int(f.formats[i].get("width", 0))
-		var h := int(f.formats[i].get("height", 0))
-		var px := w * h
-		if px > best_px and maxi(w, h) <= side:
+	for i in formats.size():
+		var w := int(formats[i].get("width", 0))
+		var h := int(formats[i].get("height", 0))
+		if w * h > best_px and maxi(w, h) <= side:
 			best = i
-			best_px = px
+			best_px = w * h
 	return best
 
-# put feed `f` on format `fmt`: stop what runs, let the device close, set the format, start, wait for a frame;
-# one retry with a longer breath — a switch that does not wait leaves the last frame frozen on the screen
-func _switch(f: CameraFeed, fmt: int) -> bool:
-	if switching: return false
-	switching = true
-	var ok := false
-	for attempt in 2:
-		if feed != null:
-			if feed.feed_is_active: feed.feed_is_active = false
-			if feed != f and feed.frame_changed.is_connected(_on_frame): feed.frame_changed.disconnect(_on_frame)
-			await get_tree().create_timer(0.3 + 0.4 * attempt).timeout
-		feed = f
-		bound = false
-		if fmt >= 0: feed.set_format(fmt, {"output": "separate"})
-		if not feed.frame_changed.is_connected(_on_frame):
-			feed.frame_changed.connect(_on_frame)
-		feed.feed_is_active = true
-		ok = await _frames(1, 3.0)
-		if ok: break
-		_report({"state": "running", "detail": "camera: no frame on format %d (try %d)" % [fmt, attempt + 1]})
-	switching = false
-	return ok
-
-func _on_frame() -> void:
-	frames += 1
-	if not bound: _bind()
-
-func _bind() -> void:
-	if feed == null: return
-	var id := feed.get_id()
-	var mode := 0
-	match feed.get_datatype():
-		CameraFeed.FEED_RGB:
-			rgb_tex.camera_feed_id = id
-			mode = 1
-		CameraFeed.FEED_YCBCR_SEP, CameraFeed.FEED_YCBCR:
-			y_tex.camera_feed_id = id
-			cbcr_tex.camera_feed_id = id
-			mode = 2
-	quarter = int(round(feed.feed_transform.get_rotation() / (PI / 2.0))) % 4
+# the demo's first frame: what it wrote into its shader goes into every material that reads the sensor
+func _on_bound(info: Dictionary) -> void:
+	quarter = int(round(float(info.rotation) / (PI / 2.0))) % 4
 	if quarter < 0: quarter += 4
-	mirror = 1 if feed.get_position() == CameraFeed.FEED_FRONT else 0
+	mirror = 1 if bool(info.mirror) else 0
 	for m in _sensor_materials():
-		m.set_shader_parameter("mode", mode)
+		m.set_shader_parameter("mode", int(info.mode))
 		m.set_shader_parameter("rotate", quarter)
 		m.set_shader_parameter("mirror", mirror)
-	look.set_shader_parameter("video_range", 1.0 if OS.get_name() == "Android" else 0.0)
-	bound = true
-	var sz: Vector2 = y_tex.get_size() if mode == 2 else rgb_tex.get_size()
-	_report({"state": "running", "detail": "camera bound: %s type %d rot %d plane %dx%d of %d formats" % [feed.get_name(), feed.get_datatype(), quarter, int(sz.x), int(sz.y), feed.formats.size()]})
+	look.set_shader_parameter("color_range", int(info.color_range))
+	var sz: Vector2 = info.size
+	_report({"state": "running", "detail": "camera bound: %s type %d mode %d range %d rot %d plane %dx%d format %d of %d" % [str(info.name), int(info.datatype), int(info.mode), int(info.color_range), quarter, int(sz.x), int(sz.y), int(info.format), int(info.formats)]})
+	# the demo starts on format 0; the live view wants the preview format — one selection, like a tap on its list
+	var preview := _preview_format(cam.formats())
+	if not saving and not previewing and int(info.format) != preview:
+		previewing = true
+		await cam.select_format(preview)
+		previewing = false
 
 # ---- the page's words -----------------------------------------------------------------------------------
 
@@ -289,7 +244,7 @@ func _on_set(key: String, json: String) -> void:
 	params[key] = v
 	match key:
 		"facing":
-			_pick_feed()
+			if not saving: cam.select_position(_wanted_position())
 		"mark":
 			$Mark.visible = bool(v)
 		"preset", "light", "knobs":
@@ -303,25 +258,24 @@ func _on_input(json: String) -> void:
 # ---- the save, at the sensor's full size ------------------------------------------------------------------
 
 func _on_save(name: String) -> void:
-	if saving or switching or feed == null or portal == null: return
-	saving = true
-	var live := feed
-	var preview := _preview_format(live)
-	var big := _largest_format(live)
-	var f: Dictionary = live.formats[big] if big >= 0 else {}
+	if saving or previewing or portal == null or cam.camera_feed == null: return
+	var formats := cam.formats()
+	var preview := _preview_format(formats)
+	var big := _largest_format(formats)
+	var f: Dictionary = formats[big] if big >= 0 else {}
 	var w := int(f.get("width", 0))
 	var h := int(f.get("height", 0))
 	if w <= 0 or h <= 0:
-		saving = false
 		_report({"state": "running", "detail": "save: no format"})
 		return
-	# the sensor at its largest
-	if not await _switch(live, big):
-		await _switch(live, preview)
+	saving = true
+	# the sensor at its largest — the demo's format selection, then its second frame
+	await cam.select_format(big)
+	if not await _frames(2, 4.0):
+		await cam.select_format(preview)
 		saving = false
 		_report({"state": "running", "detail": "save: no frame at %dx%d" % [w, h]})
 		return
-	await _frames(1, 2.0)
 	# portrait canvas when the sensor is turned
 	var cs := Vector2i(h, w) if quarter % 2 == 1 else Vector2i(w, h)
 	for vp in [$StillLook, $StillLoop, $Still]: _size_vp(vp, cs)
@@ -342,7 +296,7 @@ func _on_save(name: String) -> void:
 	var path := "%s/%s" % [dir, name]
 	var err: int = img.save_png(path)
 	# the sensor back to the live size
-	await _switch(live, preview)
+	await cam.select_format(preview)
 	saving = false
 	if err != OK:
 		_report({"state": "running", "detail": "save: png %d" % err})
@@ -351,19 +305,18 @@ func _on_save(name: String) -> void:
 	portal.savedFile(name, ProjectSettings.globalize_path(path))
 
 func _on_stop() -> void:
-	if feed != null:
-		feed.feed_is_active = false
+	cam.stop()
 	CameraServer.monitoring_feeds = false
 	_report({"state": "stopped"})
 
 # true once `n` more camera frames arrived, false after `timeout` seconds without them
 func _frames(n: int, timeout: float) -> bool:
-	var want := frames + n
+	var want := cam.frames + n
 	var t := 0.0
-	while frames < want and t < timeout:
+	while cam.frames < want and t < timeout:
 		await get_tree().process_frame
 		t += get_process_delta_time()
-	return frames >= want
+	return cam.frames >= want
 
 static func _white() -> Image:
 	var im := Image.create(4, 4, false, Image.FORMAT_RGB8)
