@@ -102,3 +102,59 @@
 - **Ф3 — глибина**: якщо якір потребує потоку — compute-шейдер у Godot; MediaPipe-маска — окреме рішення.
 - **Поза shell** портал лишається веб-версією (pixi) як є — «просити встановити» = профільний рядок APK, який
   уже існує в кожній апці.
+
+## 6. Ф2 як зроблено (2026-09-06)
+
+Граф TD у вузлах Godot, `godot/portal/`:
+
+- **Cam** — ColorRect із `shaders/cam.gdshader` на площинах самого feed (Y + CbCr, video range, BT.709), як є.
+- **LoopA / LoopB** — два прозорі SubViewport, пінг-понг: `_process` вмикає один `UPDATE_ONCE` на кадр; у ньому
+  **Echo** (`echo.gdshader`: текстура іншого viewport'а × decay, зум, поворот) під **Fresh** (`trace.gdshader`:
+  Sobel по яскравості сенсора + тон-штрих, намальовані матеріалом з `tex/<id>.webp`, premultiplied).
+- **Out** — `out.gdshader`: loop над камерою (`hint_screen_texture`), add / multiply / normal.
+- **Presets** (`presets.gd`) — ті ж 12 тем, що `apps/portal/presets.js`; `tuned(id, light, knobs)`; сторінка
+  передає `preset`/`light`/`knobs` через `godot.set`.
+- Трасування читає **Y-площину** напряму (`cam_luma` у `lib/portal.gdshaderinc`) через той самий `turn`, що й
+  камера — тому один шейдер трасує екран на роздільності екрана і **знімок на роздільності сенсора**.
+
+**Зберегти без обмежень**: `_on_save` перемикає feed на найбільший формат сенсора (єдина межа —
+`RenderingDevice.LIMIT_MAX_TEXTURE_SIZE_2D`), чекає 2 кадри (таймаут 4 с), рендерить StillLoop → Still один раз,
+`Image.save_png` у `user://saves/<name>`, `MsPortal.savedFile(name, path)`; шелл стрімить файл у MediaStore
+Downloads (`MainActivity.saveFile`) і видаляє його; feed повертається на прев'ю (≤1280 по ширині).
+
+**Пастки**: headless Godot (dummy renderer) НЕ парсить шейдери — синтаксична помилка видна лише на GPU
+(logcat `shader:`); GDScript строгий до `:=` без типу (`get_image()`, `save_png()` повертають Variant для
+парсера); `Image.create_filled` немає у 4.7 — `Image.create` + `fill`; `[preset.0.options]` порожня секція
+дає безпечну ERROR при експорті. Експорт: `Godot --headless --path godot/portal --import`, потім
+`--export-pack Android apps/portal/assets/portal.pck` (бінарник linux.arm64 у scratchpad, не в git).
+
+## 7. Ф2.1 — життя і погляди (2026-09-06, власник: «застивше і зелене… рісерч готових пресетів, ми їх тільки модифікуємо»)
+
+Джерела (усе CC0, godotshaders.com — «code snippets can be used freely without the author's permission»):
+- Kuwahara (innerdev) — https://godotshaders.com/shader/kuwahara-shader-godot-4/ → `kuwahara_l` (на яскравості
+  сенсора, хрома лишається камерина; квадранти без ваг, radius 2–3 — мобільний бюджет).
+- Weird Glitch (Ayzzi_Dev) — https://godotshaders.com/shader/weird-glitch-shader/ → `glitch_uv` + хрома-розрив і
+  скан-дроп у `look.gdshader` style 5 (зрізи рядків спалахами за TIME).
+- Monotone halftone — https://godotshaders.com/shader/screen-space-canvas-monotone-halftone/ → `halftone_m`
+  (крапки або штрих 45°).
+- Screen Smoke/Fog (TheHyper-Dev) — https://godotshaders.com/shader/screen-smoke-fog/ → ідея домен-варпу:
+  `warp_field` (fbm value-noise, дихає за TIME) гне ехо (`echo.warp`) і мерехтить плитку (`lines.shimmer`).
+- Chromatic aberration (тег chromatic-aberration) → style 4, радіальний розрив каналів.
+- Пінг-понг SubViewport: https://github.com/inkusgames/godot4_shader_viewport_example ,
+  https://github.com/Namey5/godot-interactive-water (двобуферна текстура — та ж схема, що наш Loop і Motion).
+- GodotPostProcess/addon (ASCII, CRT/VHS, grain, fish eye) — каталог ідей на далі.
+
+Що змінилось у графі: **LookView** (look.gdshader, style/amount/p на планах сенсора; Cam = blit) — 8 поглядів;
+**MotionA/B** (¼ роздільності loop: R = яскравість, G = енергія |Δ| із згасанням) — «життя» на тому, що
+рухається: `motion.lift` піднімає лінію, `echo.motion_push` розмазує шлейф; **echo** отримав `flow` (px за
+1/30 с), `warp` (px, поле), `motion_push`; **усі швидкості в секундах** (`decay^(dt·30)`, zoom, rot, flow) —
+на 60 fps хвіст більше не зникає за 0,2 с (це і було «застивше»: decay 0.86 на кадр при 60 fps = 0,22 за 10
+кадрів, дрейф 6 px/с). Пресети: ink = oil, paper/ferro = posterize+dither, thread = штрих, mercury = chromatic,
+circuit = glitch, veil/sand = grain(+pixel), lum/smoke/plain = як є. Ручки рушія на сторінці лише в APK
+(`ENGINE_KNOBS`: Погляд, Життя, Вітер, Мерехтіння).
+
+Камера: `_switch` чекає закриття пристрою (0.3 с, повтор 0.7 с) перед `set_format` і перевіряє кадр —
+гіпотеза «зеленого»: після збереження перемикання назад на прев'ю без паузи лишило Y-кадр без CbCr (зелений
+= порожня хрома) і завмерло. Сторінка тепер шле `engine.note` (camera bound … plane WxH of N formats / saved /
+save:) у клієнт-лог. Шелл: `GodotLayer.onDestroy` завершує процес — бібліотека дозволяє один рушій на процес
+(`engine.fail: Unable to setup the Godot engine` у логах 00:56).
