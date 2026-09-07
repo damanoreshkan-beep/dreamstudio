@@ -90,10 +90,13 @@ export function qr({ S, toast }) {
   return html`<div class="ms-stage z-20 flex flex-col" data-verdict=${result ? result.verdict : "idle"} data-kind=${result ? result.kind : ""}>
     <!-- camera aperture -->
     ${/* Everything in the aperture sits on the FEED: the black ground, the half-black scrim around the frame
-         (a box-shadow spread, not a material shadow) and the corner marks are picture colours in both themes. */""}
+         (a box-shadow spread, not a material shadow) and the corner marks are picture colours in both themes.
+         The stage takes the PINCH and not the tap (owner, 2026-09-07): bringing a far, small code close is
+         worth a gesture, while a focus ring drawn inside the aperture reads as "code caught" and would lie
+         about a scan that has not happened. */""}
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
       <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")}
-          show=${true} fullscreen=${false} gestures=${false} primeFull=${true}
+          show=${true} fullscreen=${false} gestures=${false} pinch=${true} primeFull=${true}
           onVideo=${(el) => setSource(el)} onState=${(s) => setReady(s.ready)}
           className="flex items-center justify-center">
         ${/* the gate has no camera: a flat neutral frame stands in for the feed */""}

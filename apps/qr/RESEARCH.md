@@ -17,7 +17,9 @@ info, `data-kind`; the aperture is `data-aperture`, the preview Island `data-pre
 
 What changed and why:
 
-- **2026-09-07** — the camera is the kit's `CamStage` (`show`, `fullscreen={false}`, `gestures={false}`, no
+- **2026-09-07** — the camera is the kit's `CamStage` (`show`, `fullscreen={false}`, `gestures={false}` but
+  `pinch` since core 1.2.54 — the zoom brings a far, small code close, while the tap's focus ring inside the
+  aperture would read as "code caught" and lie about a scan that has not happened; owner's call, no
   `still`): the app no longer owns the priming, `camera.start`, the wake lock or the `<video>`; the decoder
   samples the element `onVideo` hands it. Under the gate the stage stands aside and the seeded `bit.ly`
   string is still what the shot shows. `spec.json` `needs` gained `wakeLock`.
