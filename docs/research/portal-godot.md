@@ -178,3 +178,10 @@ circuit = glitch, veil/sand = grain(+pixel), lum/smoke/plain = як є. Ручк
   `color_range` з `format.color_range`, інакше Android = video. Усе це тепер у `lib/portal.gdshaderinc`
   (`normalize_ycbcr`, `ycbcr_to_srgb`, `sensor_rgb`, `sensor_luma`) — look/trace/motion читають через нього.
 Збереження = `cam.select_format(big)` (демо-функція) → 2 кадри → рендер → `cam.select_format(preview)`.
+
+**Телефон після порту (04:29):** `camera bound: 0 | BACK type 3 mode 1 range 1 rot 1 plane 1280x720 format 19
+of 29`, фронт `rot 3`, збереження `4080x3060 format 0` і назад — камера ЖИВЕ. Але «зелені великі текстури»:
+`CameraTexture.get_rid()` віддає RID текстури feed'а В МОМЕНТ `set_shader_parameter`, а до прив'язки — 4×4
+плейсхолдер; я ставив текстури в `_ready`. Демо в `_setup_textures` ставить `mat.set_shader_parameter(...)`
+ЩЕ РАЗ після `camera_feed_id` — цей крок я загубив у порті → повернуто в `_on_bound` (усі чотири текстури на
+кожен матеріал, що читає сенсор). Це і був «зелений» з Ф2: тоді `_bind` теж не переставляв текстури.

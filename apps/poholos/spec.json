@@ -1,0 +1,38 @@
+{
+  "id": "poholos",
+  "theme": "signal",
+  "category": "tools",
+  "accent": "#4FD6E0",
+  "tabs": [
+    {
+      "id": "room",
+      "type": "tool",
+      "icon": "lucide:radio",
+      "label": "tabRoom",
+      "view": "room"
+    },
+    {
+      "id": "dm",
+      "type": "tool",
+      "icon": "lucide:lock",
+      "label": "tabDm",
+      "view": "dm"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:radio",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any",
+    "apk": "mesh"
+  },
+  "added": "2026-09-07"
+}

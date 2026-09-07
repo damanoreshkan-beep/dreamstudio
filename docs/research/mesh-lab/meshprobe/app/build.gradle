@@ -1,0 +1,26 @@
+// Same toolchain as the shell template (AGP 8.5.2, JDK 17, no AndroidX, no Kotlin) so that whatever
+// survives this probe moves into the `mesh` flavour without a toolchain argument. minSdk 26 because that
+// is bitchat's floor ("API 26 for proper BLE support") and the mesh flavour will have to match it.
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'ms.meshprobe'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'ms.meshprobe'
+        minSdk 26
+        targetSdk 31
+        versionCode 1
+        versionName '0.1'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    buildTypes {
+        debug { minifyEnabled false }
+    }
+}

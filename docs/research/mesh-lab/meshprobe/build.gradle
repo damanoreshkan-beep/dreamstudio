@@ -1,0 +1,10 @@
+// Root build file. Versions pinned to what the VPS builder image already has cached (AGP 8.5.2 / gradle 8.7),
+// so a build costs seconds of download, not minutes.
+buildscript {
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:8.5.2' }
+}
+
+allprojects {
+    repositories { google(); mavenCentral() }
+}

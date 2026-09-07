@@ -1,0 +1,4 @@
+// No dependencyResolutionManagement block: the root build.gradle declares repositories the old way, which
+// AGP 8.5 still accepts and which keeps this project to four small files.
+rootProject.name = 'meshprobe'
+include ':app'

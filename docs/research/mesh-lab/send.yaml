@@ -1,0 +1,18 @@
+# Maestro flow — send one public (broadcast) message into the bitchat mesh.
+# Run:  maestro --device emulator-5554 test -e MSG=privit-z-boxa send.yaml
+#
+# Public messages carry the broadcast recipient (8x0xFF) and are NOT Noise-encrypted, so every node in
+# range reads them — that is the "public channel" half of the product. The receiving side is asserted by
+# receive.yaml on the OTHER device, never by this one.
+appId: com.bitchat.droid
+env:
+  MSG: privit-z-boxa
+---
+- launchApp
+- tapOn: "Type a message"
+- inputText: ${MSG}
+- pressKey: Enter
+# The composer clears on send; the sent line appears in the room.
+- extendedWaitUntil:
+    visible: ${MSG}
+    timeout: 20000

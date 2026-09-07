@@ -1,0 +1,15 @@
+# Maestro flow — assert that a message sent by ANOTHER node arrived over the mesh.
+# Run:  maestro --device emulator-5556 test -e MSG=privit-z-boxa receive.yaml
+#
+# This is the whole interop proof in one assertion: the text was typed on a different Android instance and
+# reached this one over emulated BLE (shared netsim/Rootcanal), with no network path between the apps.
+# A timeout here is a REAL failure, not flakiness — announces repeat every few seconds, so 60 s is generous.
+appId: com.bitchat.droid
+env:
+  MSG: privit-z-boxa
+---
+- launchApp
+- extendedWaitUntil:
+    visible: ${MSG}
+    timeout: 60000
+- assertVisible: ${MSG}

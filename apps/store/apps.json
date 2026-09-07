@@ -1310,6 +1310,42 @@
     ]
   },
   {
+    "id": "poholos",
+    "title": "Поголос",
+    "titles": {
+      "uk": "Поголос",
+      "en": "Poholos"
+    },
+    "tagline": "Off-grid чат по Bluetooth: повідомлення йдуть від телефона до телефона, стрибками, без інтернету й без сервера. Сумісний з bitchat.",
+    "taglines": {
+      "uk": "Off-grid чат по Bluetooth: повідомлення йдуть від телефона до телефона, стрибками, без інтернету й без сервера. Сумісний з bitchat.",
+      "en": "Off-grid Bluetooth chat: messages hop phone to phone, no internet and no server. Compatible with bitchat."
+    },
+    "glyph": "lucide:radio",
+    "art": "<circle cx=\"12\" cy=\"12\" r=\"2\"/>\n<path d=\"M7.5 16.5a6 6 0 0 1 0-9\"/>\n<path d=\"M16.5 7.5a6 6 0 0 1 0 9\"/>\n<path d=\"M4.8 19.2a10 10 0 0 1 0-14.4\"/>\n<path d=\"M19.2 4.8a10 10 0 0 1 0 14.4\"/>",
+    "icon": true,
+    "screens": {
+      "uk": [
+        "Поруч",
+        "Особисті"
+      ],
+      "en": [
+        "Nearby",
+        "Direct"
+      ]
+    },
+    "shots": [
+      "room"
+    ],
+    "bg": "#000000",
+    "fg": "#4FD6E0",
+    "href": "./poholos/",
+    "version": "1.0",
+    "category": "social",
+    "needs": [],
+    "added": "2026-09-07"
+  },
+  {
     "id": "podoba",
     "title": "Подоба",
     "titles": {
@@ -1375,7 +1411,7 @@
     "bg": "#000000",
     "fg": "#F2B84B",
     "href": "./portal/",
-    "version": "1.4",
+    "version": "1.22",
     "category": "creative",
     "needs": [
       "camera",
@@ -2779,7 +2815,7 @@
     "bg": "#0B0B0D",
     "fg": "#ECECEE",
     "href": "./reel/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },

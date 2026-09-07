@@ -1,0 +1,43 @@
+# Maestro flow — take a stock bitchat install past its two-step onboarding wall.
+# Run per device:  maestro --device emulator-5554 test onboard.yaml
+#
+# Why a framework and not adb taps: coordinates move with every screen size (720x1560 -> 480x960 halved
+# them here), a tap that lands early hits the previous screen, and nothing retries. Maestro selects by
+# TEXT and waits for it, so the same flow works on any device and any resolution.
+appId: com.bitchat.droid
+---
+- launchApp
+
+# Step 0 — the box runs TWO software-rendered emulators on two physical cores, so SystemUI regularly
+# misses its deadline and Android puts an "isn't responding" dialog over everything. It is a host-speed
+# symptom, not an app fault (the mesh keeps running underneath it), but it blocks every later tap.
+- runFlow:
+    when:
+      visible: "isn't responding"
+    commands:
+      - tapOn: "Wait"
+
+# Step 1 — permissions. `adb install -g` already granted them at OS level, so this button only advances
+# the app's own onboarding state; the system dialogs it would raise never appear.
+- runFlow:
+    when:
+      visible: "Grant Permissions"
+    commands:
+      - tapOn: "Grant Permissions"
+      - extendedWaitUntil:
+          visible: "Battery"
+          timeout: 15000
+
+# Step 2 — battery optimisation. We skip it: on an emulator there is no doze to exempt from, and the mesh
+# service starts either way (measured — peers were verified while this screen was still up).
+- runFlow:
+    when:
+      visible: "Skip for Now"
+    commands:
+      - tapOn: "Skip for Now"
+
+# The chat screen is the proof the wall is behind us: the transport label and the composer.
+- extendedWaitUntil:
+    visible: "Type a message"
+    timeout: 30000
+- assertVisible: "mesh"
