@@ -61,7 +61,10 @@ const PRESETS = [
   { name: "Aerial", url: "https://mixkit.co/free-stock-video/aerial/" },
   { name: "Abstract", url: "https://mixkit.co/free-stock-video/abstract/" },
   { name: "Dareful 4K", url: "https://dareful.com/" },
-  { name: "Coverr", url: "https://coverr.co/" },
+  /* Coverr was here and is gone (2026-09-07). Its pages are carousels of custom elements whose tiles carry no
+     link to the clip's own page at all — JS adds those after load — so half the rows could never be dived into,
+     measured on both its home page and its listing. That is not something extraction can fix: the fact is not
+     in the HTML. A source that cannot answer "what page is this clip on" is not a channel. */
   { name: "Wikimedia Commons", url: "https://commons.wikimedia.org/wiki/Category:Animations" },
   { name: "Underwater", url: "https://commons.wikimedia.org/wiki/Category:Underwater_videos" },
   { name: "Time-lapse", url: "https://commons.wikimedia.org/wiki/Category:Time-lapse_videos" },
