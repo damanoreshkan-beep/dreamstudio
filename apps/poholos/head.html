@@ -37,6 +37,14 @@
       font-size:calc(var(--ms-label) * .92);opacity:.55;font-variant-numeric:tabular-nums}
     .ph-sys{align-self:center;font-size:var(--ms-label);opacity:.5;padding:.3rem 0}
 
+    /* the empty-state hero — dead-centre of the area, a soft accent glyph over the line */
+    .ph-hero{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:1rem;text-align:center;padding:1.5rem}
+    .ph-hero-glyph{display:grid;place-items:center;width:4.5rem;height:4.5rem;border-radius:999px;font-size:2rem;
+      color:var(--app-accent);background:color-mix(in oklch,var(--app-accent) 12%,transparent);
+      box-shadow:0 0 2.5rem color-mix(in oklch,var(--app-accent) 22%,transparent)}
+    .ph-hero-text{max-width:17rem;line-height:1.5;color:color-mix(in oklch,currentColor 65%,transparent)}
+
     /* the store/queue banner — a thin accent island line */
     .ph-banner{display:flex;gap:.45rem;align-items:center;font-size:var(--ms-label);opacity:.85;
       padding:.4rem .7rem;border-radius:999px;align-self:center;

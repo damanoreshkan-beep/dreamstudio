@@ -51,8 +51,12 @@ function autoscroll(dep) {
   return ref;
 }
 
-const EmptyMascot = (text) => html`<div class="flex-1 grid place-items-center text-center px-6" data-mascot>
-  <p class="text-muted max-w-[15rem] leading-relaxed">${text}</p></div>`;
+// The empty state is a HERO, centred on the whole area (no presence chip competing): a soft accent glyph
+// and the line. Its own flex-1 column, so it sits dead-centre above whatever the screen keeps below it.
+const Hero = (icon, text) => html`<div class="ph-hero">
+  <div class="ph-hero-glyph">${Icon(icon)}</div>
+  <p class="ph-hero-text">${text}</p>
+</div>`;
 
 // group flag: a message is the "first" of a run when the previous one was a different sender/side
 const firstOfRun = (list, i) => i === 0 || list[i - 1].mine !== list[i].mine || (!list[i].mine && list[i - 1].from !== list[i].from);
@@ -67,21 +71,26 @@ export function room({ S }) {
   useEffect(() => { start(); }, []);
   const feed = autoscroll(msgs.length);
 
+  if (msgs.length === 0) return html`<${Fragment}>
+    <div class="ph-wrap h-full">
+      ${Hero("lucide:radio", s.peerCount === 0 ? T(t, "roomEmptyAlone") : T(t, "roomEmptyPeers", { n: s.peerCount }))}
+      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => sendPublic(v)} />
+    </div>
+  <//>`;
+
   return html`<${Fragment}>
     <div class="ph-wrap h-full">
       <${Presence} t=${t} />
-      ${msgs.length === 0
-        ? EmptyMascot(s.peerCount === 0 ? T(t, "roomEmptyAlone") : T(t, "roomEmptyPeers", { n: s.peerCount }))
-        : html`<div class="ph-feed" ref=${feed}>
-            ${msgs.map((m, i) => m.sys
-              ? html`<div key=${m.id} class="ph-sys">${m.text}</div>`
-              : html`<div key=${m.id} class="ph-row" data-mine=${m.mine ? "1" : "0"} data-first=${firstOfRun(msgs, i) ? "1" : "0"}>
-                  <div class="ph-bubble">
-                    ${!m.mine && firstOfRun(msgs, i) && html`<div class="ph-who">${m.nick}</div>`}
-                    <span class="ph-text">${m.text}</span>
-                    <span class="ph-meta">${clock(m.ts, loc)}</span>
-                  </div></div>`)}
-          </div>`}
+      <div class="ph-feed" ref=${feed}>
+        ${msgs.map((m, i) => m.sys
+          ? html`<div key=${m.id} class="ph-sys">${m.text}</div>`
+          : html`<div key=${m.id} class="ph-row" data-mine=${m.mine ? "1" : "0"} data-first=${firstOfRun(msgs, i) ? "1" : "0"}>
+              <div class="ph-bubble">
+                ${!m.mine && firstOfRun(msgs, i) && html`<div class="ph-who">${m.nick}</div>`}
+                <span class="ph-text">${m.text}</span>
+                <span class="ph-meta">${clock(m.ts, loc)}</span>
+              </div></div>`)}
+      </div>
       ${queued && html`<div class="ph-banner">${Icon("lucide:clock", "opacity-70")} ${T(t, "queuedBanner")}</div>`}
       <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => sendPublic(v)} />
     </div>
@@ -98,19 +107,21 @@ export function dm({ S }) {
 
   if (open) return Thread({ t, loc, peerID: open });
 
+  if (peers.length === 0) return html`<${Fragment}>
+    <div class="ph-wrap h-full">${Hero("lucide:lock", T(t, "dmEmpty"))}</div>
+  <//>`;
+
   return html`<${Fragment}>
     <div class="ph-wrap h-full">
       <${Presence} t=${t} />
-      ${peers.length === 0
-        ? EmptyMascot(T(t, "dmEmpty"))
-        : html`<div class="ph-feed">
-            ${peers.map((p) => html`<button key=${p.peerID} class="ph-peer" onClick=${() => $peer.set(p.peerID)}>
-              <span class="ph-dot"></span>
-              <span class="flex-1 min-w-0"><span class="block truncate">${p.nick}</span>
-                <span class="ph-meta !float-none !m-0 !opacity-60">${p.hops === 1 ? T(t, "nearOne") : T(t, "hops", { k: p.hops })}</span></span>
-              ${Icon("lucide:chevron-right", "text-muted shrink-0 opacity-60")}
-            </button>`)}
-          </div>`}
+      <div class="ph-feed">
+        ${peers.map((p) => html`<button key=${p.peerID} class="ph-peer" onClick=${() => $peer.set(p.peerID)}>
+          <span class="ph-dot"></span>
+          <span class="flex-1 min-w-0"><span class="block truncate">${p.nick}</span>
+            <span class="ph-meta !float-none !m-0 !opacity-60">${p.hops === 1 ? T(t, "nearOne") : T(t, "hops", { k: p.hops })}</span></span>
+          ${Icon("lucide:chevron-right", "text-muted shrink-0 opacity-60")}
+        </button>`)}
+      </div>
     </div>
   <//>`;
 }
