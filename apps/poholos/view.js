@@ -10,7 +10,8 @@ import { T } from "/_rt/i18n.js";
 import { Island } from "/_rt/ui.js";
 import { permRequest } from "/_rt/permissions.js";
 import { shell } from "/_rt/shell.js";
-import { start, sendPublic, sendPrivate, diagnose, report, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
+import { GlStage } from "/_rt/glstage.js";
+import { start, sendPublic, sendPrivate, diagnose, report, field, sites, siteOf, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // A timestamp the transport did not send is nothing, never "Invalid Date": a bubble that shows the string
@@ -21,6 +22,27 @@ const RCPT = { sent: "rcptSent", delivered: "rcptDelivered", read: "rcptRead", q
 
 const $peer = atom(null);   // the open private thread, or null for the peer list
 
+// The field's colour is the THEME's accent, read from the cascade rather than written here twice: a hex
+// copied into JS is right until the material changes and then quietly wrong. getComputedStyle resolves
+// whatever colour space the token is in, so this survives oklch. Cached — it is read every frame, and the
+// theme can only change on a toggle, so a re-read twice a second is plenty.
+const acc = { rgb: [0.35, 0.84, 0.88, 1], at: 0, probe: null };
+function accent() {
+  const now = performance.now();
+  if (now - acc.at < 500) return acc.rgb;
+  acc.at = now;
+  try {
+    if (!acc.probe) {
+      acc.probe = document.createElement("span");
+      acc.probe.style.cssText = "position:absolute;width:0;height:0;color:var(--app-accent)";
+      document.body.appendChild(acc.probe);
+    }
+    const m = getComputedStyle(acc.probe).color.match(/[\d.]+/g);
+    if (m && m.length >= 3) acc.rgb = [+m[0] / 255, +m[1] / 255, +m[2] / 255, 1];
+  } catch { /* no DOM (preflight) — the fallback above is the accent's own value */ }
+  return acc.rgb;
+}
+
 // ── presence: the one honest number, a glass chip that floats atop the feed ────────────────────────
 function Presence({ t }) {
   const s = useStore($state);
@@ -29,9 +51,40 @@ function Presence({ t }) {
     <div class="ph-near">
       <span class="ph-dot" data-alone=${alone ? "1" : "0"}></span>
       <span>${near(t, s.peerCount)}</span>
-      ${!alone && s.maxHops > 1 && html`<span class="ph-near-sub">· ${T(t, "hops", { k: s.maxHops })}</span>`}
     </div>
   <//>`;
+}
+
+// ── the field of who is within earshot ─────────────────────────────────────────────────────────────
+// A node's point comes from the hash of its peerID, so the same person is always the same place on the
+// screen — and that place says NOTHING about distance or direction. The bridge sends { peerID, nick }
+// and no geometry at all, so a radar with range rings would be invented; the caption says as much.
+// The shader draws the sweep and a well per node; these chips are the same nodes in the DOM, because
+// the DOM is the only thing axe, e2e and a screen reader can see.
+// The stage is `fixed inset-0` by contract — it is the SCREEN's background, not a panel inside one. Mounted
+// with the kit's own default it sits UNDER in-flow content; `z-0` put it over the glass islands, which then
+// rendered into the DOM and were invisible in the shot.
+function Field({ t, peers, onPeer }) {
+  const s = useStore($state);
+  return html`<div class="ph-field" data-peers=${peers.length}>
+    <div class="ph-sites">
+      ${peers.slice(0, 8).map((p) => {
+        const [x, y] = siteOf(p.peerID || "");
+        return html`<button key=${p.peerID} class="ph-site"
+          style=${`left:${50 + x * 62}%;top:${50 + y * 62}%`}
+          onClick=${() => onPeer(p.peerID)}>
+          <span class="ph-site-dot"></span>
+          <span class="ph-site-name">${p.nick || p.peerID.slice(0, 6)}</span>
+          <span class="ph-site-id">${(p.peerID || "").slice(0, 4)}</span>
+        </button>`;
+      })}
+      <div class="ph-site ph-site-me" style="left:50%;top:50%">
+        <span class="ph-site-dot"></span>
+        <span class="ph-site-name">${T(t, "you")}</span>
+      </div>
+    </div>
+    <p class="ph-field-note">${T(t, s.peerCount === 0 ? "fieldSearching" : "fieldNote")}</p>
+  </div>`;
 }
 
 // ── the composer, a floating island at the bottom ──────────────────────────────────────────────────
@@ -71,6 +124,7 @@ export function room({ S }) {
   const loc = useStore(S.locale);
   const s = useStore($state);
   const msgs = useStore($room);
+  const peers = useStore($peers);
   const queued = useStore($queued);
   const fault = useStore($fault);
   useEffect(() => { start(); }, []);
@@ -80,16 +134,29 @@ export function room({ S }) {
   const Fault = () => fault && html`<div class="ph-banner" data-fault="1">
     ${Icon("lucide:alert-triangle", "opacity-80")} ${T(t, "faultBanner")}</div>`;
 
+  // Nothing said yet: the field IS the screen. It is not an empty state with a picture on it — the sweep
+  // is the app working, and a neighbour arriving lands on it without the view re-rendering to say so.
   if (msgs.length === 0) return html`<${Fragment}>
-    <div class="ph-wrap h-full">
-      ${Hero("lucide:radio", s.peerCount === 0 ? T(t, "roomEmptyAlone") : T(t, "roomEmptyPeers", { n: s.peerCount }))}
+    <div class="ph-wrap h-full" data-near data-peers=${s.peerCount}>
+      ${/* html and body paint an OPAQUE ground (measured rgb(0,0,0)), so a stage under it is invisible and a
+           stage over it buries the static chrome. It sits at z-0 above the ground; .ph-wrap's other children
+           are lifted to z-1 in head.html, which is the layer the glass islands need to stay readable. */""}
+      <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
+        seed=${0.37} ink=${accent} vary=${field} points=${sites} />
+      <${Presence} t=${t} />
+      <${Field} t=${t} peers=${peers} onPeer=${(id) => { $peer.set(id); S.tab.set("dm"); }} />
       <${Fault} />
-      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => sendPublic(v)} />
+      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
     </div>
   <//>`;
 
   return html`<${Fragment}>
-    <div class="ph-wrap h-full">
+    <div class="ph-wrap h-full" data-near data-peers=${s.peerCount}>
+      ${/* html and body paint an OPAQUE ground (measured rgb(0,0,0)), so a stage under it is invisible and a
+           stage over it buries the static chrome. It sits at z-0 above the ground; .ph-wrap's other children
+           are lifted to z-1 in head.html, which is the layer the glass islands need to stay readable. */""}
+      <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
+        seed=${0.37} ink=${accent} vary=${field} points=${sites} />
       <${Presence} t=${t} />
       <div class="ph-feed" ref=${feed}>
         ${msgs.map((m, i) => m.sys
@@ -103,7 +170,7 @@ export function room({ S }) {
       </div>
       <${Fault} />
       ${queued && !fault && html`<div class="ph-banner">${Icon("lucide:clock", "opacity-70")} ${T(t, "queuedBanner")}</div>`}
-      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => sendPublic(v)} />
+      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
     </div>
   <//>`;
 }
@@ -129,7 +196,7 @@ export function dm({ S }) {
         ${peers.map((p) => html`<button key=${p.peerID} class="ph-peer" onClick=${() => $peer.set(p.peerID)}>
           <span class="ph-dot"></span>
           <span class="flex-1 min-w-0"><span class="block truncate">${p.nick}</span>
-            <span class="ph-meta !float-none !m-0 !opacity-60">${p.hops === 1 ? T(t, "nearOne") : T(t, "hops", { k: p.hops })}</span></span>
+            <span class="ph-meta !float-none !m-0 !opacity-60 font-mono">${(p.peerID || "").slice(0, 8)}</span></span>
           ${Icon("lucide:chevron-right", "text-muted shrink-0 opacity-60")}
         </button>`)}
       </div>

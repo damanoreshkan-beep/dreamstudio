@@ -57,7 +57,8 @@
   "nearNone": "no one nearby",
   "nearOne": "1 nearby",
   "nearMany": "{n} nearby",
-  "hops": "up to {k} hops",
+  "fieldSearching": "Listening to the air. Whoever opens Poholos nearby appears here.",
+  "fieldNote": "A place on the field is an identity — not a distance, not a direction.",
   "roomEmptyAlone": "Quiet. The moment someone comes within range, the word starts here.",
   "roomEmptyPeers": "{n} nearby. Say the first word.",
   "queuedBanner": "No one nearby. It will go out as soon as someone appears.",
@@ -78,7 +79,5 @@
   "nickHint": "Seen by others nearby. Your identity is a key held on this device.",
   "bgNote": "Poholos runs in the background as a quiet notification — that is how Android keeps the network alive.",
   "encrypted": "End-to-end encrypted",
-  "hop": "hop",
-  "hops2": "hops",
-  "hops5": "hops"
+  "hop": "hop"
 }

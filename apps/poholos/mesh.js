@@ -10,8 +10,11 @@ import { gate } from "/_rt/gate.js";
 import { permAndroid, refreshHeld, heldPermissions } from "/_rt/permissions.js";
 
 // ── stores the views read ────────────────────────────────────────────────────────────────────────
-export const $state = atom({ running: false, peerCount: 0, maxHops: 0, myPeerID: "", nick: "" });
-export const $peers = atom([]);          // [{ peerID, nick, hops, lastSeen }]
+export const $state = atom({ running: false, peerCount: 0, myPeerID: "", nick: "" });
+// EXACTLY what the bridge sends: the catalogue's mesh.peers entry is { peerID, nick } and nothing else —
+// no hops, no RSSI, no last-seen. Reading a field that is not there is how the room came to say
+// "до undefined стрибків"; anything this app shows about a neighbour is derived from these two.
+export const $peers = atom([]);          // [{ peerID, nick }]
 export const $room = atom([]);           // public messages, oldest→newest: { id, from, nick, text, ts, mine, sys }
 export const $threads = map({});         // peerID → [{ id, text, ts, mine, status }]
 export const $queued = atom(false);      // a public send with no one nearby → store-and-forward
@@ -30,6 +33,47 @@ export function note(kind, text) {
   return line;
 }
 const faultOf = (e) => ({ code: (e && e.code) || ERR.failed, detail: (e && (e.detail || e.message)) || String(e) });
+
+// ── the field's signal ───────────────────────────────────────────────────────────────────────────
+// Read every frame by GlStage through `vary` and `points`, so the view never re-renders to move the
+// field and there is no second rAF loop in the app. The sweep phase is INTEGRATED here rather than
+// computed as time × rate: multiplying a running clock by a changing rate jerks the whole field the
+// moment the rate moves (tide's lesson, its .frag says the same).
+const env = { scan: 0, presence: 0, pulse: 0, alone: 1, last: 0 };
+
+/** A stable point on the field for an identity — NOT a position in the room. */
+export function siteOf(peerID) {
+  let h = 2166136261;
+  for (let i = 0; i < peerID.length; i++) { h ^= peerID.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const a = ((h >>> 0) % 3600) / 3600 * Math.PI * 2;        // angle from the hash
+  const rad = 0.30 + (((h >>> 11) & 255) / 255) * 0.30;      // ring between .30 and .60
+  const ph = ((h >>> 19) & 255) / 255;                       // its own breathing phase
+  return [Math.cos(a) * rad, Math.sin(a) * rad, 1, ph];
+}
+
+/** An event just happened — the field answers with one ripple. */
+export function bump() { env.pulse = 1; }
+
+/** GlStage `vary`: presence · sweep phase · pulse · alone. */
+export function field() {
+  const now = performance.now();
+  const dt = env.last ? Math.min(0.1, (now - env.last) / 1000) : 0;
+  env.last = now;
+  const n = $state.get().peerCount;
+  const target = Math.min(1, n / 6);
+  env.presence += (target - env.presence) * Math.min(1, dt * 2.2);
+  env.alone += ((n === 0 ? 1 : 0) - env.alone) * Math.min(1, dt * 2.2);
+  env.scan += dt;
+  env.pulse = Math.max(0, env.pulse - dt * 0.85);
+  return [env.presence, env.scan, env.pulse, env.alone];
+}
+
+/** GlStage `points`: one well per neighbour, flat [x,y,z,w, …], capped at the kit's eight. */
+export function sites() {
+  const out = [];
+  for (const p of $peers.get().slice(0, 8)) out.push(...siteOf(p.peerID || ""));
+  return out;
+}
 
 const live = () => shell.present && shell.has("mesh.start");
 // The mock is ONLY for the eye and e2e (gate) and an explicit ?mock/?demo — NEVER a real browser or an APK
@@ -54,9 +98,10 @@ async function startLive() {
   const data = (name) => (fn) => (v) => { if (v && v.ack !== undefined) return note("ack", name); if (v) fn(v); };
   cancels.push(shell.subscribe("mesh.peers", {}, data("mesh.peers")((list) => {
     const peers = list?.peers || [];
-    note("peers", `${peers.length} · ${peers.map((p) => `${p.nick}/${p.hops}h`).join(", ") || "—"}`);
+    note("peers", `${peers.length} · ${peers.map((p) => p.nick || p.peerID).join(", ") || "—"}`);
     $peers.set(peers);
-    $state.set({ ...$state.get(), peerCount: peers.length, maxHops: Math.max(0, ...peers.map((p) => p.hops || 0)) });
+    $state.set({ ...$state.get(), peerCount: peers.length });
+    bump();
   }), (e) => note("err", `mesh.peers: ${faultOf(e).code} ${faultOf(e).detail}`)));
   cancels.push(shell.subscribe("mesh.messages", {}, data("mesh.messages")((m) => {
     note("in", `${m.kind === "private" ? "private" : "public"} from ${m.nick || m.fromPeerID}: ${m.text}`);
@@ -201,22 +246,25 @@ export function report(d) {
 function startMock() {
   const me = "you";
   note("mock", "no transport — the deterministic demo is driving this screen");
-  $state.set({ running: true, peerCount: 0, maxHops: 0, myPeerID: me, nick: $state.get().nick || "anon4f2a" });
+  $state.set({ running: true, peerCount: 0, myPeerID: me, nick: $state.get().nick || "anon4f2a" });
   // `?mock=empty` demos the empty state in the eye (no peers, no messages) — so every state is shootable.
   if (typeof location !== "undefined" && /[?&]mock=empty/.test(location.search)) return;
   const seed = () => {
-    note("peers", "2 · anon5aa3/1h, мандрівник/2h");
+    // The SAME shape the bridge sends — { peerID, nick } and nothing else, with peerIDs the length the
+    // transport really uses. A mock richer than the wire is a mock that hides the bug it was meant to show.
+    note("peers", "2 · anon5aa3, мандрівник");
     $peers.set([
-      { peerID: "5aa3", nick: "anon5aa3", hops: 1, lastSeen: Date.now() },
-      { peerID: "0f68", nick: "мандрівник", hops: 2, lastSeen: Date.now() - 8000 },
+      { peerID: "a454fd4358ecdfbd", nick: "anon5aa3" },
+      { peerID: "0f6821b7c93e4a15", nick: "мандрівник" },
     ]);
-    $state.set({ ...$state.get(), peerCount: 2, maxHops: 2 });
+    $state.set({ ...$state.get(), peerCount: 2 });
+    bump();
     $room.set([
-      { id: "m1", from: "5aa3", nick: "anon5aa3", text: "є хтось поруч?", ts: Date.now() - 60000, mine: false },
+      { id: "m1", from: "a454fd4358ecdfbd", nick: "anon5aa3", text: "є хтось поруч?", ts: Date.now() - 60000, mine: false },
       { id: "m2", from: "you", nick: "anon4f2a", text: "є, чую тебе", ts: Date.now() - 40000, mine: true },
-      { id: "m3", from: "0f68", nick: "мандрівник", text: "передайте далі — я за два стрибки", ts: Date.now() - 20000, mine: false },
+      { id: "m3", from: "0f6821b7c93e4a15", nick: "мандрівник", text: "передайте далі, я почув", ts: Date.now() - 20000, mine: false },
     ]);
-    $threads.set({ "5aa3": [
+    $threads.set({ "a454fd4358ecdfbd": [
       { id: "d1", text: "привіт напряму", ts: Date.now() - 30000, mine: false },
       { id: "d2", text: "привіт, шифровано", ts: Date.now() - 25000, mine: true, status: "read" },
     ] });
