@@ -3,15 +3,29 @@
 Paint with motion: the camera's frame-to-frame difference (`/_rt/motion.js`) says where you moved; the app
 splats additive light there and the trails fade. See the header comment in `view.js`.
 
-## Design refresh 2026-09-04
+## The camera: the kit's CamStage (2026-09-07)
+
+flux owns no stream. `/_rt/camstage.js` owns the priming screen, `camera.start` and its retry, the wake lock
+(hence `needs: ["camera", "wakeLock"]`) and the flip; flux gets the playing element through `onVideo` and
+`{ ready, err }` through `onState`. Props: `show={true}` with
+`picClassName="transition-opacity duration-300 opacity-20|opacity-0"` (the stage IS the ghost picture — the
+toggle dims the picture itself, not the stage, which would dim flux's own paint with it),
+`facing="environment"` (never mirrored), `fullscreen={false}` (a fullscreen resize would re-fit and therefore
+WIPE the painting the app exists to save), `gestures={false}` (a tap on a canvas of light is not a focus
+point), `primeFull` (the stage is the picture box, not the whole screen — the priming screen is pinned to
+`.ms-stage` so Enable is never clipped and the state reads as it did before the migration), no `still` (in
+the gate the stage stands aside and the seeded ribbon is the shot).
 
 State map of the main screen (`[data-flux]` prime · live · error, `[data-energy]` 0–100 on the view root):
 
-- `prime` — the black stage with the CameraPrime overlay (enable / settings); no meter.
-- `live` — the paint canvas edge to edge, the ghost video under it at 20 % when on, the motion meter at
-  the top of the frame, the control island floating above the dock: ghost · sound · clear · SAVE.
-- `error` — the stage plus CameraPrime in its denied / unavailable state.
+- `prime` — the black stage with CamStage's priming overlay (enable / settings) over the whole `.ms-stage`
+  (`primeFull`), the control island included; no meter.
+- `live` — the paint canvas edge to edge at `z-[2]` (above the stage's gesture layer), the stage's picture
+  under it at 20 % when the ghost is on, the motion meter `[data-readout]` at the top of the frame, the
+  control island floating above the dock: ghost · sound · clear · SAVE.
+- `error` — the stage plus its priming overlay in the denied / unavailable state.
 - The gate paints a seeded ribbon and a 42 % meter so the shot is populated.
+- `[data-live]` belongs to CamStage (the stage), NOT to the meter — the meter is `[data-readout]`.
 
 What changed and why:
 

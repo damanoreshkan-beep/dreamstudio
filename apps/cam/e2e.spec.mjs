@@ -1,6 +1,6 @@
-// Gate has no camera; enabled=useState(gate)=true, so the console renders with a seeded viewfinder gradient
-// (no getUserMedia under gate). getUserMedia is called directly (torch/zoom need the raw track), so this is
-// not a sensors.js reading app. Filters/aspect/mirror are pure CSS + a canvas capture; no unit math here.
+// Gate has no camera and cam passes no `still`, so the kit's CamStage stands aside and the console renders
+// over its own flat neutral frame (no stream, no priming screen under gate). Filters/aspect/mirror are pure
+// CSS + a canvas capture; no unit math here.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-screen]")) > 0) break; await h.wait(300); } };
 
 export default [

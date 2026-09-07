@@ -1,9 +1,12 @@
-// swarm e2e — the canvas is invisible to every gate, so the truth lives in the [data-live] hud's
+// swarm e2e — the canvas is invisible to every gate, so the truth lives in the [data-readout] hud's
 // dataset mirror: frame/wave/alive prove the reactor runs, shots proves the trigger, and the
 // records sheet proves the routing invariant. The gate fixture is the aim-bot forward-run in
 // view.js; these tests assert its aftermath, never pixels.
+//
+// [data-readout], not [data-live]: the hud lives inside the kit's CamStage now, and the stage stamps
+// its own [data-live] on the element that wraps it — the hud needs a mark of its own to be addressed.
 
-const hud = '[data-swarm] [data-live]';
+const hud = '[data-swarm] [data-readout]';
 const num = (h, name) => h.attr(hud, `data-${name}`).then((v) => +v || 0);
 
 async function until(h, fn, ms = 12000, step = 250) {

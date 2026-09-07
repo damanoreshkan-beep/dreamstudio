@@ -1,15 +1,16 @@
 // Flux (Потік) — paint with motion. The front camera's frame-to-frame difference (/_rt/motion.js, unit-
 // tested) says WHERE you moved; the app splats a soft, additively-blended glow there in the world's own
-// colours, and the trails fade — your movement leaves light. Save the frame as a wallpaper. The gate has no
-// camera and linkedom has no canvas, so both are guarded: in the Chromium gate we paint a deterministic
-// seeded composition (real canvas), in preflight we simply mount the DOM.
+// colours, and the trails fade — your movement leaves light. Save the frame as a wallpaper. The stream is
+// the kit's ONE camera element (/_rt/camstage.js): it owns the priming, the lifecycle and the wake lock and
+// SHOWS the picture itself (the ghost is that picture dimmed); flux owns only the paint. The gate has no
+// camera and linkedom has no canvas, so both are guarded: in the Chromium gate the stage stands aside and we
+// paint a deterministic seeded composition (real canvas), in preflight we simply mount the DOM.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Island } from "/_rt/ui.js";
-import { camera } from "/_rt/sensors.js";
-import { CameraPrime } from "/_rt/camprime.js";
+import { CamStage } from "/_rt/camstage.js";
 import { motionCells, motionEnergy, centroidOf } from "/_rt/motion.js";
 import { createEngine, midiToFreq, filter } from "/_rt/audio.js";
 import { gate } from "/_rt/gate.js";
@@ -44,8 +45,9 @@ export function flux({ S }) {
   const [ghost, setGhost] = useState(true);
   const [sound, setSound] = useState(false);
   const [err, setErr] = useState(null);
-  const [enabled, setEnabled] = useState(gate);   // camera opens only after the user taps Enable (gate auto-on)
-  const videoRef = useRef(), sampleRef = useRef(), paintRef = useRef(), prevRef = useRef(null), rafRef = useRef(0);
+  const [ready, setReady] = useState(false);      // the stage says a picture exists (in the gate: from mount)
+  const [cam, setCam] = useState(null);           // the playing element CamStage hands out
+  const sampleRef = useRef(), paintRef = useRef(), prevRef = useRef(null), rafRef = useRef(0);
   const engRef = useRef(null), oscRef = useRef(null), filtRef = useRef(null), sgainRef = useRef(null), soundRef = useRef(false);
   soundRef.current = sound;
 
@@ -59,16 +61,15 @@ export function flux({ S }) {
     try { const c = paintRef.current, ctx = c?.getContext?.("2d"); if (ctx) paintSeed(ctx, c.width || 360, c.height || 480); } catch { /* no real canvas here */ }
   }, []);
 
-  // live: camera + per-frame motion painting
+  // live: per-frame motion painting off the element the stage is playing
   useEffect(() => {
-    if (gate || !enabled) return;
-    if (!camera.supported) { setErr("unsupported"); return; }
-    let liveFlag = true, stop = () => {};
+    if (!cam) return;
+    let liveFlag = true;
     fit();
     const onResize = () => fit(); addEventListener("resize", onResize);
     const step = () => {
       if (!liveFlag) return;
-      const v = videoRef.current, sc = sampleRef.current, pc = paintRef.current, pctx = pc?.getContext?.("2d");
+      const v = cam, sc = sampleRef.current, pc = paintRef.current, pctx = pc?.getContext?.("2d");
       if (v && sc && pctx && v.readyState >= 2) {
         try {
           const W = 64, H = 48; sc.width = W; sc.height = H;
@@ -105,12 +106,9 @@ export function flux({ S }) {
       }
       rafRef.current = requestAnimationFrame(step);
     };
-    camera.start(videoRef.current, (e) => { if (liveFlag) setErr(e); }, { facingMode: "environment" }).then((s) => {
-      if (!liveFlag) { s(); return; }
-      stop = s; rafRef.current = requestAnimationFrame(step);
-    });
-    return () => { liveFlag = false; cancelAnimationFrame(rafRef.current); removeEventListener("resize", onResize); stop(); };
-  }, [enabled]);
+    rafRef.current = requestAnimationFrame(step);
+    return () => { liveFlag = false; cancelAnimationFrame(rafRef.current); removeEventListener("resize", onResize); prevRef.current = null; };
+  }, [cam]);
 
   const clear = () => { const c = paintRef.current, ctx = c?.getContext?.("2d"); if (ctx) ctx.clearRect(0, 0, c.width, c.height); };
   const save = () => {
@@ -138,17 +136,27 @@ export function flux({ S }) {
   };
   useEffect(() => () => { try { oscRef.current?.stop(); engRef.current?.close(); } catch { /* */ } }, []);
 
-  return html`<div class="ms-stage z-20 bg-base-100 flex flex-col" data-flux=${!enabled ? "prime" : err ? "error" : "live"} data-energy=${Math.round(energy * 100)}>
+  return html`<div class="ms-stage z-20 bg-base-100 flex flex-col" data-flux=${err ? "error" : ready ? "live" : "prime"} data-energy=${Math.round(energy * 100)}>
     ${/* The stage is MEDIA, not a surface: additive light is painted on a black ground (the export fills the
          same black), so the ground stays black in both themes and the meter over it is white ink over a
-         picture — the same rule as a caption over a video frame. */""}
+         picture — the same rule as a caption over a video frame. The kit's CamStage is that media: it shows
+         the picture (the ghost = the same picture dimmed, through `picClassName`) and flux's paint sits above
+         it at z-[2] — above the stage's own gesture layer (z-[1]). The stage is a box of the screen, not the
+         whole one, so `primeFull` pins the priming screen to the .ms-stage the way it was pinned before the
+         migration. No `still`: in the gate the stage stands aside and the seeded
+         ribbon below IS the shot. Neither fullscreen nor gestures: a resize would wipe the painting the app
+         exists to save, and a tap on a canvas of light must not mean focus. */""}
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
-      ${enabled && !err && !gate ? html`<video ref=${videoRef} autoplay muted playsinline class=${`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${ghost ? "opacity-20" : "opacity-0"}`}></video>` : null}
-      <canvas ref=${sampleRef} class="hidden"></canvas>
-      <canvas ref=${paintRef} class="absolute inset-0 w-full h-full"></canvas>
-      ${enabled && !err ? html`<div class="absolute top-3 left-3 right-3 flex items-center pointer-events-none">
-        <div data-live class="h-1.5 flex-1 rounded-full bg-white/15 overflow-hidden"><div class="h-full rounded-full bg-white/70 transition-[width] duration-150" style=${`width:${Math.round(energy * 100)}%`}></div></div>
-      </div>` : null}
+      <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} primeFull
+          facing="environment" still=${null} show=${true} fullscreen=${false} gestures=${false}
+          picClassName=${`transition-opacity duration-300 ${ghost ? "opacity-20" : "opacity-0"}`}
+          onVideo=${(el) => setCam(el)} onState=${(s) => { setReady(!!s.ready); setErr(s.err || null); }}>
+        <canvas ref=${sampleRef} class="hidden"></canvas>
+        <canvas ref=${paintRef} class="absolute inset-0 z-[2] w-full h-full"></canvas>
+        ${ready && !err ? html`<div class="absolute top-3 left-3 right-3 z-[2] flex items-center pointer-events-none">
+          <div data-readout class="h-1.5 flex-1 rounded-full bg-white/15 overflow-hidden"><div class="h-full rounded-full bg-white/70 transition-[width] duration-150" style=${`width:${Math.round(energy * 100)}%`}></div></div>
+        </div>` : null}
+      <//>
     </div>
 
     ${/* The control deck is the kit's Island, floating over the picture, pinned above the dock off the
@@ -166,6 +174,5 @@ export function flux({ S }) {
       <button data-clear aria-label=${T(t, "clear")} data-haptic="bump" onClick=${clear} class="btn btn-ghost btn-sm btn-circle">${Icon("lucide:trash-2", "text-lg")}</button>
       <button data-save aria-label=${T(t, "save")} onClick=${save} class="btn btn-primary btn-sm rounded-full gap-2 px-5">${Icon("lucide:download")}${T(t, "save")}</button>
     <//>
-    ${!enabled || err ? html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} onEnable=${() => setEnabled(true)} onSettings=${() => S.screen.set("perms")} denied=${err === "denied"} unavailable=${err === "unavailable" || err === "unsupported"} />` : null}
   </div>`;
 }

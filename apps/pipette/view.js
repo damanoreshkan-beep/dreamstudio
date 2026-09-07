@@ -1,16 +1,17 @@
 // Eyedropper (Піпетка) — point the rear camera at anything and read the colour under the reticle live:
-// HEX / RGB / HSL, plus the frame's dominant palette. The camera capability (/_rt/sensors.js `camera`) is
-// new to the runtime — this is its first consumer. The pixel maths (average, median-cut palette, HEX/HSL,
-// readable ink) lives in /_rt/colour.js, unit-tested, so it runs in the headless gate on a seeded buffer:
-// the gate has no camera and no canvas, so we never sample a live frame there — we seed the reading and
-// draw the palette as a gradient. Freeze holds a reading; every swatch taps to copy its HEX.
+// HEX / RGB / HSL, plus the frame's dominant palette. The stream is the kit's ONE camera element
+// (/_rt/camstage.js `CamStage`): it owns the priming screen, the lifecycle, the wake lock and the gestures,
+// shows the picture itself (`show`) and hands the playing `<video>` out through `onVideo` — this app only
+// samples it. The pixel maths (average, median-cut palette, HEX/HSL, readable ink) lives in /_rt/colour.js,
+// unit-tested, so it runs in the headless gate on a seeded buffer: the gate has no camera and no canvas, so
+// we never sample a live frame there — the stage stands aside, we seed the reading and draw the palette as a
+// gradient. Freeze holds a reading; every swatch taps to copy its HEX.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { camera } from "/_rt/sensors.js";
 import { avgColor, palette, rgbToHex, rgbToHsl } from "/_rt/colour.js";
-import { CameraPrime } from "/_rt/camprime.js";
+import { CamStage } from "/_rt/camstage.js";
 import { Panel } from "/_rt/ui.js";
 import { gate } from "/_rt/gate.js";
 
@@ -33,36 +34,32 @@ export function pipette({ S }) {
   const seed = useMemo(() => { if (!gate) return null; const pal = palette(seedBuffer(), 5); return { pal, picked: pal[2] || pal[0] }; }, []);
   const [picked, setPicked] = useState(seed ? seed.picked : null);
   const [pal, setPal] = useState(seed ? seed.pal : []);
-  const [err, setErr] = useState(null);
-  const [enabled, setEnabled] = useState(gate);   // camera opens only after the user taps Enable (gate auto-on)
+  const [ready, setReady] = useState(false);
+  const [vid, setVid] = useState(null);           // the stage's playing <video>, handed out by onVideo
   const [frozen, setFrozen] = useState(false);
-  const videoRef = useRef(), canvasRef = useRef(), frozenRef = useRef(false);
+  const canvasRef = useRef(), frozenRef = useRef(false);
   frozenRef.current = frozen;
 
+  // sampling only — the stream is the stage's. In the gate the stage stands aside, `vid` stays null and the
+  // seeded reading above is what the shot shows.
   useEffect(() => {
-    if (gate || !enabled) return;
-    if (!camera.supported) { setErr("unsupported"); return; }
-    let live = true, timer = null, stop = () => {};
+    if (!vid) return;
     const sample = () => {
-      const v = videoRef.current, cv = canvasRef.current;
-      if (!v || !cv || v.readyState < 2 || frozenRef.current) return;
+      const cv = canvasRef.current;
+      if (!cv || vid.readyState < 2 || frozenRef.current) return;
       try {
-        const W = 48, H = Math.max(24, Math.round(48 * ((v.videoHeight || 4) / (v.videoWidth || 3))));
+        const W = 48, H = Math.max(24, Math.round(48 * ((vid.videoHeight || 4) / (vid.videoWidth || 3))));
         cv.width = W; cv.height = H;
         const ctx = cv.getContext("2d", { willReadFrequently: true });
-        ctx.drawImage(v, 0, 0, W, H);
+        ctx.drawImage(vid, 0, 0, W, H);
         const cx = (W >> 1) - 3, cy = (H >> 1) - 3;
         setPicked(avgColor(ctx.getImageData(cx, cy, 6, 6).data));
         setPal(palette(ctx.getImageData(0, 0, W, H).data, 5));
-        setErr(null);
       } catch { /* transient decode / read */ }
     };
-    camera.start(videoRef.current, (e) => { if (live) setErr(e); }).then((s) => {
-      if (!live) { s(); return; }
-      stop = s; timer = setInterval(sample, 150);
-    });
-    return () => { live = false; clearInterval(timer); stop(); };
-  }, [enabled]);
+    const timer = setInterval(sample, 150);
+    return () => clearInterval(timer);
+  }, [vid]);
 
   const copy = async (rgb) => {
     const hex = rgbToHex(rgb);
@@ -77,20 +74,29 @@ export function pipette({ S }) {
   return html`<div class="ms-stage z-20 bg-base-200 flex flex-col">
     <!-- preview -->
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
-      ${enabled && !err && !gate ? html`<video ref=${videoRef} autoplay muted playsinline class="absolute inset-0 w-full h-full object-cover"></video>` : null}
-      ${gate ? html`<div class="absolute inset-0" style=${`background:${grad}`}></div>` : null}
-      <canvas ref=${canvasRef} class="hidden"></canvas>
-      ${/* The reticle KEEPS its rings. They are not a surface hairline on one of our panels — they sit on a
-           live camera frame (foreign content), where a white/dark ring pair is the only thing that stays
-           legible over an arbitrary image. The extrusion cannot do that job: it reads against OUR page tone,
-           and there is no page here. Same reason the theme bans glass on base-* but allows it over video. */""}
-      ${enabled && !err ? html`<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-        <div class="w-16 h-16 rounded-full border-2 border-white/90" style="box-shadow:0 0 0 2px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.35)">
-          <div class="w-full h-full rounded-full flex items-center justify-center">
-            <div class="w-5 h-5 rounded-full border border-white/80" style=${picked ? `background:${hex}` : ""}></div>
+      ${/* `show` — this app READS the picture, it never draws it, so the stage displays the feed itself and
+           the app's own <video> is gone. No fullscreen: a tap that hides the readout would hide the whole
+           point of the app. Gestures stay: the pinch zooms onto a distant surface and the tap focuses what
+           is being sampled. The stage's own layers sit under z-[1], so everything below declares z-[2].
+           `primeFull` — the stage here is only the preview box, but the ask for the camera is about the whole
+           app, so the priming screen is pinned to .ms-stage and covers the readout too, as it did before. */""}
+      <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")}
+          still=${null} show=${true} fullscreen=${false} gestures=${true} primeFull=${true}
+          onVideo=${(el) => setVid(el)} onState=${(s) => setReady(!!s.ready)}>
+        ${gate ? html`<div class="absolute inset-0 z-[2]" style=${`background:${grad}`}></div>` : null}
+        ${/* The reticle KEEPS its rings. They are not a surface hairline on one of our panels — they sit on a
+             live camera frame (foreign content), where a white/dark ring pair is the only thing that stays
+             legible over an arbitrary image. The extrusion cannot do that job: it reads against OUR page tone,
+             and there is no page here. Same reason the theme bans glass on base-* but allows it over video. */""}
+        ${ready ? html`<div class="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
+          <div class="w-16 h-16 rounded-full border-2 border-white/90" style="box-shadow:0 0 0 2px rgba(0,0,0,.45),inset 0 0 0 1px rgba(0,0,0,.35)">
+            <div class="w-full h-full rounded-full flex items-center justify-center">
+              <div class="w-5 h-5 rounded-full border border-white/80" style=${picked ? `background:${hex}` : ""}></div>
+            </div>
           </div>
-        </div>
-      </div>` : null}
+        </div>` : null}
+      <//>
+      <canvas ref=${canvasRef} class="hidden"></canvas>
     </div>
 
     ${/* readout — the kit's Panel: a solid surface in flow (it is a sibling of the preview and shortens it,
@@ -104,7 +110,9 @@ export function pipette({ S }) {
                (a hairline could not: on a light chip in the light theme it vanished). */""}
           <button aria-label=${hex} onClick=${() => picked && copy(picked)} class="w-14 h-14 rounded-2xl shrink-0 sf-raised active:scale-95 transition" style=${picked ? `background:${hex}` : ""}></button>
           <div class="flex-1 min-w-0">
-            <div data-live class="text-2xl font-bold font-mono tabular-nums leading-tight">${hex}</div>
+            ${/* `data-readout`, not `data-live`: the stage stamps `data-live` on itself, and the e2e asserts
+                 there is exactly ONE of each mark. */""}
+            <div data-readout class="text-2xl font-bold font-mono tabular-nums leading-tight">${hex}</div>
             <div class="text-[0.7rem] text-muted font-mono leading-snug truncate">${rgbStr}</div>
             ${hslStr ? html`<div class="text-[0.7rem] text-muted font-mono leading-snug truncate">${hslStr}</div>` : null}
           </div>
@@ -119,6 +127,5 @@ export function pipette({ S }) {
         </div>
       <//>
     </div>
-    ${!enabled || err ? html`<${CameraPrime} loc=${loc} reason=${T(t, "primeReason")} onEnable=${() => setEnabled(true)} onSettings=${() => S.screen.set("perms")} denied=${err === "denied"} unavailable=${err === "unavailable" || err === "unsupported"} />` : null}
   </div>`;
 }

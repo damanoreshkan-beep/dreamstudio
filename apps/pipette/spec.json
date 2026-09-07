@@ -10,7 +10,8 @@
       "label": "tabPick",
       "view": "pipette",
       "needs": [
-        "camera"
+        "camera",
+        "wakeLock"
       ]
     },
     {

@@ -1,13 +1,14 @@
 // The gate has no camera, so the view seeds a decoded string (a link shortener) and runs the real
 // urlsafe.js on it — the safe-preview panel renders populated and deterministically: host + verdict + flags.
-const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-live]")) > 0) break; await h.wait(400); } };
+// `data-readout` is the preview's own mark: CamStage stamps `data-live` on the stage, so the readout carries its own.
+const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-readout]")) > 0) break; await h.wait(400); } };
 
 export default [
   {
     name: "safe preview: host, verdict, flag, actions", run: async (h) => {
       await ready(h);
-      h.expect((await h.count("[data-live]")) === 1, "немає прев'ю");
-      h.expect(/bit\.ly/.test(await h.text("[data-live]")), "хост не показано над URL");
+      h.expect((await h.count("[data-readout]")) === 1, "немає прев'ю");
+      h.expect(/bit\.ly/.test(await h.text("[data-readout]")), "хост не показано над URL");
       h.expect(/Обережно|Caution/i.test(await h.bodyText()), "немає вердикту 'обережно' для скорочувача");
       h.expect(/Скорочене|Shortened/i.test(await h.bodyText()), "немає прапорця про скорочене посилання");
       h.expect((await h.count("[data-open]")) === 1, "немає кнопки Відкрити");
@@ -22,7 +23,7 @@ export default [
       h.expect((await h.count("[data-open]")) === 1, "кнопка Open має бути присутня, але не спрацьовувати сама");
       await h.click("[data-again]"); await h.wait(150);
       h.expect((await h.count("[data-open]")) === 0, "після 'сканувати ще' прев'ю не очистилось");
-      h.expect(/—/.test(await h.text("[data-live]")), "порожній стан не показав плейсхолдер");
+      h.expect(/—/.test(await h.text("[data-readout]")), "порожній стан не показав плейсхолдер");
     },
   },
   {

@@ -46,20 +46,24 @@ cell per material, the way this shader switches.
 
 ## The camera, honestly
 
-- The stream is the kit's lifecycle: `camera.start(video, onErr, { facingMode })` from `/_rt/sensors.js`
-  (`sensors.js:433-455`: `getUserMedia({ video: { facingMode }, audio: false })`, `playsinline`, the stop
-  closure ends every track). Never cold: `CameraPrime` (`/_rt/camprime.js`) is rendered over the stage until
-  the tap on Enable; the caps gate reads `camera` from the sensors import (`SYMBOL_CAPS`,
-  `packages/gates/capabilities.mjs:96-104`) and `needs: ["camera"]` in `spec.json` matches it.
-- The privacy line is overridden (`privacy` + `privacyIcon`), because the built-in one says "processed on the
-  device" and here that is HALF true: the live frames never leave the phone; the ONE frame you shoot is
-  uploaded. Say exactly that.
+- The whole lifecycle is the kit's ONE camera element, `CamStage` (`/_rt/camstage.js`, core ≥ 1.2.50): the
+  priming screen, `camera.start` and its retry, the wake lock, the flip, the torch, the pinch-zoom and the
+  tap-to-focus (its own `camPoint`, its own `data-focus` ring) live there, and it hands the playing element out
+  through `onVideo` — this view only holds `facing`/`torch` and paints what it is given (`show={false}`:
+  `GlStage` draws the frame, the stage displays nothing itself). `fullscreen={false}`: a tap on this stage
+  already means "the developed frame, full size". `still={gate ? mockURL : null}` gives the gate the real path.
+  The caps gate reads `camera` through the element (`SYMBOL_CAPS`, `packages/gates/capabilities.mjs:96-104`)
+  and `needs: ["camera", "wakeLock"]` in `spec.json` matches it.
+- The privacy line is overridden (`privacy` + `privacyIcon="lucide:cloud-upload"`, forwarded to `CameraPrime`
+  by `CamStage` since core 1.2.52), because the built-in one says "processed on the device" and here that is
+  HALF true: the live frames never leave the phone; the ONE frame you shoot is uploaded. Say exactly that
+  (`primePrivacy`, uk + en). `primeFull` stays off: this app's stage IS the full stage, nothing clips Enable.
 - On Android Chrome a portrait phone's track already arrives rotated (`videoWidth < videoHeight`), so the
   shader's cover-fit uses `camAspect.x` as is; the FRONT camera is mirrored in the shader (`vary.w = 1` flips
   `u`) — the way every mirror app does it, and the captured frame is mirrored the same way so the keeper
   matches what the eye saw.
-- Screen stays awake while the mirror runs: `wakeLock.acquire()` (`sensors.js:201-215`), released with the
-  stream. `needs: ["camera", "wakeLock"]`.
+- Screen stays awake while the mirror runs: `CamStage` acquires the wake lock with the stream and releases it
+  with it — the app holds none of its own.
 
 ## The materials — one shader, eleven looks (`lychyna.frag`)
 
@@ -145,9 +149,10 @@ Owner, after a landscape came back as a woman: "це має бути окрем�
 
 ## The gate's camera
 
-The headless gate has no camera. `cam` under `gate` is an `<img>` of `assets/mock.webp` (a 768×1024 portrait
-generated on the pods with Z-Image — our own picture, no licence), marked `data-live` on the stage wrapper (the
-sensor-app rule, `rules/invariants.md`). The same still is what the store captures show, so the Today hero
+The headless gate has no camera. `still={gate ? mockURL : null}` hands `CamStage` our own `assets/mock.webp` (a
+768×1024 portrait generated on the pods with Z-Image, no licence): the element plays the camera's part, fires
+`onVideo` with the `<img>` and stamps `data-live` on the stage (the sensor-app rule, `rules/invariants.md`) — so
+the gate runs the REAL path, not the standby. The same still is what the store captures show, so the Today hero
 shows a real face in a real material.
 
 ## The screen — the state map (rules/design.md, THE PREMIUM BAR)
@@ -162,22 +167,26 @@ strip is ALWAYS live and is the only way back; the row holds one verb in the mid
 
 | state | stage | island row (left · CENTRE · right) | demotes at 412×430 / 360×340 |
 |---|---|---|---|
-| prime | black + `CameraPrime` overlay (reason, honest privacy, Enable) | strip · (row: shutter + flip disabled) | prime overlay compacts by its own rules |
-| live | the camera in the material, `data-live`; pinch = zoom within `caps.zoom`, tap = focus at the point (one ring, `data-focus`) | [torch — only when `caps.torch`] · **SHUTTER** · [flip]; both disabled until the track PLAYS (`data-ready`) | strip 44 px tiles |
+| prime | black + `CamStage`'s priming overlay (reason, honest privacy, Enable) | strip · (row: shutter + flip disabled) | prime overlay compacts by its own rules |
+| live | the camera in the material, `data-live` on the stage; pinch = zoom within `caps.zoom`, tap = focus at the point (one ring, `data-focus`) — all `CamStage`'s | [torch — only when `caps.torch`] · **SHUTTER** · [flip]; both disabled until the stage reports `ready` (`data-ready`) | strip 44 px tiles |
 | working | the frozen frame in the material, breathing (`vary.x`) | [×] · `Проявляю · m:ss` · — | — |
-| done | the keeper `<img>` fades over the frame (`vary.y` bloom); tap on the stage = full view (the gesture layer is above the keeper) | [×4] · **ЗБЕРЕГТИ (big pill)** · [share] | the pill keeps its word |
+| done | the keeper `<img>` fades over the frame (`vary.y` bloom); tap on the stage = full view (`data-keeper-tap`, `z-[2]` over `CamStage`'s gesture layer and above the keeper) | [×4] · **ЗБЕРЕГТИ (big pill)** · [share] | the pill keeps its word |
 | enhancing | the keeper stays, a scan line sweeps it (`.ly-scan`), the material breathes | [×] · `Збільшую · m:ss` · — | — |
 | done · hd | the ×4 keeper replaces the picture (`data-hd`), the old blob freed | [W×H mono] · **ЗБЕРЕГТИ** · [share] | W×H truncates |
 | error | the frozen frame stays in the material; `data-error role=alert` line under the row | — · **СПРОБУВАТИ ЩЕ (big)** · — | — |
 | denied / unavailable | the prime overlay's own states (Open permissions) | strip · — | — |
 
 A material tap in ANY state = the camera in that material (`setMat` → `again()` first: a running keeper is
-cancelled, a developed one let go). No "live again" button exists — the material IS the way back. The flip waits
-for `playing` (a second open while the first camera lets go is the kit's retry, core 1.2.32); the controls are
-`camera.controls(video)` (core 1.2.33): nothing shows that the track does not declare.
+cancelled, a developed one let go). No "live again" button exists — the material IS the way back. The flip is one
+prop (`facing`) on `CamStage`, which waits for `playing` and reopens with the kit's retry; `caps` arrives through
+`onState`: nothing shows that the track does not declare. Off the live mirror `data-keeper-tap` covers the stage's
+gesture layer, so the pinch and the focus ring exist only where they have something to aim at.
+
+The app's own state readout is `data-readout` (phase · material · facing · ready) — `data-live` and `data-ready`
+on the stage belong to `CamStage`, and the e2e reads each from its own element.
 
 Precedents copied: zir (`data-go`/`data-act`/`data-error`, the working readout, save/share via `apk.js`),
-mirage (the style cards, `rework()`), pipette (the camera lifecycle + the seeded gate), vydyvo (wake lock).
+mirage (the style cards, `rework()`), portal (the `CamStage` + own-renderer idiom).
 
 ## UNVERIFIED (the build does not depend on these)
 

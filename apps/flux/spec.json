@@ -3,7 +3,7 @@
   "theme": "signal",
   "category": "creative",
   "tabs": [
-    { "id": "paint", "type": "tool", "icon": "lucide:sparkles", "label": "tabPaint", "view": "flux", "needs": ["camera"] },
+    { "id": "paint", "type": "tool", "icon": "lucide:sparkles", "label": "tabPaint", "view": "flux", "needs": ["camera", "wakeLock"] },
     { "id": "me", "type": "profile", "icon": "lucide:user", "label": "tabMe", "titleKey": "tabMe" }
   ],
   "profile": {

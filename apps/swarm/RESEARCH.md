@@ -31,20 +31,26 @@ against the primary source in this repo (path:line) or by running a command on t
   A game needs relative bearing only — no geolocation permission.
 - `tilt.start(onTilt)` → `{beta, gamma}` degrees, portrait/landscape swapped at 90/270 —
   `sensors.js:196-214`. Same gesture-gated permission as compass (one `request()` covers both).
-- `camera.start(videoEl, onErr, {facingMode:"environment"})` → stop fn; errors
-  `denied|unavailable|unsupported` — `sensors.js:225-244`.
-- Capability math: `camera→camera`, `compass→compass,orientation`, `tilt→orientation`,
-  `wakeLock→wakeLock` (`capabilities.mjs:34-38`). So spec `needs` =
+- The camera is NOT this app's: `CamStage` (`/_rt/camstage.js`, core ≥1.2.50) owns the priming screen,
+  `camera.start` and its retry, the wake lock, the flip and the torch. swarm mounts it with
+  `show` (the stage displays the feed itself), `fullscreen={false}` and `gestures={false}` — the tap
+  and the drag on this stage belong to the game (drag-to-look, the trigger), not to a zoom.
+- Capability math: `CamStage→camera,wakeLock`, `compass→compass,orientation`, `tilt→orientation`
+  (`capabilities.mjs` `SYMBOL_CAPS`). So spec `needs` =
   `["camera","compass","orientation","wakeLock"]`, profile `permissions:["camera"]` (cam's shape,
   `apps/cam/spec.json`).
 
 ## Gate & fixtures
 
 - `gate = isGate || MOCK != null`; isGate = localhost hostname — `packages/runtime/gate.js:1-7`.
-- Camera prime: `enabled = useState(gate)`; effect returns early `if (gate || !enabled)`;
-  `CameraPrime` (`/_rt/camprime.js`) until enabled — the cam/qr/pipette idiom
-  (`apps/cam/view.js:34-37,57-60`). Gate branch renders a synthetic backdrop div
-  (cam: inline radial-gradient — `apps/cam/view.js:143`).
+- Camera prime: CamStage's, not the app's. Under the gate with no `still` the stage STANDS ASIDE —
+  no stream, no priming screen, `ready` reported true — so the app keeps its own deterministic
+  fixture: the gate branch renders the synthetic backdrop div (inline radial-gradient) and the
+  aim-bot forward-run below is what the shot photographs. No mock picture is passed.
+- One tap still primes BOTH native prompts: CamStage forwards the person's tap on Enable through
+  `onEnable` (core ≥1.2.52, called synchronously inside the button's handler, so the iOS gesture
+  context holds) and swarm asks for the orientation permission there — the same place it asked before
+  the migration. Asked ONCE, from that tap only; `arm()` stays the audio context's alone.
 - Seed the GRANTED branch, never the refusal panel (trail's documented failure,
   `apps/trail/view.js:85-90`).
 - Populated screen: in gate the camera heading FOLLOWS the nearest enemy (EMA on state's
@@ -53,8 +59,10 @@ against the primary source in this repo (path:line) or by running a command on t
   hunt's (`apps/hunt/view.js:139-151`): largest scripted-frames K whose aftermath survives 600
   idle frames.
 - `[data-live]` required: preflight fails a sensors-importing app that mounts none
-  (`docs/AUTHORING.md:200-208`). Mirror engine state into `data-*` on the hud — canvas pixels are
-  invisible to every gate (`docs/GATE_BLINDSPOTS.md:187-199`).
+  (`docs/AUTHORING.md:200-208`). CamStage stamps it on the stage, so the hud carries its OWN mark,
+  `[data-readout]` — two `[data-live]` would make the e2e's dataset selector ambiguous. Mirror engine
+  state into `data-*` on the hud — canvas pixels are invisible to every gate
+  (`docs/GATE_BLINDSPOTS.md:187-199`).
 
 ## Full-bleed stage
 
@@ -113,10 +121,11 @@ keys (hunt's full key list is the template). Push → read run-level conclusion 
 
 ## Design refresh 2026-09-04
 
-State map of the stage (`[data-swarm]`, fit): **priming** (CameraPrime over the stage) · **loading**
-(Pixels until the engine is up) · **playing** (`[data-live]` HUD: wave · score · hearts · sound · records ·
-fire) · **over** (`[data-over]`, the restart card) · **engine error** (`[data-err]`) · **records sheet**
-(`#records`, `[data-stat]`).
+State map of the stage (`[data-swarm]`, fit): **priming** (CamStage's own `[data-prime]` over the stage) ·
+**loading** (Pixels until the engine is up) · **playing** (`[data-readout]` HUD: wave · score · hearts ·
+sound · records · fire) · **over** (`[data-over]`, the restart card) · **engine error** (`[data-err]`) ·
+**records sheet** (`#records`, `[data-stat]`). Everything the app draws over the feed lives INSIDE
+`[data-camstage]` at `z-[2]` — the stage's own gesture layer is `z-[1]`.
 
 What changed and why: the label trap ×2 (view.js:345, :361 — `text-[var(--ms-label)]` is a colour to
 Tailwind v4, so the game-over caption and the record captions rendered at body size) and the two viewfinder

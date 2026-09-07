@@ -1,12 +1,13 @@
 // The gate has no camera; the Chromium gate paints a deterministic seeded composition on the canvas and
 // seeds the motion meter, so the shot and these checks see a populated screen. Audio/download not exercised.
-const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-live]")) > 0) break; await h.wait(400); } };
+// The meter is `[data-readout]`, not `[data-live]`: the kit's CamStage stamps `data-live` on the stage itself.
+const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-readout]")) > 0) break; await h.wait(400); } };
 
 export default [
   {
     name: "полотно: meter + керування + canvas", run: async (h) => {
       await ready(h);
-      h.expect((await h.count("[data-live]")) === 1, "немає meter-руху");
+      h.expect((await h.count("[data-readout]")) === 1, "немає meter-руху");
       h.expect((await h.count("canvas")) >= 1, "немає полотна");
       h.expect((await h.count("[data-save]")) === 1, "немає Зберегти");
       h.expect((await h.count("[data-clear]")) === 1, "немає Очистити");

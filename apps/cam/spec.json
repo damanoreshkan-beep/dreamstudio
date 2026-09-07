@@ -3,7 +3,7 @@
   "theme": "signal",
   "category": "creative",
   "tabs": [
-    { "id": "shoot", "type": "tool", "icon": "lucide:camera", "label": "tabShoot", "view": "cam", "needs": ["camera"] },
+    { "id": "shoot", "type": "tool", "icon": "lucide:camera", "label": "tabShoot", "view": "cam", "needs": ["camera", "wakeLock"] },
     { "id": "me", "type": "profile", "icon": "lucide:user", "label": "tabMe", "titleKey": "tabMe" }
   ],
   "profile": {

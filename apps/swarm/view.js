@@ -17,8 +17,8 @@ import { T } from "/_rt/i18n.js";
 import { Sheet } from "/_rt/ui.js";
 import { Pixels } from "/_rt/skeleton.js";
 import { gate } from "/_rt/gate.js";
-import { camera, compass, tilt, wakeLock, haptic } from "/_rt/sensors.js";
-import { CameraPrime } from "/_rt/camprime.js";
+import { compass, tilt, haptic } from "/_rt/sensors.js";
+import { CamStage } from "/_rt/camstage.js";
 import { S, SFX, packInput, decodeEntry, wrapT, lockOn, betterRun } from "/_rt/swarm.js";
 import { renderFrame } from "./render.js";
 import { loadEngine, makeClock, makeSound, GATE_SEED } from "./engine.js";
@@ -58,12 +58,11 @@ export function swarm(props) {
   const soundOn = useStore($sound) === "1";
   const over = useStore($over);
 
-  const [enabled, setEnabled] = useState(gate);
-  const [camErr, setCamErr] = useState(null);
+  const [live, setLive] = useState(false);        // CamStage reports a picture on the stage
   const [ready, setReady] = useState(false);
   const [engErr, setEngErr] = useState("");
 
-  const stage = useRef(null), cv = useRef(null), video = useRef(null), hud = useRef(null);
+  const stage = useRef(null), cv = useRef(null), hud = useRef(null);
   const waveEl = useRef(null), scoreEl = useRef(null), comboEl = useRef(null), hearts = useRef(null);
   const eng = useRef(null), sound = useRef(null);
   const seed = useRef(gate ? GATE_SEED : (Math.random() * 0xffffffff) >>> 0);
@@ -71,27 +70,11 @@ export function swarm(props) {
   const fell = useRef(null), restartRef = useRef(null);
 
   const arm = useCallback(() => { sound.current?.arm(); }, []);
-  const onEnable = useCallback(async () => {
-    // one tap primes BOTH native prompts: orientation (iOS gesture-gated, shared by tilt) here,
-    // the camera inside its own effect once `enabled` flips
-    try { await compass.request(); } catch { /* the game still runs magnetic-less via drag */ }
-    setCamErr(null); setEnabled(true);
-  }, []);
 
-  /* camera: only past the prime tap, never in the gate — the gate renders the training backdrop */
+  /* sensors: heading/pitch are refs — a re-render per compass event would fight the rAF loop for the
+     main thread. The wake lock is CamStage's, held with the stream. */
   useEffect(() => {
-    if (gate || !enabled) return;
-    // the stop fn arrives async; an unmount mid-permission must still release the stream the
-    // moment it opens, so the disposal flag outlives the await
-    let disposed = false, stop = () => {};
-    (async () => { const s = await camera.start(video.current, setCamErr); if (disposed) s(); else stop = s; })();
-    return () => { disposed = true; stop(); };
-  }, [enabled]);
-
-  /* sensors + wake lock: heading/pitch are refs — a re-render per compass event would fight the
-     rAF loop for the main thread */
-  useEffect(() => {
-    if (gate || !enabled) return;
+    if (gate || !live) return;
     // look: raw alpha gimbal-locks with the phone held upright (this app's ONLY grip) and leapt
     // 1°→−300° mid-turn on the reference device — aim must ride the camera axis, not alpha
     const stopC = compass.start((deg) => { headingT.current = deg * 10; }, { trueNorth: false, look: true });
@@ -100,9 +83,8 @@ export function swarm(props) {
       // upright-in-hand is beta≈80; that maps to level aim, tuned on the reference device
       pitchT.current = Math.max(-450, Math.min(450, (beta - 80) * 10));
     });
-    const lock = wakeLock.acquire();
-    return () => { stopC(); stopT(); lock.release(); };
-  }, [enabled]);
+    return () => { stopC(); stopT(); };
+  }, [live]);
 
   /* drag-to-look: the fallback aim (desktop, denied sensors) and a trim on top of the compass.
      Styles/refs only — never state — per pointermove. */
@@ -291,12 +273,22 @@ export function swarm(props) {
     <div class="ms-stage z-20 bg-black overflow-hidden select-none" ref=${stage} data-swarm>
       ${gate ? html`<div class="absolute inset-0" aria-hidden="true"
         style="background:radial-gradient(130% 90% at 50% 18%, #141210, #000000 68%)"></div>` : null}
-      ${enabled && !camErr && !gate ? html`<video ref=${video} autoplay muted playsinline
-        class="absolute inset-0 w-full h-full object-cover" aria-hidden="true"></video>` : null}
-      <canvas ref=${cv} class="absolute inset-0 w-full h-full touch-none" role="img"
+      ${/* the viewfinder is the kit's ONE camera stage: it shows the feed itself (show), and the tap
+           and the pinch stay the GAME's (drag-to-look, the trigger), so its gestures and its
+           fullscreen are off. No `still`: in the gate it stands aside and the training backdrop
+           above plus the seeded forward-run ARE the picture. Everything the app draws over the feed
+           sits at z-[2], above the stage's own gesture layer. */""}
+      ${/* onEnable: the ONE tap arms BOTH native prompts — the camera is the stage's own business, and
+           the orientation permission (iOS gesture-gated, shared by compass and tilt) is asked for from
+           inside that same tap handler, so the gesture context still holds. The game runs
+           magnetic-less via drag if it is refused. */""}
+      <${CamStage} loc=${loc} reason=${T(t, "camReason")} onSettings=${() => A.screen.set("perms")}
+          onEnable=${() => { compass.request().catch(() => {}); }}
+          show=${true} fullscreen=${false} gestures=${false} onState=${(s) => setLive(s.ready)}>
+      <canvas ref=${cv} class="absolute inset-0 z-[2] w-full h-full touch-none" role="img"
         aria-label=${T(t, "screenAlt")} onPointerDown=${arm}></canvas>
 
-      <div ref=${hud} data-live class="absolute inset-0 pointer-events-none p-3 text-white font-mono">
+      <div ref=${hud} data-readout class="absolute inset-0 z-[2] pointer-events-none p-3 text-white font-mono">
         ${/* flex-wrap: the score is unbounded and uk labels run long, so on a narrow stage the
              right cluster WRAPS under the chips instead of sliding past the padding into the
              screen edge — which is exactly what the 505-score shot photographed, and what no
@@ -338,20 +330,17 @@ export function swarm(props) {
         </button>
       </div>
 
-      ${!ready && !engErr ? html`<div class="absolute inset-0 grid place-items-center"><${Pixels} cls="w-full h-full" /></div>` : null}
-      ${engErr ? html`<div class="absolute inset-0 grid place-items-center text-center px-4 text-white/70 text-sm" data-err>${T(t, "noEngine")}</div>` : null}
+      ${!ready && !engErr ? html`<div class="absolute inset-0 z-[2] grid place-items-center"><${Pixels} cls="w-full h-full" /></div>` : null}
+      ${engErr ? html`<div class="absolute inset-0 z-[2] grid place-items-center text-center px-4 text-white/70 text-sm" data-err>${T(t, "noEngine")}</div>` : null}
 
-      ${over ? html`<div class="absolute inset-0 grid place-items-center overflow-hidden bg-black/45" data-over>
+      ${over ? html`<div class="absolute inset-0 z-[2] grid place-items-center overflow-hidden bg-black/45" data-over>
         <button class="sf-raised sf-press active:sf-pressed bg-base-100 rounded-[var(--ms-r)] gap-1 flex flex-col items-center max-w-full max-h-full px-[var(--ms-pad)] py-[calc(var(--ms-pad)*0.7)]"
           onClick=${restart} data-restart>
           <span class=${`${LABEL} text-base-content/70`}>${T(t, "gameOver")}</span>
           <span class="font-mono text-[length:var(--ms-title)]">${T(t, "wave")} ${best?.wave ?? 1}</span>
         </button>
       </div>` : null}
-
-      ${(!enabled || camErr) && !gate ? html`<${CameraPrime} loc=${loc} reason=${T(t, "camReason")}
-        denied=${camErr === "denied"} unavailable=${camErr === "unavailable" || camErr === "unsupported"}
-        onEnable=${onEnable} onSettings=${onEnable} />` : null}
+      <//>
     </div>
 
     ${screen === "records" ? html`<${Sheet} id="records" open=${true} onClose=${() => A.screen.set(null)}

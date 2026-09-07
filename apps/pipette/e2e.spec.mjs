@@ -1,13 +1,15 @@
-// The gate has no camera, so the view seeds a reading from a synthetic frame (real colour.js maths):
-// a picked HEX + a 5-swatch palette render populated and deterministically.
-const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-live]")) > 0) break; await h.wait(400); } };
+// The gate has no camera, so CamStage stands aside (no still) and the view seeds a reading from a synthetic
+// frame (real colour.js maths): a picked HEX + a 5-swatch palette render populated and deterministically.
+// `data-live` is the stage's own mark; the readout carries `data-readout`.
+const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-readout]")) > 0) break; await h.wait(400); } };
 
 export default [
   {
     name: "readout: hex + палітра + приціл", run: async (h) => {
       await ready(h);
-      h.expect((await h.count("[data-live]")) === 1, "немає readout");
-      h.expect(/#[0-9A-F]{6}/.test(await h.text("[data-live]")), "hex не показано");
+      h.expect((await h.count("[data-readout]")) === 1, "немає readout");
+      h.expect(/#[0-9A-F]{6}/.test(await h.text("[data-readout]")), "hex не показано");
+      h.expect((await h.count("[data-camstage]")) === 1, "немає сцени камери");
       h.expect((await h.count("[data-swatch]")) === 5, "немає палітри з 5 кольорів");
       h.expect((await h.count("[data-freeze]")) === 1, "немає кнопки freeze");
     },

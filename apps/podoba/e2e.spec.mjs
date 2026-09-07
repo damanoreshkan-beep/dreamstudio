@@ -26,16 +26,16 @@ export default [
       await h.click('[data-mat="ink"]'); await h.wait(120);
       h.expect(await h.attr('[data-mat="ink"]', "aria-pressed") === "true", "Туш не активна");
       h.expect(await h.attr('[data-mat="lum"]', "aria-pressed") === "false", "Сяйво лишилось активним");
-      h.expect(await h.attr("[data-live]", "data-material") === "ink", "сцена не знає про Туш");
+      h.expect(await h.attr("[data-readout]", "data-material") === "ink", "сцена не знає про Туш");
     },
   },
   {
     name: "перевернути камеру: дзеркало вмикається і вимикається", run: async (h) => {
       await ready(h);
       await h.click("[data-flip]"); await h.wait(120);
-      h.expect(await h.attr("[data-live]", "data-facing") === "user", "фронтальна камера не увімкнулась");
+      h.expect(await h.attr("[data-readout]", "data-facing") === "user", "фронтальна камера не увімкнулась");
       await h.click("[data-flip]"); await h.wait(120);
-      h.expect(await h.attr("[data-live]", "data-facing") === "environment", "задня камера не повернулась");
+      h.expect(await h.attr("[data-readout]", "data-facing") === "environment", "задня камера не повернулась");
     },
   },
   {
@@ -43,7 +43,7 @@ export default [
       await ready(h);
       await develop(h);
       h.expect((await h.count("[data-keeper]")) === 1, "проявлений кадр не зʼявився");
-      h.expect(await h.attr("[data-live]", "data-phase") === "done", "фаза не done");
+      h.expect(await h.attr("[data-readout]", "data-phase") === "done", "фаза не done");
       h.expect((await h.count("[data-act=save]")) === 1 && /Зберегти/.test(await h.text("[data-act=save]")), "немає великої «Зберегти»");
       h.expect((await h.count("[data-act=share]")) === 1 && (await h.count("[data-act=hd]")) === 1, "немає поділитися / ×4");
       h.expect((await h.count("[data-shutter]")) === 0, "затвор лишився під проявленим кадром");
@@ -51,7 +51,7 @@ export default [
       await h.click('[data-mat="smoke"]'); await h.wait(150);
       h.expect((await h.count("[data-keeper]")) === 0, "кадр не зник після вибору матеріалу");
       h.expect((await h.count("[data-shutter]")) === 1, "затвор не повернувся");
-      h.expect(await h.attr("[data-live]", "data-material") === "smoke", "камера не в обраному матеріалі");
+      h.expect(await h.attr("[data-readout]", "data-material") === "smoke", "камера не в обраному матеріалі");
     },
   },
   {
@@ -70,7 +70,7 @@ export default [
     name: "повний розмір відкривається тапом на сцену; Back закриває", run: async (h) => {
       await ready(h);
       await develop(h);
-      await h.click("[data-gestures]"); await h.wait(250);
+      await h.click("[data-keeper-tap]"); await h.wait(250);
       h.expect((await h.count("[data-lightbox]")) === 1, "повний розмір не відкрився");
       await h.back(); await h.wait(300);
       h.expect((await h.count("[data-lightbox]")) === 0, "Back не закрив повний розмір");
