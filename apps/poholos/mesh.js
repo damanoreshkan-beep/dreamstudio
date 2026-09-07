@@ -49,8 +49,10 @@ async function startLive() {
 
 export async function start() {
   if ($state.get().running) return;
-  if (live()) return startLive();
+  // demo FIRST: under the eye/e2e `gate` makes the bridge report present with single-event catalogue mocks,
+  // which would show one stray message. Our own mock paints a full, deterministic conversation instead.
   if (demo()) return startMock();
+  if (live()) return startLive();
   // Honest idle: no transport here (a plain browser, or the APK before the mesh flavour exists). Running,
   // but zero peers and zero messages — the room shows "quiet / no one nearby", which is the truth.
   $state.set({ ...$state.get(), running: true, myPeerID: "", nick: $state.get().nick || "" });

@@ -52,32 +52,62 @@
   }
   </script>
   <style>
-    /* Поголос — the chat surface. Bubbles, the presence pill and the composer, on the kit's tokens so a
-       material re-inks them for free. Nothing here is layout the runtime already owns. */
-    /* A chat fills the screen and pins its composer to the bottom. If the runtime slot is height-constrained
-       (h-full works) that wins; otherwise fall back to the viewport minus the MEASURED chrome the runtime
-       publishes (--hdr-h/--dock-h — never a hand-written pixel), so the composer never floats mid-void. */
-    .ph-wrap{display:flex;flex-direction:column;gap:var(--ms-gap);min-height:0;
+    /* Поголос — a modern mesh chat: a scrolling feed between two glass ISLANDS (presence on top, the
+       composer at the bottom), bubbles with a tail, depth from the kit's surfaces. Everything on the
+       --ms-* tokens and --app-accent so a material re-inks it for free. */
+    .ph-wrap{display:flex;flex-direction:column;gap:calc(var(--ms-gap)*.75);min-height:0;
       height:calc(100svh - var(--hdr-h,56px) - var(--dock-h,64px) - var(--ms-pad,1rem)*2)}
-    /* the presence pill: a pulsing node + the count. Accent when someone is near, muted when alone. */
+
+    /* presence island: a pulsing node + the count, a small glass chip that floats at the top of the feed */
     .ph-near{display:inline-flex;align-items:center;gap:.5rem;font-family:var(--ms-mono,ui-monospace,monospace);
-      font-size:var(--ms-label);letter-spacing:.04em}
-    .ph-dot{width:.5rem;height:.5rem;border-radius:999px;background:var(--app-accent);box-shadow:0 0 0 0 color-mix(in oklch,var(--app-accent) 60%,transparent);animation:ph-pulse 2.4s ease-out infinite}
-    .ph-dot[data-alone="1"]{background:color-mix(in oklch,currentColor 40%,transparent);animation:none;box-shadow:none}
-    @keyframes ph-pulse{0%{box-shadow:0 0 0 0 color-mix(in oklch,var(--app-accent) 55%,transparent)}70%{box-shadow:0 0 0 .5rem transparent}100%{box-shadow:0 0 0 0 transparent}}
+      font-size:var(--ms-label);letter-spacing:.03em;line-height:1}
+    .ph-dot{width:.5rem;height:.5rem;border-radius:999px;background:var(--app-accent);flex:none;
+      box-shadow:0 0 .5rem color-mix(in oklch,var(--app-accent) 70%,transparent);animation:ph-pulse 2.4s ease-out infinite}
+    .ph-dot[data-alone="1"]{background:color-mix(in oklch,currentColor 35%,transparent);animation:none;box-shadow:none}
+    @keyframes ph-pulse{0%{box-shadow:0 0 0 0 color-mix(in oklch,var(--app-accent) 55%,transparent)}70%{box-shadow:0 0 0 .55rem transparent}100%{box-shadow:0 0 0 0 transparent}}
     @media (prefers-reduced-motion:reduce){.ph-dot{animation:none}}
-    /* the message list scrolls; the composer stays put */
-    .ph-feed{display:flex;flex-direction:column;gap:calc(var(--ms-gap)*.6);overflow-y:auto;min-height:0;flex:1}
-    .ph-row{display:flex}
+    .ph-near-sub{opacity:.6}
+
+    /* the feed scrolls between the islands; messages grouped, comfortable rhythm */
+    .ph-feed{display:flex;flex-direction:column;gap:.28rem;overflow-y:auto;min-height:0;flex:1;
+      padding:.2rem .1rem;scrollbar-width:none}
+    .ph-feed::-webkit-scrollbar{display:none}
+    .ph-row{display:flex;max-width:100%}
     .ph-row[data-mine="1"]{justify-content:flex-end}
-    .ph-bubble{max-width:80%;padding:.5rem .75rem;border-radius:var(--ms-r);background:var(--ms-surface,color-mix(in oklch,currentColor 6%,transparent));line-height:1.35}
-    .ph-row[data-mine="1"] .ph-bubble{background:color-mix(in oklch,var(--app-accent) 16%,transparent)}
-    .ph-who{font-family:var(--ms-mono,ui-monospace,monospace);font-size:var(--ms-label);opacity:.7;margin-bottom:.1rem}
-    .ph-sys{align-self:center;font-size:var(--ms-label);opacity:.55;padding:.15rem 0}
-    .ph-meta{font-size:var(--ms-label);opacity:.6;margin-top:.15rem}
-    .ph-composer{display:flex;gap:.5rem;align-items:flex-end}
-    .ph-input{flex:1;min-width:0}
-    .ph-banner{font-size:var(--ms-label);opacity:.75;padding:.35rem .6rem;border-radius:var(--ms-r);background:color-mix(in oklch,var(--app-accent) 10%,transparent)}
+    .ph-row[data-first="1"]{margin-top:.5rem}
+
+    /* the bubble: a small raised surface with a tail on the sender's side */
+    .ph-bubble{position:relative;max-width:80%;padding:.5rem .75rem .4rem;line-height:1.4;
+      border-radius:1.15rem 1.15rem 1.15rem .4rem;
+      background:color-mix(in oklch,var(--base-content,currentColor) 7%,transparent);
+      box-shadow:0 1px 0 color-mix(in oklch,var(--base-content,currentColor) 5%,transparent)}
+    .ph-row[data-mine="1"] .ph-bubble{border-radius:1.15rem 1.15rem .4rem 1.15rem;
+      background:linear-gradient(180deg,color-mix(in oklch,var(--app-accent) 26%,transparent),color-mix(in oklch,var(--app-accent) 17%,transparent))}
+    .ph-who{font-family:var(--ms-mono,ui-monospace,monospace);font-size:var(--ms-label);
+      color:color-mix(in oklch,var(--app-accent) 78%,var(--base-content,currentColor));opacity:.9;margin-bottom:.12rem}
+    .ph-text{white-space:pre-wrap;word-break:break-word}
+    .ph-meta{display:inline-flex;gap:.3rem;align-items:center;float:right;margin:.2rem 0 -.1rem .6rem;
+      font-size:calc(var(--ms-label) * .92);opacity:.55;font-variant-numeric:tabular-nums}
+    .ph-sys{align-self:center;font-size:var(--ms-label);opacity:.5;padding:.3rem 0}
+
+    /* the store/queue banner — a thin accent island line */
+    .ph-banner{display:flex;gap:.45rem;align-items:center;font-size:var(--ms-label);opacity:.85;
+      padding:.4rem .7rem;border-radius:999px;align-self:center;
+      background:color-mix(in oklch,var(--app-accent) 12%,transparent)}
+
+    /* the composer island's field: seamless inside the glass, no double border */
+    .ph-input{flex:1;min-width:0;background:transparent;border:0;outline:0;font:inherit;color:inherit;
+      padding:.15rem .1rem;resize:none}
+    .ph-input::placeholder{color:color-mix(in oklch,currentColor 45%,transparent)}
+    .ph-send{flex:none;display:grid;place-items:center;width:var(--ms-ctl);height:var(--ms-ctl);
+      border-radius:999px;background:var(--app-accent);color:#000;transition:opacity .15s,transform .1s}
+    .ph-send:disabled{opacity:.3}
+    .ph-send:active{transform:scale(.92)}
+
+    /* peer list rows inside the feed */
+    .ph-peer{display:flex;align-items:center;gap:.7rem;width:100%;text-align:left;padding:.6rem .7rem;
+      border-radius:var(--ms-r);background:color-mix(in oklch,var(--base-content,currentColor) 5%,transparent)}
+    .ph-peer:active{background:color-mix(in oklch,var(--base-content,currentColor) 9%,transparent)}
   </style>
 </head>
 <body class="bg-base-200 min-h-dvh">

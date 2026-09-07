@@ -1340,8 +1340,8 @@
     "bg": "#000000",
     "fg": "#4FD6E0",
     "href": "./poholos/",
-    "version": "1.0",
-    "category": "social",
+    "version": "1.1",
+    "category": "tools",
     "needs": [],
     "added": "2026-09-07"
   },
