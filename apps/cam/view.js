@@ -65,6 +65,10 @@ export function cam({ S }) {
   const cycleAspect = () => { buzz(); setAspect((a) => ASPECTS[(ASPECTS.indexOf(a) + 1) % ASPECTS.length]); };
   const flip = () => { buzz(); setTorch(false); setFacing((f) => (f === "environment" ? "user" : "environment")); };
 
+  // front camera is mirrored by default; the toggle inverts it. It is the SAVED frame's property only — the
+  // viewfinder never mirrors (owner, 2026-09-07), so this one value decides both the button and the shot.
+  const showMirror = mirror !== (facing === "user");
+
   const grab = () => {
     const v = videoRef.current; if (!v || !(v.videoWidth > 0)) return;
     try {
@@ -73,7 +77,7 @@ export function cam({ S }) {
       const ar = arOf(aspect); let ow = 1200, oh = Math.round(1200 / ar); if (ar < 1) { oh = 1200; ow = Math.round(1200 * ar); }
       const out = document.createElement("canvas"); out.width = ow; out.height = oh;
       const ctx = out.getContext("2d"); ctx.filter = filterStr();
-      if (mirror || facing === "user") { ctx.translate(ow, 0); ctx.scale(-1, 1); }
+      if (showMirror) { ctx.translate(ow, 0); ctx.scale(-1, 1); }   // the toggle's own state, so the button and the frame can never disagree
       const scale = Math.max(ow / src, oh / src), dw = src * scale, dh = src * scale;
       ctx.drawImage(v, sx, sy, src, src, (ow - dw) / 2, (oh - dh) / 2, dw, dh);
       out.toBlob((blob) => {
@@ -97,7 +101,6 @@ export function cam({ S }) {
   };
   useEffect(() => () => clearInterval(timerRef.current), []);
 
-  const showMirror = mirror !== (facing === "user");   // front camera is mirrored by default; the toggle inverts it
   // No outline on either state: these sit in an sf-inset deck, and theme.css already lifts an
   // `[aria-pressed="true"]` child out of a groove. The signal is the FILL and the extrusion — a hairline on
   // top of that reads as a sticker glued into the well.
@@ -131,13 +134,16 @@ export function cam({ S }) {
                  frame stands in for the feed so the console is shot populated */""}
             ${gate ? html`<div class="absolute inset-0 bg-neutral" aria-hidden="true"></div>` : null}
             ${/* The stage IS the viewfinder: it shows the picture cover-fit and never mirrors it itself. The
-                 console's own look — filter, digital zoom, the mirror toggle — rides on this wrapper, so it
-                 lands on the PICTURE and not on the marks below, which are siblings of the well and stay
-                 unfiltered. `ready` is not decoration: a `filter` or a `transform` here makes this wrapper the
-                 containing block for `position: fixed` descendants, and `primeFull` pins the priming screen to
-                 a fixed `.ms-stage`. Painting the look before there is a frame would drag the Enable button
-                 back into the square well — the very clipping `primeFull` exists to prevent. */""}
-            <div class="absolute inset-0" style=${ready ? `filter:${filterStr()};transform:scale(${zoom.toFixed(3)})${showMirror ? " scaleX(-1)" : ""}` : null}>
+                 console's own look — filter and digital zoom — rides on this wrapper, so it lands on the
+                 PICTURE and not on the marks below, which are siblings of the well and stay unfiltered.
+                 The MIRROR is deliberately not here (owner, 2026-09-07): a mirrored live feed makes people
+                 seasick, so the toggle bakes into the saved frame only (`grab`), and the viewfinder always
+                 shows the world the way it is. `ready` is not decoration: a `filter` or a `transform` here
+                 makes this wrapper the containing block for `position: fixed` descendants, and `primeFull`
+                 pins the priming screen to a fixed `.ms-stage`. Painting the look before there is a frame
+                 would drag the Enable button back into the square well — the very clipping `primeFull`
+                 exists to prevent. */""}
+            <div class="absolute inset-0" style=${ready ? `filter:${filterStr()};transform:scale(${zoom.toFixed(3)})` : null}>
               <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} primeFull
                 facing=${facing} torch=${torch} constraints=${CONSTRAINTS} still=${null} show=${true} fullscreen=${false} gestures=${false}
                 onVideo=${(el) => { videoRef.current = el; }} onState=${(s) => { setCaps(s.caps); setReady(s.ready); }} />
