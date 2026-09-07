@@ -8,7 +8,9 @@ import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Island } from "/_rt/ui.js";
-import { start, sendPublic, sendPrivate, $state, $peers, $room, $threads, $queued } from "./mesh.js";
+import { permRequest } from "/_rt/permissions.js";
+import { shell } from "/_rt/shell.js";
+import { start, sendPublic, sendPrivate, diagnose, report, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const clock = (ts, loc) => new Date(ts).toLocaleTimeString(loc === "uk" ? "uk-UA" : "en-US", { hour: "2-digit", minute: "2-digit" });
@@ -68,12 +70,18 @@ export function room({ S }) {
   const s = useStore($state);
   const msgs = useStore($room);
   const queued = useStore($queued);
+  const fault = useStore($fault);
   useEffect(() => { start(); }, []);
   const feed = autoscroll(msgs.length);
+
+  // A fault outranks the empty state: "no one nearby" is a lie when the radio was never allowed to speak.
+  const Fault = () => fault && html`<div class="ph-banner" data-fault="1">
+    ${Icon("lucide:alert-triangle", "opacity-80")} ${T(t, "faultBanner")}</div>`;
 
   if (msgs.length === 0) return html`<${Fragment}>
     <div class="ph-wrap h-full">
       ${Hero("lucide:radio", s.peerCount === 0 ? T(t, "roomEmptyAlone") : T(t, "roomEmptyPeers", { n: s.peerCount }))}
+      <${Fault} />
       <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => sendPublic(v)} />
     </div>
   <//>`;
@@ -91,7 +99,8 @@ export function room({ S }) {
                 <span class="ph-meta">${clock(m.ts, loc)}</span>
               </div></div>`)}
       </div>
-      ${queued && html`<div class="ph-banner">${Icon("lucide:clock", "opacity-70")} ${T(t, "queuedBanner")}</div>`}
+      <${Fault} />
+      ${queued && !fault && html`<div class="ph-banner">${Icon("lucide:clock", "opacity-70")} ${T(t, "queuedBanner")}</div>`}
       <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => sendPublic(v)} />
     </div>
   <//>`;
@@ -124,6 +133,92 @@ export function dm({ S }) {
       </div>
     </div>
   <//>`;
+}
+
+// ── «Логи» — the one screen that can tell a quiet room from a broken radio ─────────────────────────
+// A mesh fails silently: nothing throws, nobody answers, and an empty room looks exactly like a refused
+// BLUETOOTH_ADVERTISE. So this tab reads every gate between the page and the air, in the order they fail,
+// and hands the whole thing over as one block of text — the only artifact a two-device test produces.
+const VERDICT = { Ok: "ok", Perm: "err", Location: "warn", BtOff: "warn", BtNone: "err", NeedsApp: "warn", Stale: "warn", Fault: "err" };
+
+function verdictOf(d) {
+  if (!d) return null;
+  if (!shell.present) return { key: "NeedsApp" };
+  if (d.meshStart !== "available") return { key: String(d.meshStart).includes("stale") ? "Stale" : "NeedsApp" };
+  if (d.missing && d.missing.length) return { key: "Perm", p: d.missing.join(", ") };
+  if (d.locationOn === false) return { key: "Location" };
+  if (d.ble && typeof d.ble === "object" && d.ble.supported === false) return { key: "BtNone" };
+  if (d.ble && typeof d.ble === "object" && d.ble.on === false) return { key: "BtOff" };
+  if (d.fault) return { key: "Fault", p: `${d.fault.code} ${d.fault.detail}` };
+  return { key: "Ok", id: d.state.myPeerID || "" };
+}
+
+export function logs({ S }) {
+  const t = useStore(S.t);
+  const lines = useStore($log);
+  useStore($fault);                                  // a fault must repaint the verdict, not wait for a tap
+  const [d, setD] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const refresh = () => diagnose().then(setD);
+  useEffect(() => { start().then(refresh); }, []);
+
+  const v = verdictOf(d);
+  const tone = v ? VERDICT[v.key] : "warn";
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(report(d)); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+    catch { /* no clipboard in this WebView — the text below is selectable, which is the fallback */ }
+  };
+  const held = d && d.held && typeof d.held === "object";
+
+  return html`<div data-logs class="ph-wrap h-full overflow-y-auto">
+    ${v && html`<${Island} className="ph-verdict" data-tone=${tone}>
+      <div class="flex items-start gap-2">
+        ${Icon(tone === "ok" ? "lucide:check-circle-2" : "lucide:alert-triangle", "shrink-0 mt-0.5")}
+        <div class="min-w-0 flex-1">
+          <div class="font-medium leading-tight">${T(t, `logsVerdict${v.key}`)}</div>
+          <p class="ph-verdict-sub">${T(t, `logsVerdict${v.key}Sub`, { p: v.p || "", id: v.id || "" })}</p>
+        </div>
+      </div>
+      ${v.key === "Perm" && html`<div class="flex gap-2 mt-2">
+        <button class="btn btn-sm btn-primary rounded-full" onClick=${async () => { await permRequest("mesh"); refresh(); }}>${T(t, "logsAllow")}</button>
+        <button class="btn btn-sm btn-ghost rounded-full" onClick=${() => shell.call("system.settings", {}).catch(() => {})}>${T(t, "logsSettings")}</button>
+      </div>`}
+    <//>`}
+
+    <div class="flex gap-2">
+      <button class="btn btn-sm btn-ghost rounded-full" onClick=${refresh}>${Icon("lucide:refresh-cw")} ${T(t, "logsRefresh")}</button>
+      <button class="btn btn-sm btn-ghost rounded-full" onClick=${copy} disabled=${!d}>
+        ${Icon(copied ? "lucide:check" : "lucide:copy")} ${T(t, copied ? "logsCopied" : "logsCopy")}</button>
+    </div>
+
+    <section class="ph-logsec">
+      <h2 class="ph-logh">${T(t, "logsState")}</h2>
+      <dl class="ph-kv">
+        <dt>${T(t, "logsRowShell")}</dt><dd>${d?.shell || "—"}</dd>
+        <dt>${T(t, "logsRowCap")}</dt><dd>${d?.capability || "—"}</dd>
+        <dt>${T(t, "logsRowAction")}</dt><dd>${d?.meshStart || "—"}</dd>
+        <dt>${T(t, "logsRowHeld")}</dt>
+        <dd>${held ? d.needs.map((p) => html`<span class="ph-perm" data-held=${d.held[p] ? "1" : "0"}>${p.replace("android.permission.", "")} ${T(t, d.held[p] ? "logsYes" : "logsNo")}</span>`) : "—"}</dd>
+        <dt>${T(t, "logsRowLocation")}</dt><dd>${d == null || d.locationOn === null ? "—" : T(t, d.locationOn ? "logsOn" : "logsOff")}</dd>
+        <dt>${T(t, "logsRowBle")}</dt><dd>${d?.ble ? JSON.stringify(d.ble) : "—"}</dd>
+        <dt>${T(t, "logsRowMesh")}</dt><dd>${d?.mesh ? JSON.stringify(d.mesh) : "—"}</dd>
+      </dl>
+    </section>
+
+    <section class="ph-logsec">
+      <h2 class="ph-logh">${T(t, "logsEvents")}</h2>
+      ${lines.length === 0
+        ? html`<p class="ph-logempty">${T(t, "logsEmpty")}</p>`
+        : html`<pre class="ph-pre">${lines.map((l) => `${new Date(l.t).toISOString().slice(11, 19)} ${l.kind.padEnd(5)} ${l.text}`).join("\n")}</pre>`}
+    </section>
+
+    <section class="ph-logsec">
+      <h2 class="ph-logh">${T(t, "logsBridge")}</h2>
+      ${!d?.bridgeLog || d.bridgeLog.length === 0
+        ? html`<p class="ph-logempty">${T(t, "logsEmpty")}</p>`
+        : html`<pre class="ph-pre">${d.bridgeLog.join("\n")}</pre>`}
+    </section>
+  </div>`;
 }
 
 function Thread({ t, loc, peerID }) {

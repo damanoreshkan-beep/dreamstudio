@@ -102,6 +102,7 @@
     .ph-banner{display:flex;gap:.45rem;align-items:center;font-size:var(--ms-label);opacity:.85;
       padding:.4rem .7rem;border-radius:999px;align-self:center;
       background:color-mix(in oklch,var(--app-accent) 12%,transparent)}
+    .ph-banner[data-fault="1"]{background:color-mix(in oklch,var(--color-warning,#d08700) 18%,transparent)}
 
     /* the composer island's field: seamless inside the glass, no double border */
     .ph-input{flex:1;min-width:0;background:transparent;border:0;outline:0;font:inherit;color:inherit;
@@ -116,6 +117,39 @@
     .ph-peer{display:flex;align-items:center;gap:.7rem;width:100%;text-align:left;padding:.6rem .7rem;
       border-radius:var(--ms-r);background:color-mix(in oklch,var(--base-content,currentColor) 5%,transparent)}
     .ph-peer:active{background:color-mix(in oklch,var(--base-content,currentColor) 9%,transparent)}
+
+    /* «Логи» — a diagnostic screen, so it is plain and dense on purpose: the verdict is the only thing
+       wearing colour, and colour here is meaning (ok / warn / err), never decoration. */
+    .ph-verdict{--vt:var(--color-success,var(--app-accent))}
+    .ph-verdict[data-tone="warn"]{--vt:var(--color-warning,#d08700)}
+    .ph-verdict[data-tone="err"]{--vt:var(--color-error,#e11d48)}
+    .ph-verdict{border:1px solid color-mix(in oklch,var(--vt) 42%,transparent)}
+    .ph-verdict > div > iconify-icon{color:var(--vt)}
+    .ph-verdict-sub{font-size:var(--ms-label);line-height:1.45;margin-top:.15rem;
+      color:color-mix(in oklch,currentColor 62%,transparent);word-break:break-word}
+
+    /* this tab scrolls the page itself, so the last block has to clear the dock — the MEASURED token,
+       never a hand-written height (a literal here is right until the dock moves, then silently wrong) */
+    [data-logs]{padding-bottom:calc(var(--dock-h) + 1.5rem)}
+    /* min-width:0 or a long log line makes the flex item refuse to shrink and the PAGE scrolls sideways */
+    .ph-logsec{display:flex;flex-direction:column;gap:.4rem;min-width:0}
+    .ph-logh{font-family:var(--ms-mono,ui-monospace,monospace);font-size:var(--ms-label);
+      letter-spacing:.08em;text-transform:uppercase;opacity:.55}
+    .ph-logempty{font-size:var(--ms-label);opacity:.5}
+
+    /* the state table: a label column that cannot squeeze the value out of view */
+    .ph-kv{display:grid;grid-template-columns:minmax(6rem,auto) 1fr;gap:.3rem .7rem;font-size:var(--ms-label)}
+    .ph-kv dt{opacity:.55}
+    .ph-kv dd{min-width:0;word-break:break-word;font-family:var(--ms-mono,ui-monospace,monospace)}
+    .ph-perm{display:inline-block;margin:0 .3rem .25rem 0;padding:.1rem .4rem;border-radius:.4rem;
+      background:color-mix(in oklch,var(--base-content,currentColor) 8%,transparent)}
+    .ph-perm[data-held="0"]{background:color-mix(in oklch,var(--color-error,#e11d48) 20%,transparent)}
+
+    /* raw log text: wide lines scroll INSIDE the block, never the page */
+    .ph-pre{max-height:19rem;overflow:auto;padding:.6rem .7rem;border-radius:var(--ms-r);
+      background:color-mix(in oklch,var(--base-content,currentColor) 6%,transparent);
+      font-family:var(--ms-mono,ui-monospace,monospace);font-size:calc(var(--ms-label) * .95);
+      line-height:1.5;white-space:pre;-webkit-user-select:text;user-select:text}
   </style>
 </head>
 <body class="bg-base-200 min-h-dvh">

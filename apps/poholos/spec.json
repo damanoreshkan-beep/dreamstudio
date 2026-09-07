@@ -19,6 +19,13 @@
       "view": "dm"
     },
     {
+      "id": "logs",
+      "type": "tool",
+      "icon": "lucide:activity",
+      "label": "tabLogs",
+      "view": "logs"
+    },
+    {
       "id": "me",
       "type": "profile",
       "icon": "lucide:user",
@@ -32,7 +39,10 @@
     "lang": true,
     "install": true,
     "account": "any",
-    "apk": "mesh"
+    "apk": "mesh",
+    "permissions": [
+      "mesh"
+    ]
   },
   "added": "2026-09-07"
 }

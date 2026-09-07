@@ -12,7 +12,7 @@
 
 ---
 
-**Screens** Поруч · Особисті  ·  **Capabilities** —  ·  **Offline** yes  ·  **Installable** yes
+**Screens** Поруч · Особисті · Логи  ·  **Capabilities** —  ·  **Offline** yes  ·  **Installable** yes
 
 Part of the **[microspec farm](../../)** — an AI-authored, gated micro-PWA. Every screen is accessible,
 responsive, installable and offline by construction. Browse the whole set from the **[store](../store/)**.
