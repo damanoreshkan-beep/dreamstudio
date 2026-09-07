@@ -58,7 +58,6 @@
   "nearOne": "1 nearby",
   "nearMany": "{n} nearby",
   "fieldSearching": "Listening to the air. Whoever opens Poholos nearby appears here.",
-  "fieldNote": "A place on the field is an identity — not a distance, not a direction.",
   "roomEmptyAlone": "Quiet. The moment someone comes within range, the word starts here.",
   "roomEmptyPeers": "{n} nearby. Say the first word.",
   "queuedBanner": "No one nearby. It will go out as soon as someone appears.",

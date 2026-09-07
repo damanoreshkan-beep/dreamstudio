@@ -1327,11 +1327,13 @@
     "screens": {
       "uk": [
         "Поруч",
-        "Особисті"
+        "Особисті",
+        "Логи"
       ],
       "en": [
         "Nearby",
-        "Direct"
+        "Direct",
+        "Logs"
       ]
     },
     "shots": [
@@ -1340,7 +1342,7 @@
     "bg": "#000000",
     "fg": "#4FD6E0",
     "href": "./poholos/",
-    "version": "1.1",
+    "version": "1.8",
     "category": "tools",
     "needs": [],
     "added": "2026-09-07"

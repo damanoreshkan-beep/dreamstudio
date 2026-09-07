@@ -41,14 +41,51 @@ const faultOf = (e) => ({ code: (e && e.code) || ERR.failed, detail: (e && (e.de
 // moment the rate moves (tide's lesson, its .frag says the same).
 const env = { scan: 0, presence: 0, pulse: 0, alone: 1, last: 0 };
 
-/** A stable point on the field for an identity — NOT a position in the room. */
+/** A stable point on the field for an identity — NOT a position in the room. Unit space: [x, y] in
+ *  -1..1 with y DOWN (the DOM's way), plus the node's own breathing phase. */
 export function siteOf(peerID) {
   let h = 2166136261;
   for (let i = 0; i < peerID.length; i++) { h ^= peerID.charCodeAt(i); h = Math.imul(h, 16777619); }
   const a = ((h >>> 0) % 3600) / 3600 * Math.PI * 2;        // angle from the hash
-  const rad = 0.30 + (((h >>> 11) & 255) / 255) * 0.30;      // ring between .30 and .60
+  const rad = 0.55 + (((h >>> 11) & 255) / 255) * 0.45;      // ring between .55 and 1 of the field radius
   const ph = ((h >>> 19) & 255) / 255;                       // its own breathing phase
-  return [Math.cos(a) * rad, Math.sin(a) * rad, 1, ph];
+  return [Math.cos(a) * rad, Math.sin(a) * rad, ph];
+}
+
+// ── ONE layout, TWO renderers ────────────────────────────────────────────────────────────────────
+// The chips live in the field's box (measured by the view, never assumed — it moves with the chrome and
+// the split shapes); the shader draws in viewport uv (origin at the viewport centre, unit = min(w,h),
+// y UP). Both must agree to the pixel, so the layout is done ONCE here in box pixels and converted for
+// the shader — the first cut let each side derive its own and the wells sat a hundred pixels from the
+// chips. `points[0]` is ME: the sweep and the ripple leave from it, and it is never drawn as a well.
+export const fieldBox = { x: 0, y: 0, w: 0, h: 0 };
+/** Pixel centre and radius of the field's layout circle, from the measured box. */
+export function fieldGeom() {
+  const R = Math.min(fieldBox.w, fieldBox.h) * 0.44;
+  return { cx: fieldBox.x + fieldBox.w / 2, cy: fieldBox.y + fieldBox.h / 2, R };
+}
+/** Viewport pixels of a node — the same numbers the chip is placed at. */
+export function placeOf(peerID) {
+  const [x, y] = siteOf(peerID);
+  const { cx, cy, R } = fieldGeom();
+  return { px: cx + x * R, py: cy + y * R };
+}
+const toUv = (px, py) => {
+  const vw = innerWidth, vh = innerHeight, m = Math.min(vw, vh);
+  return [(px - vw / 2) / m, (vh / 2 - py) / m];
+};
+
+/** GlStage `points`: [me, …one per neighbour], flat [x,y,z,w, …] in viewport uv, capped at the kit's eight. */
+export function sites() {
+  if (!fieldBox.w) return [];
+  const { cx, cy } = fieldGeom();
+  const out = [...toUv(cx, cy), 0, 0];                       // slot 0 = the origin, z = 0: not a well
+  for (const p of $peers.get().slice(0, 7)) {
+    const id = p.peerID || "";
+    const { px, py } = placeOf(id);
+    out.push(...toUv(px, py), 1, siteOf(id)[2]);
+  }
+  return out;
 }
 
 /** An event just happened — the field answers with one ripple. */
@@ -68,12 +105,6 @@ export function field() {
   return [env.presence, env.scan, env.pulse, env.alone];
 }
 
-/** GlStage `points`: one well per neighbour, flat [x,y,z,w, …], capped at the kit's eight. */
-export function sites() {
-  const out = [];
-  for (const p of $peers.get().slice(0, 8)) out.push(...siteOf(p.peerID || ""));
-  return out;
-}
 
 const live = () => shell.present && shell.has("mesh.start");
 // The mock is ONLY for the eye and e2e (gate) and an explicit ?mock/?demo — NEVER a real browser or an APK
@@ -247,8 +278,11 @@ function startMock() {
   const me = "you";
   note("mock", "no transport — the deterministic demo is driving this screen");
   $state.set({ running: true, peerCount: 0, myPeerID: me, nick: $state.get().nick || "anon4f2a" });
-  // `?mock=empty` demos the empty state in the eye (no peers, no messages) — so every state is shootable.
-  if (typeof location !== "undefined" && /[?&]mock=empty/.test(location.search)) return;
+  // `?mock=empty` demos the empty state in the eye (no peers, no messages); `?mock=peers` the field with
+  // neighbours and no words yet — so every state of the map is shootable, not just the two easy ones.
+  const q = typeof location !== "undefined" ? location.search : "";
+  if (/[?&]mock=empty/.test(q)) return;
+  const peersOnly = /[?&]mock=peers/.test(q);
   const seed = () => {
     // The SAME shape the bridge sends — { peerID, nick } and nothing else, with peerIDs the length the
     // transport really uses. A mock richer than the wire is a mock that hides the bug it was meant to show.
@@ -259,6 +293,7 @@ function startMock() {
     ]);
     $state.set({ ...$state.get(), peerCount: 2 });
     bump();
+    if (peersOnly) return;
     $room.set([
       { id: "m1", from: "a454fd4358ecdfbd", nick: "anon5aa3", text: "є хтось поруч?", ts: Date.now() - 60000, mine: false },
       { id: "m2", from: "you", nick: "anon4f2a", text: "є, чую тебе", ts: Date.now() - 40000, mine: true },

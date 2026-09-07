@@ -52,25 +52,48 @@
        layer so the glass islands and the chips read ON the field instead of under it. A positioned child
        with z-index:1 is the whole mechanism — the canvas needs no clipping and no stacking context. */
     [data-near] > *:not(canvas){position:relative;z-index:1}
-    .ph-field{position:relative;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:center}
+    .ph-field{position:relative;flex:1;min-height:0;display:flex;align-items:flex-end;justify-content:center;
+      container-type:size}
+    /* the split shapes: the field is ~200px tall, so the centre keeps its ring and drops its word, and the
+       chips lose their breathing ring — demotion, never deletion: every node is still there and tappable */
+    @container (max-height:280px){
+      .ph-site-me .ph-site-label{display:none}
+      .ph-site-dot::after{display:none}
+      .ph-site{gap:.3rem}
+    }
     .ph-sites{position:absolute;inset:0}
+    /* a node chip: the point the shader draws, then the name on a sliver of glass so it stays legible over
+       the sweep. Hairline ring, no fill, no glow blob — the field's language is lines. */
     .ph-site{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;
-      align-items:center;gap:.15rem;padding:.3rem;border-radius:.9rem;text-align:center;
-      transition:transform .12s}
-    .ph-site:active{transform:translate(-50%,-50%) scale(.93)}
-    .ph-site-dot{width:.7rem;height:.7rem;border-radius:999px;background:var(--app-accent);
-      box-shadow:0 0 .9rem color-mix(in oklch,var(--app-accent) 70%,transparent)}
-    .ph-site-name{font-size:var(--ms-label);line-height:1.2;max-width:6rem;overflow:hidden;
+      align-items:center;gap:.45rem;padding:0;text-align:center;transition:transform .12s;
+      -webkit-tap-highlight-color:transparent}
+    .ph-site:active{transform:translate(-50%,-50%) scale(.94)}
+    .ph-site-dot{position:relative;width:.42rem;height:.42rem;border-radius:999px;background:var(--app-accent)}
+    .ph-site-dot::after{content:"";position:absolute;inset:-.5rem;border-radius:999px;
+      border:1px solid color-mix(in oklch,var(--app-accent) 55%,transparent);
+      animation:ph-ring 2.8s ease-in-out infinite}
+    @keyframes ph-ring{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.18);opacity:.45}}
+    @media (prefers-reduced-motion:reduce){.ph-site-dot::after{animation:none}}
+    .ph-site-label{display:flex;flex-direction:column;align-items:center;gap:.05rem;
+      padding:.28rem .6rem;border-radius:999px;
+      background:color-mix(in oklch,var(--color-base-100,#000) 62%,transparent);
+      -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+      border:1px solid color-mix(in oklch,var(--base-content,currentColor) 12%,transparent)}
+    .ph-site-name{font-size:var(--ms-label);line-height:1.2;max-width:7rem;overflow:hidden;
       text-overflow:ellipsis;white-space:nowrap}
-    .ph-site-id{font-family:var(--ms-mono,ui-monospace,monospace);font-size:calc(var(--ms-label) * .85);
-      opacity:.5;letter-spacing:.05em}
+    .ph-site-id{font-family:var(--ms-mono,ui-monospace,monospace);font-size:calc(var(--ms-label) * .8);
+      letter-spacing:.08em;color:color-mix(in oklch,var(--base-content,currentColor) 55%,transparent)}
     /* me: the centre is not a place either — it is simply where this device stands in its own field */
-    .ph-site-me .ph-site-dot{background:transparent;box-shadow:none;
-      border:1px solid color-mix(in oklch,var(--base-content,currentColor) 45%,transparent)}
-    .ph-site-me .ph-site-name{opacity:.55}
-    .ph-field-note{position:relative;z-index:1;margin:0 0 .6rem;padding:0 1rem;text-align:center;
-      font-size:var(--ms-label);line-height:1.4;
-      color:color-mix(in oklch,var(--base-content,currentColor) 60%,transparent)}
+    .ph-site-me{gap:.25rem}
+    .ph-site-me .ph-site-dot{background:transparent;width:.5rem;height:.5rem;
+      border:1px solid color-mix(in oklch,var(--base-content,currentColor) 55%,transparent)}
+    .ph-site-me .ph-site-dot::after{display:none}
+    .ph-site-me .ph-site-label{background:transparent;border-color:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+    .ph-site-me .ph-site-name{color:color-mix(in oklch,var(--base-content,currentColor) 60%,transparent);
+      font-family:var(--ms-mono,ui-monospace,monospace);letter-spacing:.06em}
+    .ph-field-note{margin:0 0 .5rem;padding:0 1.25rem;text-align:center;
+      font-size:var(--ms-label);line-height:1.45;
+      color:color-mix(in oklch,var(--base-content,currentColor) 62%,transparent)}
 
     /* the empty-state hero — dead-centre of the area, a soft accent glyph over the line */
     .ph-hero{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;

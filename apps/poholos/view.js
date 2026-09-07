@@ -11,7 +11,7 @@ import { Island } from "/_rt/ui.js";
 import { permRequest } from "/_rt/permissions.js";
 import { shell } from "/_rt/shell.js";
 import { GlStage } from "/_rt/glstage.js";
-import { start, sendPublic, sendPrivate, diagnose, report, field, sites, siteOf, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
+import { start, sendPublic, sendPrivate, diagnose, report, field, sites, placeOf, fieldGeom, fieldBox, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // A timestamp the transport did not send is nothing, never "Invalid Date": a bubble that shows the string
@@ -66,24 +66,45 @@ function Presence({ t }) {
 // rendered into the DOM and were invisible in the shot.
 function Field({ t, peers, onPeer }) {
   const s = useStore($state);
+  const ref = useRef(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  // The box is MEASURED, and re-measured whenever it moves: the chrome above and below it changes with
+  // the density step and the split shapes, and a chip placed from an assumed box lands under the composer.
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const read = () => {
+      const r = el.getBoundingClientRect();
+      Object.assign(fieldBox, { x: r.left, y: r.top, w: r.width, h: r.height });
+      setBox({ w: r.width, h: r.height });
+    };
+    read();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(read) : null;
+    ro?.observe(el);
+    addEventListener("resize", read);
+    return () => { ro?.disconnect(); removeEventListener("resize", read); };
+  }, []);
+  const at = (px, py) => `left:${px - fieldBox.x}px;top:${py - fieldBox.y}px`;
+  const { cx, cy } = fieldGeom();
   return html`<div class="ph-field" data-peers=${peers.length}>
-    <div class="ph-sites">
-      ${peers.slice(0, 8).map((p) => {
-        const [x, y] = siteOf(p.peerID || "");
-        return html`<button key=${p.peerID} class="ph-site"
-          style=${`left:${50 + x * 62}%;top:${50 + y * 62}%`}
+    <div class="ph-sites" ref=${ref}>
+      ${box.w > 0 && peers.slice(0, 7).map((p) => {
+        const { px, py } = placeOf(p.peerID || "");
+        return html`<button key=${p.peerID} class="ph-site" style=${at(px, py)}
           onClick=${() => onPeer(p.peerID)}>
           <span class="ph-site-dot"></span>
-          <span class="ph-site-name">${p.nick || p.peerID.slice(0, 6)}</span>
-          <span class="ph-site-id">${(p.peerID || "").slice(0, 4)}</span>
+          <span class="ph-site-label">
+            <span class="ph-site-name">${p.nick || p.peerID.slice(0, 6)}</span>
+            <span class="ph-site-id">${(p.peerID || "").slice(0, 4)}</span>
+          </span>
         </button>`;
       })}
-      <div class="ph-site ph-site-me" style="left:50%;top:50%">
+      <div class="ph-site ph-site-me" style=${box.w > 0 ? at(cx, cy) : "left:50%;top:50%"}>
         <span class="ph-site-dot"></span>
-        <span class="ph-site-name">${T(t, "you")}</span>
+        <span class="ph-site-label"><span class="ph-site-name">${T(t, "you")}</span></span>
       </div>
     </div>
-    <p class="ph-field-note">${T(t, s.peerCount === 0 ? "fieldSearching" : "fieldNote")}</p>
+    ${/* one line while the field is empty — the kit's Empty shape; once people are here the field is self-evident and carries no caption */""}
+    ${s.peerCount === 0 && html`<p class="ph-field-note">${T(t, "fieldSearching")}</p>`}
   </div>`;
 }
 
