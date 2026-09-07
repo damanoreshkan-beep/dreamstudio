@@ -48,13 +48,17 @@ async function startLive() {
   // (ShellBridge.withPermissions). So a refused BLUETOOTH_ADVERTISE looks exactly like an empty room:
   // the node starts, nothing is transmitted, nothing fails. Read back what the OS actually held.
   await checkHeld();
-  cancels.push(shell.subscribe("mesh.peers", {}, (list) => {
+  // EVERY subscribe is answered with a control frame — `stream(id, ackFrame())` runs before any logic, so
+  // the first thing each of these three streams delivers is `{ack:true}`, not data. Taking it for data put
+  // an empty "Invalid Date" bubble in the room and, worse, reset the neighbour count to zero on `peers`.
+  const data = (name) => (fn) => (v) => { if (v && v.ack !== undefined) return note("ack", name); if (v) fn(v); };
+  cancels.push(shell.subscribe("mesh.peers", {}, data("mesh.peers")((list) => {
     const peers = list?.peers || [];
     note("peers", `${peers.length} · ${peers.map((p) => `${p.nick}/${p.hops}h`).join(", ") || "—"}`);
     $peers.set(peers);
     $state.set({ ...$state.get(), peerCount: peers.length, maxHops: Math.max(0, ...peers.map((p) => p.hops || 0)) });
-  }, (e) => note("err", `mesh.peers: ${faultOf(e).code} ${faultOf(e).detail}`)));
-  cancels.push(shell.subscribe("mesh.messages", {}, (m) => {
+  }), (e) => note("err", `mesh.peers: ${faultOf(e).code} ${faultOf(e).detail}`)));
+  cancels.push(shell.subscribe("mesh.messages", {}, data("mesh.messages")((m) => {
     note("in", `${m.kind === "private" ? "private" : "public"} from ${m.nick || m.fromPeerID}: ${m.text}`);
     if (m.kind === "private") {
       const t = $threads.get()[m.fromPeerID] || [];
@@ -62,14 +66,14 @@ async function startLive() {
     } else {
       $room.set([...$room.get(), { id: m.msgId, from: m.fromPeerID, nick: m.nick, text: m.text, ts: m.ts, mine: false }]);
     }
-  }, (e) => note("err", `mesh.messages: ${faultOf(e).code} ${faultOf(e).detail}`)));
-  cancels.push(shell.subscribe("mesh.receipts", {}, (r) => {
+  }), (e) => note("err", `mesh.messages: ${faultOf(e).code} ${faultOf(e).detail}`)));
+  cancels.push(shell.subscribe("mesh.receipts", {}, data("mesh.receipts")((r) => {
     note("rcpt", `${r.msgId} → ${r.state}`);
     for (const [pid, arr] of Object.entries($threads.get())) {
       const i = arr.findIndex((x) => x.id === r.msgId);
       if (i >= 0) { const copy = arr.slice(); copy[i] = { ...copy[i], status: r.state }; $threads.setKey(pid, copy); }
     }
-  }, (e) => note("err", `mesh.receipts: ${faultOf(e).code} ${faultOf(e).detail}`)));
+  }), (e) => note("err", `mesh.receipts: ${faultOf(e).code} ${faultOf(e).detail}`)));
 }
 
 // What the OS actually granted, versus what the mesh capability rests on. A missing one is THE fault:
