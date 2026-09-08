@@ -314,14 +314,14 @@ export function logs({ S }) {
       <h2 class="ph-logh">${T(t, "logsEvents")}</h2>
       ${lines.length === 0
         ? html`<p class="ph-logempty">${T(t, "logsEmpty")}</p>`
-        : html`<pre class="ph-pre">${lines.map((l) => `${new Date(l.t).toISOString().slice(11, 19)} ${l.kind.padEnd(5)} ${l.text}`).join("\n")}</pre>`}
+        : html`<pre class="ph-pre" tabindex="0" role="group" aria-label=${T(t, "logsEvents")}>${lines.map((l) => `${new Date(l.t).toISOString().slice(11, 19)} ${l.kind.padEnd(5)} ${l.text}`).join("\n")}</pre>`}
     </section>
 
     <section class="ph-logsec">
       <h2 class="ph-logh">${T(t, "logsBridge")}</h2>
       ${!d?.bridgeLog || d.bridgeLog.length === 0
         ? html`<p class="ph-logempty">${T(t, "logsEmpty")}</p>`
-        : html`<pre class="ph-pre">${d.bridgeLog.join("\n")}</pre>`}
+        : html`<pre class="ph-pre" tabindex="0" role="group" aria-label=${T(t, "logsBridge")}>${d.bridgeLog.join("\n")}</pre>`}
     </section>
   </div>`;
 }
