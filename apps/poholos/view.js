@@ -254,7 +254,7 @@ export function dm({ S }) {
   const threads = useStore($threads);
   const seen = useStore($seen);
   const open = useStore($peer);
-  useEffect(() => { start(); }, []);
+  useEffect(() => { start().then(ensureNick); }, []);
 
   if (open) return Thread({ t, loc, peerID: open });
 
@@ -311,7 +311,7 @@ export function logs({ S }) {
   const [d, setD] = useState(null);
   const [copied, setCopied] = useState(false);
   const refresh = () => diagnose().then(setD);
-  useEffect(() => { start().then(refresh); }, []);
+  useEffect(() => { start().then(() => { ensureNick(); refresh(); }); }, []);
 
   const v = verdictOf(d);
   const tone = v ? VERDICT[v.key] : "warn";
