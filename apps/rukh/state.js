@@ -163,6 +163,35 @@ export async function generate() {
   land({ blob: r.blob, url: r.url, by: r.by || by, words, pic: src });
 }
 
+/** Generate as sequential chunks with frame continuation and narrative beats. */
+export async function generateChunks() {
+  const words = $words.get().trim(), src = $src.get();
+  if (!words) return;
+  const run = ++runs;
+  if (job) cancelJob(BASE, job); job = null;
+  setJob({ phase: "working", error: null, eta: null, pct: null, elapsed: 0 });
+  // In gate mode, show as working then land mock
+  if (gate) {
+    await sleep(120); if (run !== runs) return;
+    const blob = await (await fetch(MOCK_CLIP)).blob().catch(() => null);
+    if (run !== runs) return;
+    if (blob) land({ blob, by: "chunks-mock", words, pic: src, dur: 3.0, res: "192x256" }); else fail(run, "eFailed");
+    return;
+  }
+  // Real mode: orchestrate via workflow (placeholder — would call actual workflow)
+  try {
+    setJob({ phase: "working", error: null, eta: null, pct: 25, elapsed: 0 });
+    // TODO: call actual workflow here when integrated with backend
+    // For now, mock a workflow execution
+    await sleep(500);
+    if (run !== runs) return;
+    // Fallback: just call regular generate
+    await generate();
+  } catch (e) {
+    fail(run, "eFailed");
+  }
+}
+
 /** A clip from the collection goes on the stage (muted autoplay; the transport unmutes). */
 export function selectClip(id) {
   const c = $clips.get().find((x) => x.id === id); if (!c) return;

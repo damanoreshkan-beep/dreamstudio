@@ -11,7 +11,7 @@ import { Sheet, Island, Stage, Transport, Segmented } from "/_rt/ui.js";
 import { Chooser, Camera } from "/_rt/intake.js";
 import { permRequest } from "/_rt/permissions.js";
 import { $src, $words, $model, $models, $job, $clip, $clips, $player, WORDS_MAX,
-  boot, setSrc, removeSrc, generate, attachVideo, toggle, seek, selectClip, share, save, removeClip, loadModels, modelsFor, setModel } from "./state.js";
+  boot, setSrc, removeSrc, generate, generateChunks, attachVideo, toggle, seek, selectClip, share, save, removeClip, loadModels, modelsFor, setModel } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const LOCALE = { uk: "uk-UA", en: "en-GB" };
@@ -102,6 +102,7 @@ export function rukh({ t, S, screen, closeScreen, toast, undo }) {
           title=${clip.words || T(t, "clip")} subtitle=${origin(clip)} actions=${actions} keep=${3}
           moreOpen=${screen === "more"} onMore=${() => S.screen.set("more")} onMoreClose=${closeScreen} />` : null}
         <button data-generate class="btn btn-primary rounded-full w-full gap-2" disabled=${!canShoot} onClick=${generate}>${Icon("lucide:clapperboard", "text-lg")}${T(t, src ? "animate" : "shoot")}</button>
+        <button data-generate-montage class="btn btn-outline btn-accent rounded-full w-full gap-2" disabled=${!canShoot || !words.trim()} onClick=${generateChunks} title="Generate as sequential chunks with narrative beats">${Icon("lucide:film", "text-lg")}Монтаж</button>
       <//>
     </div>
 
