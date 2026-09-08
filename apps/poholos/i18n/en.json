@@ -35,6 +35,7 @@
   "logsAllow": "Allow",
   "logsSettings": "Settings",
   "logsRefresh": "Refresh",
+  "rescan": "Rescan",
   "logsCopy": "Copy all",
   "logsCopied": "Copied",
   "logsState": "State",

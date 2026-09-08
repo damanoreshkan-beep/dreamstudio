@@ -11,7 +11,7 @@ import { Island } from "/_rt/ui.js";
 import { permRequest } from "/_rt/permissions.js";
 import { shell } from "/_rt/shell.js";
 import { GlStage } from "/_rt/glstage.js";
-import { start, sendPublic, sendPrivate, diagnose, report, field, sites, placeOf, fieldGeom, fieldBox, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
+import { start, rescan, sendPublic, sendPrivate, diagnose, report, field, sites, placeOf, fieldGeom, fieldBox, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // A timestamp the transport did not send is nothing, never "Invalid Date": a bubble that shows the string
@@ -47,10 +47,16 @@ function accent() {
 function Presence({ t }) {
   const s = useStore($state);
   const alone = s.peerCount === 0;
-  return html`<${Island} className="self-start !py-1.5 !px-3 rounded-full">
-    <div class="ph-near">
-      <span class="ph-dot" data-alone=${alone ? "1" : "0"}></span>
-      <span>${near(t, s.peerCount)}</span>
+  return html`<${Island} className="self-start !py-1 !pl-3 !pr-1 rounded-full">
+    <div class="flex items-center gap-1.5">
+      <div class="ph-near">
+        <span class="ph-dot" data-alone=${alone ? "1" : "0"}></span>
+        <span>${near(t, s.peerCount)}</span>
+      </div>
+      <button class="btn btn-ghost btn-xs btn-circle" aria-label=${T(t, "rescan")}
+        title=${T(t, "rescan")} onClick=${() => { rescan(); bump(); }}>
+        ${Icon("lucide:refresh-cw", "text-[0.9rem]")}
+      </button>
     </div>
   <//>`;
 }

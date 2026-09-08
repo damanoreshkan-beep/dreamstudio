@@ -181,6 +181,22 @@ export async function start() {
 }
 export function stop() { cancels.forEach((c) => c && c()); cancels = []; }
 
+// Manual rescan: when the app is backgrounded the WebView pauses and the
+// mesh.peers/messages subscriptions can die silently — on return $peers is
+// stuck empty and the room reads "no one nearby" though neighbours are calling.
+// Only a full app restart re-subscribed; this does the same without it —
+// drop the streams, clear the stale view, and start() again (re-subscribe,
+// and re-issue mesh.start so a live transport re-arms its scan).
+export async function rescan() {
+  note("rescan", "manual restart of the mesh transport");
+  stop();
+  $peers.set([]);
+  $fault.set(null);
+  $state.set({ ...$state.get(), running: false, peerCount: 0 });
+  bump();
+  await start();
+}
+
 export async function setNick(nick) {
   $state.set({ ...$state.get(), nick });
   if (live()) await shell.call("mesh.setNick", { name: nick });
