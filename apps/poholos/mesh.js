@@ -181,20 +181,42 @@ export async function start() {
 }
 export function stop() { cancels.forEach((c) => c && c()); cancels = []; }
 
-// Manual rescan: when the app is backgrounded the WebView pauses and the
-// mesh.peers/messages subscriptions can die silently — on return $peers is
-// stuck empty and the room reads "no one nearby" though neighbours are calling.
-// Only a full app restart re-subscribed; this does the same without it —
-// drop the streams, clear the stale view, and start() again (re-subscribe,
-// and re-issue mesh.start so a live transport re-arms its scan).
+// Manual rescan: when the app is backgrounded a while, Android throttles/stops the native BLE scan while
+// the mesh SERVICE object stays alive — so on return the room reads "no one nearby" though neighbours are
+// calling. The catch is native `mesh.start` is IDEMPOTENT: MeshLayer.start() early-returns when its
+// BluetoothMeshService already exists (`if (svc == null)` — edge/template/app/src/mesh/.../MeshLayer.java),
+// so a second `mesh.start` never re-`startServices()` and never re-arms the scanner. Only a FULL app
+// restart cleared it, because the process death nulled that service. So the transport must be torn DOWN
+// first: `mesh.stop` nulls the native service, then start()→mesh.start rebuilds it and re-arms scan +
+// advertise. Cancelling the page subscriptions alone (stop()) was never enough.
 export async function rescan() {
   note("rescan", "manual restart of the mesh transport");
-  stop();
+  stop();                                    // drop the page's streams (also cancels the native subscriptions)
+  if (live()) {
+    // Tear the native transport down so the next mesh.start is not a no-op and truly re-arms the scanner.
+    note("call", "mesh.stop");
+    try { const r = await shell.call("mesh.stop", {}); note("ok", `mesh.stop → running ${r?.running}`); }
+    catch (e) { const f = faultOf(e); note("err", `mesh.stop: ${f.code} ${f.detail}`); }
+  }
   $peers.set([]);
   $fault.set(null);
   $state.set({ ...$state.get(), running: false, peerCount: 0 });
   bump();
   await start();
+}
+
+// Backgrounding is what kills the scan (doze / background-scan throttling), and the page gets no signal
+// that it died — mesh.state still reports running because the native service object is alive. So the one
+// honest trigger the page HAS is return-to-foreground: rescan then, which tears the transport down and
+// rebuilds it (above). Live transport only — under the mock/gate/browser this would reset the screen for
+// nothing. Registered once at import; guarded for preflight (no document).
+if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && live() && $state.get().running) {
+      note("wake", "foreground — rescanning the mesh transport");
+      rescan();
+    }
+  });
 }
 
 export async function setNick(nick) {
