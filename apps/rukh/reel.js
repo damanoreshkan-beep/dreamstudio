@@ -1,5 +1,6 @@
-// Рух · монтаж — one prompt becomes a SEQUENCE of clips that continue each other (owner 2026-09-08: "щоб прям
-// брався останній кадр якісний і продовжувався… але кусками").
+// Рух · montage — one prompt becomes a SEQUENCE of clips that continue each other: the owner asked for the
+// last good frame of each chunk to carry into the next one, in pieces rather than as a single long take
+// (2026-09-08).
 //
 // The chain is strictly serial by construction: chunk N needs the last frame of chunk N-1, so nothing here can
 // be parallelised, and the storyboard exists precisely to make that wait legible — every chunk shows its own
@@ -22,8 +23,9 @@ import { report } from "/_rt/telemetry.js";
 
 const BASE = `${VPS_PROXY}/video`;
 const SCENARIO = `${VPS_PROXY}/scenario`;
-/** What one call to the pool actually returns; the pools are measured at 2.0–3.5 s (edge/video.js). */
-export const CHUNK_SEC = 3;
+/** The chunk (owner, 2026-09-08: no more than two seconds). The edge clamps to the same number and writes
+ *  it into the Space's own Duration control where the row has one; see `CHUNK_MAX_SEC` in edge/video.js. */
+export const CHUNK_SEC = 2;
 /** The lengths the owner can pick, in seconds. */
 export const LENGTHS = [15, 30, 60];
 const MIN_CLIP_BYTES = 4096;
@@ -140,7 +142,7 @@ export async function runReel({ prompt, firstFrame = "", locale = "en" }) {
       let beatEn;
       try { beatEn = await toEnglish(beat); } catch { setChunk(i, { status: "error" }); carry = ""; continue; }
       if (run !== runs) return;
-      const body = { prompt: beatEn, ...(carry ? { image: carry } : {}) };
+      const body = { prompt: beatEn, seconds: CHUNK_SEC, ...(carry ? { image: carry } : {}) };
       const id = await startJob(BASE, body);
       if (run !== runs) { cancelJob(BASE, id); return; }
       live = id;
