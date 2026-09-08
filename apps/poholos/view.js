@@ -44,18 +44,18 @@ function accent() {
 }
 
 // ── presence: the one honest number, a glass chip that floats atop the feed ────────────────────────
-function Presence({ t }) {
+function Presence({ t, tone = "glass" }) {
   const s = useStore($state);
   const alone = s.peerCount === 0;
-  return html`<${Island} className="self-start !py-1 !pl-3 !pr-1 rounded-full">
-    <div class="flex items-center gap-1.5">
+  return html`<${Island} tone=${tone} className="self-start !py-1.5 !pl-3 !pr-1.5 rounded-full">
+    <div class="flex items-center gap-2">
       <div class="ph-near">
         <span class="ph-dot" data-alone=${alone ? "1" : "0"}></span>
         <span>${near(t, s.peerCount)}</span>
       </div>
-      <button class="btn btn-ghost btn-xs btn-circle" aria-label=${T(t, "rescan")}
+      <button class="ph-rescan" aria-label=${T(t, "rescan")}
         title=${T(t, "rescan")} onClick=${() => { rescan(); bump(); }}>
-        ${Icon("lucide:refresh-cw", "text-[0.9rem]")}
+        ${Icon("lucide:refresh-cw")}
       </button>
     </div>
   <//>`;
@@ -115,10 +115,10 @@ function Field({ t, peers, onPeer }) {
 }
 
 // ── the composer, a floating island at the bottom ──────────────────────────────────────────────────
-function Composer({ t, placeholder, onSend }) {
+function Composer({ t, placeholder, onSend, tone = "glass" }) {
   const [text, setText] = useState("");
   const send = () => { const v = text.trim(); if (!v) return; onSend(v); setText(""); };
-  return html`<${Island} className="!py-2 !px-3 rounded-[1.6rem]">
+  return html`<${Island} tone=${tone} className="ph-composer !py-2 !px-2.5">
     <div class="flex items-end gap-2">
       <textarea class="ph-input" rows="1" value=${text} placeholder=${placeholder} spellcheck="false"
         onInput=${(e) => { setText(e.currentTarget.value); e.currentTarget.style.height = "auto"; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 96) + "px"; }}
@@ -170,10 +170,10 @@ export function room({ S }) {
            are lifted to z-1 in head.html, which is the layer the glass islands need to stay readable. */""}
       <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
         seed=${0.37} ink=${accent} vary=${field} points=${sites} />
-      <${Presence} t=${t} />
+      <${Presence} t=${t} tone="frost" />
       <${Field} t=${t} peers=${peers} onPeer=${(id) => { $peer.set(id); S.tab.set("dm"); }} />
       <${Fault} />
-      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
+      <${Composer} t=${t} tone="frost" placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
     </div>
   <//>`;
 
@@ -184,7 +184,7 @@ export function room({ S }) {
            are lifted to z-1 in head.html, which is the layer the glass islands need to stay readable. */""}
       <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
         seed=${0.37} ink=${accent} vary=${field} points=${sites} />
-      <${Presence} t=${t} />
+      <${Presence} t=${t} tone="frost" />
       <div class="ph-feed" ref=${feed}>
         ${msgs.map((m, i) => m.sys
           ? html`<div key=${m.id} class="ph-sys">${m.text}</div>`
@@ -197,7 +197,7 @@ export function room({ S }) {
       </div>
       <${Fault} />
       ${queued && !fault && html`<div class="ph-banner">${Icon("lucide:clock", "opacity-70")} ${T(t, "queuedBanner")}</div>`}
-      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
+      <${Composer} t=${t} tone="frost" placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
     </div>
   <//>`;
 }
@@ -219,12 +219,12 @@ export function dm({ S }) {
   return html`<${Fragment}>
     <div class="ph-wrap h-full">
       <${Presence} t=${t} />
-      <div class="ph-feed">
-        ${peers.map((p) => html`<button key=${p.peerID} class="ph-peer" onClick=${() => $peer.set(p.peerID)}>
+      <div class="ph-feed ph-list">
+        ${peers.map((p) => html`<button key=${p.peerID} class="ph-peer sf-raised sf-e2 sf-press" onClick=${() => $peer.set(p.peerID)}>
           <span class="ph-dot"></span>
-          <span class="flex-1 min-w-0"><span class="block truncate">${p.nick}</span>
-            <span class="ph-meta !float-none !m-0 !opacity-60 font-mono">${(p.peerID || "").slice(0, 8)}</span></span>
-          ${Icon("lucide:chevron-right", "text-muted shrink-0 opacity-60")}
+          <span class="flex-1 min-w-0"><span class="ph-peer-nick truncate">${p.nick}</span>
+            <span class="ph-peer-id font-mono">${(p.peerID || "").slice(0, 8)}</span></span>
+          ${Icon("lucide:chevron-right", "ph-peer-chev shrink-0")}
         </button>`)}
       </div>
     </div>

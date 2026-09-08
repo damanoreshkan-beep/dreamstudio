@@ -17,29 +17,42 @@
     .ph-dot[data-alone="1"]{background:color-mix(in oklch,var(--base-content,currentColor) 35%,transparent);animation:none;box-shadow:none}
     @keyframes ph-pulse{0%{box-shadow:0 0 0 0 color-mix(in oklch,var(--app-accent) 55%,transparent)}70%{box-shadow:0 0 0 .55rem transparent}100%{box-shadow:0 0 0 0 transparent}}
     @media (prefers-reduced-motion:reduce){.ph-dot{animation:none}}
-    .ph-near-sub{opacity:.6}
+    .ph-near-sub{color:var(--color-base-muted)}
+    /* the rescan control lives inside the presence pill — a comfortable circular tap target (36px), never
+       the 24px btn-xs it was, which sat under the tap floor. Ghost by default; the press is a pressed well. */
+    .ph-rescan{flex:none;display:grid;place-items:center;width:2.25rem;height:2.25rem;border-radius:999px;
+      color:var(--color-base-content);opacity:.7;transition:opacity .15s,transform .1s;-webkit-tap-highlight-color:transparent}
+    .ph-rescan:hover{opacity:1}
+    .ph-rescan:active{transform:rotate(-40deg) scale(.9);opacity:1}
+    .ph-rescan iconify-icon{font-size:1.05rem}
 
     /* the feed scrolls between the islands; messages grouped, comfortable rhythm */
     .ph-feed{display:flex;flex-direction:column;gap:.28rem;overflow-y:auto;min-height:0;flex:1;
       padding:.2rem .1rem;scrollbar-width:none}
     .ph-feed::-webkit-scrollbar{display:none}
+    /* the DM peer list reuses the feed, but raised cards need room to read as separate surfaces — a 4.5px
+       chat gap merges their extrusions. This is the roomy list rhythm, with a little top air under the chip. */
+    .ph-feed.ph-list{gap:var(--ms-gap);padding-top:.5rem}
     .ph-row{display:flex;max-width:100%}
     .ph-row[data-mine="1"]{justify-content:flex-end}
     .ph-row[data-first="1"]{margin-top:.5rem}
 
-    /* the bubble: a small raised surface with a tail on the sender's side */
-    .ph-bubble{position:relative;max-width:80%;padding:.5rem .75rem .4rem;line-height:1.4;
+    /* the bubble: a tinted message surface with a tail on the sender's side. It carries no hand-rolled shadow
+       (the material's job) — the incoming bubble is a neutral ink tint, the outgoing one wears the app hue as
+       a FLAT tint (colour = "mine", not decoration; the old vertical gradient was decorative and is gone). */
+    .ph-bubble{position:relative;max-width:80%;padding:.45rem .7rem .38rem;line-height:1.4;
       border-radius:1.15rem 1.15rem 1.15rem .4rem;
-      background:color-mix(in oklch,var(--base-content,currentColor) 7%,transparent);
-      box-shadow:0 1px 0 color-mix(in oklch,var(--base-content,currentColor) 5%,transparent)}
+      background:color-mix(in oklch,var(--base-content,currentColor) 9%,transparent)}
     .ph-row[data-mine="1"] .ph-bubble{border-radius:1.15rem 1.15rem .4rem 1.15rem;
-      background:linear-gradient(180deg,color-mix(in oklch,var(--app-accent) 26%,transparent),color-mix(in oklch,var(--app-accent) 17%,transparent))}
-    .ph-who{font-family:var(--ms-mono,ui-monospace,monospace);font-size:var(--ms-label);
-      color:color-mix(in oklch,var(--app-accent) 78%,var(--base-content,currentColor));opacity:.9;margin-bottom:.12rem}
+      background:color-mix(in oklch,var(--app-accent) 22%,transparent)}
+    /* the sender's handle: MUTED INK mono, never the accent — accent as text is a bright cyan on paper that
+       fails contrast in the light theme, and it is a MARK colour, not a text colour. */
+    .ph-who{font-family:var(--ms-mono,ui-monospace,monospace);font-size:var(--ms-label);letter-spacing:.03em;
+      color:var(--color-base-muted);margin-bottom:.15rem}
     .ph-text{white-space:pre-wrap;word-break:break-word}
-    .ph-meta{display:inline-flex;gap:.3rem;align-items:center;float:right;margin:.2rem 0 -.1rem .6rem;
-      font-size:calc(var(--ms-label) * .92);opacity:.55;font-variant-numeric:tabular-nums}
-    .ph-sys{align-self:center;font-size:var(--ms-label);opacity:.5;padding:.3rem 0}
+    .ph-meta{display:inline-flex;gap:.3rem;align-items:center;float:right;margin:.25rem 0 -.05rem .6rem;
+      font-size:calc(var(--ms-label) * .95);color:var(--color-base-muted);font-variant-numeric:tabular-nums}
+    .ph-sys{align-self:center;font-size:var(--ms-label);color:var(--color-base-muted);padding:.3rem 0}
 
     /* ── the field of who is within earshot ──────────────────────────────────────────────────────
        The WebGL stage draws the sweep and one well per node; these chips are the SAME nodes in the DOM,
@@ -82,26 +95,25 @@
     .ph-site-name{font-size:var(--ms-label);line-height:1.2;max-width:7rem;overflow:hidden;
       text-overflow:ellipsis;white-space:nowrap}
     .ph-site-id{font-family:var(--ms-mono,ui-monospace,monospace);font-size:calc(var(--ms-label) * .8);
-      letter-spacing:.08em;color:color-mix(in oklch,var(--base-content,currentColor) 55%,transparent)}
+      letter-spacing:.08em;color:var(--color-base-muted)}
     /* me: the centre is not a place either — it is simply where this device stands in its own field */
     .ph-site-me{gap:.25rem}
     .ph-site-me .ph-site-dot{background:transparent;width:.5rem;height:.5rem;
       border:1px solid color-mix(in oklch,var(--base-content,currentColor) 55%,transparent)}
     .ph-site-me .ph-site-dot::after{display:none}
     .ph-site-me .ph-site-label{background:transparent;border-color:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
-    .ph-site-me .ph-site-name{color:color-mix(in oklch,var(--base-content,currentColor) 60%,transparent);
+    .ph-site-me .ph-site-name{color:var(--color-base-muted);
       font-family:var(--ms-mono,ui-monospace,monospace);letter-spacing:.06em}
-    .ph-field-note{margin:0 0 .5rem;padding:0 1.25rem;text-align:center;
-      font-size:var(--ms-label);line-height:1.45;
-      color:color-mix(in oklch,var(--base-content,currentColor) 62%,transparent)}
+    .ph-field-note{margin:0 auto .25rem;max-width:22rem;padding:0 1.25rem;text-align:center;
+      font-size:var(--ms-label);line-height:1.5;color:var(--color-base-muted)}
 
     /* the empty-state hero — dead-centre of the area, a soft accent glyph over the line */
     .ph-hero{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
       gap:1rem;text-align:center;padding:1.5rem}
     .ph-hero-glyph{display:grid;place-items:center;width:4.5rem;height:4.5rem;border-radius:999px;font-size:2rem;
       color:var(--app-accent);background:color-mix(in oklch,var(--app-accent) 12%,transparent);
-      box-shadow:0 0 2.5rem color-mix(in oklch,var(--app-accent) 22%,transparent)}
-    .ph-hero-text{max-width:17rem;line-height:1.5;color:color-mix(in oklch,var(--base-content,currentColor) 65%,transparent)}
+      box-shadow:0 0 1.75rem color-mix(in oklch,var(--app-accent) 16%,transparent)}
+    .ph-hero-text{max-width:17rem;line-height:1.5;color:var(--color-base-muted)}
 
     /* the store/queue banner — a thin accent island line */
     .ph-banner{display:flex;gap:.45rem;align-items:center;font-size:var(--ms-label);opacity:.85;
@@ -112,16 +124,21 @@
     /* the composer island's field: seamless inside the glass, no double border */
     .ph-input{flex:1;min-width:0;background:transparent;border:0;outline:0;font:inherit;color:inherit;
       padding:.15rem .1rem;resize:none}
-    .ph-input::placeholder{color:color-mix(in oklch,var(--base-content,currentColor) 45%,transparent)}
+    .ph-input::placeholder{color:var(--color-base-muted)}
     .ph-send{flex:none;display:grid;place-items:center;width:var(--ms-ctl);height:var(--ms-ctl);
       border-radius:999px;background:var(--app-accent);color:#000;transition:opacity .15s,transform .1s}
     .ph-send:disabled{opacity:.3}
     .ph-send:active{transform:scale(.92)}
 
-    /* peer list rows inside the feed */
-    .ph-peer{display:flex;align-items:center;gap:.7rem;width:100%;text-align:left;padding:.6rem .7rem;
-      border-radius:var(--ms-r);background:color-mix(in oklch,var(--base-content,currentColor) 5%,transparent)}
-    .ph-peer:active{background:color-mix(in oklch,var(--base-content,currentColor) 9%,transparent)}
+    /* peer list rows — each is the page EXTRUDED (the kit's raised card material, sf-raised sf-e2), not a flat
+       tint box: a tinted rectangle reads as a drop-shadowed panel, which is the look the neumorphic material
+       replaced. sf-press gives the pressed well on tap. The row only owns its layout here. */
+    .ph-peer{display:flex;align-items:center;gap:.7rem;width:100%;text-align:left;
+      padding:.7rem .8rem;border-radius:var(--ms-r);transition:box-shadow .15s,background-color .15s}
+    .ph-peer-nick{display:block;font-weight:500}
+    .ph-peer-id{display:block;margin-top:.05rem;font-size:var(--ms-label);letter-spacing:.06em;
+      color:var(--color-base-muted)}
+    .ph-peer-chev{color:var(--color-base-muted)}
 
     /* «Логи» — a diagnostic screen, so it is plain and dense on purpose: the verdict is the only thing
        wearing colour, and colour here is meaning (ok / warn / err), never decoration. */
@@ -131,7 +148,7 @@
     .ph-verdict{border:1px solid color-mix(in oklch,var(--vt) 42%,transparent)}
     .ph-verdict > div > iconify-icon{color:var(--vt)}
     .ph-verdict-sub{font-size:var(--ms-label);line-height:1.45;margin-top:.15rem;
-      color:color-mix(in oklch,var(--base-content,currentColor) 62%,transparent);word-break:break-word}
+      color:var(--color-base-muted);word-break:break-word}
 
     /* this tab scrolls the page itself, so the last block has to clear the dock — the MEASURED token,
        never a hand-written height (a literal here is right until the dock moves, then silently wrong) */
@@ -139,17 +156,17 @@
     /* min-width:0 or a long log line makes the flex item refuse to shrink and the PAGE scrolls sideways */
     .ph-logsec{display:flex;flex-direction:column;gap:.4rem;min-width:0}
     .ph-logh{font-family:var(--ms-mono,ui-monospace,monospace);font-size:var(--ms-label);
-      letter-spacing:.08em;text-transform:uppercase;opacity:.55}
-    .ph-logempty{font-size:var(--ms-label);opacity:.5}
+      letter-spacing:.08em;text-transform:uppercase;color:var(--color-base-muted)}
+    .ph-logempty{font-size:var(--ms-label);color:var(--color-base-muted)}
 
     /* the state table: a label column that cannot squeeze the value out of view */
     .ph-kv{display:grid;grid-template-columns:minmax(6rem,auto) 1fr;gap:.3rem .7rem;font-size:var(--ms-label)}
-    .ph-kv dt{opacity:.55}
+    .ph-kv dt{color:var(--color-base-muted)}
     .ph-kv dd{min-width:0;word-break:break-word;font-family:var(--ms-mono,ui-monospace,monospace)}
     .ph-perm{display:inline-block;margin:0 .3rem .25rem 0;padding:.1rem .4rem;border-radius:.4rem;
       background:color-mix(in oklch,var(--base-content,currentColor) 8%,transparent)}
     .ph-perm[data-held="0"]{background:color-mix(in oklch,var(--color-error,#e11d48) 20%,transparent)}
-    .ph-capsraw{display:block;margin-top:.2rem;opacity:.5;word-break:break-all}
+    .ph-capsraw{display:block;margin-top:.2rem;color:var(--color-base-muted);word-break:break-all}
 
     /* raw log text: wide lines scroll INSIDE the block, never the page */
     .ph-pre{max-height:19rem;overflow:auto;padding:.6rem .7rem;border-radius:var(--ms-r);
