@@ -395,9 +395,11 @@ async function loadSource(url, append = false, hint = "") {
   try {
     await sessionsReady;                                   // the saved sessions, before the first fetch decides anonymous or not
     const cookie = sessionFor(url);                        // your session for this site → the page is yours, not the server's
+    // x-ms-egress:pl routes this fetch through the reel's own pinned Poland pod (open-reel), not the shared
+    // main egress — the tube serves the real page from Poland, and the pod never drifts to a refused US exit.
     const r = await (cookie
-      ? fetch(`${VPS_PROXY}/videos`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url, cookie }) })
-      : fetch(`${VPS_PROXY}/videos?url=${encodeURIComponent(url)}`));
+      ? fetch(`${VPS_PROXY}/videos`, { method: "POST", headers: { "content-type": "application/json", "x-ms-egress": "pl" }, body: JSON.stringify({ url, cookie }) })
+      : fetch(`${VPS_PROXY}/videos?url=${encodeURIComponent(url)}`, { headers: { "x-ms-egress": "pl" } }));
     const d = await r.json();
     if (g !== gen) return;                                   // you already moved on — never inject into the new feed
     // ephemeral (signed, poster-only) is known BEFORE cleaning → require a poster so no-poster clips (dead
