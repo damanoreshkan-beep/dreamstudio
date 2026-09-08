@@ -17,6 +17,7 @@ import { atom } from "nanostores";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
+import { toEnglish } from "/_rt/translate.js";
 import { report } from "/_rt/telemetry.js";
 
 const BASE = `${VPS_PROXY}/video`;
@@ -133,7 +134,13 @@ export async function runReel({ prompt, firstFrame = "", locale = "en" }) {
     }
 
     try {
-      const body = { prompt: beat, ...(carry ? { image: carry } : {}) };
+      // The beat is SHOWN in the owner's language and SENT in English — the Spaces' text encoders are trained
+      // on English (imagine/mirage: "English or nothing: a native instruction at a Space is the defect").
+      // A translation that fails fails the chunk; a Cyrillic prompt at a Space is not a fallback.
+      let beatEn;
+      try { beatEn = await toEnglish(beat); } catch { setChunk(i, { status: "error" }); carry = ""; continue; }
+      if (run !== runs) return;
+      const body = { prompt: beatEn, ...(carry ? { image: carry } : {}) };
       const id = await startJob(BASE, body);
       if (run !== runs) { cancelJob(BASE, id); return; }
       live = id;

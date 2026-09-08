@@ -52,6 +52,7 @@
   "eBusy": "Every GPU is busy. Try again in a minute",
   "eTimeout": "The clip took too long. Try again",
   "eFailed": "Nothing came back. Try other words",
+  "eTranslate": "The words could not be translated. Try again",
   "eBig": "The photo is too large. Pick a smaller one",
   "eSignIn": "Sign in to shoot a clip",
   "eUnplayable": "This browser cannot play the clip. Save or share it — the file is intact"
