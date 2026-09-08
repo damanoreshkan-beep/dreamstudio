@@ -53,7 +53,7 @@ function Presence({ t, tone = "glass" }) {
         <span class="ph-dot" data-alone=${alone ? "1" : "0"}></span>
         <span>${near(t, s.peerCount)}</span>
       </div>
-      <button class="ph-rescan" aria-label=${T(t, "rescan")}
+      <button class="ph-rescan" data-rescan aria-label=${T(t, "rescan")}
         title=${T(t, "rescan")} onClick=${() => { rescan(); bump(); }}>
         ${Icon("lucide:refresh-cw")}
       </button>
@@ -120,10 +120,10 @@ function Composer({ t, placeholder, onSend, tone = "glass" }) {
   const send = () => { const v = text.trim(); if (!v) return; onSend(v); setText(""); };
   return html`<${Island} tone=${tone} className="ph-composer !py-2 !px-2.5">
     <div class="flex items-end gap-2">
-      <textarea class="ph-input" rows="1" value=${text} placeholder=${placeholder} spellcheck="false"
+      <textarea class="ph-input" data-say rows="1" value=${text} placeholder=${placeholder} spellcheck="false"
         onInput=${(e) => { setText(e.currentTarget.value); e.currentTarget.style.height = "auto"; e.currentTarget.style.height = Math.min(e.currentTarget.scrollHeight, 96) + "px"; }}
         onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}></textarea>
-      <button class="ph-send" aria-label=${T(t, "send")} disabled=${!text.trim()} onClick=${send}>
+      <button class="ph-send" data-send aria-label=${T(t, "send")} disabled=${!text.trim()} onClick=${send}>
         ${Icon("lucide:arrow-up", "text-[1.1rem]")}</button>
     </div>
   <//>`;
@@ -220,7 +220,7 @@ export function dm({ S }) {
     <div class="ph-wrap h-full">
       <${Presence} t=${t} />
       <div class="ph-feed ph-list">
-        ${peers.map((p) => html`<button key=${p.peerID} class="ph-peer sf-raised sf-e2 sf-press" onClick=${() => $peer.set(p.peerID)}>
+        ${peers.map((p) => html`<button key=${p.peerID} data-peer=${p.peerID} class="ph-peer sf-raised sf-e2 sf-press" onClick=${() => $peer.set(p.peerID)}>
           <span class="ph-dot"></span>
           <span class="flex-1 min-w-0"><span class="ph-peer-nick truncate">${p.nick}</span>
             <span class="ph-peer-id font-mono">${(p.peerID || "").slice(0, 8)}</span></span>
@@ -333,9 +333,9 @@ function Thread({ t, loc, peerID }) {
   const peer = peers.find((p) => p.peerID === peerID);
   const feed = autoscroll(msgs.length);
   return html`<${Fragment}>
-    <div class="ph-wrap h-full">
+    <div class="ph-wrap h-full" data-thread=${peerID}>
       <div class="flex items-center gap-2">
-        <button class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label="←" onClick=${() => $peer.set(null)}>
+        <button class="btn btn-ghost btn-sm btn-circle shrink-0" data-thread-back aria-label="←" onClick=${() => $peer.set(null)}>
           ${Icon("lucide:arrow-left")}</button>
         <div class="flex-1 min-w-0">
           <div class="truncate font-medium leading-tight">${peer?.nick || peerID}</div>
