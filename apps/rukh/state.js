@@ -84,7 +84,10 @@ export function attachVideo(v) {
   const sync = () => $player.set({ ...$player.get(), playing: !el.paused && !el.ended, pos: el.currentTime || 0, dur: Number.isFinite(el.duration) ? el.duration : 0, muted: !!el.muted });
   const ok = () => { clearTimeout(decodeTimer); $player.set({ ...$player.get(), unplayable: false }); sync(); };
   const bad = () => { clearTimeout(decodeTimer); $player.set({ ...$player.get(), unplayable: true, playing: false }); };
-  const evs = [["play", sync], ["pause", sync], ["ended", sync], ["timeupdate", sync], ["durationchange", sync], ["volumechange", sync], ["loadedmetadata", ok], ["error", bad]];
+  // `ended` also advances the REEL: a montage is a sequence of clips on this same element (the file's one
+  // player), so the next chunk starts where the last one stopped instead of a second <video> mounting.
+  const ended = () => { sync(); const u = queue.shift(); if (u) load(u, true); else if (el) el.loop = true; };
+  const evs = [["play", sync], ["pause", sync], ["ended", ended], ["timeupdate", sync], ["durationchange", sync], ["volumechange", sync], ["loadedmetadata", ok], ["error", bad]];
   for (const [e, f] of evs) el.addEventListener(e, f);
   detach = () => { for (const [e, f] of evs) el?.removeEventListener(e, f); };
   if (pending) { const p = pending; pending = null; load(p.url, p.play); }
@@ -106,6 +109,21 @@ export function toggle() {
 }
 /** Seek within the clip. */
 export function seek(t) { if (el) el.currentTime = Math.max(0, Math.min(el.duration || 0, t)); }
+
+// ── the reel plays on the same element ───────────────────────────────────────────────────────────────────────
+let queue = [];
+/**
+ * Play clip URLs back to back. `loop` is turned OFF for the run — the element loops a single clip by design,
+ * and a looping first chunk would never fire `ended`, so the sequence would stop on chunk one and look like a
+ * montage that only filmed the beginning. The last chunk restores it.
+ */
+export function playList(urls) {
+  const list = (urls || []).filter(Boolean);
+  queue = list.slice(1);
+  if (!list.length || !el) return;
+  el.loop = false;
+  load(list[0], true);
+}
 
 // ── the clip ─────────────────────────────────────────────────────────────────────────────────────────────────
 let runs = 0, job = null;
@@ -161,35 +179,6 @@ export async function generate() {
   // the bytes must be a clip: the edge answers video/* with x-video-*; anything else is not a result
   if (!r.blob || !r.blob.type.startsWith("video/") || r.blob.size < MIN_CLIP_BYTES) { fail(run, "eFailed"); return; }
   land({ blob: r.blob, url: r.url, by: r.by || by, words, pic: src });
-}
-
-/** Generate as sequential chunks with frame continuation and narrative beats. */
-export async function generateChunks() {
-  const words = $words.get().trim(), src = $src.get();
-  if (!words) return;
-  const run = ++runs;
-  if (job) cancelJob(BASE, job); job = null;
-  setJob({ phase: "working", error: null, eta: null, pct: null, elapsed: 0 });
-  // In gate mode, show as working then land mock
-  if (gate) {
-    await sleep(120); if (run !== runs) return;
-    const blob = await (await fetch(MOCK_CLIP)).blob().catch(() => null);
-    if (run !== runs) return;
-    if (blob) land({ blob, by: "chunks-mock", words, pic: src, dur: 3.0, res: "192x256" }); else fail(run, "eFailed");
-    return;
-  }
-  // Real mode: orchestrate via workflow (placeholder — would call actual workflow)
-  try {
-    setJob({ phase: "working", error: null, eta: null, pct: 25, elapsed: 0 });
-    // TODO: call actual workflow here when integrated with backend
-    // For now, mock a workflow execution
-    await sleep(500);
-    if (run !== runs) return;
-    // Fallback: just call regular generate
-    await generate();
-  } catch (e) {
-    fail(run, "eFailed");
-  }
 }
 
 /** A clip from the collection goes on the stage (muted autoplay; the transport unmutes). */
