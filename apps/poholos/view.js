@@ -5,13 +5,14 @@ import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { atom } from "nanostores";
+import { persistentAtom } from "@nanostores/persistent";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Island } from "/_rt/ui.js";
 import { permRequest } from "/_rt/permissions.js";
 import { shell } from "/_rt/shell.js";
 import { GlStage } from "/_rt/glstage.js";
-import { start, rescan, sendPublic, sendPrivate, diagnose, report, field, sites, placeOf, fieldGeom, fieldBox, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
+import { start, rescan, sendPublic, sendPrivate, setNick, diagnose, report, field, sites, placeOf, fieldGeom, fieldBox, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 // A timestamp the transport did not send is nothing, never "Invalid Date": a bubble that shows the string
@@ -21,6 +22,20 @@ const near = (t, n) => n === 0 ? T(t, "nearNone") : n === 1 ? T(t, "nearOne") : 
 const RCPT = { sent: "rcptSent", delivered: "rcptDelivered", read: "rcptRead", queued: "rcptQueued" };
 
 const $peer = atom(null);   // the open private thread, or null for the peer list
+
+// ── identity + unread, both the PAGE's own copy (persisted here; the native side is told via setNick) ──
+// The nick the owner chose, remembered on THIS device. The native mesh persists its own copy too, but the
+// page needs one so the map's «me» node reads right on a cold open before the bridge has answered.
+const $nick = persistentAtom("poholos:nick", "", { encode: String, decode: String });
+// peerID → the ts we last OPENED that thread at. A private line newer than that is unread — the answer to
+// "who is writing to me". Persisted so the badge survives a reload; a plain object through JSON.
+const JC = (init) => ({ encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return init; } } });
+const $seen = persistentAtom("poholos:seen", {}, JC({}));
+const lastIn = (msgs) => { let t = 0; for (const m of msgs || []) if (!m.mine && Number.isFinite(m.ts) && m.ts > t) t = m.ts; return t; };
+const isUnread = (peerID, threads, seen) => lastIn(threads[peerID]) > (seen[peerID] || 0);
+const markSeen = (peerID) => { const cur = $seen.get(); if ((cur[peerID] || 0) < Date.now()) $seen.set({ ...cur, [peerID]: Date.now() }); };
+// push the remembered nick to the native side once the transport is up (idempotent; no-op under the mock)
+const ensureNick = () => { const n = $nick.get(); if (n && n !== $state.get().nick) setNick(n); };
 
 // The field's colour is the THEME's accent, read from the cascade rather than written here twice: a hex
 // copied into JS is right until the material changes and then quietly wrong. getComputedStyle resolves
@@ -72,6 +87,14 @@ function Presence({ t, tone = "glass" }) {
 // rendered into the DOM and were invisible in the shot.
 function Field({ t, peers, onPeer }) {
   const s = useStore($state);
+  const nick = useStore($nick);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const myName = nick || s.nick || "";
+  // the owner's name, edited in place ON the map (M5 parity): the «me» node IS the field's identity, so it
+  // is where the nick is set — no separate settings screen. Persisted here + pushed to the native mesh.
+  const openEdit = () => { setDraft(myName); setEditing(true); };
+  const commit = () => { const v = draft.trim().slice(0, 24); if (v) { $nick.set(v); setNick(v); } setEditing(false); };
   const ref = useRef(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
   // The box is MEASURED, and re-measured whenever it moves: the chrome above and below it changes with
@@ -95,7 +118,7 @@ function Field({ t, peers, onPeer }) {
     <div class="ph-sites" ref=${ref}>
       ${box.w > 0 && peers.slice(0, 7).map((p) => {
         const { px, py } = placeOf(p.peerID || "");
-        return html`<button key=${p.peerID} class="ph-site" style=${at(px, py)}
+        return html`<button key=${p.peerID} data-node=${p.peerID} class="ph-site" style=${at(px, py)}
           onClick=${() => onPeer(p.peerID)}>
           <span class="ph-site-dot"></span>
           <span class="ph-site-label">
@@ -106,7 +129,18 @@ function Field({ t, peers, onPeer }) {
       })}
       <div class="ph-site ph-site-me" style=${box.w > 0 ? at(cx, cy) : "left:50%;top:50%"}>
         <span class="ph-site-dot"></span>
-        <span class="ph-site-label"><span class="ph-site-name">${T(t, "you")}</span></span>
+        <span class="ph-site-label">
+          ${editing
+            ? html`<span class="ph-nick-edit">
+                <input class="ph-nick-input" data-nick-input autofocus value=${draft} maxLength="24"
+                  placeholder=${T(t, "you")} aria-label=${T(t, "nick")} spellcheck="false"
+                  onInput=${(e) => setDraft(e.currentTarget.value)}
+                  onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { setEditing(false); } }} />
+                <button class="ph-nick-save" data-nick-save aria-label=${T(t, "send")} onClick=${commit}>${Icon("lucide:check")}</button>
+              </span>`
+            : html`<button class="ph-site-name ph-me-edit" data-me aria-label=${T(t, "nick")}
+                title=${T(t, "nick")} onClick=${openEdit}>${myName || T(t, "you")}</button>`}
+        </span>
       </div>
     </div>
     ${/* one line while the field is empty — the kit's Empty shape; once people are here the field is self-evident and carries no caption */""}
@@ -145,37 +179,19 @@ const Hero = (icon, text) => html`<div class="ph-hero">
 // group flag: a message is the "first" of a run when the previous one was a different sender/side
 const firstOfRun = (list, i) => i === 0 || list[i - 1].mine !== list[i].mine || (!list[i].mine && list[i - 1].from !== list[i].from);
 
-// ── «Поруч» — the public room ──────────────────────────────────────────────────────────────────────
+// A fault outranks everything: "no one nearby" / "quiet" is a lie when the radio was never allowed to speak.
+const FaultBanner = (t, fault) => fault && html`<div class="ph-banner" data-fault="1">
+  ${Icon("lucide:alert-triangle", "opacity-80")} ${T(t, "faultBanner")}</div>`;
+
+// ── «Поруч» — the MAP: who is within earshot, and a tap opens a private line ────────────────────────
+// Discovery only. The public broadcast lives in its own «Публічний» tab now; this screen is the field, the
+// presence chip and the owner's own «me» node (where the nick is set). Tapping a device point → their DM.
 export function room({ S }) {
   const t = useStore(S.t);
-  const loc = useStore(S.locale);
   const s = useStore($state);
-  const msgs = useStore($room);
   const peers = useStore($peers);
-  const queued = useStore($queued);
   const fault = useStore($fault);
-  useEffect(() => { start(); }, []);
-  const feed = autoscroll(msgs.length);
-
-  // A fault outranks the empty state: "no one nearby" is a lie when the radio was never allowed to speak.
-  const Fault = () => fault && html`<div class="ph-banner" data-fault="1">
-    ${Icon("lucide:alert-triangle", "opacity-80")} ${T(t, "faultBanner")}</div>`;
-
-  // Nothing said yet: the field IS the screen. It is not an empty state with a picture on it — the sweep
-  // is the app working, and a neighbour arriving lands on it without the view re-rendering to say so.
-  if (msgs.length === 0) return html`<${Fragment}>
-    <div class="ph-wrap h-full" data-near data-peers=${s.peerCount}>
-      ${/* html and body paint an OPAQUE ground (measured rgb(0,0,0)), so a stage under it is invisible and a
-           stage over it buries the static chrome. It sits at z-0 above the ground; .ph-wrap's other children
-           are lifted to z-1 in head.html, which is the layer the glass islands need to stay readable. */""}
-      <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
-        seed=${0.37} ink=${accent} vary=${field} points=${sites} />
-      <${Presence} t=${t} tone="frost" />
-      <${Field} t=${t} peers=${peers} onPeer=${(id) => { $peer.set(id); S.tab.set("dm"); }} />
-      <${Fault} />
-      <${Composer} t=${t} tone="frost" placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
-    </div>
-  <//>`;
+  useEffect(() => { start().then(ensureNick); }, []);
 
   return html`<${Fragment}>
     <div class="ph-wrap h-full" data-near data-peers=${s.peerCount}>
@@ -185,6 +201,34 @@ export function room({ S }) {
       <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
         seed=${0.37} ink=${accent} vary=${field} points=${sites} />
       <${Presence} t=${t} tone="frost" />
+      <${Field} t=${t} peers=${peers} onPeer=${(id) => { markSeen(id); $peer.set(id); S.tab.set("dm"); }} />
+      ${FaultBanner(t, fault)}
+    </div>
+  <//>`;
+}
+
+// ── «Публічний» — the public broadcast feed: a clean chat, no map, no stage ─────────────────────────
+export function pub({ S }) {
+  const t = useStore(S.t);
+  const loc = useStore(S.locale);
+  const s = useStore($state);
+  const msgs = useStore($room);
+  const queued = useStore($queued);
+  const fault = useStore($fault);
+  useEffect(() => { start().then(ensureNick); }, []);
+  const feed = autoscroll(msgs.length);
+
+  // Nothing broadcast yet — a hero that orients (quiet if alone, "say the first word" once neighbours are here).
+  if (msgs.length === 0) return html`<${Fragment}>
+    <div class="ph-wrap h-full">
+      ${Hero("lucide:megaphone", T(t, s.peerCount === 0 ? "roomEmptyAlone" : "roomEmptyPeers", { n: s.peerCount }))}
+      ${FaultBanner(t, fault)}
+      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
+    </div>
+  <//>`;
+
+  return html`<${Fragment}>
+    <div class="ph-wrap h-full">
       <div class="ph-feed" ref=${feed}>
         ${msgs.map((m, i) => m.sys
           ? html`<div key=${m.id} class="ph-sys">${m.text}</div>`
@@ -195,9 +239,9 @@ export function room({ S }) {
                 <span class="ph-meta">${clock(m.ts, loc)}</span>
               </div></div>`)}
       </div>
-      <${Fault} />
+      ${FaultBanner(t, fault)}
       ${queued && !fault && html`<div class="ph-banner">${Icon("lucide:clock", "opacity-70")} ${T(t, "queuedBanner")}</div>`}
-      <${Composer} t=${t} tone="frost" placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
+      <${Composer} t=${t} placeholder=${T(t, "composerRoom")} onSend=${(v) => { sendPublic(v); bump(); }} />
     </div>
   <//>`;
 }
@@ -207,6 +251,8 @@ export function dm({ S }) {
   const t = useStore(S.t);
   const loc = useStore(S.locale);
   const peers = useStore($peers);
+  const threads = useStore($threads);
+  const seen = useStore($seen);
   const open = useStore($peer);
   useEffect(() => { start(); }, []);
 
@@ -220,12 +266,15 @@ export function dm({ S }) {
     <div class="ph-wrap h-full">
       <${Presence} t=${t} />
       <div class="ph-feed ph-list">
-        ${peers.map((p) => html`<button key=${p.peerID} data-peer=${p.peerID} class="ph-peer sf-raised sf-e2 sf-press" onClick=${() => $peer.set(p.peerID)}>
+        ${peers.map((p) => { const unread = isUnread(p.peerID, threads, seen);
+          return html`<button key=${p.peerID} data-peer=${p.peerID} data-unread=${unread ? "1" : "0"}
+            class="ph-peer sf-raised sf-e2 sf-press" onClick=${() => { markSeen(p.peerID); $peer.set(p.peerID); }}>
           <span class="ph-dot"></span>
           <span class="flex-1 min-w-0"><span class="ph-peer-nick truncate">${p.nick}</span>
             <span class="ph-peer-id font-mono">${(p.peerID || "").slice(0, 8)}</span></span>
+          ${unread ? html`<span class="ph-unread" data-unread-dot aria-label=${T(t, "unread")}></span>` : ""}
           ${Icon("lucide:chevron-right", "ph-peer-chev shrink-0")}
-        </button>`)}
+        </button>`; })}
       </div>
     </div>
   <//>`;

@@ -11,6 +11,7 @@
   "installGenericHint": "In the browser menu choose Install or Add to Home Screen.",
   "close": "Close",
   "tabRoom": "Nearby",
+  "tabPub": "Public",
   "tabDm": "Direct",
   "tabLogs": "Logs",
   "tabMe": "Me",
@@ -78,6 +79,7 @@
   "nick": "Your handle",
   "nickHint": "Seen by others nearby. Your identity is a key held on this device.",
   "bgNote": "Poholos runs in the background as a quiet notification — that is how Android keeps the network alive.",
+  "unread": "unread message",
   "encrypted": "End-to-end encrypted",
   "hop": "hop"
 }

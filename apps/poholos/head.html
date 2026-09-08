@@ -104,6 +104,23 @@
     .ph-site-me .ph-site-label{background:transparent;border-color:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
     .ph-site-me .ph-site-name{color:var(--color-base-muted);
       font-family:var(--ms-mono,ui-monospace,monospace);letter-spacing:.06em}
+    /* the «me» node's name is a tap target that edits the owner's nick in place — a bare button that keeps
+       the mono name look, with a hairline hint on hover so it reads as editable without a caption */
+    .ph-me-edit{background:transparent;border:0;padding:.05rem .1rem;cursor:text;
+      border-bottom:1px dashed color-mix(in oklch,var(--base-content,currentColor) 22%,transparent);
+      -webkit-tap-highlight-color:transparent}
+    /* the inline nick field: sized to the name, mono, on a sliver of the app hue so it reads as "live/edit",
+       with a small accent confirm beside it (the mark colour = the primary action, no text on the hue) */
+    .ph-nick-edit{display:inline-flex;align-items:center;gap:.35rem}
+    .ph-nick-input{width:6rem;max-width:8rem;background:transparent;border:0;outline:0;
+      text-align:center;font:inherit;font-family:var(--ms-mono,ui-monospace,monospace);
+      font-size:var(--ms-label);letter-spacing:.06em;color:var(--color-base-content);
+      border-bottom:1px solid var(--app-accent);padding:.05rem .1rem}
+    .ph-nick-input::placeholder{color:var(--color-base-muted)}
+    .ph-nick-save{flex:none;display:grid;place-items:center;width:1.6rem;height:1.6rem;border-radius:999px;
+      background:var(--app-accent);color:#000;transition:transform .1s}
+    .ph-nick-save:active{transform:scale(.9)}
+    .ph-nick-save iconify-icon{font-size:.9rem}
     .ph-field-note{margin:0 auto .25rem;max-width:22rem;padding:0 1.25rem;text-align:center;
       font-size:var(--ms-label);line-height:1.5;color:var(--color-base-muted)}
 
@@ -139,6 +156,11 @@
     .ph-peer-id{display:block;margin-top:.05rem;font-size:var(--ms-label);letter-spacing:.06em;
       color:var(--color-base-muted)}
     .ph-peer-chev{color:var(--color-base-muted)}
+    /* unread DM cue: an app-accent dot on the sender's row — the mark that answers "who is writing", a pure
+       colour mark (no text on the hue, so it stays contrast-safe both themes), and the nick goes semibold */
+    .ph-unread{flex:none;width:.5rem;height:.5rem;border-radius:999px;background:var(--app-accent);
+      box-shadow:0 0 .4rem color-mix(in oklch,var(--app-accent) 60%,transparent)}
+    .ph-peer[data-unread="1"] .ph-peer-nick{font-weight:600}
 
     /* «Логи» — a diagnostic screen, so it is plain and dense on purpose: the verdict is the only thing
        wearing colour, and colour here is meaning (ok / warn / err), never decoration. */

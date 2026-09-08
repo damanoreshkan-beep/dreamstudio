@@ -7,9 +7,16 @@
     {
       "id": "room",
       "type": "tool",
-      "icon": "lucide:radio",
+      "icon": "lucide:radar",
       "label": "tabRoom",
       "view": "room"
+    },
+    {
+      "id": "pub",
+      "type": "tool",
+      "icon": "lucide:megaphone",
+      "label": "tabPub",
+      "view": "pub"
     },
     {
       "id": "dm",
