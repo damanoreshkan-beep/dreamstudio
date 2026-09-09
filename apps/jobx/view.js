@@ -24,7 +24,7 @@ const empKey = { full: "empFull", part: "empPart", remote: "empRemote", contract
 const GEO = "https://dreamstudio.mooo.com/kyiv";     // nginx static, gzip, lazy — never bundled
 const DECK_URL = "https://esm.sh/deck.gl@9.4.0";      // dynamic-imported ONLY behind a WebGL2 probe
 const KYIV = { lat: 50.4501, lon: 30.5234 };
-const VIEW = { longitude: KYIV.lon, latitude: KYIV.lat, zoom: 10.6, pitch: 55, bearing: -15, minZoom: 10, maxZoom: 18 };
+const VIEW = { longitude: KYIV.lon, latitude: KYIV.lat, zoom: 11.0, pitch: 55, bearing: -15, minZoom: 10, maxZoom: 18 };
 
 // ── state ────────────────────────────────────────────────────────────────────────────────────────────────
 const MOCK_JOBS = [
@@ -86,7 +86,7 @@ function clusterJobs(jobs) {
 
 // Building zone tint, indexed off a coarse geographic grid — dark and light palettes (theme-aware).
 const ZONE_DARK = [[20, 25, 60], [35, 18, 50], [15, 30, 55], [30, 15, 45], [12, 35, 55], [40, 20, 45], [15, 38, 48], [38, 12, 48], [18, 22, 62], [15, 40, 40], [42, 18, 38], [18, 32, 52]];
-const ZONE_LIGHT = [[195, 190, 182], [200, 194, 185], [192, 188, 180], [198, 192, 183], [190, 186, 178], [202, 196, 186], [188, 185, 178], [196, 190, 180], [193, 189, 181], [186, 183, 176], [204, 197, 187], [190, 187, 180]];
+const ZONE_LIGHT = [[150, 156, 178], [166, 150, 172], [144, 160, 180], [162, 148, 168], [142, 163, 176], [170, 152, 164], [146, 165, 168], [164, 146, 166], [148, 157, 182], [146, 166, 160], [172, 150, 158], [148, 161, 178]];
 function preprocessBuildings(geo) {
   if (!geo || !geo.features) return geo;
   for (const f of geo.features) {
@@ -270,7 +270,7 @@ export function mapView({ t, S }) {
 
       <!-- header overlay -->
       <div class="absolute top-0 left-0 right-0 flex items-start gap-2 p-[var(--ms-pad)] pointer-events-none">
-        <div class="pointer-events-auto rounded-[var(--ms-r-in)] px-3 py-2 ${isDark || showMap ? "bg-black/45" : "bg-base-100/70"}">
+        <div class="pointer-events-auto rounded-[var(--ms-r-in)] px-3 py-2 ${isDark ? "bg-black/50" : "bg-base-100/80 sf-e2"}">
           <div class="font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-base-content"}">JOBX</div>
           <div data-total class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider ${isDark ? "text-white/70" : "text-muted"}">
             ${total} ${T(t, "openings")} · ${T(t, "kyiv")}
@@ -287,7 +287,7 @@ export function mapView({ t, S }) {
 
       <!-- bottom actions -->
       <div class="absolute left-0 right-0 bottom-0 flex items-center gap-2 p-[var(--ms-pad)]">
-        <button data-list class="btn btn-sm gap-2 rounded-full ${isDark || showMap ? "bg-black/50 text-white border-white/15 hover:bg-black/70" : "btn-ghost"}"
+        <button data-list class="btn btn-sm gap-2 rounded-full ${isDark ? "bg-black/55 text-white border-white/15 hover:bg-black/70" : "bg-base-100/85 sf-e2 text-base-content hover:bg-base-100"}"
           onClick=${() => { $query.set(""); $listOpen.set(true); }}>
           ${Icon("lucide:list", "text-[1.05em]")}<span>${T(t, "listBtn")} · ${total}</span>
         </button>
