@@ -120,7 +120,7 @@ export function mapView({ t, S }) {
 
       <div class="relative min-h-0 min-w-0 px-2 pb-2">
         <svg data-map viewBox=${VIEWBOX} preserveAspectRatio="xMidYMid meet"
-             class="w-full h-full block" role="img" aria-label=${T(t, "mapHint")}>
+             class="w-full h-full block" role="group" aria-label=${T(t, "mapHint")}>
           <path d=${UA_PATH} class="fill-base-200 stroke-base-content/15" stroke-width="1.5" />
           ${entries.map(([key, c]) => {
             const n = Number(counts[key]) || 0;
