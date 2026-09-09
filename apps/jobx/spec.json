@@ -16,6 +16,13 @@
       ]
     },
     {
+      "id": "list",
+      "type": "tool",
+      "icon": "lucide:list",
+      "label": "tabList",
+      "view": "listView"
+    },
+    {
       "id": "me",
       "type": "profile",
       "icon": "lucide:user",

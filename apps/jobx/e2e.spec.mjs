@@ -1,46 +1,48 @@
-// Under the gate there is no WebGL and no network, so the 3D deck.gl map never initialises — by design (the
-// farm's law: the map is a probe-guarded enhancement, the DOM job panel is the truth). view.js seeds a
-// deterministic fixture of Kyiv jobs and fills the map region with the job LIST, so the screen the gate, axe
-// and e2e see is populated. These tests drive that DOM panel, the list sheet, and the post form.
+// Under the gate there's no WebGL/network, so the deck.gl map never inits (probe-guarded) — the DOM is the
+// truth. view.js seeds a fixture of Kyiv jobs. These drive the routed structure: the Map tab's single post
+// island, the Post page (a routed page, not a sheet), the List tab's rows, and a job's detail page.
 export default [
   {
-    name: "the panel is populated on mount — a total and real job cards",
+    name: "Map tab: a single post island, no clutter",
     async run(h) {
-      await h.waitFor(/Frontend/);
-      h.expect((await h.count("[data-job-title]")) >= 5, "не показано вакансій у панелі");
-      h.expect(/\d/.test(await h.text("[data-total]")), "немає лічильника вакансій у шапці");
-      h.expect((await h.count("[data-apply]")) >= 1, "у картці немає кнопки відгуку");
+      await h.waitFor(/3D-карт|3D map/);
+      h.expect((await h.count("[data-post]")) === 1, "немає острівця «Додати» на карті");
+      h.expect((await h.count("[data-map],[data-stage]")) >= 1, "немає сцени карти");
     },
   },
   {
-    name: "the stage fills the view (fit tab)",
+    name: "the post island opens a big routed page (not a sheet)",
     async run(h) {
-      await h.waitFor(/Frontend/);
-      const view = await h.prop("#view", "clientHeight");
-      const stage = await h.prop("[data-stage]", "clientHeight");
-      h.expect(stage / view >= 0.85, `сцена займає ${Math.round(stage / view * 100)}% екрана, треба ≥85%`);
-    },
-  },
-  {
-    name: "the list button opens the full list with a search field",
-    async run(h) {
-      await h.waitFor(/Frontend/);
-      await h.tap("[data-list]");
-      await h.wait(250);
-      h.expect((await h.count("[data-search]")) === 1, "аркуш списку не показав поле пошуку");
-      h.expect((await h.count("[data-job-title]")) >= 5, "аркуш списку порожній");
-    },
-  },
-  {
-    name: "the + button opens the post form with its fields",
-    async run(h) {
-      await h.waitFor(/Frontend/);
       await h.tap("[data-post]");
       await h.wait(250);
-      h.expect((await h.count("[data-form]")) === 1, "форма розміщення не відкрилася");
-      h.expect((await h.count("[data-f-title]")) === 1, "немає поля «Посада»");
-      h.expect((await h.count("[data-pick]")) === 1, "немає вибору локації");
-      h.expect((await h.count("[data-f-contact]")) === 1, "немає поля контакту");
+      h.expect((await h.count("[data-page]")) === 1, "пост не відкрився сторінкою");
+      h.expect((await h.count("[data-form]")) === 1, "немає форми");
+      h.expect((await h.count("[data-f-title]")) === 1 && (await h.count("[data-f-district]")) === 1 && (await h.count("[data-f-contact]")) === 1, "бракує полів форми");
+      await h.tap("[data-back]");
+      await h.wait(200);
+    },
+  },
+  {
+    name: "List tab shows the jobs as rows, with search",
+    async run(h) {
+      await h.tap("[data-tab=list]");
+      await h.wait(250);
+      h.expect((await h.count("[data-search]")) === 1, "немає пошуку у списку");
+      h.expect((await h.count("[data-job-row]")) >= 5, "список порожній");
+      h.expect(/Frontend/.test(await h.text("[data-job-title]")), "не показано засіяну вакансію");
+    },
+  },
+  {
+    name: "a job opens its own detail page with an apply action",
+    async run(h) {
+      await h.tap("[data-tab=list]");
+      await h.wait(200);
+      await h.tap("[data-job-row]");
+      await h.wait(250);
+      h.expect((await h.count("[data-page]")) === 1, "деталь не відкрилась сторінкою");
+      h.expect((await h.count("[data-apply]")) >= 1, "немає кнопки відгуку");
+      await h.tap("[data-back]");
+      await h.wait(200);
     },
   },
 ];
