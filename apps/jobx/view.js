@@ -94,6 +94,7 @@ const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
 // The whole map, in the theme's gamut: ground = base-200 (= the app's own bg, so the map reads as background),
 // buildings a step off it, outlines/roads from base-content, water a base-300 pulled toward accent, columns accent.
 function palette() {
+  const base1 = themeRGB("--color-base-100", [16, 16, 18]);
   const base2 = themeRGB("--color-base-200", [10, 10, 12]);
   const base3 = themeRGB("--color-base-300", [22, 22, 26]);
   const ink = themeRGB("--color-base-content", [235, 235, 235]);
@@ -107,7 +108,21 @@ function palette() {
     waterLine: [...mix(base3, accent, 0.55), 160],
     road: [...mix(base2, ink, 0.34), 160],
     district: [...ink, dark ? 55 : 50],
+    // salary pills (Airbnb-style): a solid surface pill, accent border, ink text; clusters invert to accent.
+    pillBg: [...base1, 240], pillText: [...ink, 255], pillBorder: [...accent, 255],
+    clusterBg: [...accent, 245], clusterText: [...(dark ? base2 : [255, 255, 255]), 255],
+    anchor: [...accent, 255], beam: [...accent, dark ? 70 : 90],
   };
+}
+
+// A compact salary for the pill — "60–90k ₴" / "45k ₴"; null when there's no number (→ a plain anchor dot).
+function shortSalary(s) {
+  if (!s) return null;
+  const nums = String(s).replace(/\s/g, "").match(/\d{3,}/g);
+  if (!nums || !nums.length) return null;
+  const cur = /\$/.test(s) ? "$" : /€/.test(s) ? "€" : "₴";
+  const k = (n) => { n = +n; return n >= 1000 ? Math.round(n / 100) / 10 + "k" : "" + n; };
+  return nums.length >= 2 ? `${k(nums[0])}–${k(nums[1])} ${cur}` : `${k(nums[0])} ${cur}`;
 }
 
 const clusterJobs = (jobs) => {
@@ -140,11 +155,26 @@ async function makeDeck(canvas) {
     if (geo.metro && geo.metro.lines) L.push(new D.GeoJsonLayer({ id: "metro", data: geo.metro.lines, filled: false, stroked: true, getLineColor: (f) => { const c = (f.properties && f.properties.color) || pal.accent; return [c[0], c[1], c[2], 200]; }, getLineWidth: 4, lineWidthUnits: "meters", lineWidthMinPixels: 2, lineWidthMaxPixels: 5, pickable: false }));
     const b = bAt(lodFor(zoom));
     if (b) L.push(new D.GeoJsonLayer({ id: "buildings", data: b, extruded: true, wireframe: true, opacity: pal.dark ? 0.82 : 0.92, getElevation: (f) => f.properties._h, getFillColor: pal.building, getLineColor: pal.buildingLine, material: { ambient: pal.dark ? 0.4 : 0.65, diffuse: 0.6, shininess: 30, specularColor: pal.accent }, pickable: false, updateTriggers: { getFillColor: [pal], getLineColor: [pal] } }));
+    // Job markers — Airbnb-style salary PILLS on an anchored stem (map-UX + deck.gl research). A single job
+    // shows its salary; a cluster shows the count (accent-filled). The pill would detach over a tilted 3D city,
+    // so a slim beam + an anchor dot pin it to its point. All colour is theme-derived (pal.*). Pill/dot pick →
+    // open the job (single) or the top job of the cluster.
     const cl = clusterJobs(jobs);
     if (cl.length) {
-      const COL = 260;
-      L.push(new D.ColumnLayer({ id: "cols", data: cl, diskResolution: 24, radius: 70, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: (d) => 300 + Math.max(1, d.count) * COL, getFillColor: [...pal.accent, 225], getLineColor: [Math.min(255, pal.accent[0] + 80), Math.min(255, pal.accent[1] + 80), Math.min(255, pal.accent[2] + 80), 255], wireframe: true, lineWidthMinPixels: 1.5, pickable: true, autoHighlight: true, highlightColor: [255, 255, 255, 60], onClick: (i) => { if (i && i.object) onPick(i.object); }, material: { ambient: 0.5, diffuse: 0.8, shininess: 80, specularColor: pal.accent } }));
-      L.push(new D.ScatterplotLayer({ id: "caps", data: cl, getPosition: (d) => [d.coordinates[0], d.coordinates[1], 300 + Math.max(1, d.count) * COL], getRadius: 90, getFillColor: [Math.min(255, pal.accent[0] + 90), Math.min(255, pal.accent[1] + 90), Math.min(255, pal.accent[2] + 90), 255], radiusMinPixels: 5, radiusMaxPixels: 16, pickable: false, antialiasing: true }));
+      const pick = (i) => { if (i && i.object) onPick(i.object); };
+      const label = (d) => (d.count > 1 ? String(d.count) : (shortSalary(d.jobs[0] && d.jobs[0].salary) || ""));
+      L.push(new D.ColumnLayer({ id: "beam", data: cl, diskResolution: 12, radius: 6, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: 220, getFillColor: pal.beam, pickable: false }));
+      L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 4, radiusMinPixels: 3, radiusMaxPixels: 6, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1, pickable: true, onClick: pick }));
+      L.push(new D.TextLayer({
+        id: "pills", data: cl, pickable: true, onClick: pick, billboard: true, sizeUnits: "pixels",
+        getPosition: (d) => [d.coordinates[0], d.coordinates[1], 220], getPixelOffset: [0, -12],
+        getText: label, getSize: (d) => (d.count > 1 ? 15 : 13), sizeMinPixels: 11, sizeMaxPixels: 20,
+        background: true, backgroundBorderRadius: 11, backgroundPadding: [10, 6, 10, 6], getBackgroundColor: (d) => (d.count > 1 ? pal.clusterBg : pal.pillBg),
+        getBorderColor: pal.pillBorder, getBorderWidth: 1.2,
+        getColor: (d) => (d.count > 1 ? pal.clusterText : pal.pillText),
+        fontFamily: "'Geist', system-ui, sans-serif", fontWeight: 700, characterSet: "auto",
+        updateTriggers: { getBackgroundColor: [pal], getColor: [pal], getBorderColor: [pal], getText: [jobs] },
+      }));
     }
     return L;
   }
