@@ -2567,6 +2567,42 @@
     "needs": []
   },
   {
+    "id": "jobx",
+    "title": "jobx",
+    "titles": {
+      "uk": "jobx",
+      "en": "jobx"
+    },
+    "tagline": "Робота на 3D-карті Києва — від людей, для людей.",
+    "taglines": {
+      "uk": "Робота на 3D-карті Києва — від людей, для людей.",
+      "en": "Jobs on a 3D map of Kyiv — by people, for people."
+    },
+    "glyph": "lucide:briefcase",
+    "art": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M20 10c0 4.4-5.5 9.5-7.35 11.1a1 1 0 0 1-1.3 0C9.5 19.5 4 14.4 4 10a8 8 0 0 1 16 0Z\"/><rect x=\"9\" y=\"7.5\" width=\"6\" height=\"4.5\" rx=\"1\"/><path d=\"M10.5 7.5V6.8a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v.7\"/></svg>",
+    "icon": false,
+    "screens": {
+      "uk": [
+        "Карта",
+        "Список"
+      ],
+      "en": [
+        "Map",
+        "List"
+      ]
+    },
+    "shots": [],
+    "bg": "#0A0A0B",
+    "fg": "#00E5FF",
+    "href": "./jobx/",
+    "version": "1.10",
+    "category": "tools",
+    "needs": [
+      "auth"
+    ],
+    "added": "2026-09-09"
+  },
+  {
     "id": "lorawatch",
     "title": "LoRa Watch",
     "titles": {
