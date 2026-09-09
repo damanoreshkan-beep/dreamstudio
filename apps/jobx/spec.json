@@ -1,0 +1,34 @@
+{
+  "id": "jobx",
+  "theme": "circuit",
+  "category": "tools",
+  "accent": "#6EA8FE",
+  "tabs": [
+    {
+      "id": "map",
+      "type": "tool",
+      "fit": true,
+      "icon": "lucide:map",
+      "label": "tabMap",
+      "view": "mapView",
+      "needs": [
+        "auth"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:briefcase",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any"
+  },
+  "added": "2026-09-09"
+}
