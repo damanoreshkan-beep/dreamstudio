@@ -216,7 +216,7 @@ function JobCard({ t, j }) {
         <div data-job-title class="font-semibold leading-tight">${j.title}</div>
         <div class="text-[0.9rem] text-muted truncate">${j.company}</div>
       </div>
-      ${j.salary ? html`<div class="shrink-0 font-mono text-[0.82rem] font-semibold text-success whitespace-nowrap">${j.salary}</div>` : null}
+      ${j.salary ? html`<div class="shrink-0 font-mono text-[0.82rem] font-semibold text-base-content whitespace-nowrap">${j.salary}</div>` : null}
     </div>
     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
       ${emp ? html`<span class="badge badge-sm badge-ghost">${emp}</span>` : null}
