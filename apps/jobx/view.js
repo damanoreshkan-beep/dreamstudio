@@ -253,49 +253,42 @@ export function mapView({ t, S }) {
   const total = jobs.length;
   const openPost = () => { $sent.set(false); $err.set(null); $pick.set(null); $post.set(true); };
 
-  return html`<div class="h-full min-h-0 px-[var(--ms-pad)] pb-[var(--ms-pad)]">
-    <div data-stage class="relative h-full min-h-0 rounded-[var(--ms-r)] overflow-hidden ${isDark ? "bg-black" : "bg-base-200"}">
+  // Full-bleed: the map fills the whole tab, edge to edge — a premium, immersive stage. Everything else is a
+  // floating ISLAND over it (theme-aware opaque surfaces, sf-e3), not chrome bolted to the edges.
+  return html`<div data-stage class="relative h-full w-full min-h-0 overflow-hidden ${isDark ? "bg-black" : "bg-base-200"}">
 
-      ${showMap
-        ? html`<${MapStage} t=${t} isDark=${isDark} jobs=${jobs} />`
-        : html`<div class="absolute inset-0 overflow-y-auto px-[var(--ms-pad)] pt-16 pb-24">
-            <${JobList} t=${t} jobs=${jobs} empty=${T(t, "emptyJobs")} />
-          </div>`}
+    ${showMap
+      ? html`<${MapStage} t=${t} isDark=${isDark} jobs=${jobs} />`
+      : null}
+    ${!showMap || !glReady
+      ? html`<div class="absolute inset-0 overflow-y-auto px-[var(--ms-pad)] pt-20 pb-24">
+          <${JobList} t=${t} jobs=${jobs} empty=${loading ? T(t, "loadingJobs") : T(t, "emptyJobs")} />
+        </div>`
+      : null}
 
-      ${showMap && !glReady
-        ? html`<div class="absolute inset-0 overflow-y-auto px-[var(--ms-pad)] pt-16 pb-24">
-            <${JobList} t=${t} jobs=${jobs} empty=${loading ? T(t, "loadingJobs") : T(t, "emptyJobs")} />
-          </div>`
-        : null}
+    <!-- brand island (top-left) -->
+    <div class="absolute top-3 left-3 flex items-center gap-2 rounded-full bg-base-100 sf-e3 pl-2.5 pr-3.5 py-1.5">
+      <span class="w-2 h-2 rounded-full shrink-0" style="background:var(--app-accent)"></span>
+      <span class="font-bold tracking-tight text-sm leading-none">JOBX</span>
+      <span data-total class="font-mono text-[0.72rem] text-muted leading-none">${total} · ${T(t, "kyiv")}</span>
+    </div>
 
-      <!-- header overlay -->
-      <div class="absolute top-0 left-0 right-0 flex items-start gap-2 p-[var(--ms-pad)] pointer-events-none">
-        <div class="pointer-events-auto rounded-[var(--ms-r-in)] px-3 py-2 ${isDark ? "bg-black/50" : "bg-base-100/80 sf-e2"}">
-          <div class="font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-base-content"}">JOBX</div>
-          <div data-total class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider ${isDark ? "text-white/70" : "text-muted"}">
-            ${total} ${T(t, "openings")} · ${T(t, "kyiv")}
-          </div>
-        </div>
-      </div>
+    <!-- density legend island (top-right, only when the 3D map is up) -->
+    ${glReady ? html`<div class="absolute top-3 right-3 flex items-center gap-1.5 rounded-full bg-base-100 sf-e3 px-3 py-1.5">
+      ${LEGEND.map(([n, lbl]) => { const c = vacancyColor(n); return html`<span class="flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full" style=${`background:rgb(${c[0]},${c[1]},${c[2]})`}></span>
+        <span class="text-[0.62rem] font-mono text-muted leading-none">${lbl}</span></span>`; })}
+    </div>` : null}
 
-      <!-- density legend (only when the 3D map is up) -->
-      ${glReady ? html`<div class="absolute left-[var(--ms-pad)] bottom-[calc(var(--ms-pad)+3.5rem)] flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 pointer-events-none">
-        ${LEGEND.map(([n, lbl]) => { const c = vacancyColor(n); return html`<span class="flex items-center gap-1">
-          <span class="w-2.5 h-2.5 rounded-full" style=${`background:rgb(${c[0]},${c[1]},${c[2]})`}></span>
-          <span class="text-[0.68rem] font-mono text-white/70">${lbl}</span></span>`; })}
-      </div>` : null}
-
-      <!-- bottom actions -->
-      <div class="absolute left-0 right-0 bottom-0 flex items-center gap-2 p-[var(--ms-pad)]">
-        <button data-list class="btn btn-sm gap-2 rounded-full ${isDark ? "bg-black/55 text-white border-white/15 hover:bg-black/70" : "bg-base-100/85 sf-e2 text-base-content hover:bg-base-100"}"
-          onClick=${() => { $query.set(""); $listOpen.set(true); }}>
-          ${Icon("lucide:list", "text-[1.05em]")}<span>${T(t, "listBtn")} · ${total}</span>
-        </button>
-        <span class="flex-1"></span>
-        <button data-post class="btn btn-primary gap-2 rounded-full sf-e3" onClick=${openPost}>
-          ${Icon("lucide:plus", "text-[1.15em]")}<span class="font-medium">${T(t, "postCta")}</span>
-        </button>
-      </div>
+    <!-- control island (bottom-centre) — one widget, list + post -->
+    <div class="absolute left-1/2 bottom-4 -translate-x-1/2 flex items-center gap-1 rounded-full bg-base-100 sf-e3 p-1.5">
+      <button data-list class="btn btn-ghost btn-sm gap-2 rounded-full" onClick=${() => { $query.set(""); $listOpen.set(true); }}>
+        ${Icon("lucide:list", "text-[1.1em]")}<span class="font-medium">${T(t, "listBtn")}</span>
+        <span class="badge badge-sm badge-neutral font-mono">${total}</span>
+      </button>
+      <button data-post class="btn btn-primary btn-sm gap-1.5 rounded-full" onClick=${openPost}>
+        ${Icon("lucide:plus", "text-[1.15em]")}<span class="font-medium">${T(t, "postCta")}</span>
+      </button>
     </div>
 
     <${ClusterSheet} t=${t} city=${city} onClose=${() => $city.set(null)} onPost=${() => { $city.set(null); openPost(); }} />
