@@ -7,9 +7,10 @@ export default [
     name: "the map is populated on mount — a total and a Kyiv bubble carrying its count",
     async run(h) {
       await h.waitFor(/вакансій/);
+      await h.wait(200);   // let the map-fit layout effect place the pins
       h.expect((await h.count("[data-map]")) === 1, "немає карти");
-      h.expect((await h.count("[data-bubble]")) === 22, "мають бути всі 22 міста");
-      // Kyiv is seeded with 5 openings, so its bubble prints the number.
+      h.expect((await h.count("[data-city]")) === 22, "мають бути всі 22 міста");
+      // Kyiv is seeded with 5 openings, so its pin (a real button) prints the number.
       h.expect(/5/.test(await h.text("[data-city=kyiv]")), "бульбашка Києва не показує кількість вакансій");
     },
   },
@@ -28,8 +29,9 @@ export default [
     name: "tapping Kyiv opens its sheet with a real opening",
     async run(h) {
       await h.waitFor(/вакансій/);
+      await h.wait(200);
       await h.tap("[data-city=kyiv]");
-      await h.wait(250);
+      await h.wait(300);
       h.expect((await h.count("[data-job-title]")) >= 1, "аркуш міста не показав жодної вакансії");
       h.expect(/Frontend/.test(await h.text("[data-job-title]")), "картка вакансії не показує засіяну посаду");
       h.expect((await h.count("[data-apply]")) >= 1, "немає кнопки відгуку");

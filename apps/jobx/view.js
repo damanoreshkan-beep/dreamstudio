@@ -10,7 +10,7 @@
 // bubble always sits where the city is. Bubble area ∝ openings; an empty city is a faint dot you can still tap
 // to be the first to post there.
 import { html } from "htm/preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { atom, map as nmap } from "nanostores";
 import { T } from "/_rt/i18n.js";
@@ -18,15 +18,18 @@ import { Sheet, Island } from "/_rt/ui.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session } from "/_rt/auth.js";
-import { CITIES, UA_PATH, VIEWBOX } from "./uamap.js";
+import { CITIES, UA_PATH, VIEWBOX, MAP_W, MAP_H } from "./uamap.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const EMPLOYMENT = ["full", "part", "remote", "contract", "internship"];
 const empKey = { full: "empFull", part: "empPart", remote: "empRemote", contract: "empContract", internship: "empInternship" };
 
 // ── state ────────────────────────────────────────────────────────────────────────────────────────────────
-const $counts = nmap({});      // cityKey → approved openings
-const $total = atom(0);
+// Under the gate the map is seeded at module load, so the very first paint already carries the counts (a
+// reviewer/e2e never catches an empty pre-fetch frame).
+const MOCK_COUNTS = { kyiv: 5, lviv: 3, kharkiv: 2, odesa: 2, dnipro: 1, lutsk: 1 };
+const $counts = nmap(gate ? { ...MOCK_COUNTS } : {});   // cityKey → approved openings
+const $total = atom(gate ? Object.values(MOCK_COUNTS).reduce((a, b) => a + b, 0) : 0);
 const $city = atom(null);      // the open city sheet, a CITIES key, or null
 const $cityJobs = atom(null);  // jobs for the open city, or null while loading
 const $post = atom(false);     // post sheet open?
@@ -43,11 +46,7 @@ const MOCK_JOB = {
 };
 
 async function loadCounts() {
-  if (gate) {
-    $counts.set({ kyiv: 5, lviv: 3, kharkiv: 2, odesa: 2, dnipro: 1, lutsk: 1 });
-    $total.set(14);
-    return;
-  }
+  if (gate) { $counts.set({ ...MOCK_COUNTS }); $total.set(Object.values(MOCK_COUNTS).reduce((a, b) => a + b, 0)); return; }
   try {
     const r = await fetch(`${VPS_PROXY}/jobs/cities`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
     const j = await r.json();
@@ -90,18 +89,43 @@ async function submit(t) {
   $posting.set(false);
 }
 
-// bubble radius from openings: area ∝ count, floored so a single opening is already legible.
-const rOf = (n) => (n > 0 ? Math.min(30, 11 + Math.sqrt(n) * 6) : 4.5);
+// bubble diameter (px) from openings — a fixed-size pin (does not scale with map zoom), area ∝ count.
+const dOf = (n) => (n > 0 ? Math.min(56, 24 + Math.sqrt(n) * 9) : 10);
+
+// The SVG letterboxes itself (preserveAspectRatio="meet"); this replays that same fit so an HTML overlay of
+// real <button> pins sits exactly on the SVG's coordinates. Buttons (not SVG <g>) so they are focusable,
+// tappable and their number is real text — SVG nodes have no innerText and no .click(), which the browser and
+// the e2e harness both need. Recomputed on every resize.
+function useMapFit() {
+  const ref = useRef(null);
+  const [fit, setFit] = useState({ scale: 0, ox: 0, oy: 0 });
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const cw = el.clientWidth, ch = el.clientHeight;
+      if (!cw || !ch) return;
+      const scale = Math.min(cw / MAP_W, ch / MAP_H);
+      setFit({ scale, ox: (cw - MAP_W * scale) / 2, oy: (ch - MAP_H * scale) / 2 });
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, fit];
+}
 
 export function mapView({ t, S }) {
   const counts = useStore($counts);
   const total = useStore($total);
   const city = useStore($city);
   const loc = useStore(S.locale);
+  const [boxRef, fit] = useMapFit();
 
   useEffect(() => { loadCounts(); }, []);
 
-  const entries = Object.entries(CITIES);
   const closeCity = () => { $city.set(null); $cityJobs.set(null); };
   const openPost = () => { $sent.set(false); $err.set(null); $post.set(true); };
 
@@ -112,33 +136,38 @@ export function mapView({ t, S }) {
       <div class="flex items-center gap-2 px-[var(--ms-pad)] pt-3 pb-1">
         <div class="min-w-0">
           <div class="font-semibold leading-tight truncate">${T(t, "mapHint")}</div>
-          <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">
+          <div data-total class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">
             ${total} ${T(t, "openings")}
           </div>
         </div>
       </div>
 
-      <div class="relative min-h-0 min-w-0 px-2 pb-2">
+      <div ref=${boxRef} class="relative min-h-0 min-w-0 px-2 pb-2">
         <svg data-map viewBox=${VIEWBOX} preserveAspectRatio="xMidYMid meet"
-             class="w-full h-full block" role="group" aria-label=${T(t, "mapHint")}>
-          <path d=${UA_PATH} class="fill-base-200 stroke-base-content/15" stroke-width="1.5" />
-          ${entries.map(([key, c]) => {
-            const n = Number(counts[key]) || 0;
-            const r = rOf(n);
-            const label = `${c[loc] || c.uk} · ${n} ${T(t, "openings")}`;
-            return html`<g data-bubble data-city=${key} class="cursor-pointer" role="button"
-                          tabindex="0" aria-label=${label} onClick=${() => openCity(key)}
-                          onKeyDown=${(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openCity(key); } }}>
-              ${n > 0
-                ? html`<circle cx=${c.x} cy=${c.y} r=${r + 5} class="fill-[var(--app-accent)]" opacity="0.18" />
-                    <circle cx=${c.x} cy=${c.y} r=${r} class="fill-[var(--app-accent)]" />
-                    <text x=${c.x} y=${c.y} text-anchor="middle" dominant-baseline="central"
-                          class="fill-base-100 font-bold" style="font-size:${Math.max(12, r * 0.95)}px">${n}</text>`
-                : html`<circle cx=${c.x} cy=${c.y} r="9" fill="transparent" />
-                    <circle cx=${c.x} cy=${c.y} r=${r} class="fill-base-content/35" />`}
-            </g>`;
-          })}
+             class="w-full h-full block" aria-hidden="true">
+          <path d=${UA_PATH} class="fill-base-200 stroke-base-content/20" stroke-width="1.5" />
         </svg>
+
+        ${fit.scale > 0 ? Object.entries(CITIES).map(([key, c]) => {
+          const n = Number(counts[key]) || 0;
+          const d = dOf(n);
+          const left = fit.ox + c.x * fit.scale, top = fit.oy + c.y * fit.scale;
+          const label = `${c[loc] || c.uk} · ${n} ${T(t, "openings")}`;
+          const base = "absolute -translate-x-1/2 -translate-y-1/2 rounded-full grid place-items-center transition-transform active:scale-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--app-accent)]";
+          return n > 0
+            ? html`<button data-city=${key} aria-label=${label}
+                style=${`left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:${d}px;height:${d}px`}
+                class=${`${base} bg-[var(--app-tint)] ring-2 ring-[var(--app-accent)] text-base-content font-bold`}
+                onClick=${() => openCity(key)}>
+                <span class="leading-none" style=${`font-size:${Math.max(11, d * 0.42)}px`}>${n}</span>
+              </button>`
+            // empty city: a small dot, but a 24px hit target (tap-target floor) around it.
+            : html`<button data-city=${key} aria-label=${label}
+                style=${`left:${left.toFixed(1)}px;top:${top.toFixed(1)}px;width:24px;height:24px`}
+                class=${base} onClick=${() => openCity(key)}>
+                <span class="w-2.5 h-2.5 rounded-full bg-base-content/35 hover:bg-base-content/60"></span>
+              </button>`;
+        }) : null}
 
         <button data-post class="absolute right-3 bottom-3 btn btn-primary gap-2 sf-e3 rounded-full"
                 onClick=${openPost}>
