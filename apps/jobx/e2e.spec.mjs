@@ -8,7 +8,7 @@ export default [
     async run(h) {
       await h.waitFor(/Frontend/);
       h.expect((await h.count("[data-job-title]")) >= 5, "не показано вакансій у панелі");
-      h.expect(/вакансій/.test(await h.bodyText()), "немає лічильника вакансій у шапці");
+      h.expect(/\d/.test(await h.text("[data-total]")), "немає лічильника вакансій у шапці");
       h.expect((await h.count("[data-apply]")) >= 1, "у картці немає кнопки відгуку");
     },
   },

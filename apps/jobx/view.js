@@ -216,7 +216,7 @@ function JobCard({ t, j }) {
         <div data-job-title class="font-semibold leading-tight">${j.title}</div>
         <div class="text-[0.9rem] text-muted truncate">${j.company}</div>
       </div>
-      ${j.salary ? html`<div class="shrink-0 font-mono text-[0.82rem] text-[var(--app-accent)] whitespace-nowrap">${j.salary}</div>` : null}
+      ${j.salary ? html`<div class="shrink-0 font-mono text-[0.82rem] font-semibold text-success whitespace-nowrap">${j.salary}</div>` : null}
     </div>
     <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
       ${emp ? html`<span class="badge badge-sm badge-ghost">${emp}</span>` : null}
@@ -272,7 +272,7 @@ export function mapView({ t, S }) {
       <div class="absolute top-0 left-0 right-0 flex items-start gap-2 p-[var(--ms-pad)] pointer-events-none">
         <div class="pointer-events-auto rounded-[var(--ms-r-in)] px-3 py-2 ${isDark || showMap ? "bg-black/45" : "bg-base-100/70"}">
           <div class="font-bold tracking-tight leading-none ${isDark ? "text-white" : "text-base-content"}">JOBX</div>
-          <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider ${isDark ? "text-white/70" : "text-muted"}">
+          <div data-total class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider ${isDark ? "text-white/70" : "text-muted"}">
             ${total} ${T(t, "openings")} · ${T(t, "kyiv")}
           </div>
         </div>
