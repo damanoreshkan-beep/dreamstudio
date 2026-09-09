@@ -30,5 +30,6 @@
     "install": true,
     "account": "any"
   },
-  "added": "2026-09-09"
+  "added": "2026-09-09",
+  "hidden": true
 }
