@@ -19,7 +19,8 @@
     "rtmap": "deno run -A .microspec/core.mjs rtmap",
     "dist-eye": "deno run -A .microspec/core.mjs dist-eye",
     "build": "deno run -A .microspec/core.mjs build",
-    "red": "gh run view $(gh run list --workflow=verify.yml --limit 1 --json databaseId --jq '.[0].databaseId') --log-failed | sed 's/\\x1b\\[[0-9;]*m//g' | grep -E '✗'"
+    "red": "gh run view $(gh run list --workflow=verify.yml --limit 1 --json databaseId --jq '.[0].databaseId') --log-failed | sed 's/\\x1b\\[[0-9;]*m//g' | grep -E '✗'",
+    "dev": "deno run -A tools/dev.mjs"
   },
   "lint": {
     "exclude": [
