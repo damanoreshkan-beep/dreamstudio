@@ -1,41 +1,64 @@
-# jobx — research & design note
+# jobx — research & build plan (3D Kyiv)
 
-**What it is.** Jobs on a map of Ukraine. jobx is the farm's **own** job board — not a wrapper over a
-third-party API. A signed-in user posts a vacancy; the owner approves it from Telegram; it appears as a
-bubble on the city it belongs to.
+**What it is.** jobx is a **3D map of Kyiv** (Kyiv only, location-based): jobs are glowing columns standing on a
+dark, tilted, theme-aware 3D city; a side panel lists them (logo, title, $/₴, tags, "X км від центру"). The
+farm's own job board — a signed-in user posts a vacancy at a point in Kyiv, the owner approves it from Telegram,
+it appears on the map. Reference look: `~/jobx/screenshot-3d-v2.png` (the original React/deck.gl build).
 
-## Why not Jooble (the pivot, 2026-09-09)
-The first cut used the Jooble free API. Measured, it was wrong for this app:
-- A global `jooble.org` key resolves only at **country** level — `location:"Ukraine"` returned ~92 jobs all
-  tagged "Ukraine", `location:"Kyiv"` returned **0**. A per-city bubble map was impossible without a
-  per-country-domain key.
-- 500 requests/day is a hard ceiling for a map that queries per city.
-- The data is someone else's; the farm's north star is that the apps are **our** asset.
+## The pivot history
+- v0: Jooble API — dropped (country-level only, 500/day, not our data).
+- v1: flat 2D Ukraine bubble map — **failed the design eye** (tiny letterboxed silhouette, clashing colours,
+  wrong concept). Hidden. Lesson booked: a green gate is a floor, not a verdict — shoot and LOOK before "done".
+- v2 (this plan): 3D Kyiv, deck.gl, reusing the original jobx's baked data 1:1.
 
-So Jooble was removed entirely (route, `jooble.org` allowlist entry, `JOOBLE_KEY`) and replaced with our
-own board. `jobs_cache` stays as a dead, additive table (never dropped in place).
+## The decisive architecture constraint (verified in-repo)
+- `/_rt/globe.js`: a canvas-2D d3-geo renderer, "**no WebGL — so it renders in the headless gate too**".
+- `/_rt/glstage.js`: WebGL is "**guard by PROBE, never by gate** … every meaning the stage carries is also in
+  the DOM, which is the only thing axe [+e2e] can see."
+- `/_rt/gate.js`: `gate = isGate || MOCK != null` → seed a deterministic fixture when true.
 
-## Architecture
-- **Backend** (`microspec-edge/edge/jobs.js` + `db.js`):
-  - `POST /feed/jobs/post {sid, title, company, city, salary?, employment?, description, contact}` — requires
-    a valid sealed session (`session.open`), validates every field, inserts `status='pending'`, pings the
-    owner (`ADMIN_TG_ID`) in Telegram with ✅/🗑 buttons.
-  - `POST /feed/jobs/list {city?}` — approved vacancies, mem-cached (public).
-  - `POST /feed/jobs/cities` — the gazetteer + approved count per city, for the map.
-  - Bot callback `job:ok|no:<id>` — owner-only approve/reject (bot.js delegates to jobs.js).
-  - **Security:** every query is a parameterised tagged template (bound params, no SQL text); `city` is a
-    gazetteer KEY not free text; `employment` a fixed set; every field length-capped + control-char-stripped;
-    nothing is public until the owner approves it.
-- **Map** (`uamap.js`): a real Ukraine border (johan/world.geo.json, Douglas-Peucker simplified) projected
-  equirectangular with an aspect correction (lon·cos(midLat)). **The same projection places every city**, so
-  a bubble always sits on its true location. 22 oblast centres + Kyiv; keys mirror the edge gazetteer exactly.
-  Bubble area ∝ openings; an empty city is a faint, still-tappable dot ("be the first to post here").
-- **Frontend** (`view.js`): the map tab (fit) with a `+` post button and per-city job sheets; the Me tab
-  offers sign-in (`profile.account: "any"` → GitHub / Google / Telegram). Posting is gated on a session.
+**Therefore:** deck.gl (WebGL2) can only be a **probe-guarded enhancement**. The gate/reviewer/e2e see the
+**DOM**, and offline needs a non-network path. So jobx has two render layers:
+1. **DOM job panel = the source of truth** (list of vacancies, every string via `T()`), always present →
+   satisfies the gate, a11y, e2e, and offline.
+2. **deck.gl 3D map** on top, initialised only when `getContext("webgl2")` answers; absent under the gate
+   (canvas stub → null) and offline-first-load. A light 2D placeholder fills the map region when GL is absent.
 
-## Gotchas learned
-- Douglas-Peucker on a **closed** GeoJSON ring collapses to 2 points (baseline segment length 0) — simplify
-  the OPEN ring (drop the closing duplicate) and let `Z` close the path.
-- Muted text must be the `.text-muted` token, never a `text-base-content/NN` alpha (a11y gate).
-- PWA chrome colours (`manifest` + meta `theme-color`) must be a theme base (`#000000` for a dark theme).
-- Importing `/_rt/auth.js` requires declaring `"auth"` in a tab's `needs` (capabilities gate).
+## Data — reuse `~/jobx/apps/api/src/data/*` 1:1 (user: "ото печені і юзай, 1 в 1")
+`kyiv-buildings.json` (34M), `kyiv-water.json` (3.7M), `kyiv-roads.json` (1.3M), `kyiv-metro.json` (200K),
+`kyiv-districts.json` (101K).
+- **Served as nginx STATIC** on the VPS (gzip + long Cache-Control), NOT through `core` — core runs with no
+  `--allow-read` and cannot read files off disk. Path e.g. `https://dreamstudio.mooo.com/kyiv/<layer>.json`.
+- App fetches them for the WebGL layer; **SW CacheFirst** (30d) so the map is offline after first load
+  (mirrors the original PWA). The gate never fetches them (fixture only).
+
+## Map (deck.gl) — port the original layer stack, THEME-AWARE (user: mandatory light/dark)
+- View: `longitude 30.5241, latitude 50.4500, zoom 10.38, pitch 55, bearing -15` (Kyiv centre, from the original).
+- Layers bottom→top: districts → water → roads → metro → **buildings** (GeoJsonLayer, `getElevation` from
+  `properties.h`, LOD by zoom via DataFilterExtension) → **job columns** (ColumnLayer) → pulse (ScatterplotLayer).
+- **Theme:** every `getFillColor` has a light/dark branch keyed on the app theme (`S.theme` → isDark). The
+  original already carries `isDark` branches — carry them, and recolour to the farm's tokens, not raw hex.
+- Job columns coloured by vacancy density (green→yellow→red), like the original legend "1+ 3+ 5+ …".
+
+## Backend rework (edge)
+Jobs move from a **country city-key** to a **Kyiv point**:
+- `jobs` table: replace `city` with `lat double precision, lon double precision` (+ keep an optional `address`
+  text). Additive migration (add cols; leave `city` for old rows).
+- `/feed/jobs/post {sid, title, company, lat, lon, salary?, employment?, description, contact}` — validate
+  lat/lon inside the Kyiv bbox (50.21–50.59, 30.24–30.83); still auth + moderation.
+- `/feed/jobs/list` → jobs with `{lat, lon, …}`. Drop `/feed/jobs/cities`.
+- Kyiv geo files served static via nginx (VPS ops), not core.
+
+## Build phases
+1. **Backend**: schema lat/lon + post/list rework + Kyiv-bbox validation. Gate: edge tests green.
+2. **Kyiv geo serving**: place the 5 files on the VPS, nginx `location /kyiv/`, gzip+cache. Verify live.
+3. **Frontend**: DOM panel (truth) + deck.gl 3D map (probe-guarded, theme-aware) + gate fixture + SW precache.
+4. **THE EYE**: shoot both themes at the reference device, critique as a demanding designer, iterate until it
+   reads like the reference. jobx stays `hidden:true` until it passes the eye.
+
+## Gotchas booked
+- deck.gl over esm.sh: import sub-packages (`@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/geo-layers`), pin
+  exact versions, `?external=@deck.gl/core`; WebGL2 mandatory → probe-guard.
+- core has no `--allow-read` → Kyiv geo is nginx static, never a core route.
+- Map is theme-aware (light/dark), tokens not raw hex where possible.
+- Muted text = `.text-muted`; PWA chrome colours = theme base; importing `/_rt/auth.js` needs `needs:["auth"]`.

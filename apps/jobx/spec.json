@@ -1,8 +1,8 @@
 {
   "id": "jobx",
-  "theme": "circuit",
+  "theme": "ink",
   "category": "tools",
-  "accent": "#6EA8FE",
+  "accent": "#00E5FF",
   "tabs": [
     {
       "id": "map",
