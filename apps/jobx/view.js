@@ -143,19 +143,25 @@ function shortSalary(s) {
 
 // Markers cluster in SCREEN space, per camera — Airbnb's rule: two pills never overlap. Jobs whose pills would
 // collide at the current zoom merge into one count pill, and the merge dissolves as the zoom makes room.
-// Greedy over projected pixels (a pill is ~PILL_W × PILL_H px) against the live viewport; ≤1000 jobs cost
+// Greedy over projected pixels (each pill's real footprint, PILL_H tall) against the live viewport; ≤1000 jobs cost
 // well under a millisecond, and the layer list is rebuilt when the zoom or the tilt moves a step. deck.gl's
 // own CollisionFilterExtension was tried first (2026-09-10) and hid EVERY label: on the first frame the
 // collision map is stale (visgl/deck.gl#10333, open) and by glyph content (#10386, open).
-const PILL_W = 112, PILL_H = 34;    // a pill's footprint on screen, px
+const PILL_H = 34, PILL_GAP = 8;    // a pill's height on screen and the air kept between two pills, px
 const BEAM_M = 220, PILL_Z = 300;   // the beam's height and the pill's altitude, metres — the pill clears the beam
+// A marker's label: a cluster shows its count, a single job its compact salary, an unpriced job nothing (a
+// bare pin). Its width on screen follows the label — a count pill is a third of a salary pill, and a pin is a
+// dot — so the overlap test is the real footprint, not one worst-case box (that merged jobs 5 km apart).
+const labelOf = (c) => (c.count > 1 ? String(c.count) : (shortSalary(c.jobs[0] && c.jobs[0].salary) || ""));
+const pillW = (lab) => (lab ? lab.length * 7.6 + 20 : 12);
 function clusterJobs(jobs, vp) {
   const out = [];
   for (const j of jobs) {
     if (!Number.isFinite(j.lat) || !Number.isFinite(j.lon)) continue;
     const [x, y] = vp.project([j.lon, j.lat, PILL_Z]);
+    const wj = pillW(shortSalary(j.salary) || "");
     let hit = null;
-    for (const c of out) if (Math.abs(c.x - x) < PILL_W && Math.abs(c.y - y) < PILL_H) { hit = c; break; }
+    for (const c of out) if (Math.abs(c.x - x) < (wj + pillW(labelOf(c))) / 2 + PILL_GAP && Math.abs(c.y - y) < PILL_H) { hit = c; break; }
     if (!hit) { out.push({ x, y, lon: j.lon, lat: j.lat, count: 1, jobs: [j] }); continue; }
     hit.jobs.push(j); hit.count++;
     const k = 1 / hit.count;                                   // running mean: the pill sits among its jobs
@@ -235,7 +241,7 @@ async function makeDeck(canvas) {
       // A cluster shows its count; a single job its salary. A job with NO salary has no label — it must NOT
       // draw an empty pill (a blank box reads as broken), so the pill layer takes only labelled markers and
       // the unpriced job stays a clean anchor dot + beam (a pin); a tap on it still opens via the CPU hit-test.
-      const label = (d) => (d.count > 1 ? String(d.count) : (shortSalary(d.jobs[0] && d.jobs[0].salary) || ""));
+      const label = labelOf;
       const pilled = cl.filter((d) => label(d));
       L.push(new D.ColumnLayer({ id: "beam", data: cl, diskResolution: 12, radius: 6, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: BEAM_M, getFillColor: pal.beam, pickable: false }));
       L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 5, radiusMinPixels: 5, radiusMaxPixels: 9, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1.5, pickable: true }));
@@ -264,13 +270,13 @@ async function makeDeck(canvas) {
     const vp = deck.getViewports()[0]; if (!vp) return null;
     let best = null, bd = Infinity;
     for (const c of curClusters) {
-      const lab = c.count > 1 ? String(c.count) : (shortSalary(c.jobs[0] && c.jobs[0].salary) || "");
+      const lab = labelOf(c);
       const [px, py] = vp.project([c.coordinates[0], c.coordinates[1], PILL_Z]);   // pill floats above the beam…
       const [gx, gy] = vp.project([c.coordinates[0], c.coordinates[1], 0]);        // …the anchor sits on ground
       // Distance to the pill's RECTANGLE (0 when the tap is on the pill), sized from the label — a wide salary
       // pill must be tappable across its whole width, not just at its centre point.
       let dPill = Infinity;
-      if (lab) { const cx = px, cy = py, hw = lab.length * 4.4 + 14, hh = 15;
+      if (lab) { const cx = px, cy = py, hw = pillW(lab) / 2, hh = PILL_H / 2;
         dPill = Math.hypot(Math.max(Math.abs(x - cx) - hw, 0), Math.max(Math.abs(y - cy) - hh, 0)); }
       const dDot = Math.hypot(x - gx, y - gy);                                    // the ground pin
       const d = Math.min(dPill, dDot);
