@@ -169,11 +169,12 @@ function clusterJobs(jobs, vp) {
   }
   return out.map((c) => ({ coordinates: [c.lon, c.lat], count: c.count, jobs: c.jobs }));
 }
-// Buildings are viewport-CULLED on a grid (deck.gl has no per-feature frustum culling — it draws every vertex
-// of a layer each frame, so 155k extruded footprints melt a weak GPU). Only the cells around the camera draw,
-// and only past BLD_ZOOM — a city-wide view draws none, so it stays smooth. CELL ≈ 450 m; CELL_RADIUS cells
-// each side of centre caps the draw count (~a few thousand footprints) regardless of pitch.
-const CELL = 0.006, BLD_ZOOM = 12.5, CELL_RADIUS = 4;
+// Buildings come as VECTOR TILES (deck.gl MVTLayer): deck loads, decodes (in a worker) and draws ONLY the
+// {z}/{x}/{y} tiles in the current viewport+zoom — native frustum culling + LOD, the thing a monolithic
+// GeoJsonLayer can't do (it has none, so the old 33 MB / 155k-feature file drew every vertex every frame and
+// melted weak GPUs). Shown only past BLD_ZOOM: a city-wide view fetches no building tiles at all, so it stays
+// smooth, and the 3D city rises as you zoom in (the Google/Apple-maps idiom). Tiles: vps → /kyiv/tiles/.
+const BLD_ZOOM = 12.5;
 
 // ── the 3D map (probe-guarded, lazy, theme-derived) ──────────────────────────────────────────────────────
 async function makeDeck(canvas) {
@@ -184,40 +185,15 @@ async function makeDeck(canvas) {
 
   const geo = {};
   const grab = async (n) => { try { geo[n] = await (await fetch(`${GEO}/${n}.json`)).json(); } catch { geo[n] = null; } };
-  // The city first, the buildings later: on the wire the four base layers are ~1.2 MB gzip and the building
-  // footprints 4.8 MB (measured 2026-09-10), so the map stands up on the base layers and the 3D arrives
-  // behind it — instead of a blank stage until the largest file lands.
+  // The four base layers are ~1.2 MB gzip total; buildings no longer ride here (they stream as tiles), so the
+  // map stands up as soon as these land.
   await Promise.all([grab("districts"), grab("water"), grab("roads"), grab("metro")]);
-  // Bin every building into its grid cell ONCE (by a footprint corner — a building is tiny vs a cell). Each cell
-  // is a STABLE FeatureCollection, so deck.gl reuses that cell's tessellated GPU buffers while it stays on
-  // screen; panning only tessellates the few cells newly entered — never the whole layer (the old stall).
-  const bGrid = new Map();
-  const binBuildings = () => {
-    if (!geo.buildings || !geo.buildings.features) return;
-    for (const f of geo.buildings.features) {
-      f.properties._h = f.properties.h || 12;
-      const p = f.geometry.coordinates[0][0];
-      const k = `${Math.floor(p[0] / CELL)}_${Math.floor(p[1] / CELL)}`;
-      let cell = bGrid.get(k); if (!cell) bGrid.set(k, cell = { type: "FeatureCollection", features: [] });
-      cell.features.push(f);
-    }
-  };
 
   let zoom = VIEW.zoom, cLng = VIEW.longitude, cLat = VIEW.latitude, cPitch = VIEW.pitch, cBearing = VIEW.bearing;
-  let pal = palette(), jobs = [], onPick = () => {}, curClusters = [], cellSig = "", curVp = null;
+  let pal = palette(), jobs = [], onPick = () => {}, curClusters = [], camSig = "", curVp = null;
   // The camera the clusters are computed against: deck's own viewport once it has rendered a frame, else one
   // built from the current view over the canvas's real size (the first build happens before the first frame).
   const viewportNow = () => curVp || new D.WebMercatorViewport({ width: canvas.clientWidth || 384, height: canvas.clientHeight || 832, longitude: cLng, latitude: cLat, zoom, pitch: cPitch, bearing: cBearing });
-  // The cell keys to draw for the current camera: a square of CELL_RADIUS cells around the centre, past the
-  // zoom gate. A fixed radius (not the pitched viewport bounds) keeps the draw bounded even to the horizon.
-  const visCells = () => {
-    if (zoom < BLD_ZOOM || !bGrid.size) return [];
-    const ci = Math.floor(cLng / CELL), cj = Math.floor(cLat / CELL), out = [];
-    for (let di = -CELL_RADIUS; di <= CELL_RADIUS; di++) for (let dj = -CELL_RADIUS; dj <= CELL_RADIUS; dj++) {
-      const k = `${ci + di}_${cj + dj}`; if (bGrid.has(k)) out.push(k);
-    }
-    return out;
-  };
 
   function layers() {
     const L = [];
@@ -225,11 +201,16 @@ async function makeDeck(canvas) {
     if (geo.water) L.push(new D.GeoJsonLayer({ id: "water", data: geo.water, filled: true, stroked: true, getFillColor: pal.water, getLineColor: pal.waterLine, lineWidthMinPixels: 1, pickable: false }));
     if (geo.roads) L.push(new D.GeoJsonLayer({ id: "roads", data: geo.roads, filled: false, stroked: true, getLineColor: pal.road, getLineWidth: (f) => { const h = f.properties && f.properties.hw; return h === "motorway" || h === "trunk" ? 12 : h === "primary" ? 9 : h === "secondary" ? 6 : 3; }, lineWidthUnits: "meters", lineWidthMinPixels: 0.5, lineWidthMaxPixels: 4, pickable: false }));
     if (geo.metro && geo.metro.lines) L.push(new D.GeoJsonLayer({ id: "metro", data: geo.metro.lines, filled: false, stroked: true, getLineColor: (f) => { const c = (f.properties && f.properties.color) || pal.accent; return [c[0], c[1], c[2], 200]; }, getLineWidth: 4, lineWidthUnits: "meters", lineWidthMinPixels: 2, lineWidthMaxPixels: 5, pickable: false }));
-    // One layer per visible cell — deck keeps each cell's buffers between frames, so panning never re-tessellates
-    // the whole city. The cull holds the drawn count to a few thousand, so a light material (ambient + diffuse,
-    // NO specular — the costly per-fragment term) is affordable and gives the faces their 3D shading.
-    for (const key of visCells()) {
-      L.push(new D.GeoJsonLayer({ id: `bld-${key}`, data: bGrid.get(key), extruded: true, opacity: pal.dark ? 0.92 : 0.97, getElevation: (f) => f.properties._h, getFillColor: pal.building, material: { ambient: pal.dark ? 0.5 : 0.62, diffuse: 0.55, shininess: 1, specularColor: [0, 0, 0] }, pickable: false, updateTriggers: { getFillColor: [pal] } }));
+    // Buildings — vector tiles, drawn only past the zoom gate. deck fetches just the visible {z}/{x}/{y} tiles,
+    // decodes them off-thread and reuses their buffers, so there is no monolith download and no re-tessellation
+    // stall. `material` without specular (the costly per-fragment term) still shades the faces for the 3D read.
+    if (zoom >= BLD_ZOOM) {
+      L.push(new D.MVTLayer({
+        id: "buildings", data: `${GEO}/tiles/{z}/{x}/{y}.pbf`, minZoom: 13, maxZoom: 16,
+        extruded: true, opacity: pal.dark ? 0.92 : 0.97, getElevation: (f) => (f.properties && f.properties.h) || 12,
+        getFillColor: pal.building, material: { ambient: pal.dark ? 0.5 : 0.62, diffuse: 0.55, shininess: 1, specularColor: [0, 0, 0] },
+        pickable: false, updateTriggers: { getFillColor: [pal] },
+      }));
     }
     // Job markers — Airbnb-style salary PILLS on an anchored stem (map-UX + deck.gl research). A single job
     // shows its salary; a cluster shows the count (accent-filled). The pill would detach over a tilted 3D city,
@@ -293,19 +274,18 @@ async function makeDeck(canvas) {
     // A tap opens a vacancy: use the GPU pick when it works, else the CPU nearest-marker fallback (info.x/y are
     // canvas-local and present even when the pick misses). A drag never reaches here — deck fires onClick on taps.
     onClick: (info) => { const c = (info && info.object && info.object.jobs) ? info.object : pickCluster(info && info.x, info && info.y); if (c && c.jobs) onPick(c); },
-    // Rebuild the layer list only when the SET of visible building cells changes, or the camera moves a step
-    // that can change which pills collide (a quarter zoom, a tilt or a turn) — panning within the same cells
-    // costs nothing and deck drives the camera itself. The signature is the cell keys plus the camera steps.
+    // Rebuild the layer list only when the camera moves a step that changes which pills collide (a quarter
+    // zoom, a tilt or a turn) or crosses the building zoom-gate — panning costs nothing and deck drives the
+    // camera (and its own tile loading) itself. The signature is the camera steps; a quarter-zoom step also
+    // catches the BLD_ZOOM crossing that adds/removes the buildings tile layer.
     onViewStateChange: ({ viewState }) => {
       zoom = viewState.zoom; cLng = viewState.longitude; cLat = viewState.latitude; cPitch = viewState.pitch; cBearing = viewState.bearing;
       curVp = deck.getViewports()[0] || null;
-      const sig = `${visCells().join(",")}|${Math.round(zoom * 4)}|${Math.round(cPitch / 10)}|${Math.round(cBearing / 20)}`;
-      if (sig !== cellSig) { cellSig = sig; deck.setProps({ layers: layers() }); }
+      const sig = `${Math.round(zoom * 4)}|${Math.round(cPitch / 10)}|${Math.round(cBearing / 20)}`;
+      if (sig !== camSig) { camSig = sig; deck.setProps({ layers: layers() }); }
     },
     layers: [],
   });
-  // The 3D arrives behind the standing map: bin, then rebuild once so the visible cells draw.
-  grab("buildings").then(() => { binBuildings(); cellSig = ""; deck.setProps({ layers: layers() }); });
   return {
     rebuild(next) { if (next.pal) pal = next.pal; if (next.jobs) jobs = next.jobs; if ("onPick" in next) onPick = next.onPick; deck.setProps({ layers: layers(), style: { background: `rgb(${pal.bg.join(",")})` } }); },
     destroy() { try { deck.finalize(); } catch { /* */ } },
