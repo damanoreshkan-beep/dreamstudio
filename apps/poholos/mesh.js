@@ -112,6 +112,10 @@ const live = () => shell.present && shell.has("mesh.start");
 // peers and messages: an app that invents conversations is an app that lies.
 const demo = () => gate || (typeof location !== "undefined" && /[?&](mock|demo)=/.test(location.search));
 let cancels = [];
+// re-entrancy / debounce guards for start + scan-recovery (see rescan + visibilitychange)
+let starting = false;
+let rescanning = false;
+let hiddenAt = 0;
 
 // ── real transport (APK) ─────────────────────────────────────────────────────────────────────────
 async function startLive() {
@@ -164,20 +168,25 @@ async function checkHeld() {
 }
 
 export async function start() {
-  if ($state.get().running) return;
-  // demo FIRST: under the eye/e2e `gate` makes the bridge report present with single-event catalogue mocks,
-  // which would show one stray message. Our own mock paints a full, deterministic conversation instead.
-  if (demo()) return startMock();
-  if (live()) {
-    // Never let this reject into nothing: an unhandled rejection here left `running` false, the room
-    // showing "no one nearby", and the actual reason — a refused permission, a stale bridge — nowhere.
-    try { return await startLive(); }
-    catch (e) { const f = faultOf(e); $fault.set(f); note("err", `mesh.start: ${f.code} ${f.detail}`); return; }
-  }
-  note("idle", shell.present ? `no mesh.start on this bridge (v${shell.version})` : "no shell — browser");
-  // Honest idle: no transport here (a plain browser, or the APK before the mesh flavour exists). Running,
-  // but zero peers and zero messages — the room shows "quiet / no one nearby", which is the truth.
-  $state.set({ ...$state.get(), running: true, myPeerID: "", nick: $state.get().nick || "" });
+  // `running` is only set true AFTER the awaited mesh.start; a synchronous `starting` latch closes that
+  // window so two triggers (e.g. two fast foreground returns) can't both run startLive and double-subscribe.
+  if ($state.get().running || starting) return;
+  starting = true;
+  try {
+    // demo FIRST: under the eye/e2e `gate` makes the bridge report present with single-event catalogue mocks,
+    // which would show one stray message. Our own mock paints a full, deterministic conversation instead.
+    if (demo()) return await startMock();
+    if (live()) {
+      // Never let this reject into nothing: an unhandled rejection here left `running` false, the room
+      // showing "no one nearby", and the actual reason — a refused permission, a stale bridge — nowhere.
+      try { return await startLive(); }
+      catch (e) { const f = faultOf(e); $fault.set(f); note("err", `mesh.start: ${f.code} ${f.detail}`); return; }
+    }
+    note("idle", shell.present ? `no mesh.start on this bridge (v${shell.version})` : "no shell — browser");
+    // Honest idle: no transport here (a plain browser, or the APK before the mesh flavour exists). Running,
+    // but zero peers and zero messages — the room shows "quiet / no one nearby", which is the truth.
+    $state.set({ ...$state.get(), running: true, myPeerID: "", nick: $state.get().nick || "" });
+  } finally { starting = false; }
 }
 export function stop() { cancels.forEach((c) => c && c()); cancels = []; }
 
@@ -190,19 +199,24 @@ export function stop() { cancels.forEach((c) => c && c()); cancels = []; }
 // first: `mesh.stop` nulls the native service, then start()→mesh.start rebuilds it and re-arms scan +
 // advertise. Cancelling the page subscriptions alone (stop()) was never enough.
 export async function rescan() {
-  note("rescan", "manual restart of the mesh transport");
-  stop();                                    // drop the page's streams (also cancels the native subscriptions)
-  if (live()) {
-    // Tear the native transport down so the next mesh.start is not a no-op and truly re-arms the scanner.
-    note("call", "mesh.stop");
-    try { const r = await shell.call("mesh.stop", {}); note("ok", `mesh.stop → running ${r?.running}`); }
-    catch (e) { const f = faultOf(e); note("err", `mesh.stop: ${f.code} ${f.detail}`); }
-  }
-  $peers.set([]);
-  $fault.set(null);
-  $state.set({ ...$state.get(), running: false, peerCount: 0 });
-  bump();
-  await start();
+  if (rescanning) return;                    // a rescan is already tearing down/rebuilding — don't stack
+  rescanning = true;
+  try {
+    note("rescan", "manual restart of the mesh transport");
+    stop();                                  // drop the page's streams (also cancels the native subscriptions)
+    if (live()) {
+      // Tear the native transport down so the next mesh.start is not a no-op and truly re-arms the scanner.
+      note("call", "mesh.stop");
+      try { const r = await shell.call("mesh.stop", {}); note("ok", `mesh.stop → running ${r?.running}`); }
+      catch (e) { const f = faultOf(e); note("err", `mesh.stop: ${f.code} ${f.detail}`); }
+    }
+    // Do NOT blank $peers/peerCount here: that made every recovery flash "no one nearby" and read as peers
+    // dropping. running:false is only so start() (which early-returns while running) will proceed; the fresh
+    // mesh.peers stream repopulates the room in place.
+    $fault.set(null);
+    $state.set({ ...$state.get(), running: false });
+    await start();
+  } finally { rescanning = false; }
 }
 
 // Backgrounding is what kills the scan (doze / background-scan throttling), and the page gets no signal
@@ -212,7 +226,12 @@ export async function rescan() {
 // nothing. Registered once at import; guarded for preflight (no document).
 if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
   document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
     if (document.visibilityState === "visible" && live() && $state.get().running) {
+      // Only rebuild if we were backgrounded long enough for Android to actually throttle/stop the scan.
+      // A brief glance away leaves a healthy transport — tearing it down then would BE the peer-drop the
+      // user sees. rescan() is also self-guarded against overlap.
+      if (Date.now() - hiddenAt < 3000) return;
       note("wake", "foreground — rescanning the mesh transport");
       rescan();
     }

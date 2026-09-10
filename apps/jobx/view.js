@@ -162,11 +162,15 @@ async function makeDeck(canvas) {
     const cl = clusterJobs(jobs);
     if (cl.length) {
       const pick = (i) => { if (i && i.object) onPick(i.object); };
+      // A cluster shows its count; a single job its salary. A job with NO salary has no label — it must NOT
+      // draw an empty pill (a blank box reads as broken), so the pill layer takes only labelled markers and
+      // the unpriced job stays a clean anchor dot + beam (a pin), still clickable via the anchor layer.
       const label = (d) => (d.count > 1 ? String(d.count) : (shortSalary(d.jobs[0] && d.jobs[0].salary) || ""));
+      const pilled = cl.filter((d) => label(d));
       L.push(new D.ColumnLayer({ id: "beam", data: cl, diskResolution: 12, radius: 6, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: 220, getFillColor: pal.beam, pickable: false }));
       L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 4, radiusMinPixels: 3, radiusMaxPixels: 6, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1, pickable: true, onClick: pick }));
       L.push(new D.TextLayer({
-        id: "pills", data: cl, pickable: true, onClick: pick, billboard: true, sizeUnits: "pixels",
+        id: "pills", data: pilled, pickable: true, onClick: pick, billboard: true, sizeUnits: "pixels",
         getPosition: (d) => [d.coordinates[0], d.coordinates[1], 220], getPixelOffset: [0, -12],
         getText: label, getSize: (d) => (d.count > 1 ? 15 : 13), sizeMinPixels: 11, sizeMaxPixels: 20,
         background: true, backgroundBorderRadius: 11, backgroundPadding: [10, 6, 10, 6], getBackgroundColor: (d) => (d.count > 1 ? pal.clusterBg : pal.pillBg),
