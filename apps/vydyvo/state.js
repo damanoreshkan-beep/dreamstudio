@@ -9,7 +9,7 @@ import { toEnglish } from "/_rt/translate.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { suggest } from "/_rt/ai-text.js";
 import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
-import { LINES, WORLDS, worldOf, voiceOf, composePrompt, mockFrame } from "./worlds.js";
+import { LINES, WORLDS, worldOf, voiceOf, composePrompt, mockFrame, seedUrl } from "./worlds.js";
 
 const OPTS_KEY = "ms:vydyvo:opts";
 const BASE = `${VPS_PROXY}/image`;
@@ -34,6 +34,8 @@ export const $opts = atom(loadOpts());
 export const setOpts = (p) => { const v = { ...$opts.get(), ...p }; $opts.set(v); try { localStorage.setItem(OPTS_KEY, JSON.stringify(v)); } catch { /* */ } };
 /** The chosen character's world id (worlds.js) — the grid's pick, `lum` until one is made or if the id is gone. */
 export const activeWorld = () => { const c = $opts.get().char; return WORLDS[c] ? c : "lum"; };
+/** The mode the DOCUMENT is in — the applied theme, which `?theme=` can override without touching the atom. */
+const docMode = () => (typeof document !== "undefined" && document.documentElement.getAttribute("data-theme") === "signal-light") ? "light" : "dark";
 
 // frames: { id, url, preset, li, prompt, mode, w, h, ts, shown, shownAt } — oldest first
 export const $frames = atom([]);
@@ -53,10 +55,12 @@ export const current = () => { const st = $stage.get(); return $frames.get().fin
 function addFrame(f) {
   const id = newId(), frame = { id, li: lineOf(id), line: null, ts: Date.now(), shown: false, shownAt: 0, ...f };
   let list = [...$frames.get(), frame];
-  // over the cap the oldest SHOWN frame goes (never the one on stage); a fresh frame is worth more than an old one
+  // over the cap the oldest SHOWN frame goes (never the one on stage); a fresh frame is worth more than an old one.
+  // A seed is a weightless shipped asset (no blob), so it never counts against the cap nor is evicted here — it is
+  // freed by present() the moment a real frame of its side takes the stage.
   const cur = $stage.get().cur;
-  while (list.length > CAP) {
-    const gone = list.filter((x) => x.shown && x.id !== cur).sort((a, b) => a.shownAt - b.shownAt)[0] || list.find((x) => x.id !== cur);
+  while (list.filter((x) => !x.seed).length > CAP) {
+    const gone = list.filter((x) => x.shown && !x.seed && x.id !== cur).sort((a, b) => a.shownAt - b.shownAt)[0] || list.find((x) => !x.seed && x.id !== cur);
     if (!gone) break;
     list = list.filter((x) => x !== gone); revoke(gone.url);
   }
@@ -124,6 +128,20 @@ function advance(now) {
 /** Skip to the next frame now (a tap on the picture). */
 export function skip() { advance(Date.now()); }
 
+// THE STATIC PLACEHOLDER (owner 2026-09-11: "перша генерація погана … заглушки перед першою генерацію на усі
+// теми та режими"): before any race has landed a frame of the page's side, a ready-made full-frame picture of
+// THIS world+mode (assets/seed-<id>-<n|d>.webp, made once with the world's own prompt) stands on the stage in
+// place of the empty waiting field. It rides the NORMAL frame path — same drift, same cross-fade — so the first
+// real frame simply cross-fades in over it, correct on both sides and on a theme/world flip with no wrong-mode
+// flash. A seed is weightless (a shipped asset, no blob), so addFrame never counts it against the cap and it is
+// freed by present() like any shown frame once a fresher picture takes the stage.
+export function ensureSeed(mode = docMode(), wid = activeWorld()) {
+  if ($frames.get().some((f) => f.mode === mode && f.preset === wid)) return;   // a frame of this side already exists (real or seed)
+  const id = addFrame({ url: seedUrl(wid, mode), preset: wid, mode, seed: true, w: 90, h: 160 });
+  const cur = current();
+  if (!cur || cur.mode !== mode || cur.preset !== wid) present(id, Date.now());  // nothing of this side on stage → raise it at once
+}
+
 let loopId = null, runs = 0, job = null, hold = null, ctxRef = null;
 /** Start the show loop once; `ctx.t` is the dictionary for the hold's words. Idempotent. */
 export function startLoop(ctx) {
@@ -134,15 +152,19 @@ export function startLoop(ctx) {
 }
 function tick() {
   const now = Date.now(), st = $stage.get(), o = $opts.get();
+  const m = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
+  const w = activeWorld();
+  ensureSeed(m, w);                              // a static placeholder covers the wait before the first race of this side lands
+  const curF = current();
   if (!st.cur) { const first = unshown()[0] || $frames.get()[0]; if (first) present(first.id, now); }
+  // a real frame of this side supersedes the placeholder the moment it lands — no waiting out the display timer
+  else if (curF?.seed && unshown().some((f) => !f.seed && f.mode === m && f.preset === w)) advance(now);
   else if (now - st.since >= o.every * 1000) advance(now);
   const g = $gen.get();
   const online = gate || (typeof navigator === "undefined" || navigator.onLine !== false);
   // "ahead" counts fresh frames OF THE MODE AND WORLD THE PAGE IS IN — a theme flip (either the mode or
   // the material) makes the old stock worthless, so the next race starts at once instead of waiting out a
   // full stock of wrong-side frames
-  const m = document.documentElement.getAttribute("data-theme") === "signal-light" ? "light" : "dark";
-  const w = activeWorld();
   const ahead = $frames.get().filter((f) => !f.shown && f.mode === m && f.preset === w).length;
   if (g.phase !== "working" && now >= g.until && ahead < AHEAD && online) generate();
 }

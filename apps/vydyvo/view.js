@@ -5,7 +5,7 @@
 // simply rises over the chrome (fixed, z-60). Contract and precedents: apps/vydyvo/RESEARCH.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Sheet, Segmented, Island } from "/_rt/ui.js";
@@ -15,7 +15,7 @@ import { downloadBlob } from "/_rt/apk.js";
 import { gate } from "/_rt/gate.js";
 import { GlStage, hasWebGL2 } from "/_rt/glstage.js";
 import { LINES, WORLDS, nameOf, thumbOf } from "./worlds.js";
-import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge, generateNow, activeWorld } from "./state.js";
+import { $opts, setOpts, $frames, $stage, $gen, EVERY, startLoop, skip, unshown, nudge, generateNow, activeWorld, ensureSeed } from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const fsSupported = typeof document !== "undefined" && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -93,6 +93,9 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
   const next = unshown()[0];   // preloaded below, so the cross-fade never fades in a half-decoded picture
 
   useEffect(() => { startLoop({ t, loc }); }, [t, loc]);
+  // THE STATIC PLACEHOLDER stands in before the first race lands (and after any theme/world flip) — seeded
+  // BEFORE paint, so the first frame the eye sees is already this world's own picture, never the empty field.
+  useLayoutEffect(() => { ensureSeed(docMode, wid); }, [docMode, wid]);
 
   // THE VEIL (owner: a wrong-mode frame "виїдає очі"; 2026-09-02: a theme change must show the waiting
   // field, never the old world's picture or emptiness): a frame FITS when it carries the page's mode AND

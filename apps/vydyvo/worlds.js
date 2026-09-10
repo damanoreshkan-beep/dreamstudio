@@ -139,6 +139,13 @@ export const nameOf = (id, mode, loc) => (NAMES[id] || NAMES.lum)[mode === "ligh
 /** The picker's micro-picture of a character in a mode: assets/char-<id>-<n|d>.webp, generated once on the pods. */
 export const thumbOf = (id, mode) => new URL(`assets/char-${id}-${mode === "light" ? "d" : "n"}.webp`, import.meta.url).href;
 
+// THE STATIC PLACEHOLDERS (owner 2026-09-11: "перша генерація погана, потрібні вже готові одразу нехай статика
+// зате мають бути заглушки перед першою генерацію на усі теми та режими"): a full-frame ready-made picture of
+// every world in every mode, made once with that world's OWN prompt (composePrompt below), so the very first
+// paint — before any race has landed — already looks like the show, on all twelve worlds and both sides.
+/** The full-frame static placeholder for a world in a mode: assets/seed-<id>-<n|d>.webp. */
+export const seedUrl = (id, mode) => new URL(`assets/seed-${id}-${mode === "light" ? "d" : "n"}.webp`, import.meta.url).href;
+
 
 // The wallpaper contract and the light of each mode — the client's "system prompt". The theme is read off
 // the document when a race starts, so a light-mode phone gets pictures lit for paper, a dark one for black.
