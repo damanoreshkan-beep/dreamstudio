@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { atom } from "nanostores";
 import { map as nmap } from "nanostores";
+import { Island } from "/_rt/ui.js";
 import { T } from "/_rt/i18n.js";
 import { gate, isGate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
@@ -130,7 +131,11 @@ const clusterJobs = (jobs) => {
   for (const j of jobs) { if (!Number.isFinite(j.lat) || !Number.isFinite(j.lon)) continue; const k = `${j.lat.toFixed(3)}_${j.lon.toFixed(3)}`; (g.get(k) || g.set(k, []).get(k)).push(j); }
   return [...g.values()].map((grp) => ({ coordinates: [grp.reduce((s, j) => s + j.lon, 0) / grp.length, grp.reduce((s, j) => s + j.lat, 0) / grp.length], count: grp.length, jobs: grp }));
 };
-const lodFor = (z) => (z < 11 ? 40 : z < 11.5 ? 26 : z < 12 ? 16 : z < 12.5 ? 10 : z < 13 ? 5 : z < 14 ? 1 : 0);
+// Buildings are viewport-CULLED on a grid (deck.gl has no per-feature frustum culling — it draws every vertex
+// of a layer each frame, so 155k extruded footprints melt a weak GPU). Only the cells around the camera draw,
+// and only past BLD_ZOOM — a city-wide view draws none, so it stays smooth. CELL ≈ 450 m; CELL_RADIUS cells
+// each side of centre caps the draw count (~a few thousand footprints) regardless of pitch.
+const CELL = 0.006, BLD_ZOOM = 12.5, CELL_RADIUS = 4;
 
 // ── the 3D map (probe-guarded, lazy, theme-derived) ──────────────────────────────────────────────────────
 async function makeDeck(canvas) {
@@ -142,18 +147,28 @@ async function makeDeck(canvas) {
   const geo = {};
   const grab = async (n) => { try { geo[n] = await (await fetch(`${GEO}/${n}.json`)).json(); } catch { geo[n] = null; } };
   await grab("districts"); await grab("water"); await grab("roads"); await grab("metro"); await grab("buildings");
-  if (geo.buildings && geo.buildings.features) for (const f of geo.buildings.features) f.properties._h = f.properties.h || 12;
+  // Bin every building into its grid cell ONCE (by a footprint corner — a building is tiny vs a cell). Each cell
+  // is a STABLE FeatureCollection, so deck.gl reuses that cell's tessellated GPU buffers while it stays on
+  // screen; panning only tessellates the few cells newly entered — never the whole layer (the old stall).
+  const bGrid = new Map();
+  if (geo.buildings && geo.buildings.features) for (const f of geo.buildings.features) {
+    f.properties._h = f.properties.h || 12;
+    const p = f.geometry.coordinates[0][0];
+    const k = `${Math.floor(p[0] / CELL)}_${Math.floor(p[1] / CELL)}`;
+    let cell = bGrid.get(k); if (!cell) bGrid.set(k, cell = { type: "FeatureCollection", features: [] });
+    cell.features.push(f);
+  }
 
-  let zoom = VIEW.zoom, lod = lodFor(VIEW.zoom), pal = palette(), jobs = [], onPick = () => {}, curClusters = [];
-  // Building buckets by LOD are MEMOISED. deck.gl re-tessellates a polygon layer whenever its `data`
-  // reference changes; a fresh filtered array on every zoom tick would re-triangulate thousands of extruded
-  // footprints each frame — that is the phone-melting cost. One stable array per LOD → tessellated once.
-  const bCache = new Map();
-  const bAt = (l) => {
-    if (!geo.buildings) return null;
-    if (l === 0) return geo.buildings;
-    if (!bCache.has(l)) bCache.set(l, { type: "FeatureCollection", features: geo.buildings.features.filter((f) => f.properties._h >= l) });
-    return bCache.get(l);
+  let zoom = VIEW.zoom, cLng = VIEW.longitude, cLat = VIEW.latitude, pal = palette(), jobs = [], onPick = () => {}, curClusters = [], cellSig = "";
+  // The cell keys to draw for the current camera: a square of CELL_RADIUS cells around the centre, past the
+  // zoom gate. A fixed radius (not the pitched viewport bounds) keeps the draw bounded even to the horizon.
+  const visCells = () => {
+    if (zoom < BLD_ZOOM || !bGrid.size) return [];
+    const ci = Math.floor(cLng / CELL), cj = Math.floor(cLat / CELL), out = [];
+    for (let di = -CELL_RADIUS; di <= CELL_RADIUS; di++) for (let dj = -CELL_RADIUS; dj <= CELL_RADIUS; dj++) {
+      const k = `${ci + di}_${cj + dj}`; if (bGrid.has(k)) out.push(k);
+    }
+    return out;
   };
 
   function layers() {
@@ -162,8 +177,12 @@ async function makeDeck(canvas) {
     if (geo.water) L.push(new D.GeoJsonLayer({ id: "water", data: geo.water, filled: true, stroked: true, getFillColor: pal.water, getLineColor: pal.waterLine, lineWidthMinPixels: 1, pickable: false }));
     if (geo.roads) L.push(new D.GeoJsonLayer({ id: "roads", data: geo.roads, filled: false, stroked: true, getLineColor: pal.road, getLineWidth: (f) => { const h = f.properties && f.properties.hw; return h === "motorway" || h === "trunk" ? 12 : h === "primary" ? 9 : h === "secondary" ? 6 : 3; }, lineWidthUnits: "meters", lineWidthMinPixels: 0.5, lineWidthMaxPixels: 4, pickable: false }));
     if (geo.metro && geo.metro.lines) L.push(new D.GeoJsonLayer({ id: "metro", data: geo.metro.lines, filled: false, stroked: true, getLineColor: (f) => { const c = (f.properties && f.properties.color) || pal.accent; return [c[0], c[1], c[2], 200]; }, getLineWidth: 4, lineWidthUnits: "meters", lineWidthMinPixels: 2, lineWidthMaxPixels: 5, pickable: false }));
-    const b = bAt(lod);
-    if (b) L.push(new D.GeoJsonLayer({ id: "buildings", data: b, extruded: true, opacity: pal.dark ? 0.82 : 0.92, getElevation: (f) => f.properties._h, getFillColor: pal.building, getLineColor: pal.buildingLine, material: { ambient: pal.dark ? 0.4 : 0.65, diffuse: 0.6, shininess: 30, specularColor: pal.accent }, pickable: false, updateTriggers: { getFillColor: [pal], getLineColor: [pal] } }));
+    // One layer per visible cell — deck keeps each cell's buffers between frames, so panning never re-tessellates
+    // the whole city. The cull holds the drawn count to a few thousand, so a light material (ambient + diffuse,
+    // NO specular — the costly per-fragment term) is affordable and gives the faces their 3D shading.
+    for (const key of visCells()) {
+      L.push(new D.GeoJsonLayer({ id: `bld-${key}`, data: bGrid.get(key), extruded: true, opacity: pal.dark ? 0.92 : 0.97, getElevation: (f) => f.properties._h, getFillColor: pal.building, material: { ambient: pal.dark ? 0.5 : 0.62, diffuse: 0.55, shininess: 1, specularColor: [0, 0, 0] }, pickable: false, updateTriggers: { getFillColor: [pal] } }));
+    }
     // Job markers — Airbnb-style salary PILLS on an anchored stem (map-UX + deck.gl research). A single job
     // shows its salary; a cluster shows the count (accent-filled). The pill would detach over a tilted 3D city,
     // so a slim beam + an anchor dot pin it to its point. All colour is theme-derived (pal.*). Pill/dot pick →
@@ -224,9 +243,13 @@ async function makeDeck(canvas) {
     // A tap opens a vacancy: use the GPU pick when it works, else the CPU nearest-marker fallback (info.x/y are
     // canvas-local and present even when the pick misses). A drag never reaches here — deck fires onClick on taps.
     onClick: (info) => { const c = (info && info.object && info.object.jobs) ? info.object : pickCluster(info && info.x, info && info.y); if (c && c.jobs) onPick(c); },
-    // Rebuild layers ONLY when the building LOD bucket changes — not on every 0.25 of zoom. deck drives pan/
-    // zoom itself (uncontrolled viewState); a rebuild is needed solely to swap the building detail tier.
-    onViewStateChange: ({ viewState }) => { zoom = viewState.zoom; const nl = lodFor(zoom); if (nl !== lod) { lod = nl; deck.setProps({ layers: layers() }); } },
+    // Rebuild the layer list only when the SET of visible building cells (or the zoom gate) changes — panning
+    // within the same cells costs nothing and deck drives the camera itself. The signature is the cell keys.
+    onViewStateChange: ({ viewState }) => {
+      zoom = viewState.zoom; cLng = viewState.longitude; cLat = viewState.latitude;
+      const sig = visCells().join(",");
+      if (sig !== cellSig) { cellSig = sig; deck.setProps({ layers: layers() }); }
+    },
     layers: [],
   });
   return {
@@ -370,19 +393,22 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
   const isDark = !/light/i.test(String(theme || ""));
   useEffect(() => { loadJobs(); }, []);
 
-  return html`<div data-stage class="relative h-full w-full min-h-0 overflow-hidden bg-base-200">
+  // The map is the app's HERO: a fixed, EDGE-TO-EDGE field that fills the whole device — under the glass app
+  // bar and the floating dock, not boxed inside the padded content column. Everything else floats over it.
+  return html`<div data-stage class="fixed inset-0 z-0 overflow-hidden bg-base-200">
     ${showMap ? html`<${MapStage} isDark=${isDark} jobs=${jobs} onPick=${(c) => openScreen(`job:${(c.jobs && c.jobs[0] || {}).id}`)} />` : null}
     ${!showMap || !glReady
       ? html`<div class="absolute inset-0 grid place-items-center px-8 text-center text-muted">
           <div>${Icon("lucide:map", "text-4xl opacity-40")}<p class="mt-3">${T(t, "mapHint")}</p></div>
         </div>` : null}
 
-    <!-- the one island: post a job -->
-    <div class="absolute left-1/2 bottom-4 -translate-x-1/2">
-      <button data-post class="btn btn-primary gap-2 rounded-full sf-e3 px-5" onClick=${() => { $sent.set(false); $err.set(null); openScreen("post"); }}>
+    <!-- the one island: post a job. Island(pinned) owns the dock clearance (measured --dock-h), so the app
+         never hand-writes chrome geometry; className makes the glass tray hug the primary CTA. -->
+    <${Island} pinned at="bottom" tone="glass" className="!p-1 rounded-full">
+      <button data-post class="btn btn-primary gap-2 rounded-full px-5" onClick=${() => { $sent.set(false); $err.set(null); openScreen("post"); }}>
         ${Icon("lucide:plus", "text-[1.15em]")}<span class="font-medium">${T(t, "postCta")}</span>
       </button>
-    </div>
+    <//>
 
     <${Screens} t=${t} loc=${loc} screen=${screen} close=${closeScreen} />
   </div>`;
