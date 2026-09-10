@@ -459,17 +459,19 @@ function PostPage({ t, loc, onBack }) {
 // list and where a new job is posted, and persists.
 function CityPage({ t, loc, onBack }) {
   const city = useStore($city);
+  const jobs = useStore($jobs);
   const pick = (id) => { $city.set(id); onBack(); };
   return html`<${Page} t=${t} title=${T(t, "cityTitle")} onBack=${onBack}>
     <div class="flex flex-col gap-[var(--ms-gap)]">
-      ${CITY_IDS.map((id) => html`<button key=${id} data-city-opt=${id} onClick=${() => pick(id)}
+      ${CITY_IDS.map((id) => { const n = jobs.filter((j) => inCity(j, id)).length; return html`<button key=${id} data-city-opt=${id} onClick=${() => pick(id)}
         class=${`w-full text-left card sf-raised rounded-[var(--ms-r)] active:scale-[.99] transition ${id === city ? "ring-2 ring-primary" : ""}`}>
         <div class="card-body p-[var(--ms-pad)] flex-row items-center gap-3">
           ${Icon("lucide:building-2", "text-xl text-primary")}
           <div class="flex-1 font-semibold">${cityName(id, loc)}</div>
+          ${n ? html`<span class="badge badge-ghost badge-sm font-mono">${n}</span>` : null}
           ${id === city ? Icon("lucide:check", "text-primary text-xl") : null}
         </div>
-      </button>`)}
+      </button>`; })}
     </div>
   <//>`;
 }
