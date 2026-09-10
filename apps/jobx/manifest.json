@@ -1,10 +1,10 @@
 {
   "name": "jobx",
   "short_name": "jobx",
-  "description": "Робота на карті України — постай вакансію, знаходь роботу поруч.",
+  "description": "Робота на 3D-карті Києва — від людей, для людей.",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

@@ -62,3 +62,43 @@ Jobs move from a **country city-key** to a **Kyiv point**:
 - core has no `--allow-read` → Kyiv geo is nginx static, never a core route.
 - Map is theme-aware (light/dark), tokens not raw hex where possible.
 - Muted text = `.text-muted`; PWA chrome colours = theme base; importing `/_rt/auth.js` needs `needs:["auth"]`.
+
+## The eye on the LIVE app (2026-09-10) — what the tidy fixture hid
+
+Shot with `vps/eye.sh` at 384×832 both themes, 412×430, 360×340, AND the live URL without `?mock` (57
+real work.ua rows). Every defect below came from the live data or from a state the fixture never had:
+
+| Where | Defect (measured) | Fix |
+|---|---|---|
+| List row | raw salary `60 000 – 100 000 грн·%% від виконаних робіт` in `whitespace-nowrap shrink-0` → the row overflows and the title collapses to `Бухгалте…` | the row shows the COMPACT pay (`shortSalary`) and only when there is a number; a text salary lives in the detail |
+| List row | `· 4.9 км від центру` wraps onto two lines beside a long street | meta line never wraps: street truncates, distance is a fixed mono chip `4.9 км`, city prefix stripped (every job is in Kyiv) |
+| Post / detail from the Map tab | the app bar's wordmark prints THROUGH the page header (`◀JOBX Нова вакансія`) | the pages were children of the `z-0` stage (a stacking context) — now siblings of it |
+| Detail | the title twice, in the bar and as the h1, 40 px apart | the bar names the kind of page («Вакансія»), the h1 is the title |
+| Map, live | 57 pills at zoom 11 stack on top of each other | `CollisionFilterExtension` on the pill layer: overlapping labels hide, count clusters outrank singles, they come back on zoom; anchor dots stay for every job |
+| Map, both themes | water on the AMBER accent read as sand; pills had the same hue to stand against | water on `--app-accent-2` (cyan): jobs warm, river cool |
+| Map, first load | a blank stage until `buildings.json` (4.8 MB gzip) landed; the four base layers are 1.2 MB | base layers first → the map stands; buildings arrive behind it and rebuild once |
+| Fixture | 5 tidy rows, district names as addresses, no text salary, no unpriced job, no cluster | 10 rows in PRODUCTION's shape (street addresses, `За результатами співбесіди`, an empty salary, empty employment, work.ua contacts, two jobs at one point) |
+
+**Not a frontend fault, found on the way:** every work.ua row has `company: "Українська"` — the sync's detail
+selector (`.card .h4 a, [data-id='company'] a, .dropdown-toggle`) falls through to `.dropdown-toggle`, which
+is the site's LANGUAGE switcher. And work.ua now serves the VPS a 12 KB challenge page for a job's detail URL
+(`curl` with the sync's own headers, 2026-09-10), so the right selector cannot be verified from here. The
+honest fix is to drop `.dropdown-toggle` (a wrong company is worse than none) and re-sync; it is an edge
+commit, i.e. a deploy — the owner's call.
+
+### The state map (the rule: written before markup; here, written from the shots)
+
+| Screen · state | Stage | Island / primary verb | Demotes at 412×430 · 360×340 |
+|---|---|---|---|
+| Map · GL loading | base-200 field, the map glyph + «Робота на 3D-карті Києва» (an empty state, not a hint) | «Додати вакансію» | island shrinks to its pill; dock drops labels |
+| Map · standing (base layers) | roads, water (cool), districts, metro; pills + dots | same | same |
+| Map · 3D (buildings binned) | extruded cells past zoom 12.5 | same | same |
+| Map · pills collide | count cluster wins, single hides, dot stays | same | same |
+| List · loading | «Завантаження…» | — | — |
+| List · rows | title ≤2 lines, company, pay chip right; meta: employment · street · `km` | search field | rows stay whole; 360×340 shows ~1.5 rows |
+| List · search miss | «Нічого не знайдено.» | search | — |
+| List · empty feed | «Поки немає вакансій — додай першу.» | search | — |
+| Detail | bar «Вакансія» ← ; h1, company, pay (compact + words), chips, description, source, Apply | «Відгукнутися» (link) or the contact as a copyable mono line | scrolls |
+| Post · form | bar «Нова вакансія» ← ; fields | «Надіслати» | scrolls |
+| Post · not signed in | error line «Увійди у вкладці «Я»…» under the form | — | — |
+| Post · sent | check mark, «Дякуємо!», «Закрити» | — | — |
