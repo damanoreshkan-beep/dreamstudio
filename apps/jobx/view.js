@@ -144,7 +144,7 @@ async function makeDeck(canvas) {
   await grab("districts"); await grab("water"); await grab("roads"); await grab("metro"); await grab("buildings");
   if (geo.buildings && geo.buildings.features) for (const f of geo.buildings.features) f.properties._h = f.properties.h || 12;
 
-  let zoom = VIEW.zoom, lod = lodFor(VIEW.zoom), pal = palette(), jobs = [], onPick = () => {};
+  let zoom = VIEW.zoom, lod = lodFor(VIEW.zoom), pal = palette(), jobs = [], onPick = () => {}, curClusters = [];
   // Building buckets by LOD are MEMOISED. deck.gl re-tessellates a polygon layer whenever its `data`
   // reference changes; a fresh filtered array on every zoom tick would re-triangulate thousands of extruded
   // footprints each frame — that is the phone-melting cost. One stable array per LOD → tessellated once.
@@ -169,17 +169,17 @@ async function makeDeck(canvas) {
     // so a slim beam + an anchor dot pin it to its point. All colour is theme-derived (pal.*). Pill/dot pick →
     // open the job (single) or the top job of the cluster.
     const cl = clusterJobs(jobs);
+    curClusters = cl;                              // CPU hit-test source (see the Deck onClick below)
     if (cl.length) {
-      const pick = (i) => { if (i && i.object) onPick(i.object); };
       // A cluster shows its count; a single job its salary. A job with NO salary has no label — it must NOT
       // draw an empty pill (a blank box reads as broken), so the pill layer takes only labelled markers and
-      // the unpriced job stays a clean anchor dot + beam (a pin), still clickable via the anchor layer.
+      // the unpriced job stays a clean anchor dot + beam (a pin); a tap on it still opens via the CPU hit-test.
       const label = (d) => (d.count > 1 ? String(d.count) : (shortSalary(d.jobs[0] && d.jobs[0].salary) || ""));
       const pilled = cl.filter((d) => label(d));
       L.push(new D.ColumnLayer({ id: "beam", data: cl, diskResolution: 12, radius: 6, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: 220, getFillColor: pal.beam, pickable: false }));
-      L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 5, radiusMinPixels: 5, radiusMaxPixels: 9, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1.5, pickable: true, onClick: pick }));
+      L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 5, radiusMinPixels: 5, radiusMaxPixels: 9, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1.5, pickable: true }));
       L.push(new D.TextLayer({
-        id: "pills", data: pilled, pickable: true, onClick: pick, billboard: true, sizeUnits: "pixels",
+        id: "pills", data: pilled, pickable: true, billboard: true, sizeUnits: "pixels",
         getPosition: (d) => [d.coordinates[0], d.coordinates[1], 220], getPixelOffset: [0, -12],
         getText: label, getSize: (d) => (d.count > 1 ? 15 : 13), sizeMinPixels: 11, sizeMaxPixels: 20,
         background: true, backgroundBorderRadius: 11, backgroundPadding: [10, 6, 10, 6], getBackgroundColor: (d) => (d.count > 1 ? pal.clusterBg : pal.pillBg),
@@ -192,13 +192,38 @@ async function makeDeck(canvas) {
     return L;
   }
 
+  // Resolve a tap to a marker WITHOUT the GPU picker. deck.gl's picking framebuffer is unreliable across the
+  // devices this ships to (a job map that cannot be tapped is the bug this fixes) — so we project every marker
+  // to the screen with the viewport (reliable everywhere) and take the nearest within a finger's radius. The
+  // pill floats at 220 m (offset up 12 px) and the anchor sits on the ground, so a tap near EITHER counts.
+  function pickCluster(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !curClusters.length) return null;
+    const vp = deck.getViewports()[0]; if (!vp) return null;
+    let best = null, bd = Infinity;
+    for (const c of curClusters) {
+      const lab = c.count > 1 ? String(c.count) : (shortSalary(c.jobs[0] && c.jobs[0].salary) || "");
+      const [px, py] = vp.project([c.coordinates[0], c.coordinates[1], 220]);   // pill floats at 220 m…
+      const [gx, gy] = vp.project([c.coordinates[0], c.coordinates[1], 0]);      // …the anchor sits on ground
+      // Distance to the pill's RECTANGLE (0 when the tap is on the pill), sized from the label — a wide salary
+      // pill must be tappable across its whole width, not just at its centre point.
+      let dPill = Infinity;
+      if (lab) { const cx = px, cy = py - 12, hw = lab.length * 4.4 + 14, hh = 15;
+        dPill = Math.hypot(Math.max(Math.abs(x - cx) - hw, 0), Math.max(Math.abs(y - cy) - hh, 0)); }
+      const dDot = Math.hypot(x - gx, y - gy);                                    // the ground pin
+      const d = Math.min(dPill, dDot);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return bd <= 14 ? best : null;               // on the pill/pin (or a fingertip past it); else it's the map
+  }
   const deck = new D.Deck({
     canvas, initialViewState: VIEW, controller: { dragRotate: true, touchRotate: true }, views: new D.MapView({ repeat: false }),
     // Cap render resolution: a 3× phone otherwise shades ~9× the fragments of the building/road fills every
     // frame — the biggest thermal cost. 1.5 keeps edges crisp (SDF pills stay sharp) at a fraction of the load.
     useDevicePixels: Math.min(globalThis.devicePixelRatio || 1, 1.5),
-    pickingRadius: 12,                          // a finger is not a cursor — register a tap NEAR a pin/pill
     getCursor: ({ isDragging }) => (isDragging ? "grabbing" : "grab"),
+    // A tap opens a vacancy: use the GPU pick when it works, else the CPU nearest-marker fallback (info.x/y are
+    // canvas-local and present even when the pick misses). A drag never reaches here — deck fires onClick on taps.
+    onClick: (info) => { const c = (info && info.object && info.object.jobs) ? info.object : pickCluster(info && info.x, info && info.y); if (c && c.jobs) onPick(c); },
     // Rebuild layers ONLY when the building LOD bucket changes — not on every 0.25 of zoom. deck drives pan/
     // zoom itself (uncontrolled viewState); a rebuild is needed solely to swap the building detail tier.
     onViewStateChange: ({ viewState }) => { zoom = viewState.zoom; const nl = lodFor(zoom); if (nl !== lod) { lod = nl; deck.setProps({ layers: layers() }); } },
