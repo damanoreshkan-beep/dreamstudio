@@ -24,10 +24,28 @@ const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}><
 const EMPLOYMENT = ["full", "part", "remote", "contract", "internship"];
 const empKey = { full: "empFull", part: "empPart", remote: "empRemote", contract: "empContract", internship: "empInternship" };
 
-const GEO = "https://dreamstudio.mooo.com/kyiv";     // static Kyiv geometry (nginx, gzip), lazy — never bundled
+const GEO = "https://dreamstudio.mooo.com/geo";      // per-city static geometry: `${GEO}/${city}/…` (nginx, gzip)
 const DECK_URL = "https://esm.sh/deck.gl@9.4.0";      // dynamic-imported only behind a WebGL2 probe
-const KYIV = { lat: 50.4501, lon: 30.5234 };
-const VIEW = { longitude: KYIV.lon, latitude: KYIV.lat, zoom: 11.0, pitch: 55, bearing: -18, minZoom: 10, maxZoom: 18 };
+
+// The cities jobx covers. Each has a centre (the map's initial camera), a bbox (which jobs belong to it, and
+// the edge's post-validation), and a work.ua slug (the vacancy sync). Buildings + base geometry live at
+// `${GEO}/${id}/…` on the VPS. Kyiv is the default. The same registry shape lives in edge/jobs.js.
+const CITIES = {
+  kyiv:    { uk: "Київ",   en: "Kyiv",    lat: 50.4501, lon: 30.5234, s: 50.213, w: 30.236, n: 50.591, e: 30.827 },
+  kharkiv: { uk: "Харків", en: "Kharkiv", lat: 49.9935, lon: 36.2304, s: 49.90,  w: 36.10,  n: 50.08,  e: 36.40 },
+  odesa:   { uk: "Одеса",  en: "Odesa",   lat: 46.4825, lon: 30.7233, s: 46.36,  w: 30.60,  n: 46.60,  e: 30.82 },
+  dnipro:  { uk: "Дніпро", en: "Dnipro",  lat: 48.4647, lon: 35.0462, s: 48.38,  w: 34.90,  n: 48.55,  e: 35.15 },
+  lviv:    { uk: "Львів",  en: "Lviv",    lat: 49.8397, lon: 24.0297, s: 49.78,  w: 23.92,  n: 49.89,  e: 24.12 },
+};
+const CITY_IDS = Object.keys(CITIES);
+const cityName = (id, loc) => { const c = CITIES[id] || CITIES.kyiv; return /uk/i.test(loc || "uk") ? c.uk : c.en; };
+const inCity = (j, id) => { const c = CITIES[id]; return !!c && Number.isFinite(j.lat) && Number.isFinite(j.lon) && j.lat >= c.s && j.lat <= c.n && j.lon >= c.w && j.lon <= c.e; };
+const viewFor = (id) => { const c = CITIES[id] || CITIES.kyiv; return { longitude: c.lon, latitude: c.lat, zoom: 11.0, pitch: 55, bearing: -18, minZoom: 10, maxZoom: 18 }; };
+const KYIV = CITIES.kyiv;   // legacy alias (kmFromCentre default)
+// The chosen city persists per viewer (localStorage), defaulting to Kyiv; the store drives map, list and posting.
+const readCity = () => { try { const c = localStorage.getItem("jobx.city"); return c && CITIES[c] ? c : "kyiv"; } catch { return "kyiv"; } };
+const $city = atom(readCity());
+$city.listen((c) => { try { localStorage.setItem("jobx.city", c); } catch { /* private mode */ } });
 
 // Kyiv districts — a posted job picks one; its centre gives the point on the map (no map-tap needed on a page).
 const DISTRICTS = {
@@ -148,7 +166,7 @@ function shortSalary(s) {
 // own CollisionFilterExtension was tried first (2026-09-10) and hid EVERY label: on the first frame the
 // collision map is stale (visgl/deck.gl#10333, open) and by glyph content (#10386, open).
 const PILL_H = 34, PILL_GAP = 8;    // a pill's height on screen and the air kept between two pills, px
-const BEAM_M = 220, PILL_Z = 300;   // the beam's height and the pill's altitude, metres — the pill clears the beam
+const BLOCK_H = 40, PILL_Z = 54;    // the accent building-block's height and the pill's altitude, metres — pill hugs the block top
 // A marker's label: a cluster shows its count, a single job its compact salary, an unpriced job nothing (a
 // bare pin). Its width on screen follows the label — a count pill is a third of a salary pill, and a pin is a
 // dot — so the overlap test is the real footprint, not one worst-case box (that merged jobs 5 km apart).
@@ -177,17 +195,20 @@ function clusterJobs(jobs, vp) {
 const BLD_ZOOM = 12.5;
 
 // ── the 3D map (probe-guarded, lazy, theme-derived) ──────────────────────────────────────────────────────
-async function makeDeck(canvas) {
+async function makeDeck(canvas, cityId) {
   if (isGate) return null;
   try { if (!canvas.getContext("webgl2")) return null; } catch { return null; }
   let D; try { D = await import(DECK_URL); } catch { return null; }
   if (!D || !D.Deck) return null;
 
+  const VIEW = viewFor(cityId);                 // camera centred on this city
+  const gbase = `${GEO}/${cityId}`;             // this city's geometry root on the VPS
   const geo = {};
-  const grab = async (n) => { try { geo[n] = await (await fetch(`${GEO}/${n}.json`)).json(); } catch { geo[n] = null; } };
-  // The four base layers are ~1.2 MB gzip total; buildings no longer ride here (they stream as tiles), so the
-  // map stands up as soon as these land.
-  await Promise.all([grab("districts"), grab("water"), grab("roads"), grab("metro")]);
+  const grab = async (n) => { try { geo[n] = await (await fetch(`${gbase}/${n}.json`)).json(); } catch { geo[n] = null; } };
+  // Base layers: every city has water + roads; only Kyiv carries district outlines + a metro network, so the
+  // others don't fetch them (a 404 on a missing layer would be console noise). Buildings stream as tiles.
+  const baseLayers = cityId === "kyiv" ? ["water", "roads", "districts", "metro"] : ["water", "roads"];
+  await Promise.all(baseLayers.map(grab));
 
   let zoom = VIEW.zoom, cLng = VIEW.longitude, cLat = VIEW.latitude, cPitch = VIEW.pitch, cBearing = VIEW.bearing;
   let pal = palette(), jobs = [], onPick = () => {}, curClusters = [], camSig = "", curVp = null;
@@ -206,28 +227,25 @@ async function makeDeck(canvas) {
     // stall. `material` without specular (the costly per-fragment term) still shades the faces for the 3D read.
     if (zoom >= BLD_ZOOM) {
       L.push(new D.MVTLayer({
-        id: "buildings", data: `${GEO}/tiles/{z}/{x}/{y}.pbf`, minZoom: 13, maxZoom: 16,
+        id: "buildings", data: `${gbase}/tiles/{z}/{x}/{y}.pbf`, minZoom: 13, maxZoom: 16,
         extruded: true, opacity: pal.dark ? 0.92 : 0.97, getElevation: (f) => (f.properties && f.properties.h) || 12,
         getFillColor: pal.building, material: { ambient: pal.dark ? 0.5 : 0.62, diffuse: 0.55, shininess: 1, specularColor: [0, 0, 0] },
         pickable: false, updateTriggers: { getFillColor: [pal] },
       }));
     }
-    // Job markers — Airbnb-style salary PILLS on an anchored stem (map-UX + deck.gl research). A single job
-    // shows its salary; a cluster shows the count (accent-filled). The pill would detach over a tilted 3D city,
-    // so a slim beam + an anchor dot pin it to its point. All colour is theme-derived (pal.*). Pill/dot pick →
-    // open the job (single) or the top job of the cluster.
+    // Job markers — a job's spot is marked by HIGHLIGHTING its building: a squat accent-coloured block glows on
+    // the point (prettier than the old stem, and a big tap target), with the salary/count pill hugging its top.
+    // All colour is theme-derived (pal.*). Block or pill pick → open the job (single) or the cluster's top job.
     const cl = clusterJobs(jobs, viewportNow());
     curClusters = cl;                              // CPU hit-test source (see the Deck onClick below)
     if (cl.length) {
-      // A cluster shows its count; a single job its salary. A job with NO salary has no label — it must NOT
-      // draw an empty pill (a blank box reads as broken), so the pill layer takes only labelled markers and
-      // the unpriced job stays a clean anchor dot + beam (a pin); a tap on it still opens via the CPU hit-test.
+      // A cluster shows its count; a single job its salary. A job with NO salary has no label → no pill, just
+      // the glowing block; a tap on it still opens via the CPU hit-test (ground point) or the block's GPU pick.
       const label = labelOf;
       const pilled = cl.filter((d) => label(d));
-      L.push(new D.ColumnLayer({ id: "beam", data: cl, diskResolution: 12, radius: 6, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: BEAM_M, getFillColor: pal.beam, pickable: false }));
-      L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 5, radiusMinPixels: 5, radiusMaxPixels: 9, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1.5, pickable: true }));
-      // The pill floats by ALTITUDE, just above the beam's top — never by a pixel offset, so its screen
-      // position is exactly what clusterJobs projected and the CPU hit-test measures against.
+      L.push(new D.ColumnLayer({ id: "highlight", data: cl, diskResolution: 4, radius: 15, angle: 45, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: BLOCK_H, getFillColor: pal.accent, opacity: 0.9, material: { ambient: 0.7, diffuse: 0.4, shininess: 1, specularColor: [0, 0, 0] }, pickable: true }));
+      // The pill hugs the block's top by ALTITUDE (never a pixel offset), so its screen position is exactly what
+      // clusterJobs projected and the CPU hit-test measures against.
       L.push(new D.TextLayer({
         id: "pills", data: pilled, pickable: true, billboard: true, sizeUnits: "pixels",
         getPosition: (d) => [d.coordinates[0], d.coordinates[1], PILL_Z],
@@ -292,23 +310,28 @@ async function makeDeck(canvas) {
   };
 }
 
-function MapStage({ isDark, jobs, onPick }) {
+function MapStage({ isDark, city, jobs, onPick }) {
   const ref = useRef(null), ctl = useRef(null);
+  // A city switch REBUILDS the deck (new camera, new geometry + tile source); theme/jobs just re-layer.
   useEffect(() => {
     let dead = false;
-    (async () => { const c = await makeDeck(ref.current); if (dead) { c && c.destroy(); return; } ctl.current = c; if (c) { $glReady.set(true); c.rebuild({ pal: palette(), jobs: $jobs.get(), onPick }); } })();
+    (async () => { const c = await makeDeck(ref.current, city); if (dead) { c && c.destroy(); return; } ctl.current = c; if (c) { $glReady.set(true); c.rebuild({ pal: palette(), jobs, onPick }); } })();
     return () => { dead = true; $glReady.set(false); ctl.current && ctl.current.destroy(); ctl.current = null; };
-  }, []);
+  }, [city]);
   useEffect(() => { ctl.current && ctl.current.rebuild({ pal: palette(), jobs, onPick }); }, [isDark, jobs]);
   return html`<canvas ref=${ref} data-map class="absolute inset-0 w-full h-full block" aria-hidden="true"></canvas>`;
 }
 
 // ── shared bits ──────────────────────────────────────────────────────────────────────────────────────────
-const kmFromCentre = (lat, lon) => (!Number.isFinite(lat) || !Number.isFinite(lon)) ? null : Math.round(Math.hypot((lat - KYIV.lat) * 111.32, (lon - KYIV.lon) * 111.32 * Math.cos(KYIV.lat * Math.PI / 180)) * 10) / 10;
+// Distance from the job's OWN city centre (the one whose bbox holds it), so "km from centre" is honest in
+// every city, not measured from Kyiv.
+const cityOfPt = (lat, lon) => CITY_IDS.find((id) => inCity({ lat, lon }, id));
+const kmFromCentre = (lat, lon) => { if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null; const c = CITIES[cityOfPt(lat, lon) || "kyiv"]; return Math.round(Math.hypot((lat - c.lat) * 111.32, (lon - c.lon) * 111.32 * Math.cos(c.lat * Math.PI / 180)) * 10) / 10; };
 const applyLink = (c) => /^https?:\/\//i.test(c) ? c : /^@/.test(c) ? `https://t.me/${c.slice(1)}` : /@/.test(c) ? `mailto:${c}` : null;
-// Every job is in Kyiv, so the city prefix the feed carries ("Київ, вулиця …") is noise in a row: the street is
-// the information. The detail page keeps the full address.
-const streetOf = (a) => String(a || "").replace(/^\s*(Київ|Kyiv)\s*,\s*/i, "");
+// The feed carries a city prefix ("Львів, вулиця …") that is noise in a row — the street is the information.
+// Strip any known city name; the detail page keeps the full address.
+const CITY_NAMES = CITY_IDS.flatMap((id) => [CITIES[id].uk, CITIES[id].en]);
+const streetOf = (a) => { let s = String(a || ""); for (const nm of CITY_NAMES) s = s.replace(new RegExp(`^\\s*${nm}\\s*,\\s*`, "i"), ""); return s; };
 // Does a salary string say more than its number ("… % від виконаних робіт")? Then the words are shown too.
 const salaryHasWords = (s) => /[A-Za-zА-Яа-яІіЇїЄєҐґ]{4,}/.test(String(s || ""));
 
@@ -382,16 +405,20 @@ function Field({ label, children }) {
 }
 function PostPage({ t, loc, onBack }) {
   const sent = useStore($sent), posting = useStore($posting), err = useStore($err), f = useStore($form);
+  const city = useStore($city);
   const input = "input input-bordered w-full bg-base-100";
   const submit = async () => {
     if ($posting.get()) return;
     if (!f.title.trim() || !f.company.trim() || !f.description.trim() || !f.contact.trim()) { $err.set("errFields"); return; }
-    const d = DISTRICTS[f.district] || DISTRICTS.shevchenkivskyi;
+    // Place the job: in Kyiv the chosen district's centre; in the other cities the city centre (no districts).
+    let lat, lon, address;
+    if (city === "kyiv") { const d = DISTRICTS[f.district] || DISTRICTS.shevchenkivskyi; lat = d.lat; lon = d.lon; address = (loc === "en" ? d.en : d.uk); }
+    else { const c = CITIES[city]; lat = c.lat; lon = c.lon; address = cityName(city, loc); }
     const sess = session.get();
     if (!gate && !(sess && sess.sid)) { $err.set("needLogin"); return; }
     $err.set(null); $posting.set(true);
     try {
-      if (!gate) { const r = await fetch(`${VPS_PROXY}/jobs/post`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sid: sess.sid, title: f.title, company: f.company, salary: f.salary, employment: f.employment, description: f.description, contact: f.contact, lat: d.lat, lon: d.lon, address: (loc === "en" ? d.en : d.uk) }) }); if (!r.ok) throw new Error("post " + r.status); }
+      if (!gate) { const r = await fetch(`${VPS_PROXY}/jobs/post`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sid: sess.sid, title: f.title, company: f.company, salary: f.salary, employment: f.employment, description: f.description, contact: f.contact, city, lat, lon, address }) }); if (!r.ok) throw new Error("post " + r.status); }
       $sent.set(true); ["title", "company", "salary", "description", "contact"].forEach((k) => $form.setKey(k, ""));
     } catch { $err.set("errFailed"); }
     $posting.set(false);
@@ -408,11 +435,15 @@ function PostPage({ t, loc, onBack }) {
             <${Field} label=${T(t, "fldCompany")}><input data-f-company class=${input} value=${f.company} maxlength="100" placeholder=${T(t, "fldCompanyPh")} onInput=${(e) => $form.setKey("company", e.currentTarget.value)} /><//>
             <${Field} label=${T(t, "fldSalary")}><input data-f-salary class=${input} value=${f.salary} maxlength="80" placeholder=${T(t, "fldSalaryPh")} onInput=${(e) => $form.setKey("salary", e.currentTarget.value)} /><//>
           </div>
-          <${Field} label=${T(t, "fldDistrict")}>
-            <select data-f-district class="select select-bordered w-full bg-base-100" value=${f.district} onChange=${(e) => $form.setKey("district", e.currentTarget.value)}>
-              ${Object.entries(DISTRICTS).map(([k, d]) => html`<option value=${k} selected=${f.district === k}>${loc === "en" ? d.en : d.uk}</option>`)}
-            </select>
-          <//>
+          ${city === "kyiv"
+            ? html`<${Field} label=${T(t, "fldDistrict")}>
+                <select data-f-district class="select select-bordered w-full bg-base-100" value=${f.district} onChange=${(e) => $form.setKey("district", e.currentTarget.value)}>
+                  ${Object.entries(DISTRICTS).map(([k, d]) => html`<option value=${k} selected=${f.district === k}>${loc === "en" ? d.en : d.uk}</option>`)}
+                </select>
+              <//>`
+            : html`<${Field} label=${T(t, "fldCity")}>
+                <div class="input input-bordered w-full bg-base-100 flex items-center gap-2 opacity-80">${Icon("lucide:map-pin", "text-primary")}${cityName(city, loc)}</div>
+              <//>`}
           <${Field} label=${T(t, "fldEmployment")}>
             <div class="flex flex-wrap gap-1.5">${EMPLOYMENT.map((e) => html`<button type="button" data-emp=${e} class=${`btn btn-sm rounded-full ${f.employment === e ? "btn-primary" : "btn-ghost border border-base-content/15"}`} onClick=${() => $form.setKey("employment", e)}>${T(t, empKey[e])}</button>`)}</div>
           <//>
@@ -424,9 +455,29 @@ function PostPage({ t, loc, onBack }) {
   <//>`;
 }
 
+// The city picker as a BIG routed page (never a modal): a list of cities; tapping one switches the map, the
+// list and where a new job is posted, and persists.
+function CityPage({ t, loc, onBack }) {
+  const city = useStore($city);
+  const pick = (id) => { $city.set(id); onBack(); };
+  return html`<${Page} t=${t} title=${T(t, "cityTitle")} onBack=${onBack}>
+    <div class="flex flex-col gap-[var(--ms-gap)]">
+      ${CITY_IDS.map((id) => html`<button key=${id} data-city-opt=${id} onClick=${() => pick(id)}
+        class=${`w-full text-left card sf-raised rounded-[var(--ms-r)] active:scale-[.99] transition ${id === city ? "ring-2 ring-primary" : ""}`}>
+        <div class="card-body p-[var(--ms-pad)] flex-row items-center gap-3">
+          ${Icon("lucide:building-2", "text-xl text-primary")}
+          <div class="flex-1 font-semibold">${cityName(id, loc)}</div>
+          ${id === city ? Icon("lucide:check", "text-primary text-xl") : null}
+        </div>
+      </button>`)}
+    </div>
+  <//>`;
+}
+
 // Routed pages, shared by both tool tabs (only the active tab renders; S.screen is app-global + history-backed).
 function Screens({ t, loc, screen, close }) {
   if (screen === "post") return html`<${PostPage} t=${t} loc=${loc} onBack=${close} />`;
+  if (screen === "city") return html`<${CityPage} t=${t} loc=${loc} onBack=${close} />`;
   if (screen && screen.startsWith("job:")) return html`<${JobPage} t=${t} id=${screen.slice(4)} onBack=${close} />`;
   return null;
 }
@@ -434,12 +485,14 @@ function Screens({ t, loc, screen, close }) {
 // ── MAP tab — the hero background + a single control island ───────────────────────────────────────────────
 export function mapView({ t, S, screen, openScreen, closeScreen }) {
   const jobs = useStore($jobs);
+  const city = useStore($city);
   const theme = useStore(S.theme);
   const loc = useStore(S.locale);
   const glReady = useStore($glReady);
   const [showMap] = useState(!isGate);
   const isDark = !/light/i.test(String(theme || ""));
   useEffect(() => { loadJobs(); }, []);
+  const cityJobs = jobs.filter((j) => inCity(j, city));   // only this city's vacancies on this city's map
 
   // The map is the app's HERO: a fixed, EDGE-TO-EDGE field that fills the whole device — under the glass app
   // bar and the floating dock, not boxed inside the padded content column. Everything else floats over it.
@@ -448,11 +501,18 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
   // printed through the page's own header (measured 2026-09-10).
   return html`<${Fragment}>
     <div data-stage class="fixed inset-0 z-0 overflow-hidden bg-base-200">
-      ${showMap ? html`<${MapStage} isDark=${isDark} jobs=${jobs} onPick=${(c) => openScreen(`job:${(c.jobs && c.jobs[0] || {}).id}`)} />` : null}
+      ${showMap ? html`<${MapStage} isDark=${isDark} city=${city} jobs=${cityJobs} onPick=${(c) => openScreen(`job:${(c.jobs && c.jobs[0] || {}).id}`)} />` : null}
       ${!showMap || !glReady
         ? html`<div class="absolute inset-0 grid place-items-center px-8 text-center text-muted pointer-events-none">
             <div>${Icon("lucide:map", "text-4xl opacity-40")}<p class="mt-3">${T(t, "mapHint")}</p></div>
           </div>` : null}
+
+      <!-- city picker: a top pill (Island owns the header clearance) opening the big city page -->
+      <${Island} pinned at="top" tone="glass" className="!p-0.5 rounded-full">
+        <button data-city class="btn btn-ghost btn-sm gap-1.5 rounded-full px-3" onClick=${() => openScreen("city")}>
+          ${Icon("lucide:map-pin", "text-[1.05em] text-primary")}<span class="font-semibold">${cityName(city, loc)}</span>${Icon("lucide:chevron-down", "text-[0.9em] opacity-60")}
+        </button>
+      <//>
 
       <!-- the one island: post a job. Island(pinned) owns the dock clearance (measured --dock-h), so the app
            never hand-writes chrome geometry; className makes the glass tray hug the primary CTA. -->
@@ -469,19 +529,24 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
 // ── LIST tab — jobs as a big page of rows ────────────────────────────────────────────────────────────────
 export function listView({ t, S, screen, openScreen, closeScreen }) {
   const jobs = useStore($jobs);
+  const city = useStore($city);
   const loading = useStore($loading);
   const loc = useStore(S.locale);
   const [q, setQ] = useState("");
   useEffect(() => { loadJobs(); }, []);
+  const cityJobs = jobs.filter((j) => inCity(j, city));   // list shows only the chosen city's vacancies
   const ql = q.trim().toLowerCase();
-  const shown = ql ? jobs.filter((j) => `${j.title} ${j.company} ${j.address || ""}`.toLowerCase().includes(ql)) : jobs;
+  const shown = ql ? cityJobs.filter((j) => `${j.title} ${j.company} ${j.address || ""}`.toLowerCase().includes(ql)) : cityJobs;
 
   return html`<div class="h-full min-h-0 flex flex-col">
-    <div class="px-[var(--ms-pad)] pt-2 pb-1">
-      <input data-search type="search" value=${q} placeholder=${T(t, "searchPh")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-bordered w-full bg-base-100" />
+    <div class="px-[var(--ms-pad)] pt-2 pb-1 flex items-center gap-2">
+      <button data-city class="btn btn-ghost btn-sm gap-1.5 rounded-full shrink-0 px-3" onClick=${() => openScreen("city")}>
+        ${Icon("lucide:map-pin", "text-[1.05em] text-primary")}<span class="font-semibold">${cityName(city, loc)}</span>${Icon("lucide:chevron-down", "text-[0.85em] opacity-60")}
+      </button>
+      <input data-search type="search" value=${q} placeholder=${T(t, "searchPh")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-bordered flex-1 min-w-0 bg-base-100" />
     </div>
     <div class="flex-1 min-h-0 overflow-y-auto px-[var(--ms-pad)] pb-[calc(var(--dock-h)+env(safe-area-inset-bottom)+1rem)]">
-      ${loading && !jobs.length
+      ${loading && !cityJobs.length
         ? html`<div class="py-10 text-center text-muted">${T(t, "loadingJobs")}</div>`
         : shown.length
           ? html`<div class="flex flex-col gap-[var(--ms-gap)] pt-1">${shown.map((j) => html`<${JobRow} t=${t} j=${j} key=${j.id} onOpen=${() => openScreen(`job:${j.id}`)} />`)}</div>`

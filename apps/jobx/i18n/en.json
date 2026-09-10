@@ -19,6 +19,8 @@
   "fldSalary": "Salary",
   "fldSalaryPh": "e.g. 30 000–45 000 ₴",
   "fldDistrict": "District",
+  "fldCity": "City",
+  "cityTitle": "Choose a city",
   "fldEmployment": "Employment",
   "empFull": "Full-time",
   "empPart": "Part-time",

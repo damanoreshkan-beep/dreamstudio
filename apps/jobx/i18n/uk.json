@@ -19,6 +19,8 @@
   "fldSalary": "Зарплата",
   "fldSalaryPh": "Напр., 30 000–45 000 ₴",
   "fldDistrict": "Район",
+  "fldCity": "Місто",
+  "cityTitle": "Оберіть місто",
   "fldEmployment": "Зайнятість",
   "empFull": "Повна",
   "empPart": "Часткова",
