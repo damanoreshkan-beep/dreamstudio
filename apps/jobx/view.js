@@ -398,7 +398,7 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
   return html`<div data-stage class="fixed inset-0 z-0 overflow-hidden bg-base-200">
     ${showMap ? html`<${MapStage} isDark=${isDark} jobs=${jobs} onPick=${(c) => openScreen(`job:${(c.jobs && c.jobs[0] || {}).id}`)} />` : null}
     ${!showMap || !glReady
-      ? html`<div class="absolute inset-0 grid place-items-center px-8 text-center text-muted">
+      ? html`<div class="absolute inset-0 grid place-items-center px-8 text-center text-muted pointer-events-none">
           <div>${Icon("lucide:map", "text-4xl opacity-40")}<p class="mt-3">${T(t, "mapHint")}</p></div>
         </div>` : null}
 
