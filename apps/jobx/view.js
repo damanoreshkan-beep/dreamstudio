@@ -144,8 +144,17 @@ async function makeDeck(canvas) {
   await grab("districts"); await grab("water"); await grab("roads"); await grab("metro"); await grab("buildings");
   if (geo.buildings && geo.buildings.features) for (const f of geo.buildings.features) f.properties._h = f.properties.h || 12;
 
-  let zoom = VIEW.zoom, pal = palette(), jobs = [], onPick = () => {};
-  const bAt = (lod) => (!geo.buildings ? null : lod === 0 ? geo.buildings : { type: "FeatureCollection", features: geo.buildings.features.filter((f) => f.properties._h >= lod) });
+  let zoom = VIEW.zoom, lod = lodFor(VIEW.zoom), pal = palette(), jobs = [], onPick = () => {};
+  // Building buckets by LOD are MEMOISED. deck.gl re-tessellates a polygon layer whenever its `data`
+  // reference changes; a fresh filtered array on every zoom tick would re-triangulate thousands of extruded
+  // footprints each frame — that is the phone-melting cost. One stable array per LOD → tessellated once.
+  const bCache = new Map();
+  const bAt = (l) => {
+    if (!geo.buildings) return null;
+    if (l === 0) return geo.buildings;
+    if (!bCache.has(l)) bCache.set(l, { type: "FeatureCollection", features: geo.buildings.features.filter((f) => f.properties._h >= l) });
+    return bCache.get(l);
+  };
 
   function layers() {
     const L = [];
@@ -153,8 +162,8 @@ async function makeDeck(canvas) {
     if (geo.water) L.push(new D.GeoJsonLayer({ id: "water", data: geo.water, filled: true, stroked: true, getFillColor: pal.water, getLineColor: pal.waterLine, lineWidthMinPixels: 1, pickable: false }));
     if (geo.roads) L.push(new D.GeoJsonLayer({ id: "roads", data: geo.roads, filled: false, stroked: true, getLineColor: pal.road, getLineWidth: (f) => { const h = f.properties && f.properties.hw; return h === "motorway" || h === "trunk" ? 12 : h === "primary" ? 9 : h === "secondary" ? 6 : 3; }, lineWidthUnits: "meters", lineWidthMinPixels: 0.5, lineWidthMaxPixels: 4, pickable: false }));
     if (geo.metro && geo.metro.lines) L.push(new D.GeoJsonLayer({ id: "metro", data: geo.metro.lines, filled: false, stroked: true, getLineColor: (f) => { const c = (f.properties && f.properties.color) || pal.accent; return [c[0], c[1], c[2], 200]; }, getLineWidth: 4, lineWidthUnits: "meters", lineWidthMinPixels: 2, lineWidthMaxPixels: 5, pickable: false }));
-    const b = bAt(lodFor(zoom));
-    if (b) L.push(new D.GeoJsonLayer({ id: "buildings", data: b, extruded: true, wireframe: true, opacity: pal.dark ? 0.82 : 0.92, getElevation: (f) => f.properties._h, getFillColor: pal.building, getLineColor: pal.buildingLine, material: { ambient: pal.dark ? 0.4 : 0.65, diffuse: 0.6, shininess: 30, specularColor: pal.accent }, pickable: false, updateTriggers: { getFillColor: [pal], getLineColor: [pal] } }));
+    const b = bAt(lod);
+    if (b) L.push(new D.GeoJsonLayer({ id: "buildings", data: b, extruded: true, opacity: pal.dark ? 0.82 : 0.92, getElevation: (f) => f.properties._h, getFillColor: pal.building, getLineColor: pal.buildingLine, material: { ambient: pal.dark ? 0.4 : 0.65, diffuse: 0.6, shininess: 30, specularColor: pal.accent }, pickable: false, updateTriggers: { getFillColor: [pal], getLineColor: [pal] } }));
     // Job markers — Airbnb-style salary PILLS on an anchored stem (map-UX + deck.gl research). A single job
     // shows its salary; a cluster shows the count (accent-filled). The pill would detach over a tilted 3D city,
     // so a slim beam + an anchor dot pin it to its point. All colour is theme-derived (pal.*). Pill/dot pick →
@@ -168,7 +177,7 @@ async function makeDeck(canvas) {
       const label = (d) => (d.count > 1 ? String(d.count) : (shortSalary(d.jobs[0] && d.jobs[0].salary) || ""));
       const pilled = cl.filter((d) => label(d));
       L.push(new D.ColumnLayer({ id: "beam", data: cl, diskResolution: 12, radius: 6, extruded: true, elevationScale: 1, getPosition: (d) => d.coordinates, getElevation: 220, getFillColor: pal.beam, pickable: false }));
-      L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 4, radiusMinPixels: 3, radiusMaxPixels: 6, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1, pickable: true, onClick: pick }));
+      L.push(new D.ScatterplotLayer({ id: "anchor", data: cl, getPosition: (d) => d.coordinates, radiusUnits: "pixels", getRadius: 5, radiusMinPixels: 5, radiusMaxPixels: 9, getFillColor: pal.anchor, stroked: true, getLineColor: [255, 255, 255, 200], lineWidthUnits: "pixels", getLineWidth: 1.5, pickable: true, onClick: pick }));
       L.push(new D.TextLayer({
         id: "pills", data: pilled, pickable: true, onClick: pick, billboard: true, sizeUnits: "pixels",
         getPosition: (d) => [d.coordinates[0], d.coordinates[1], 220], getPixelOffset: [0, -12],
@@ -185,8 +194,14 @@ async function makeDeck(canvas) {
 
   const deck = new D.Deck({
     canvas, initialViewState: VIEW, controller: { dragRotate: true, touchRotate: true }, views: new D.MapView({ repeat: false }),
+    // Cap render resolution: a 3× phone otherwise shades ~9× the fragments of the building/road fills every
+    // frame — the biggest thermal cost. 1.5 keeps edges crisp (SDF pills stay sharp) at a fraction of the load.
+    useDevicePixels: Math.min(globalThis.devicePixelRatio || 1, 1.5),
+    pickingRadius: 12,                          // a finger is not a cursor — register a tap NEAR a pin/pill
     getCursor: ({ isDragging }) => (isDragging ? "grabbing" : "grab"),
-    onViewStateChange: ({ viewState }) => { if (Math.abs(viewState.zoom - zoom) > 0.25) { zoom = viewState.zoom; deck.setProps({ layers: layers() }); } },
+    // Rebuild layers ONLY when the building LOD bucket changes — not on every 0.25 of zoom. deck drives pan/
+    // zoom itself (uncontrolled viewState); a rebuild is needed solely to swap the building detail tier.
+    onViewStateChange: ({ viewState }) => { zoom = viewState.zoom; const nl = lodFor(zoom); if (nl !== lod) { lod = nl; deck.setProps({ layers: layers() }); } },
     layers: [],
   });
   return {
