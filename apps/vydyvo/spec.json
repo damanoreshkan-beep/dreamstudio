@@ -12,7 +12,8 @@
       "view": "vydyvo",
       "fit": true,
       "needs": [
-        "wakeLock"
+        "wakeLock",
+        "auth"
       ]
     },
     {

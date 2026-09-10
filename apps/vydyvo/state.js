@@ -3,6 +3,7 @@
 // view.js subscribes and renders. The contract: apps/vydyvo/RESEARCH.md.
 import { atom } from "nanostores";
 import { gate } from "/_rt/gate.js";
+import { session } from "/_rt/auth.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { T } from "/_rt/i18n.js";
 import { toEnglish } from "/_rt/translate.js";
@@ -166,7 +167,11 @@ function tick() {
   // the material) makes the old stock worthless, so the next race starts at once instead of waiting out a
   // full stock of wrong-side frames
   const ahead = $frames.get().filter((f) => !f.shown && f.mode === m && f.preset === w).length;
-  if (g.phase !== "working" && now >= g.until && ahead < AHEAD && online) generate();
+  // Auto-generation needs a SESSION: generation is sign-in-gated (anti-bot — /feed/image 401s for anon, which
+  // otherwise slams the auth wall over the first paint). A signed-out viewer just sees the static placeholder
+  // show; the explicit wand / Enter (generateNow) still prompts sign-in the moment they ask for a live frame.
+  const signedIn = gate || !!(session.get() && session.get().sid);
+  if (g.phase !== "working" && now >= g.until && ahead < AHEAD && online && signedIn) generate();
 }
 
 /** A theme flip with no frame of the new mode must not wait out a refusal's backoff — race now. */
