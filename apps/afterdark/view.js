@@ -201,6 +201,9 @@ header.navbar [data-title],header.navbar [data-battery]{color:rgba(255,255,255,.
 /* the runtime halos the wordmark in the PAGE's tone (paper in the light theme) — over a dark-committed
    stage that halo is a pale smudge behind the name, so the halo here is the stage's own night. */
 header.navbar [data-title]{text-shadow:0 1px 2px #0A0510,0 0 14px #0A0510}
+/* the transport sits on a dark island in BOTH themes, so its primary key is the dark theme's cream key in
+   both — the light theme's black primary on dark glass was a black disc on black (measured 2026-09-11). */
+[data-rave] .btn-primary{background:#F2EEE6;border-color:#F2EEE6;color:#0A0510}
 .ad-dot{width:.5rem;height:.5rem;border-radius:9999px;background:var(--app-accent);box-shadow:0 0 8px var(--app-accent)}
 [data-rave][data-state="live"] .ad-dot{animation:adPulse .46s ease-in-out infinite}
 [data-rave][data-state="connecting"] .ad-dot,[data-rave][data-state="reconnecting"] .ad-dot{animation:adBlink 1s steps(2) infinite}
