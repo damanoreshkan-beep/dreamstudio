@@ -41,7 +41,8 @@ const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
 // (owner, 2026-09-11): iOS keeps the DIRECT Icecast <audio> — Safari's native HLS feeds the AnalyserNode
 // silence (WebKit 231656) and the beat would die; everyone else gets hls.js over MSE. If the DVR itself is
 // unreachable (three manifest failures) this session falls back to the direct stream: a DVR outage is never silence.
-const LIVE = VPS_PROXY + "/live/live.m3u8";
+// master.m3u8 lists the edge's TWO pullers as redundant streams — hls.js swaps pods on load errors (live.js)
+const LIVE = VPS_PROXY + "/live/master.m3u8";
 const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 // THE SYNC CONTRACT with the edge DVR (live.js: 8 s segments, a 20-min window), thought through 2026-09-11
 // after a phone «зависає і різко грає свіжий блок»:
@@ -258,10 +259,10 @@ const env = {
   // day as env.x (the runtime's own channel); the 3D rig reads both off env.
   pal: null, palTarget: null, day: 0, themeKey: "", frame: 0,
   // THE CAMERA (owner, 2026-09-11): a finger drag orbits (yaw/pitch), a pinch zooms, a double tap resets;
-  // `cam` is the eased value the 3D stage reads, `camT` the gesture's target
+  // `cam` is the eased value the 3D stage reads, `camT` the gesture's target; yaw is unbounded (a full walk-around)
   cam: { yaw: 0, pitch: 0, zoom: 1 }, camT: { yaw: 0, pitch: 0, zoom: 1 },
 };
-const CAM = { yawMax: 1.05, pitchMin: -0.12, pitchMax: 0.62, zoomMin: 0.55, zoomMax: 1.8 };
+const CAM = { pitchMin: -0.12, pitchMax: 0.62, zoomMin: 0.55, zoomMax: 1.8 };   // yaw is free: walk all the way round (owner: «зі спини бачити»)
 const ptrs = new Map();                                            // active pointers on the stage: id → {x, y}
 let pinchDist = 0, lastTapAt = 0;
 function camDown(e) {
@@ -274,7 +275,7 @@ function camMove(e) {
   const p = ptrs.get(e.pointerId); if (!p) return;
   const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
   if (ptrs.size === 1) {
-    env.camT.yaw = clamp(env.camT.yaw - dx * 0.006, -CAM.yawMax, CAM.yawMax);
+    env.camT.yaw -= dx * 0.006;
     env.camT.pitch = clamp(env.camT.pitch + dy * 0.004, CAM.pitchMin, CAM.pitchMax);
   } else if (ptrs.size === 2) {
     const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
