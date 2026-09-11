@@ -12,12 +12,12 @@
 // popping on each one, a dip before the downbeat and a slam on it, a white strobe in the drive tier, the
 // dancefloor grid and the light pool — all on the ANTICIPATED beat phase, with the kick transient as the
 // fallback wherever the clock is unsure (breakdown, idle groove). Musical structure only picks moves: tiers
-// change on a PHRASE (16 beats). Every dance PLAYS OUT (owner, 2026-09-11: «кожен танець дотанцювати, плавно
-// перейти на інший через idle, без перепригувань; рухи не рандом, природно»): a move runs for whole loops
-// (a phrase or two), then cross-fades into the breathing idle for a breath, then into the NEXT move — chosen
-// like a dancer would: stay in the same tier or step one tier over, never repeat the last move, keep to her
-// own repertoire — never a cut mid-step; and a loop's root motion is held on the floor, so a dance that
-// travels never snaps back to its origin. The reactive grid lives HERE (a 3D plane
+// change on a PHRASE (16 beats). MOVES CHANGE FAST, WITH TRANSITIONS (owner, 2026-09-11, third call: «жвавість,
+// ритм, такт; зміна позицій дуже швидка але з переходами»): a move holds for an 8-count (two bars; one time
+// in three, two of them), then on the bar line cross-fades in 0.3 s straight into the NEXT move — chosen like
+// a dancer would: same tier or one tier over, never the one she just did, from her own repertoire. No idle
+// between moves (the idle is the pause). A loop's root motion is held on the floor, so a dance that travels
+// never snaps back to its origin. The reactive grid lives HERE (a 3D plane
 // under their feet has real perspective; the shader background is occluded by the matte floor). On pause
 // everyone eases into the breathing idle under house lights.
 //
@@ -248,7 +248,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     a.enabled = true; a.setEffectiveWeight(1); a.reset(); a.play();
     if (e.currentAction && e.currentAction !== a) a.crossFadeFrom(e.currentAction, fade, true);
     e.currentAction = a; e.current = id;
-    e.loops = 0; e.prevT = 0; e.wantLoops = id === "idle" ? 0 : 1 + ((Math.random() * 2) | 0);   // a move runs 1–2 whole loops
+    e.loops = 0; e.prevT = 0;
   }
 
   let tier = "groove", lastTierAt = 0, rotation = 0;
@@ -365,7 +365,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     if (target !== tier && may) {
       tier = target; lastTierAt = now; rotation++;
       if (tier === "calm") assignMoves(0.6);                                     // pause: everyone eases into the idle now
-      else for (const id of order) { const e = cast.get(id); if (e) e.wantLoops = Math.min(e.wantLoops, e.loops + 1); }   // finish this loop, then bridge into the new tier
+      else for (const id of order) { const e = cast.get(id); if (e) { e.phraseEnd = beatIndex; e.swapAt = now; } }   // the new tier takes over at the next bar line
     }
 
     // ── THE LIGHTING RIG (this is where "in time" lives) ──
@@ -437,22 +437,23 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     gridU.uColor.value.copy(BAR_COLORS[colorIdx]); gridU.uColor2.value.copy(BAR_COLORS[(colorIdx + 1) % BAR_COLORS.length]);
 
     // the body: a squash on the kick, plus a small hop ON THE BEAT once the clock is sure
-    const beatKick = Math.max(kEff, beatEnv * 0.6 * (1 - calm));
-    const sq = 1 - 0.055 * beatKick, ex = 1 + 0.05 * beatKick, hop = 0.055 * beatKick;
+    const beatKick = Math.max(kEff, beatEnv * 0.85 * (1 - calm));
+    const sq = 1 - 0.07 * beatKick, ex = 1 + 0.06 * beatKick, hop = 0.08 * beatKick;   // the whole floor bounces ON the beat
     const list = tiers[tier] || tiers.groove;
     for (const id of order) {
       const e = cast.get(id); if (!e || !e.mixer || !e.root) continue;
-      // THE DANCE PLAYS OUT: count whole loops; once the move has run its loops, bridge through the idle for a
-      // breath (1.2–2 s), then take the next move — the neighbour tier is allowed, the last move is not, and
-      // her repertoire is a stable slice of the tier (seeded), so she has a style. Paused/calm → the idle.
+      // THE 8-COUNT: (research 2026-09-11: club dancers start a new move on the "1" of an 8-count — two bars)
+      // with a confident clock a move holds 8 beats (one time in three, 16) and the next one starts ON the
+      // bar line; without a clock, every ~4 s. The change is a 0.3 s cross-fade — quick, never a cut — and
+      // the next move is the neighbour tier allowed, the last move not, her repertoire preferred. Coming out
+      // of the idle (a pause ended) she takes a move at once.
       if (active && tier !== "calm" && e.currentAction) {
-        // (research 2026-09-11: club dancers start a new move on the "1" of an 8-count — two bars — so with a
-        // confident clock the next move waits for a bar line; crowds read as people when blend times differ)
-        const fade = 0.4 + e.seed * 0.3;
-        if (e.current === "idle") {
-          if (now > e.bridgeUntil && (!locked || barTick)) { const m = nextMove(e, list); if (m) playMove(e, m, fade); }
-        } else if (e.loops >= e.wantLoops && pool.has("idle")) {
-          e.last = e.current; playMove(e, "idle", fade); e.bridgeUntil = now + 1200 + Math.random() * 800;
+        if (e.phraseEnd == null) { e.phraseEnd = beatIndex + 8; e.swapAt = now + 3500 + Math.random() * 1500; }
+        const due = e.current === "idle" ? true : (locked ? (barTick && beatIndex >= e.phraseEnd) : now >= e.swapAt);
+        if (due) {
+          const m = nextMove(e, list);
+          if (m) { e.last = e.current; playMove(e, m, 0.3); }
+          e.phraseEnd = beatIndex + (Math.random() < 0.33 ? 16 : 8); e.swapAt = now + 3500 + Math.random() * 1500;
         }
       }
       // RATE-LOCK to the track (see the header): whole-beat loop vs live bpm, ≥30 % of the correction, all
@@ -462,7 +463,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
       let ts = 1;
       if (locked && src && !still && tier !== "calm") {
         const want = (env.bpm || CLIP_BPM_REF) / src.bpm;
-        ts = clamp(1 + (want - 1) * Math.max(SYNC_MIN, conf), 0.75, 1.3);
+        ts = clamp(1 + (want - 1) * Math.max(SYNC_MIN, conf), 0.95, 1.35);   // never slower than natural — slow-mo reads as sleepy
         const a = e.currentAction;
         if (barTick && a) {
           const beatLen = src.clip.duration / src.beats;
