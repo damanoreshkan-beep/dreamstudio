@@ -64,7 +64,9 @@ const HLS_CFG = {
   // requests carrying a Range header untouched ("media streams itself"), so every DVR request carries
   // "Range: bytes=0-": CORS-safelisted (no preflight), the edge ignores it and answers 200 in full, and the
   // worker never sees it. The framework fix (any /feed/* is live data) ships with the next core release.
-  xhrSetup: (xhr) => { try { xhr.setRequestHeader("Range", "bytes=0-"); } catch { /* */ } },
+  // hls.js calls xhrSetup BEFORE xhr.open() (1.5+), so a header can only be set after opening it ourselves —
+  // hls.js then skips its own open(). (The first cut set the header blind and the try/catch hid the throw.)
+  xhrSetup: (xhr, url) => { xhr.open("GET", url, true); xhr.setRequestHeader("Range", "bytes=0-"); },
   lowLatencyMode: false,                        // default true — MUST be off for a DVR
   liveSyncDuration: 300,                        // start 5 min behind the edge …
   liveSyncMode: "edge",                         // see the contract above — never re-syncs without a max latency

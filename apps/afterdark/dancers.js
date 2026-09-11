@@ -521,6 +521,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
       e.root.position.x = e.tx + e.centerDX + e.ox; e.root.position.z = e.tz + e.oz;
     }
     env.crowdMin = crowdMin;                                                    // the closest pair, for the eye/device check
+    env.moves = order.map((id) => cast.get(id)?.current || "");               // who dances what, for the eye/device check
 
     // THE CAMERA: an orbit around the crowd — yaw/pitch from a finger drag, distance from a pinch (view.js
     // eases env.cam) — with the tilt parallax riding on top. The fit distance stays the zoom's 1.0.
