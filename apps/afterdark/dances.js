@@ -1,10 +1,10 @@
 // afterdark — the MOVE LIBRARY: every rave dance the stage can play, curated from Mixamo's Dance genre
 // (36 that read as techno; salsa/samba/twerk/break-freezes were left out). Any move retargets onto any
-// girl (one Mixamo skeleton), so this list is independent of the cast. Each ships as a clip-only,
+// character (one Mixamo skeleton), so this list is independent of the cast. Each ships as a clip-only,
 // Draco-free .glb (skeleton + one animation, ~60–500 KB) at assets/move-<id>.glb, loaded ON DEMAND: only the
 // moves the user has switched on are fetched. `tier` is the director's intensity bucket (light → groove →
 // drive; afro joins groove); `star` = the owner's top picks, the default selection. `name` is the dance's
-// proper name (untranslated, like the girls'). `id` = the Mixamo product id — the one truth where names repeat.
+// proper name (untranslated, like the characters'). `id` = the Mixamo product id — the one truth where names repeat.
 export const MOVES = [
   { id: "108850901", name: "Robot v1",        tier: "drive",  star: true },
   { id: "108860901", name: "Robot v2",        tier: "drive",  star: true },

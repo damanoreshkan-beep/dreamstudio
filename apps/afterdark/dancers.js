@@ -1,6 +1,6 @@
 // afterdark — the 3D dance stage (Three.js on a transparent canvas, over the afterdark.frag rave and under
-// the DOM chrome). It renders ANY cast of 1..11 rigged girls as a crowd sized to FIT the viewport width, and
-// drives them from a SHARED MOVE LIBRARY (dances.js): because every girl is the same Mixamo skeleton, any clip
+// the DOM chrome). It renders ANY cast of 1..11 rigged characters as a crowd sized to FIT the viewport width, and
+// drives them from a SHARED MOVE LIBRARY (dances.js): because every character is the same Mixamo skeleton, any clip
 // retargets onto anyone, so the stage is an AUTO-CHOREOGRAPHER — it reads the live BEAT CLOCK and cross-fades
 // the whole floor between light / groove / drive moves, each dancer offset so no two do the same thing.
 //
@@ -12,7 +12,7 @@
 // popping on each one, a dip before the downbeat and a slam on it, a white strobe in the drive tier, the
 // dancefloor grid and the light pool — all on the ANTICIPATED beat phase, with the kick transient as the
 // fallback wherever the clock is unsure (breakdown, idle groove). Musical structure only picks moves: tiers
-// change on a PHRASE (16 beats), per-girl swaps land on a BAR. The reactive grid lives HERE (a 3D plane
+// change on a PHRASE (16 beats), per-character swaps land on a BAR. The reactive grid lives HERE (a 3D plane
 // under their feet has real perspective; the shader background is occluded by the matte floor). On pause
 // everyone eases into the breathing idle under house lights.
 //
@@ -25,20 +25,20 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
-import { GIRLS, glbUrl } from "./girls.js";
+import { CHARACTERS, glbUrl } from "./characters.js";
 import { DEFAULT_MOVES, moveUrl, tiersFor } from "./dances.js";
 
 const DRACO_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const frac = (x) => x - Math.floor(x);
 const TARGET_H = 1.7;
-const ORDER = GIRLS.map((g) => g.id);
+const ORDER = CHARACTERS.map((g) => g.id);
 const IDLE_URL = new URL("assets/clip-idle.glb", import.meta.url).href;   // top-level: the build copies files in assets/, not subdirs
 const LOCK = 0.3;                                                    // clock confidence above which the floor follows it
 const CLIP_BPM_REF = 125;                                            // Mixamo dance clips are captured near this tempo
 const SYNC_MIN = 0.3;                                                // the least of the tempo correction ever applied while locked
-const MIN_GAP = 0.8;                                                 // metres between two girls' hips — never inside each other
-const MAX_DRIFT_X = 1.4, MAX_DRIFT_Z = 1.1;                          // how far the crowd solver may push a girl off her slot
+const MIN_GAP = 0.8;                                                 // metres between two characters' hips — never inside each other
+const MAX_DRIFT_X = 1.4, MAX_DRIFT_Z = 1.1;                          // how far the crowd solver may push a character off her slot
 
 const C_KEY = 0xffe9f4, C_MAG = 0xff3eb5, C_GRN = 0x39ff6a, C_GOLD = 0xf5b942, C_VIO = 0x8b5cf6;
 // the wash ramp the floor cycles per bar — the brand colours until the theme palette arrives, then the theme's
@@ -65,7 +65,7 @@ void main(){
 }`;
 
 // `onStatus(state, detail)` is the stage's DOM readout (glstage law: every meaning the canvas carries is
-// also in the DOM): "ready" once the first girl dances, "failed" with the reason when a GLB or the decoder
+// also in the DOM): "ready" once the first character dances, "failed" with the reason when a GLB or the decoder
 // does not arrive — the drive and the client log read it, a silent catch told nobody (2026-09-11).
 export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   let renderer;
@@ -92,7 +92,7 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   const washes = [magenta, green, gold, violet];
 
   // ── the floor: what grounds a figure. A dark, half-transparent plane catches the coloured lights (the rave
-  // field still shows through it, but the girls stop floating in a void), the reactive grid + an additive
+  // field still shows through it, but the characters stop floating in a void), the reactive grid + an additive
   // light pool under the crowd breathe with the beat, and each dancer stands on her own soft contact shadow.
   // Standard meshes with canvas-drawn gradients — no shadow maps, which a weak GPU cannot afford.
   const radial = (inner, outer) => {
@@ -148,7 +148,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   const draco = new DRACOLoader().setDecoderPath(DRACO_PATH);
   const loader = new GLTFLoader().setDRACOLoader(draco);
 
-  // the move pool: id -> { clip, hipsY } (shared across all girls; hipsY = the SOURCE rig's hips bind height)
+  // the move pool: id -> { clip, hipsY } (shared across all characters; hipsY = the SOURCE rig's hips bind height)
   const pool = new Map();
   const loading = new Set();
   // "The same Mixamo skeleton" is the same bone tree, NOT the same size: the rigs' hips sit at 0.37 (pirate),
@@ -159,7 +159,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   const hipsOf = (obj) => { let h = null; obj.traverse((o) => { if (!h && /hips$/i.test(o.name)) h = o; }); return h ? { bone: h, y: h.position.y, prefix: h.name.replace(/hips$/i, "") } : { bone: null, y: 0, prefix: "" }; };
   // "The same Mixamo skeleton" is also not the same NAMES: Mixamo numbers a rig it has seen before —
   // Louise's bones are `mixamorig8:Hips`, everyone else's `mixamorig:Hips` (measured 2026-09-11: 53
-  // "No target node found" warnings and a girl frozen mid-pose). A clip's tracks are renamed to the target
+  // "No target node found" warnings and a character frozen mid-pose). A clip's tracks are renamed to the target
   // rig's prefix, then the hips translation is scaled by target/source bind height.
   const retargetHips = (clip, srcY, dstY, srcPrefix, dstPrefix) => {
     const rename = srcPrefix && dstPrefix && srcPrefix !== dstPrefix;
@@ -182,7 +182,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   loadClip("idle", IDLE_URL);                                      // the breathing idle — a real standing wait (pause)
 
   const _v = new THREE.Vector3();
-  const cast = new Map();       // girl id -> { root, mixer, actions:Map, current, currentAction, baseY, baseScale, centerDX, token, tx, tz, yaw }
+  const cast = new Map();       // character id -> { root, mixer, actions:Map, current, currentAction, baseY, baseScale, centerDX, token, tx, tz, yaw }
   let order = [];
   let dead = false, loaded = 0, camDist = 6, camY = 1.05, lookY = 0.95;
   let tiers = tiersFor(DEFAULT_MOVES), moves = DEFAULT_MOVES.slice();
@@ -230,7 +230,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     }
   }
 
-  // cross-fade a girl to a move from the shared pool (skips if the clip hasn't loaded yet — she keeps dancing)
+  // cross-fade a character to a move from the shared pool (skips if the clip hasn't loaded yet — she keeps dancing)
   function playMove(e, id, fade = 0.5) {
     if (!e || !e.mixer || e.current === id) return;
     const src = pool.get(id); if (!src) return;
@@ -252,7 +252,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     });
   }
 
-  async function loadGirl(id) {
+  async function loadChar(id) {
     const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, ox: 0, oz: 0, hx: 0, hz: 0, nextSwap: performance.now() + 4000 + Math.random() * 7000, nextSwapBar: 2 + ((Math.random() * 4) | 0) };
     cast.set(id, e);
     const token = ++e.token;
@@ -291,7 +291,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     if (!want.length) return;
     for (const id of [...cast.keys()]) if (!want.includes(id)) { disposeEntry(cast.get(id)); cast.delete(id); }
     order = want;
-    for (const id of want) if (!cast.has(id)) loadGirl(id);
+    for (const id of want) if (!cast.has(id)) loadChar(id);
     computeLayout();
   }
 
@@ -415,7 +415,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     const list = tiers[tier] || tiers.groove;
     for (const id of order) {
       const e = cast.get(id); if (!e || !e.mixer || !e.root) continue;
-      // keep the floor ALIVE: each girl swaps to another move of the tier on her own clock (staggered) —
+      // keep the floor ALIVE: each character swaps to another move of the tier on her own clock (staggered) —
       // on a BAR when the clock is locked, on a timer otherwise — so even a steady passage keeps evolving.
       // Paused/calm → hold the calm move.
       const due = locked ? (barTick && bar >= e.nextSwapBar) : now > e.nextSwap;
@@ -451,8 +451,8 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     }
 
     // ── THE CROWD SOLVER (owner, 2026-09-11: «вона може бути позаду, але не налазити»). A dance TRAVELS — a
-    // running man crosses a metre, house drifts — so two girls on neighbouring slots end up inside each other.
-    // Every frame: each girl is pulled softly back to her slot, and any pair whose HIPS are closer than
+    // running man crosses a metre, house drifts — so two characters on neighbouring slots end up inside each other.
+    // Every frame: each character is pulled softly back to her slot, and any pair whose HIPS are closer than
     // MIN_GAP on the floor plane is pushed apart along the line between them (half each, a quarter of the
     // overlap per frame — a constraint, not a bounce). Depth is free: standing behind is a large distance on
     // the plane, standing inside is not. The push is capped so nobody leaves the stage.

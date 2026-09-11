@@ -3,7 +3,7 @@
 **What it is.** A one-track techno rave: ONE live Icecast stream (`streams.rautemusik.fm/techno/mp3-192`)
 behind a full-screen night stage — the `afterdark.frag` rave field (haze, five sweeping laser beams, a
 strobe, crowd silhouettes) on `/_rt/glstage.js`, and over it a Three.js stage of rigged Mixamo dancers
-(11 girls, any cast of 1..11) that move to the beat. One fit screen, one island (the dancer filmstrip + the
+(11 characters, any cast of 1..11) that move to the beat. One fit screen, one island (the dancer filmstrip + the
 kit `Transport`), the profile tab. DARK-COMMITTED: a rave is dark by nature, so the stage ignores the theme
 and the DOM chrome is dark glass in both farm themes.
 
@@ -19,8 +19,8 @@ and the DOM chrome is dark glass in both farm themes.
   auto-sway). The shader still declares the old sprite inputs (`cam`, `tex2`) from the chroma-key era; the
   view no longer feeds them, the 3D stage replaced the sprite.
 - **The 3D stage** (`dancers.js`): Three.js 0.171 over esm.sh, `GLTFLoader` + `DRACOLoader` (decoders from
-  gstatic). Every girl is the same Mixamo skeleton, so ANY clip retargets onto anyone: the app ships 11
-  girl GLBs (0.15–0.7 MB, Draco) + 12 clip-only GLBs (a shared move library incl. a breathing idle), and an
+  gstatic). Every character is the same Mixamo skeleton, so ANY clip retargets onto anyone: the app ships 11
+  character GLBs (0.15–0.7 MB, Draco) + 12 clip-only GLBs (a shared move library incl. a breathing idle), and an
   AUTO-CHOREOGRAPHER picks a tier (calm / light / groove / drive) from the smoothed energy, cross-fading the
   whole floor; each dancer swaps moves on her own clock. The kick punches a squash + a rim-light flash. The
   cast lays out as a crowd that fits the viewport width (cols from aspect). Probe-guarded; SKIPPED under the
@@ -50,12 +50,12 @@ Enter tap (the 3D stage only exists on the live page: under `?mock` the gate ski
 | Live, before Enter | the centred Enter ring + «УВІЙТИ» printed across the lead dancer's face | the cover sits in the upper third of the void, over the beams, never over the dancers |
 | Live, entered | three figures floating in a void — no floor, no shadow, no ground light: toy figures, not a stage | the floor plane + light pool + contact shadows (`dancers.js`) |
 | Light theme | the wordmark carried a pale halo (the runtime halos in the PAGE's tone — paper) over the dark stage | the halo is the stage's own night, in both themes |
-| `rt/afterdark.js` | a stale 3-girl roster (`neon/acid/goddess`, sprite era) + `girlById`, exported and unit-tested, imported by nothing — the app's roster is `girls.js` (11) | removed with its test; the module is the beat signal only |
+| `rt/afterdark.js` | a stale 3-character roster (`neon/acid/goddess`, sprite era) + `charById`, exported and unit-tested, imported by nothing — the app's roster is `characters.js` (11) | removed with its test; the module is the beat signal only |
 | `RESEARCH.md` | empty | this file |
 | Store | no luminous icon (a hand-drawn SVG), no captures, no slogan | icon (Z-Image, round 1 take d: a dancer inside a ring of light), captures from the LIVE page after Enter, `slogan_afterdark` |
 
 Not changed, noted: the clip library loads all 12 clips up front (~2.6 MB gzip-less Draco) on top of the
-cast's girl GLBs; a phone on LTE sees the first dancers after ~1–2 MB. Tiered lazy loading is the next step
+cast's character GLBs; a phone on LTE sees the first dancers after ~1–2 MB. Tiered lazy loading is the next step
 if the client log shows slow first-dance times.
 
 ## The state map
@@ -67,7 +67,7 @@ if the client log shows slow first-dance times.
 | Rave · live | pulse from the kick: strobe, beams, light pool, squash; pill «· НАЖИВО» pulsing dot | stop + mute | same |
 | Rave · paused | dancers ease into the breathing idle, lights dim; pill «· ПАУЗА» | play | same |
 | Rave · offline | pill «· ОФЛАЙН»; retries on `online` | play | same |
-| Rave · cast change | tapped chip toggles a girl (last one stays); «Усі» = all 11 | — | — |
+| Rave · cast change | tapped chip toggles a character (last one stays); «Усі» = all 11 | — | — |
 | Gate (`?mock`) | field only (3D skipped), state seeded `live`, no cover | same DOM | — |
 | Me | the profile: account, theme, language, install, APK | — | — |
 
@@ -147,7 +147,7 @@ pure module `rt/afterbeat.js` (unit-tested like afterdark.js):
 
 **Rewire dancers.js**: `timeScale = clamp(trackBpm/clipBpm, .85, 1.15)` where `clipBpm` from
 `beatsPerLoop=round(clip.duration*125/60)` (snap loop to whole beats); phase-align clip time toward the bar each
-bar (ease 0.25); quantize tier change to phrase (`beatIndex%16==0`), per-girl swaps to bars (stagger by slot),
+bar (ease 0.25); quantize tier change to phrase (`beatIndex%16==0`), per-character swaps to bars (stagger by slot),
 accents (squash/hop/light-pool) on `beatPhase` (anticipated), all with fallback to current behaviour when not
 confident. Sources: FMP C6.3 (Müller), Ellis 2007, BTrack, MDN AnalyserNode.
 
@@ -173,10 +173,10 @@ and wire them** (beatPhase→env.y, barPhase→env.z, beatIndex→env.w). Core m
 
 ## Front 4 — character textures → 2048
 
-Measured: all 11 girl GLBs carry **webp 512×512 q72** (that's the "500"). Originals in
+Measured: all 11 character GLBs carry **webp 512×512 q72** (that's the "500"). Originals in
 `~/mixamo-library/glb-raw/*.glb` (11, full-res JPEG/PNG 2048–4096). Fix = re-run the documented pipeline
 ([[reference_mixamo_pipeline]]) with `textureCompress({targetFormat:'webp', resize:[2048,2048], quality:~88})` +
-quantize + draco, from glb-raw → assets/<girl>.glb. Source→girl map: kaya-northern→kaya, michelle-house→michelle,
+quantize + draco, from glb-raw → assets/<character>.glb. Source→character map: kaya-northern→kaya, michelle-house→michelle,
 arissa-snake→arissa, eve-shuffling→eve, sophie-robot→sophie, nightshade-twist→nightshade, louise-wave→louise,
 kachujin-salsa→kachujin, jolleen-bboy→jolleen, pirate-hiphop→pirate, arms-hiphop→akai. Independent of dance
 selection (characters unchanged). Watch total asset size (512→2048 ≈ 6.5 MB → est. 20–40 MB); consider KTX2/Basis
@@ -189,4 +189,4 @@ gathered with animated previews; gallery built for owner pick. Non-rave current 
 bboy floor (jolleen), + weak twist (nightshade). Strong rave replacements: House v2/v3/v4, Shuffling, Running Man
 (3 variants), Snake, Robot v1/v2, Tut v1/v2, Quake, Locking, Step, Just Listening (calm), Body Wave. Download via
 the SPA Download button driven by `__mxGrab(char,dance)` ([[reference_mixamo_pipeline]]); clips are retargetable
-onto any girl (shared skeleton), so they become clip-only GLBs in the shared move library. AWAIT owner selection.
+onto any character (shared skeleton), so they become clip-only GLBs in the shared move library. AWAIT owner selection.

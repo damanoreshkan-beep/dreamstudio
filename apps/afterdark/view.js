@@ -1,5 +1,5 @@
 // afterdark — a one-track techno rave. ONE fit screen: the afterdark.frag rave field (lasers/haze/strobe) on
-// /_rt/glstage.js behind a Three.js stage of THREE rigged girls dancing to the beat, under a thin dark-glass
+// /_rt/glstage.js behind a Three.js stage of THREE rigged characters dancing to the beat, under a thin dark-glass
 // DOM layer — the Enter cover (the audio gesture), a top status label, and ONE island holding play/pause + a
 // filmstrip picker of the 11 dancers. DOM is the truth the gate/axe/e2e see; both canvases are aria-hidden and
 // probe-guarded (WebGL only; skipped under the headless gate, where the DOM alone must carry every meaning).
@@ -8,7 +8,7 @@
 // via hls.js, or the direct Icecast stream on iOS / as the fallback — see LIVE) → MediaElementSource →
 // AnalyserNode → destination; the AudioContext is resumed from the Enter tap (autoplay policy). TWO readings
 // per frame: the kick-band energy becomes a single `pulse` (rt/afterdark.js) — the punch; and a second,
-// unsmoothed analyser feeds the BEAT CLOCK (rt/afterbeat.js) — tempo + phase-locked beat/bar, so the girls
+// unsmoothed analyser feeds the BEAT CLOCK (rt/afterbeat.js) — tempo + phase-locked beat/bar, so the characters
 // and the lights move IN TIME, not just on loudness. Accents are anticipated by the output latency (predict,
 // never react). No audio → an idle groove at 126 BPM, never a freeze. Stream drops port tide's reconnect.
 // The stage is DARK-COMMITTED (theme-independent) so both farm-theme shots stay coherent and the dark-glass
@@ -31,7 +31,7 @@ import { retryDelay, progressCheck } from "/_rt/tide.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { bassEnergy, stepPulse, idleGroove, integratePhase } from "/_rt/afterdark.js";
 import { spectralFlux, createBeatState, stepBeat, BPM_REF } from "/_rt/afterbeat.js";
-import { GIRLS } from "./girls.js";
+import { CHARACTERS, avatarUrl } from "./characters.js";
 import { MOVES, MOVE_IDS, DEFAULT_MOVES } from "./dances.js";
 import { readPalette, isDay, SLOTS } from "./palette.js";
 
@@ -48,20 +48,24 @@ const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator
 // after a phone «зависає і різко грає свіжий блок»:
 //  · start 300 s behind the edge and NEVER re-sync on our own — no liveMaxLatency (the only thing that makes
 //    hls.js jump to the edge), no playback-rate catch-up, no stall-driven latency creep;
-//  · if hls.js must recover, 'buffered' continues from what is already downloaded instead of leaping to the edge;
+//  · liveSyncMode stays 'edge' — measured 2026-09-11: 'buffered' put the START at the playlist's first segment
+//    (the window's tail, 570 s behind), 'edge' starts exactly liveSyncDuration behind; neither re-syncs
+//    without a liveMaxLatency;
+//  · the edge serves TWO pods as pathways (live.js): a playlist that errors (dead or stuck pod → 503) falls
+//    back to the other pod after a SHORT retry budget — the runway on the phone covers the switch;
 //  · pull the whole play-behind forward (up to 15 min) so the runway is ON the phone, and keep 2 min behind;
 //  · the window's tail is 15 min behind the play head, so a sleep/pause/stall shorter than that never falls out;
 //  · the element is never torn down for a stall (play()): hls.js retries the playlist itself.
 const HLS_CFG = {
   lowLatencyMode: false,                        // default true — MUST be off for a DVR
   liveSyncDuration: 300,                        // start 5 min behind the edge …
-  liveSyncMode: "buffered",                     // … and, should hls.js ever re-sync, prefer the buffer to the edge
+  liveSyncMode: "edge",                         // see the contract above — never re-syncs without a max latency
   liveSyncOnStallIncrease: 0,                   // a stall must not creep the target
   maxLiveSyncPlaybackRate: 1,                   // never speed up to "catch up" — there is nothing to catch
   maxBufferLength: 330, maxMaxBufferLength: 900, maxBufferSize: 120 * 1024 * 1024,   // the runway lives on the phone
   backBufferLength: 120,
   fragLoadPolicy: { default: { maxTimeToFirstByteMs: 12000, maxLoadTimeMs: 30000, timeoutRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
-  playlistLoadPolicy: { default: { maxTimeToFirstByteMs: 12000, maxLoadTimeMs: 20000, timeoutRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
+  playlistLoadPolicy: { default: { maxTimeToFirstByteMs: 8000, maxLoadTimeMs: 12000, timeoutRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 4000 }, errorRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 4000 } } },   // short: a failing pod should hand over to the other within ~15 s
 };
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -69,11 +73,11 @@ const frac = (x) => x - Math.floor(x);
 const IDLE_BPM = 126;                                               // the groove when there is no audio
 
 // ---- persisted working set ----
-// the CAST: which girls are on stage (1..11). A JSON id array; the engine lays them out as a crowd that fits
-// the screen. Tapping a chip toggles a girl on/off; the last one can't be removed (the stage is never empty).
+// the CAST: which characters are on stage (1..11). A JSON id array; the engine lays them out as a crowd that fits
+// the screen. Tapping a chip toggles a character on/off; the last one can't be removed (the stage is never empty).
 const DEFAULT_CAST = ["kaya", "michelle", "arissa"];
 const $cast = persistentAtom("afterdark:cast", JSON.stringify(DEFAULT_CAST));
-const ALL_IDS = GIRLS.map((g) => g.id);
+const ALL_IDS = CHARACTERS.map((g) => g.id);
 function getCast() {
   let a; try { a = JSON.parse($cast.get()); } catch { a = null; }
   a = Array.isArray(a) ? a.filter((id) => ALL_IDS.includes(id)) : [];
@@ -332,7 +336,7 @@ function vary() {
   const shown = env.confidence > 0.35 ? Math.round(env.bpm) : 0;
   if (shown !== $bpm.get()) $bpm.set(shown);
   env.pulse = pulse; env.energy = energy;
-  env.playing = $playing.get();                                 // paused → the 3D girls ease into a calm idle sway
+  env.playing = $playing.get();                                 // paused → the 3D characters ease into a calm idle sway
   env.dph += dt * env.bpm / 60;                                  // the groove phase now follows the locked tempo
   env.sph = integratePhase(env.sph, dt, pulse);
   // vary.w = the shader's STROBE amount: only with a confident clock, and only as the passage drives (a
@@ -397,6 +401,8 @@ const CSS = `
 .dk-chip-on{background:rgba(255,255,255,.15);box-shadow:0 0 0 2px var(--app-accent)}
 .dk-chip-off{background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.14)}
 .dk-chip-dim{opacity:.65}.dk-chip-dim:hover{opacity:1}
+.dk-av{background:rgba(255,255,255,.06)}.dk-av:active{transform:scale(.94)}
+:root[data-theme$="-light"] .dk-av{background:color-mix(in oklch,var(--color-base-content) 8%,transparent)}
 .dk-enter{background:rgba(0,0,0,.5);color:#fff}
 /* THE FOLD: the island collapses into its one key. Two animatable things do it — the content's grid row goes
    1fr → 0fr (a real height animation without a magic max-height) and the island's max-width shrinks to the
@@ -481,7 +487,7 @@ export function afterdark({ S }) {
   const onStage = new Set(cast);
   const onToggle = () => (entered ? toggle() : enter());
   const applyCast = (next) => { if (!next.length) return; $cast.set(JSON.stringify(next)); engineRef.current?.setCast?.(next); };
-  const toggleGirl = (id) => { const c = getCast(); applyCast(c.includes(id) ? (c.length > 1 ? c.filter((x) => x !== id) : c) : [...c, id]); };
+  const toggleChar = (id) => { const c = getCast(); applyCast(c.includes(id) ? (c.length > 1 ? c.filter((x) => x !== id) : c) : [...c, id]); };
   const pickAll = () => applyCast(cast.length >= ALL_IDS.length ? DEFAULT_CAST.slice() : ALL_IDS.slice());
   const onMoves = new Set(moves);
   const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
@@ -511,7 +517,7 @@ export function afterdark({ S }) {
       ${/* the void: where the dancers perform (in the canvas behind) — pointer parallax lives here */""}
       <div class="dk-void flex-1 min-h-0 relative" onPointerMove=${onPointer} ...${camHandlers}>
         ${/* the Enter cover sits in the UPPER third of the void, over the beams — never over the dancers, who
-             stand mid-frame (the centred ring printed «УВІЙТИ» across the lead girl, measured 2026-09-11) */""}
+             stand mid-frame (the centred ring printed «УВІЙТИ» across the lead character, measured 2026-09-11) */""}
         ${!entered ? html`<div class="absolute inset-0 flex flex-col items-center justify-start pt-[6%] gap-4 pointer-events-none">
           <button data-enter aria-label=${T(t, "enter")} onClick=${enter}
             class="pointer-events-auto flex flex-col items-center gap-3 select-none group">
@@ -551,20 +557,22 @@ export function afterdark({ S }) {
           })}
         </div>
         <div class="dk-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "dancers")}>
-          ${/* tap a girl to add/remove her from the stage; the last one can't be removed */""}
+          ${/* tap a character to add/remove her from the stage; the last one can't be removed */""}
           <button data-all type="button" aria-pressed=${cast.length >= ALL_IDS.length ? "true" : "false"}
             aria-label=${T(t, "all")} onClick=${pickAll}
             class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "dk-chip-on" : "dk-chip-off"}`}>
             <iconify-icon icon="lucide:users" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
             <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "all")}</span>
           </button>
-          ${GIRLS.map((g) => {
+          ${/* one round avatar per character, no names (owner, 2026-09-11) — the name stays as the label for
+               a screen reader; the ring is the character's tint when on stage */""}
+          ${CHARACTERS.map((g) => {
             const on = onStage.has(g.id);
-            return html`<button key=${g.id} data-girl=${g.id} type="button" aria-pressed=${on ? "true" : "false"}
-              aria-label=${`${g.name} — ${T(t, g.danceKey)}`} onClick=${() => toggleGirl(g.id)}
-              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "dk-chip-on" : "dk-chip-off dk-chip-dim"}`}>
-              <span class="w-3.5 h-3.5 rounded-full shrink-0" style=${`background:${g.tint};box-shadow:${on ? `0 0 7px ${g.tint}` : "none"}`}></span>
-              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide ${on ? "dk-ink" : "dk-ink-3"}`}>${g.name}</span>
+            return html`<button key=${g.id} data-char=${g.id} type="button" aria-pressed=${on ? "true" : "false"}
+              aria-label=${g.name} title=${g.name} onClick=${() => toggleChar(g.id)}
+              class=${`dk-chip dk-av shrink-0 rounded-full p-0 transition-[box-shadow,transform,opacity] duration-200 ${on ? "" : "dk-chip-dim"}`}
+              style=${on ? `box-shadow:0 0 0 2px ${g.tint},0 0 12px ${g.tint}66` : ""}>
+              <img src=${avatarUrl(g.id)} alt="" width="40" height="40" loading="lazy" decoding="async" class="w-10 h-10 rounded-full object-cover block" />
             </button>`;
           })}
         </div>

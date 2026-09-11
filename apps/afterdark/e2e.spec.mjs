@@ -12,14 +12,14 @@ export default [
       h.expect((await h.count("[data-stage]")) === 1, "немає полотна рейв-поля");
       h.expect((await h.count("[data-dancers]")) === 1, "немає полотна 3D-сцени");
       h.expect((await h.count("#play")) === 1, "немає кнопки відтворення");
-      h.expect((await h.count("[data-girl]")) === 11, "має бути 11 чипів танцівниць");
+      h.expect((await h.count("[data-char]")) === 11, "має бути 11 чипів танцівниць");
       h.expect((await h.count("[data-all]")) === 1, "немає кнопки «Усі»");
       // під гейтом сцена одразу live (шот бачить заповнений екран)
       h.expect((await h.attr(wrap, "data-state")) === "live", "стан не live під гейтом");
       h.expect((await h.attr("#play", "data-playing")) === "true", "не грає під гейтом");
       h.expect((await h.attr(wrap, "data-cast")) === "3", "стартовий склад не 3");
       const pressed = [];
-      for (const g of ["kaya", "michelle", "arissa", "eve", "sophie"]) pressed.push(await h.attr(`[data-girl="${g}"]`, "aria-pressed"));
+      for (const g of ["kaya", "michelle", "arissa", "eve", "sophie"]) pressed.push(await h.attr(`[data-char="${g}"]`, "aria-pressed"));
       h.expect(pressed.filter((x) => x === "true").length === 3, "на сцені мають бути 3 (kaya/michelle/arissa)");
       h.expect((await h.count("[data-enter]")) === 0, "накладка входу лишилась під гейтом");
     },
@@ -36,20 +36,20 @@ export default [
     },
   },
   {
-    name: "дівчата: мультивибір — тап додає/знімає зі сцени, «Усі» вмикає всіх", run: async (h) => {
+    name: "персонажі: мультивибір — тап додає/знімає зі сцени, «Усі» вмикає всіх", run: async (h) => {
       await ready(h);
       // eve не у стартовому складі → тап додає її
-      await h.tap('[data-girl="eve"]'); await h.wait(200);
-      h.expect((await h.attr('[data-girl="eve"]', "aria-pressed")) === "true", "eve не додалась на сцену");
+      await h.tap('[data-char="eve"]'); await h.wait(200);
+      h.expect((await h.attr('[data-char="eve"]', "aria-pressed")) === "true", "eve не додалась на сцену");
       h.expect((await h.attr(wrap, "data-cast")) === "4", "склад не став 4");
       // michelle у складі → тап знімає
-      await h.tap('[data-girl="michelle"]'); await h.wait(200);
-      h.expect((await h.attr('[data-girl="michelle"]', "aria-pressed")) !== "true", "michelle не знялась");
+      await h.tap('[data-char="michelle"]'); await h.wait(200);
+      h.expect((await h.attr('[data-char="michelle"]', "aria-pressed")) !== "true", "michelle не знялась");
       h.expect((await h.attr(wrap, "data-cast")) === "3", "склад не повернувся до 3");
       // «Усі» → всі 11 на сцені
       await h.tap('[data-all]'); await h.wait(250);
       h.expect((await h.attr(wrap, "data-cast")) === "11", "«Усі» не вибрала всіх");
-      h.expect((await h.attr('[data-girl="pirate"]', "aria-pressed")) === "true", "pirate не на сцені після «Усі»");
+      h.expect((await h.attr('[data-char="pirate"]', "aria-pressed")) === "true", "pirate не на сцені після «Усі»");
     },
   },
   {
