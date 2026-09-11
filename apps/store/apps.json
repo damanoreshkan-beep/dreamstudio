@@ -2309,7 +2309,7 @@
     "bg": "#0A0510",
     "fg": "#FF3EB5",
     "href": "./afterdark/",
-    "version": "1.0",
+    "version": "1.2",
     "category": "creative",
     "needs": [
       "orientation",

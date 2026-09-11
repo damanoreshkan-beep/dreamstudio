@@ -28,8 +28,8 @@ const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-const spriteUrl = (id) => new URL(`girls/${id}.png`, import.meta.url).href;
-const depthUrl = (id) => new URL(`girls/${id}-depth.png`, import.meta.url).href;
+const spriteUrl = (id) => new URL(`assets/${id}.png`, import.meta.url).href;
+const depthUrl = (id) => new URL(`assets/${id}-depth.png`, import.meta.url).href;
 
 // ---- persisted working set ----
 const $girl = persistentAtom("afterdark:girl", GIRLS[0].id);
