@@ -74,7 +74,20 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   const draco = new DRACOLoader().setDecoderPath(DRACO_PATH);
   const loader = new GLTFLoader().setDRACOLoader(draco);
 
-  const pool = new Map();       // move id -> THREE.AnimationClip (shared across all girls)
+  const pool = new Map();       // move id -> { clip, hipsY } (shared across all girls; hipsY = the SOURCE rig's hips bind height)
+  // "The same Mixamo skeleton" is the same bone tree, NOT the same size: the rigs' hips sit at 0.37 (pirate),
+  // 0.71 (kaya), 1.03 (michelle), 1.13 (akai) in their own units (measured 2026-09-11, glb-inspect). A clip's
+  // Hips.position track is in its SOURCE rig's units, so played raw on a smaller rig it lifts her off the
+  // floor by the difference, times her fit scale — Pirate flew a metre up. Standard retargeting of the root
+  // translation: scale the hips track by target/source bind height; rotations retarget as they are.
+  const hipsOf = (obj) => { let h = null; obj.traverse((o) => { if (!h && /hips$/i.test(o.name)) h = o; }); return h ? { bone: h, y: h.position.y } : { bone: null, y: 0 }; };
+  const retargetHips = (clip, srcY, dstY) => {
+    if (!srcY || !dstY || Math.abs(srcY - dstY) < 1e-4) return clip;
+    const c = clip.clone(), r = dstY / srcY;
+    for (const t of c.tracks) if (/hips\.position$/i.test(t.name)) for (let i = 0; i < t.values.length; i++) t.values[i] *= r;
+    return c;
+  };
+  const _v = new THREE.Vector3();
   const cast = new Map();       // girl id -> { root, mixer, actions:Map, current, currentAction, baseY, baseScale, centerDX, token, tx, tz, yaw }
   let order = [];
   let dead = false, loaded = 0, camDist = 6, camY = 1.05, lookY = 0.95;
@@ -82,7 +95,7 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   // load the whole move library once (tiny clip-only GLBs) + the breathing idle, so any girl can dance any
   // move regardless of cast, and everyone has a real standing wait for pause
   for (const id of [...ORDER, "idle"]) {
-    loader.loadAsync(clipUrl(id)).then((g) => { if (!dead && g.animations[0]) { pool.set(id, g.animations[0]); assignMoves(); } }).catch(() => {});
+    loader.loadAsync(clipUrl(id)).then((g) => { if (!dead && g.animations[0]) { pool.set(id, { clip: g.animations[0], hipsY: hipsOf(g.scene).y }); assignMoves(); } }).catch(() => {});
   }
 
   function disposeEntry(e) {
@@ -131,9 +144,9 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   // cross-fade a girl to a move from the shared pool (skips if the clip hasn't loaded yet — she keeps dancing)
   function playMove(e, id, fade = 0.5) {
     if (!e || !e.mixer || e.current === id) return;
-    const clip = pool.get(id); if (!clip) return;
+    const src = pool.get(id); if (!src) return;
     let a = e.actions.get(id);
-    if (!a) { a = e.mixer.clipAction(clip); a.setLoop(THREE.LoopRepeat, Infinity); e.actions.set(id, a); }
+    if (!a) { a = e.mixer.clipAction(retargetHips(src.clip, src.hipsY, e.hipsY)); a.setLoop(THREE.LoopRepeat, Infinity); e.actions.set(id, a); }
     a.enabled = true; a.setEffectiveWeight(1); a.reset(); a.play();
     if (e.currentAction && e.currentAction !== a) a.crossFadeFrom(e.currentAction, fade, true);
     e.currentAction = a; e.current = id;
@@ -167,7 +180,8 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     e.baseY = -box.min.y; root.position.y = e.baseY;
     root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } });
     e.mixer = new THREE.AnimationMixer(root);
-    if (gltf.animations[0] && !pool.has(id)) pool.set(id, gltf.animations[0]);   // seed the library with her own move
+    const hips = hipsOf(root); e.hips = hips.bone; e.hipsY = hips.y;            // her rig's hips, bind pose (before any mixer)
+    if (gltf.animations[0] && !pool.has(id)) pool.set(id, { clip: gltf.animations[0], hipsY: e.hipsY });   // seed the library with her own move
     e.baseScale = s; e.root = root;
     scene.add(root);
     e.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.55, 32), shadowMat);
@@ -232,6 +246,8 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
       e.mixer.timeScale = ts; e.mixer.update(dt);
       e.root.scale.set(e.baseScale * ex, e.baseScale * sq, e.baseScale * ex);
       e.root.position.y = e.baseY + hop;
+      // the contact shadow follows the HIPS, not the model's origin — a dance travels, the origin does not
+      if (e.hips && e.shadow) { e.root.updateMatrixWorld(); e.hips.getWorldPosition(_v); e.shadow.position.x = _v.x; e.shadow.position.z = _v.z; }
     }
 
     const tx = env.tiltX || 0, ty = env.tiltY || 0;
