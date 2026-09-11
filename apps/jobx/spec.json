@@ -12,7 +12,8 @@
       "label": "tabMap",
       "view": "mapView",
       "needs": [
-        "auth"
+        "auth",
+        "geo"
       ]
     },
     {

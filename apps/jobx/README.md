@@ -4,7 +4,7 @@
 
 # jobx
 
-**Робота на 3D-карті Києва — від людей, для людей.**
+**Робота на 3D-карті міста — від людей, для людей.**
 
 ![](https://img.shields.io/badge/-tools-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

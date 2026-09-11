@@ -3,7 +3,7 @@
   "tabMap": "Map",
   "tabList": "List",
   "tabMe": "Me",
-  "mapHint": "Jobs on a 3D map of Kyiv",
+  "mapHint": "Jobs on a 3D city map",
   "kmFromCentre": "km from centre",
   "km": "km",
   "postCta": "Post a job",
@@ -43,7 +43,7 @@
   "noMatch": "Nothing found.",
   "emptyJobs": "No openings yet — post the first one.",
   "loadingJobs": "Loading…",
-  "profTagline": "Jobs on a 3D map of Kyiv — by people, for people.",
+  "profTagline": "Jobs on a 3D city map — by people, for people.",
   "profTheme": "Theme",
   "profLang": "Language",
   "install": "Install the app",
@@ -51,5 +51,7 @@
   "installBtn": "Install",
   "installDesc": "Works offline, opens like an app",
   "installIosHint": "In Safari: tap Share, then Add to Home Screen.",
-  "installGenericHint": "In the browser menu choose Install or Add to Home Screen."
+  "installGenericHint": "In the browser menu choose Install or Add to Home Screen.",
+  "jobsHere": "jobs here",
+  "locate": "Locate me"
 }
