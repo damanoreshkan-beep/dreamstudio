@@ -276,7 +276,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   }
 
   async function loadChar(id) {
-    const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, ox: 0, oz: 0, hx: 0, hz: 0, loops: 0, wantLoops: 2, prevT: 0, bridgeUntil: 0, last: null, seed: Math.random() };
+    const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, ox: 0, oz: 0, hx: 0, hz: 0, loops: 0, prevT: 0, phraseEnd: null, swapAt: 0, last: null, seed: Math.random() };
     cast.set(id, e);
     const token = ++e.token;
     let gltf;
