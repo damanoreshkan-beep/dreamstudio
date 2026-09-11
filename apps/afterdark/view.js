@@ -4,7 +4,8 @@
 // filmstrip picker of the 11 dancers. DOM is the truth the gate/axe/e2e see; both canvases are aria-hidden and
 // probe-guarded (WebGL only; skipped under the headless gate, where the DOM alone must carry every meaning).
 //
-// The audio path (recipe): ONE <audio crossOrigin="anonymous"> (set BEFORE src) → MediaElementSource →
+// The audio path (recipe): ONE <audio crossOrigin="anonymous"> (set BEFORE src; the source is the edge's HLS DVR
+// via hls.js, or the direct Icecast stream on iOS / as the fallback — see LIVE) → MediaElementSource →
 // AnalyserNode → destination; the AudioContext is resumed from the Enter tap (autoplay policy). TWO readings
 // per frame: the kick-band energy becomes a single `pulse` (rt/afterdark.js) — the punch; and a second,
 // unsmoothed analyser feeds the BEAT CLOCK (rt/afterbeat.js) — tempo + phase-locked beat/bar, so the girls
@@ -27,12 +28,27 @@ import { report } from "/_rt/telemetry.js";
 import { Island, Transport } from "/_rt/ui.js";
 import { GlStage } from "/_rt/glstage.js";
 import { retryDelay, progressCheck } from "/_rt/tide.js";
+import { VPS_PROXY } from "/_rt/feed.js";
 import { bassEnergy, stepPulse, idleGroove, integratePhase } from "/_rt/afterdark.js";
 import { spectralFlux, createBeatState, stepBeat, BPM_REF } from "/_rt/afterbeat.js";
 import { GIRLS } from "./girls.js";
 import { MOVES, MOVE_IDS, DEFAULT_MOVES } from "./dances.js";
 
 const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
+// THE DVR (edge live.js): the same stream, pulled ONCE by the server into a 6-min HLS window. The client sits
+// ~285 s behind live and rides a five-minute outage from its own buffer — no reconnect churn. Variant B
+// (owner, 2026-09-11): iOS keeps the DIRECT Icecast <audio> — Safari's native HLS feeds the AnalyserNode
+// silence (WebKit 231656) and the beat would die; everyone else gets hls.js over MSE. If the DVR itself is
+// unreachable (three manifest failures) this session falls back to the direct stream: a DVR outage is never silence.
+const LIVE = VPS_PROXY + "/live/live.m3u8";
+const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+const HLS_CFG = {
+  lowLatencyMode: false,                        // default true — MUST be off for a DVR
+  liveSyncDuration: 285,                        // sit ~4.75 min behind the edge
+  maxBufferLength: 330, maxMaxBufferLength: 600, // hold the whole play-behind forward, so an outage plays from buffer
+  backBufferLength: 360,
+  fragLoadPolicy: { default: { maxTimeToFirstByteMs: 10000, maxLoadTimeMs: 20000, timeoutRetry: { maxNumRetry: 8, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 8, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
+};
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const frac = (x) => x - Math.floor(x);
@@ -75,6 +91,27 @@ const muted = () => $muted.get() === "1";
 let el = null, ctx = null, src = null, analyser = null, freq = null, np = null, wl = null;
 let beatAn = null, fdb = null, mag = null, magPrev = null;      // the beat clock's own unsmoothed analyser
 let attempt = 0, retryTimer = null, stallTimer = null, connectTimer = null, liveTimer = null, mark = null;
+let hls = null, hlsMod = null, dvrDead = false;                  // the hls.js instance for the CURRENT element; module cached; DVR given up this session
+async function loadHls() { if (hlsMod !== null) return hlsMod; try { hlsMod = (await import("hls.js")).default || false; } catch { hlsMod = false; } return hlsMod; }
+function killHls() { if (hls) { try { hls.destroy(); } catch { /* */ } hls = null; } }
+// hls.js on the element: manifest → play; a fatal network error restarts loading (a long outage exhausts the
+// retries, #5488), a media error is recovered once, anything else drops the link like a direct stream would.
+function attachHls(a, H) {
+  let manifestFails = 0;
+  const h = new H(HLS_CFG);
+  hls = h;
+  h.on(H.Events.ERROR, (_, d) => {
+    if (el !== a || hls !== h || !d || !d.fatal) return;
+    if (d.type === H.ErrorTypes.NETWORK_ERROR) {
+      if (/^manifest/i.test(d.details || "") && ++manifestFails >= 3) { dvrDead = true; lost(a); return; }
+      h.startLoad(); return;
+    }
+    if (d.type === H.ErrorTypes.MEDIA_ERROR) { h.recoverMediaError(); return; }
+    lost(a);
+  });
+  h.attachMedia(a);
+  h.loadSource(LIVE);
+}
 
 function attach(a) {
   if (src) { try { src.disconnect(); } catch { /* */ } src = null; }
@@ -96,20 +133,24 @@ function hold() {
   np.setPlaying("rautemusik");
 }
 
-function play({ reconnect = false } = {}) {
+async function play({ reconnect = false } = {}) {
   // the gate has no audio: the mock owns the machine, and the session is still held (the APK's background
   // service is only visible to CI in Chromium, so short-circuiting before it would leave that half untested).
   if (gate || typeof Audio === "undefined") { $playing.set(true); $state.set("live"); hold(); return; }
   if (!reconnect) attempt = 0;
   clearTimeout(retryTimer); clearTimeout(stallTimer); clearTimeout(connectTimer);
   const old = el;
+  killHls();
   if (old) { try { old.pause(); old.removeAttribute("src"); old.load(); } catch { /* */ } }
   const a = document.createElement("audio");
   a.preload = "none";
   a.crossOrigin = "anonymous";                                   // BEFORE src, per the CORS recipe
-  a.src = STREAM;
   a.volume = muted() ? 0 : 1;
   el = a;
+  // the source: the DVR through hls.js where it can work (not iOS, MSE present, DVR alive), else the direct stream
+  const H = (!IOS && !dvrDead) ? await loadHls() : false;
+  if (el !== a) return;                                          // superseded while the module loaded
+  if (H && H.isSupported()) attachHls(a, H); else a.src = STREAM;
   $state.set(reconnect ? "reconnecting" : "connecting");
   let hadAudio = false;
   const armStall = () => { clearTimeout(stallTimer); stallTimer = setTimeout(() => { if (el === a && $state.get() !== "live") lost(a); }, 8000); };
@@ -134,7 +175,7 @@ function lost(a) {
   if (el !== a || !$playing.get()) return;
   const online = typeof navigator === "undefined" || navigator.onLine !== false;
   $state.set(online ? "reconnecting" : "offline");
-  el = null; try { a.pause(); a.removeAttribute("src"); a.load(); } catch { /* */ }
+  el = null; killHls(); try { a.pause(); a.removeAttribute("src"); a.load(); } catch { /* */ }
   clearTimeout(connectTimer); clearTimeout(stallTimer); clearTimeout(retryTimer);
   const wait = retryDelay(attempt); attempt += 1;
   retryTimer = setTimeout(() => { retryTimer = null; if ($playing.get()) play({ reconnect: true }); }, wait);
@@ -160,6 +201,7 @@ function stop() {
   disarmChrome();
   clearTimeout(connectTimer); clearTimeout(retryTimer); clearTimeout(stallTimer);
   attempt = 0;
+  killHls();
   if (el) { const o = el; el = null; try { o.pause(); o.removeAttribute("src"); o.load(); } catch { /* */ } }
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
   mark = null;
