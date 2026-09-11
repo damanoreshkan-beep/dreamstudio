@@ -43,12 +43,24 @@ const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
 // unreachable (three manifest failures) this session falls back to the direct stream: a DVR outage is never silence.
 const LIVE = VPS_PROXY + "/live/live.m3u8";
 const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+// THE SYNC CONTRACT with the edge DVR (live.js: 8 s segments, a 20-min window), thought through 2026-09-11
+// after a phone «зависає і різко грає свіжий блок»:
+//  · start 300 s behind the edge and NEVER re-sync on our own — no liveMaxLatency (the only thing that makes
+//    hls.js jump to the edge), no playback-rate catch-up, no stall-driven latency creep;
+//  · if hls.js must recover, 'buffered' continues from what is already downloaded instead of leaping to the edge;
+//  · pull the whole play-behind forward (up to 15 min) so the runway is ON the phone, and keep 2 min behind;
+//  · the window's tail is 15 min behind the play head, so a sleep/pause/stall shorter than that never falls out;
+//  · the element is never torn down for a stall (play()): hls.js retries the playlist itself.
 const HLS_CFG = {
   lowLatencyMode: false,                        // default true — MUST be off for a DVR
-  liveSyncDuration: 285,                        // sit ~4.75 min behind the edge
-  maxBufferLength: 330, maxMaxBufferLength: 600, // hold the whole play-behind forward, so an outage plays from buffer
-  backBufferLength: 360,
-  fragLoadPolicy: { default: { maxTimeToFirstByteMs: 10000, maxLoadTimeMs: 20000, timeoutRetry: { maxNumRetry: 8, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 8, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
+  liveSyncDuration: 300,                        // start 5 min behind the edge …
+  liveSyncMode: "buffered",                     // … and, should hls.js ever re-sync, prefer the buffer to the edge
+  liveSyncOnStallIncrease: 0,                   // a stall must not creep the target
+  maxLiveSyncPlaybackRate: 1,                   // never speed up to "catch up" — there is nothing to catch
+  maxBufferLength: 330, maxMaxBufferLength: 900, maxBufferSize: 120 * 1024 * 1024,   // the runway lives on the phone
+  backBufferLength: 120,
+  fragLoadPolicy: { default: { maxTimeToFirstByteMs: 12000, maxLoadTimeMs: 30000, timeoutRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
+  playlistLoadPolicy: { default: { maxTimeToFirstByteMs: 12000, maxLoadTimeMs: 20000, timeoutRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
 };
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -199,6 +211,9 @@ function probe() {
   // what the client HOLDS: the DVR is downloaded ahead of the play head (the owner's ask: the buffer lives on
   // the phone, not only on the server) — shown in the pill so an outage's runway is visible
   try { const b = el.buffered; let ahead = 0; for (let i = 0; i < b.length; i++) if (b.start(i) <= el.currentTime + 0.5 && b.end(i) > el.currentTime) ahead = Math.max(ahead, b.end(i) - el.currentTime); const s = Math.floor(ahead); if (s !== $buffer.get()) $buffer.set(s); } catch { /* */ }
+  // a play head that LEAPS (more than the probe interval + slack, with no seek of ours) is a re-sync we did not
+  // ask for — the owner's "різко грає свіжий блок". Counted in telemetry so the DVR contract can be audited.
+  if (mark && el.dvr) { const wall = (performance.now() - mark.at) / 1000, moved = el.currentTime - mark.time; if (moved > wall + 15 || moved < -15) report("dvr.jump", { moved: Math.round(moved), wall: Math.round(wall) }); }
   if ($state.get() !== "live") return;
   // a play head that stops moving: 8 s is a dead direct stream; on the DVR only a wedged hls.js (2 min — its
   // own retries come first, and a dry buffer means the outage already outlived four minutes of runway)
