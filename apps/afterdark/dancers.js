@@ -236,6 +236,10 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     const src = pool.get(id); if (!src) return;
     let a = e.actions.get(id);
     if (!a) { a = e.mixer.clipAction(retargetHips(src.clip, src.hipsY, e.hipsY, src.prefix, e.prefix)); a.setLoop(THREE.LoopRepeat, Infinity); e.actions.set(id, a); }
+    // HOLD THE GROUND (owner, 2026-09-11: «мають триматись місцезнаходження, не перескакувати»): a clip's root
+    // motion is its own — the running man has travelled a metre, house starts at its origin — so a swap
+    // would teleport her. Remember where her hips ARE; the next frame compensates the difference (below).
+    if (e.root && e.hips) e.hold = { x: e.hx, z: e.hz };
     a.enabled = true; a.setEffectiveWeight(1); a.reset(); a.play();
     if (e.currentAction && e.currentAction !== a) a.crossFadeFrom(e.currentAction, fade, true);
     e.currentAction = a; e.current = id;
@@ -435,7 +439,8 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
         if (barTick && a) {
           const beatLen = src.clip.duration / src.beats;
           const err = frac((env.beatPhase || 0) - frac(a.time / beatLen) + 0.5) - 0.5;   // in beats, −.5..+.5
-          a.time = ((a.time + err * beatLen * 0.5) % src.clip.duration + src.clip.duration) % src.clip.duration;
+          if (Math.abs(err) > 0.04) { e.hold = e.hold || { x: e.hx, z: e.hz };            // a time jump is a position jump too — hold the ground
+            a.time = ((a.time + err * beatLen * 0.5) % src.clip.duration + src.clip.duration) % src.clip.duration; }
         }
       }
       e.mixer.timeScale = ts; e.mixer.update(dt);
@@ -448,6 +453,9 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
       } else e.root.position.y = e.baseY + hop;
       // the contact shadow follows the HIPS, not the model's origin — a dance travels, the origin does not
       if (e.hips && e.shadow) { e.root.updateMatrixWorld(); e.hips.getWorldPosition(_v); e.shadow.position.x = _v.x; e.shadow.position.z = _v.z; e.hx = _v.x; e.hz = _v.z; }
+      // the ground hold: the first frame after a swap / time jump moves the root by exactly the hips' jump,
+      // so the character stays where she stood; the crowd solver's slow spring relaxes it over seconds
+      if (e.hold && e.hips) { e.ox += e.hold.x - e.hx; e.oz += e.hold.z - e.hz; e.hx = e.hold.x; e.hz = e.hold.z; e.shadow.position.x = e.hx; e.shadow.position.z = e.hz; e.hold = null; }
     }
 
     // ── THE CROWD SOLVER (owner, 2026-09-11: «вона може бути позаду, але не налазити»). A dance TRAVELS — a

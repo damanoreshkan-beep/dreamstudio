@@ -57,6 +57,14 @@ const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator
 //  · the window's tail is 15 min behind the play head, so a sleep/pause/stall shorter than that never falls out;
 //  · the element is never torn down for a stall (play()): hls.js retries the playlist itself.
 const HLS_CFG = {
+  // THE SERVICE WORKER TRAP (found 2026-09-11 in the hls.js log: every playlist reload "MISSED" with the same
+  // last sn, and even cache:"no-store" fetches answered with a playlist dated minutes ago): the app's worker
+  // (/_rt/sw-core.js) caches every same-origin GET except the bare "/feed" — so "/feed/live/…" playlists and
+  // segments came back from the app cache, the playlist froze, the runway drained, silence. sw-core leaves
+  // requests carrying a Range header untouched ("media streams itself"), so every DVR request carries
+  // "Range: bytes=0-": CORS-safelisted (no preflight), the edge ignores it and answers 200 in full, and the
+  // worker never sees it. The framework fix (any /feed/* is live data) ships with the next core release.
+  xhrSetup: (xhr) => { try { xhr.setRequestHeader("Range", "bytes=0-"); } catch { /* */ } },
   lowLatencyMode: false,                        // default true — MUST be off for a DVR
   liveSyncDuration: 300,                        // start 5 min behind the edge …
   liveSyncMode: "edge",                         // see the contract above — never re-syncs without a max latency
