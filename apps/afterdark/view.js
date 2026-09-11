@@ -226,7 +226,7 @@ export function afterdark({ S }) {
     <${GlStage} shader=${new URL("afterdark.frag", import.meta.url)} seed=${(girlById(girlId).id.charCodeAt(0) % 13) / 13}
       cam=${() => girlEl(girlId)} tex2=${depthUrl(girlId)} vary=${vary} ink=${ink} zClass="z-0" />
 
-    <div data-rave data-state=${state} data-girl=${girlId} data-entered=${entered ? "yes" : "no"}
+    <div data-rave data-state=${state} data-active-girl=${girlId} data-entered=${entered ? "yes" : "no"}
       class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       ${/* top label: the track/vibe + a live pulse dot; the status WORD is announced politely */""}
       <div class="shrink-0 flex justify-center">

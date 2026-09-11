@@ -38,7 +38,7 @@ export default [
       await h.tap('[data-girl="acid"]'); await h.wait(200);
       h.expect((await h.attr('[data-girl="acid"]', "aria-pressed")) === "true", "acid не стала активною");
       h.expect((await h.attr('[data-girl="neon"]', "aria-pressed")) !== "true", "neon лишилась активною");
-      h.expect((await h.attr(wrap, "data-girl")) === "acid", "data-girl не оновився");
+      h.expect((await h.attr(wrap, "data-active-girl")) === "acid", "data-active-girl не оновився");
       await h.tap('[data-girl="goddess"]'); await h.wait(200);
       h.expect((await h.attr('[data-girl="goddess"]', "aria-pressed")) === "true", "goddess не стала активною");
     },
