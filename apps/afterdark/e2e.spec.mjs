@@ -53,6 +53,25 @@ export default [
     },
   },
   {
+    name: "танці: 36 чипів, дефолт = топ-піки, тап додає/знімає, «Усі» вмикає всі, «Топ» повертає", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-move]")) === 36, "має бути 36 чипів танців");
+      h.expect((await h.attr("[data-stars]", "aria-pressed")) === "true", "дефолт має бути топ-піками");
+      const def = Number(await h.attr("[data-moves]", "data-moves"));
+      h.expect(def > 5 && def < 36, `дефолтний набір дивний: ${def}`);
+      // Twist не серед топ-піків → тап додає
+      await h.tap('[data-move="125670901"]'); await h.wait(200);
+      h.expect((await h.attr('[data-move="125670901"]', "aria-pressed")) === "true", "Twist не додався");
+      h.expect(Number(await h.attr("[data-moves]", "data-moves")) === def + 1, "лічильник не виріс");
+      h.expect((await h.attr("[data-stars]", "aria-pressed")) !== "true", "«Топ» має згаснути після зміни");
+      await h.tap("[data-all-moves]"); await h.wait(250);
+      h.expect(Number(await h.attr("[data-moves]", "data-moves")) === 36, "«Усі» не вибрала всі 36");
+      await h.tap("[data-stars]"); await h.wait(250);
+      h.expect(Number(await h.attr("[data-moves]", "data-moves")) === def, "«Топ» не повернув дефолт");
+      h.expect((await h.attr('[data-move="125670901"]', "aria-pressed")) !== "true", "Twist лишився після «Топ»");
+    },
+  },
+  {
     name: "звук: кнопка вимкнення звуку перемикається", run: async (h) => {
       await ready(h);
       const before = await h.attr("[data-mute]", "aria-pressed");
