@@ -2,7 +2,7 @@
 //   deno test -A rt/rt_test.js   (the barrel imports this file)
 
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { bassEnergy, stepPulse, idleGroove, integratePhase, GIRLS, girlById, KICK_LO, KICK_HI } from "../afterdark.js";
+import { bassEnergy, stepPulse, idleGroove, integratePhase, KICK_LO, KICK_HI } from "../afterdark.js";
 
 Deno.test("bassEnergy: mean of the kick band, normalised 0..1, empty → 0", () => {
   assertEquals(bassEnergy(null), 0);
@@ -53,12 +53,4 @@ Deno.test("integratePhase: monotone increasing, dt-clamped, energy speeds it up"
   assert(integratePhase(0, 0.016, 1) > integratePhase(0, 0.016, 0), "energy speeds the drift");
   // a huge dt (a backgrounded tab) is clamped so the phase never leaps
   assert(integratePhase(0, 100, 1) <= 0.1 * 1.5 + 1e-9, "dt is clamped");
-});
-
-Deno.test("GIRLS: three dancers, unique ids, lookup falls back to the first", () => {
-  assertEquals(GIRLS.length, 3);
-  assertEquals(new Set(GIRLS.map((g) => g.id)).size, 3, "ids unique");
-  for (const g of GIRLS) { assert(g.id && g.key, "each has id + i18n key"); }
-  assertEquals(girlById("acid").id, "acid");
-  assertEquals(girlById("nope").id, GIRLS[0].id, "unknown id falls back to the first");
 });

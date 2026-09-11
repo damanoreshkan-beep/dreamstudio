@@ -48,14 +48,3 @@ export function idleGroove(t, bpm = 126) {
 export function integratePhase(phase, dt, energy) {
   return phase + Math.min(0.1, dt) * (0.3 + Math.max(0, Math.min(1, energy)) * 1.2);
 }
-
-// The three dancers, in pick order. `key` is the i18n label; the sprite + depth map ship beside the view as
-// girls/<id>.png and girls/<id>-depth.png. The view resolves the URLs; the order is the contract the picker
-// and the persisted selection depend on.
-export const GIRLS = [
-  { id: "neon", key: "gNeon" },
-  { id: "acid", key: "gAcid" },
-  { id: "goddess", key: "gGoddess" },
-];
-
-export const girlById = (id) => GIRLS.find((g) => g.id === id) || GIRLS[0];

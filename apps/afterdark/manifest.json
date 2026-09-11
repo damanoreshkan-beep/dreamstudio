@@ -1,7 +1,7 @@
 {
   "name": "afterdark",
   "short_name": "afterdark",
-  "description": "A one-track techno rave in your pocket: one live stream, a full-screen WebGL rave scene, and a chroma-keyed dancer moving to the beat. Three dancers to choose, dark-committed night stage, tilt for 2.5D parallax.",
+  "description": "Живий техно-потік за повноекранним рейвом: лазери, дим і 3D-сцена, що танцює в такт біту. Ніч, що ніколи не світлішає; нахил телефона рухає сцену.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
