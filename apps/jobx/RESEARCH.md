@@ -1,4 +1,7 @@
-# jobx — research & build plan (3D Kyiv)
+# jobx — research & build plan
+
+> **2026-09-11 map rework (Fable 5.1).** The notes below predate it and still say «Kyiv only»; the app now covers 5 cities and the map follows one law: *everything that means something draws OVER the building mass* — draw order + `parameters:{depthTest:false}` on metro, landmarks, blocks, leaders and pills; pills and medallions on a 120 m rooftop plane with leader lines; buildings subdued, height-tinted, lit; metro as glow + core in the line colours; tap → preview island, flyTo, «Де я». Measured gotchas: `deck.getViewports()` returns the previous frame (build the clustering viewport from controller state); a per-frame layer redraws the whole scene (pulse at 12 fps, `still()` for a software-GL eye); landmark icons load async.
+
 
 **What it is.** jobx is a **3D map of Kyiv** (Kyiv only, location-based): jobs are glowing columns standing on a
 dark, tilted, theme-aware 3D city; a side panel lists them (logo, title, $/₴, tags, "X км від центру"). The
