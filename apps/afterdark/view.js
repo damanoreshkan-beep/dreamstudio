@@ -204,19 +204,19 @@ header.navbar [data-title]{text-shadow:0 1px 2px #0A0510,0 0 14px #0A0510}
 /* the transport sits on a dark island in BOTH themes, so its primary key is the dark theme's cream key in
    both — the light theme's black primary on dark glass was a black disc on black (measured 2026-09-11). */
 [data-rave] .btn-primary{background:#F2EEE6;border-color:#F2EEE6;color:#0A0510}
-.ad-dot{width:.5rem;height:.5rem;border-radius:9999px;background:var(--app-accent);box-shadow:0 0 8px var(--app-accent)}
-[data-rave][data-state="live"] .ad-dot{animation:adPulse .46s ease-in-out infinite}
-[data-rave][data-state="connecting"] .ad-dot,[data-rave][data-state="reconnecting"] .ad-dot{animation:adBlink 1s steps(2) infinite}
+.dk-dot{width:.5rem;height:.5rem;border-radius:9999px;background:var(--app-accent);box-shadow:0 0 8px var(--app-accent)}
+[data-rave][data-state="live"] .dk-dot{animation:adPulse .46s ease-in-out infinite}
+[data-rave][data-state="connecting"] .dk-dot,[data-rave][data-state="reconnecting"] .dk-dot{animation:adBlink 1s steps(2) infinite}
 @keyframes adPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.9);opacity:.55}}
 @keyframes adBlink{0%{opacity:1}50%{opacity:.25}}
-.ad-enter-ring{box-shadow:0 0 0 1px rgba(255,255,255,.18),0 0 40px 0 color-mix(in oklch,var(--app-accent) 55%,transparent)}
+.dk-enter-ring{box-shadow:0 0 0 1px rgba(255,255,255,.18),0 0 40px 0 color-mix(in oklch,var(--app-accent) 55%,transparent)}
 @keyframes adBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
-[data-enter] .ad-enter-ring{animation:adBreath 2.6s ease-in-out infinite}
+[data-enter] .dk-enter-ring{animation:adBreath 2.6s ease-in-out infinite}
 /* the dancer filmstrip: a horizontal scroll of name-chips, snap, no visible scrollbar */
-.ad-strip{scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x proximity}
-.ad-strip::-webkit-scrollbar{display:none}
-.ad-chip{scroll-snap-align:center}
-@media(prefers-reduced-motion:reduce){.ad-dot,[data-enter] .ad-enter-ring{animation:none!important}}`;
+.dk-strip{scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x proximity}
+.dk-strip::-webkit-scrollbar{display:none}
+.dk-chip{scroll-snap-align:center}
+@media(prefers-reduced-motion:reduce){.dk-dot,[data-enter] .dk-enter-ring{animation:none!important}}`;
 
 // ================= the rave =================
 export function afterdark({ S }) {
@@ -273,7 +273,7 @@ export function afterdark({ S }) {
       ${/* top label: the track/vibe + a live pulse dot; the status WORD is announced politely */""}
       <div class="shrink-0 flex justify-center">
         <${Island} tone="dark" className="flex items-center gap-2.5 !py-1.5 !px-3.5 rounded-full">
-          <span class="ad-dot shrink-0"></span>
+          <span class="dk-dot shrink-0"></span>
           <span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-white/90">${T(t, "station")}</span>
           <span class="w-px h-3 bg-white/20"></span>
           <span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-white/65">${T(t, "genre")}</span>
@@ -290,7 +290,7 @@ export function afterdark({ S }) {
         ${!entered ? html`<div class="absolute inset-0 flex flex-col items-center justify-start pt-[6%] gap-4 pointer-events-none">
           <button data-enter aria-label=${T(t, "enter")} onClick=${enter}
             class="pointer-events-auto flex flex-col items-center gap-3 select-none group">
-            <span class="ad-enter-ring w-24 h-24 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white">
+            <span class="dk-enter-ring w-24 h-24 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white">
               <iconify-icon icon="lucide:play" class="text-4xl translate-x-0.5"></iconify-icon>
             </span>
             <span class="font-mono uppercase tracking-[0.28em] text-sm text-white/90">${T(t, "enter")}</span>
@@ -303,11 +303,11 @@ export function afterdark({ S }) {
 
       ${/* ONE island: the dancer filmstrip + the transport, together */""}
       <${Island} tone="dark" className="shrink-0 flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
-        <div class="ad-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "dancers")}>
+        <div class="dk-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "dancers")}>
           ${/* tap a girl to add/remove her from the stage; the last one can't be removed */""}
           <button data-all type="button" aria-pressed=${cast.length >= ALL_IDS.length ? "true" : "false"}
             aria-label=${T(t, "all")} onClick=${pickAll}
-            class=${`ad-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.05] ring-1 ring-white/15 hover:opacity-100"}`}>
+            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.05] ring-1 ring-white/15 hover:opacity-100"}`}>
             <iconify-icon icon="lucide:users" class="text-[length:var(--ms-label)] text-white/85"></iconify-icon>
             <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide text-white/85">${T(t, "all")}</span>
           </button>
@@ -315,7 +315,7 @@ export function afterdark({ S }) {
             const on = onStage.has(g.id);
             return html`<button key=${g.id} data-girl=${g.id} type="button" aria-pressed=${on ? "true" : "false"}
               aria-label=${`${g.name} — ${T(t, g.danceKey)}`} onClick=${() => toggleGirl(g.id)}
-              class=${`ad-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.04] ring-1 ring-white/10 opacity-65 hover:opacity-100"}`}>
+              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.04] ring-1 ring-white/10 opacity-65 hover:opacity-100"}`}>
               <span class="w-3.5 h-3.5 rounded-full shrink-0" style=${`background:${g.tint};box-shadow:${on ? `0 0 7px ${g.tint}` : "none"}`}></span>
               <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide ${on ? "text-white" : "text-white/75"}`}>${g.name}</span>
             </button>`;
