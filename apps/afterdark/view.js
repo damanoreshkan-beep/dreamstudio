@@ -12,7 +12,7 @@
 // and the lights move IN TIME, not just on loudness. Accents are anticipated by the output latency (predict,
 // never react). No audio → an idle groove at 126 BPM, never a freeze. Stream drops port tide's reconnect.
 // The stage is DARK-COMMITTED (theme-independent) so both farm-theme shots stay coherent and the dark-glass
-// controls pass axe in both. Enter = the Fullscreen gesture; after 10 s idle the chrome hides (a tap reveals).
+// controls pass axe in both. A maximize key in the transport toggles real Fullscreen (owner: never automatic).
 
 import { html } from "htm/preact";
 import { Fragment } from "preact";
@@ -54,7 +54,6 @@ const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalTh
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const frac = (x) => x - Math.floor(x);
 const IDLE_BPM = 126;                                               // the groove when there is no audio
-const CHROME_IDLE_MS = 10000;                                       // fullscreen: hide the DOM chrome after this
 
 // ---- persisted working set ----
 // the CAST: which girls are on stage (1..11). A JSON id array; the engine lays them out as a crowd that fits
@@ -81,11 +80,12 @@ const $muted = persistentAtom("afterdark:muted", "0");
 // we seed past the gesture (like tide seeds past the real stream) and the mock owns the state machine.
 const $entered = atom(gate);
 const $playing = atom(false);
-const $state = atom("idle");                                     // idle | connecting | live | reconnecting | offline
+const $state = atom("idle");                                     // idle | connecting | live | buffering | reconnecting | offline
+const $buffer = atom(0);                                         // seconds of audio the client holds AHEAD of the play head (the DVR, downloaded)
 const $stage3d = atom(gate ? "skipped" : "loading");             // the 3D stage's readout: loading | ready | failed | skipped
 const $stage3dWhy = atom("");
 const $bpm = atom(0);                                            // the locked tempo (0 = not confident yet), for the pill
-const $chrome = atom(true);                                      // false → the DOM chrome is hidden (immersive)
+const $fs = atom(false);                                         // in real Fullscreen (the transport's maximize key)
 const muted = () => $muted.get() === "1";
 
 // ---- the engine (module scope: survives tab switches, shared with the lock screen) ----
@@ -148,26 +148,39 @@ async function play({ reconnect = false } = {}) {
   a.crossOrigin = "anonymous";                                   // BEFORE src, per the CORS recipe
   a.volume = muted() ? 0 : 1;
   el = a;
-  // the source: the DVR through hls.js where it can work (not iOS, MSE present, DVR alive), else the direct stream
-  const H = (!IOS && !dvrDead) ? await loadHls() : false;
-  if (el !== a) return;                                          // superseded while the module loaded
-  if (H && H.isSupported()) attachHls(a, H); else a.src = STREAM;
+
   $state.set(reconnect ? "reconnecting" : "connecting");
   let hadAudio = false;
   const armStall = () => { clearTimeout(stallTimer); stallTimer = setTimeout(() => { if (el === a && $state.get() !== "live") lost(a); }, 8000); };
   a.onplaying = () => { if (el !== a) return; attempt = 0; hadAudio = true; clearTimeout(connectTimer); clearTimeout(stallTimer); $state.set("live"); a.volume = muted() ? 0 : 1; };
-  a.onwaiting = a.onstalled = () => { if (el !== a) return; if (hadAudio) { $state.set("reconnecting"); armStall(); } };
   a.onended = () => { if (el === a) lost(a); };
   a.onerror = () => { if (el === a) lost(a); };
   connectTimer = setTimeout(() => { if (el === a && $state.get() !== "live") lost(a); }, 12000);
   attach(a);
+  // the source: the DVR through hls.js where it can work (not iOS, MSE present, DVR alive), else the direct stream
+  const H = (!IOS && !dvrDead) ? await loadHls() : false;
+  if (el !== a) return;                                          // superseded while the module loaded
+  const dvr = !!(H && H.isSupported());
+  if (dvr) {
+    // MSE: the element's `stalled` is noise (Chrome fires it on a fed SourceBuffer) and `waiting` is the
+    // buffer running dry — which, with ~285 s downloaded, means the outage is already minutes long. NEITHER
+    // tears the element down (that was the "перез'єднання → тиша" bug, 2026-09-11): hls.js keeps retrying
+    // the playlist by itself and the same element resumes where it stopped. `playing` clears the label.
+    a.onstalled = null;
+    a.onwaiting = () => { if (el === a && hadAudio) $state.set("buffering"); };
+    attachHls(a, H);
+  } else {
+    a.onwaiting = a.onstalled = () => { if (el !== a) return; if (hadAudio) { $state.set("reconnecting"); armStall(); } };
+    a.src = STREAM;
+  }
+  a.dvr = dvr;
   const p = a.play();
   if (p && p.catch) p.catch((err) => { if (el !== a) return; if (err && err.name === "NotAllowedError") { stop(); return; } lost(a); });
   $playing.set(true);
   if (!wl) wl = wakeLock.acquire();
   hold();
   mark = null;
-  if (!liveTimer) liveTimer = setInterval(probe, 4000);
+  if (!liveTimer) liveTimer = setInterval(probe, 2000);
 }
 
 // A dropped link holds the ONE station and reconnects with backoff — a live Icecast stream cannot resume, so
@@ -182,8 +195,14 @@ function lost(a) {
   retryTimer = setTimeout(() => { retryTimer = null; if ($playing.get()) play({ reconnect: true }); }, wait);
 }
 function probe() {
-  if (gate || !$playing.get() || !el || $state.get() !== "live") return;
-  const r = progressCheck({ time: el.currentTime, mark, now: performance.now() });
+  if (gate || !$playing.get() || !el) return;
+  // what the client HOLDS: the DVR is downloaded ahead of the play head (the owner's ask: the buffer lives on
+  // the phone, not only on the server) — shown in the pill so an outage's runway is visible
+  try { const b = el.buffered; let ahead = 0; for (let i = 0; i < b.length; i++) if (b.start(i) <= el.currentTime + 0.5 && b.end(i) > el.currentTime) ahead = Math.max(ahead, b.end(i) - el.currentTime); const s = Math.floor(ahead); if (s !== $buffer.get()) $buffer.set(s); } catch { /* */ }
+  if ($state.get() !== "live") return;
+  // a play head that stops moving: 8 s is a dead direct stream; on the DVR only a wedged hls.js (2 min — its
+  // own retries come first, and a dry buffer means the outage already outlived four minutes of runway)
+  const r = progressCheck({ time: el.currentTime, mark, now: performance.now(), budget: el.dvr ? 120000 : 8000 });
   mark = r.mark;
   if (r.dead) lost(el);
 }
@@ -199,13 +218,12 @@ if (typeof addEventListener !== "undefined") {
 
 function stop() {
   $playing.set(false); $state.set("idle");
-  disarmChrome();
   clearTimeout(connectTimer); clearTimeout(retryTimer); clearTimeout(stallTimer);
   attempt = 0;
   killHls();
   if (el) { const o = el; el = null; try { o.pause(); o.removeAttribute("src"); o.load(); } catch { /* */ } }
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
-  mark = null;
+  mark = null; $buffer.set(0);
   if (wl) { wl.release(); wl = null; }
   if (np) { np.release(); np = null; }
 }
@@ -224,7 +242,34 @@ const env = {
   // cross-fades; `day` 0..1 = a light theme (the floor is lit as DAY). The shader gets `pal` as points[8] and
   // day as env.x (the runtime's own channel); the 3D rig reads both off env.
   pal: null, palTarget: null, day: 0, themeKey: "", frame: 0,
+  // THE CAMERA (owner, 2026-09-11): a finger drag orbits (yaw/pitch), a pinch zooms, a double tap resets;
+  // `cam` is the eased value the 3D stage reads, `camT` the gesture's target
+  cam: { yaw: 0, pitch: 0, zoom: 1 }, camT: { yaw: 0, pitch: 0, zoom: 1 },
 };
+const CAM = { yawMax: 1.05, pitchMin: -0.12, pitchMax: 0.62, zoomMin: 0.55, zoomMax: 1.8 };
+const ptrs = new Map();                                            // active pointers on the stage: id → {x, y}
+let pinchDist = 0, lastTapAt = 0;
+function camDown(e) {
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
+  if (ptrs.size === 1) { const now = performance.now(); if (now - lastTapAt < 300) { env.camT = { yaw: 0, pitch: 0, zoom: 1 }; } lastTapAt = now; }
+}
+function camMove(e) {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if (ptrs.size === 1) {
+    env.camT.yaw = clamp(env.camT.yaw - dx * 0.006, -CAM.yawMax, CAM.yawMax);
+    env.camT.pitch = clamp(env.camT.pitch + dy * 0.004, CAM.pitchMin, CAM.pitchMax);
+  } else if (ptrs.size === 2) {
+    const [a, b] = [...ptrs.values()]; const d = Math.hypot(a.x - b.x, a.y - b.y);
+    if (pinchDist > 0 && d > 0) env.camT.zoom = clamp(env.camT.zoom * (pinchDist / d), CAM.zoomMin, CAM.zoomMax);
+    pinchDist = d;
+  }
+}
+function camUp(e) { ptrs.delete(e.pointerId); pinchDist = 0; }
+function camWheel(e) { env.camT.zoom = clamp(env.camT.zoom * (1 + e.deltaY * 0.0012), CAM.zoomMin, CAM.zoomMax); e.preventDefault(); }
+const camHandlers = { onPointerDown: camDown, onPointerMove: camMove, onPointerUp: camUp, onPointerCancel: camUp, onWheel: camWheel };
 function retheme() { env.palTarget = readPalette(); if (!env.pal) env.pal = new Float32Array(env.palTarget); }
 if (typeof globalThis !== "undefined") globalThis.__afterdark = env;   // a device debug handle: bpm/confidence/day/palette in the console
 // The theme has TWO axes — the mode (html[data-theme] = signal | signal-light) and the MATERIAL
@@ -263,6 +308,8 @@ function vary() {
   const k = clamp(dt * 6, 0, 1);
   for (let i = 0; i < SLOTS * 4; i++) env.pal[i] += (env.palTarget[i] - env.pal[i]) * k;
   env.day += ((isDay() ? 1 : 0) - env.day) * k;
+  const kc = clamp(dt * 9, 0, 1);
+  env.cam.yaw += (env.camT.yaw - env.cam.yaw) * kc; env.cam.pitch += (env.camT.pitch - env.cam.pitch) * kc; env.cam.zoom += (env.camT.zoom - env.cam.zoom) * kc;
   const leadBeats = env.lead * env.bpm / 60;
   env.beatA = frac(env.beatPhase + leadBeats); env.barA = frac(env.barPhase + leadBeats / 4);
   const shown = env.confidence > 0.35 ? Math.round(env.bpm) : 0;
@@ -296,34 +343,25 @@ function requestTilt() {
     else env.mode = "pointer";
   } catch { env.mode = "pointer"; }
 }
-// Fullscreen MUST be asked on the gesture itself — a browser refuses it after an await/timeout. Mirrors the
-// camstage.js idiom; iOS Safari (no element fullscreen for non-video) simply keeps the PWA viewport. Telegram
-// gets its own fullscreen from tma.js at boot. A denial changes nothing.
-function goFullscreen() {
+// Fullscreen is asked ON the key's gesture (a browser refuses it after an await/timeout) — mirrors the
+// camstage.js idiom. iOS Safari (no element fullscreen for non-video) simply keeps the PWA viewport; Telegram
+// gets its own fullscreen from tma.js at boot. While in fullscreen the runtime's navbar/dock hide (CSS on
+// :root[data-immersive]) so the rave fills the glass; our island stays, with the minimize key on it.
+function toggleFullscreen() {
   try {
-    if (gate || typeof document === "undefined" || document.fullscreenElement) return;
+    if (typeof document === "undefined") return;
+    if (document.fullscreenElement) { document.exitFullscreen?.(); return; }
     const el = document.documentElement;
     const r = el.requestFullscreen?.({ navigationUI: "hide" }) || el.webkitRequestFullscreen?.();
     r?.catch?.(() => {});
   } catch { /* denied: nothing changes */ }
 }
-// the immersive idle: 10 s without a touch hides the DOM chrome (fade); any pointer/key brings it back and
-// re-arms. Never under the gate (the shot must show the controls) and never before Enter.
-let chromeTimer = null;
-function armChrome() {
-  if (gate) return;
-  if (!$chrome.get()) $chrome.set(true);
-  clearTimeout(chromeTimer);
-  if ($entered.get()) chromeTimer = setTimeout(() => { if ($entered.get() && $playing.get()) $chrome.set(false); }, CHROME_IDLE_MS);
-}
-function disarmChrome() { clearTimeout(chromeTimer); chromeTimer = null; if (!$chrome.get()) $chrome.set(true); }
+if (typeof document !== "undefined") document.addEventListener("fullscreenchange", () => $fs.set(!!document.fullscreenElement));
 async function enter() {
-  goFullscreen();
   $entered.set(true);
   try { if (AC) { ctx ||= new AC(); await ctx.resume(); } } catch { /* */ }
   requestTilt();
   start();
-  armChrome();
 }
 
 const CSS = `
@@ -343,6 +381,8 @@ const CSS = `
 .dk-chip-off{background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.14)}
 .dk-chip-dim{opacity:.65}.dk-chip-dim:hover{opacity:1}
 .dk-enter{background:rgba(0,0,0,.5);color:#fff}
+/* the void owns the finger: no browser pan/zoom, the drag orbits and the pinch zooms the 3D camera */
+.dk-void{touch-action:none;overscroll-behavior:contain}
 /* DAY (a light theme, owner 2026-09-11): the room is the theme's paper lit by the sun, so the chrome turns
    into the theme's own light glass with its ink — the palette itself (beams, washes, floor) comes from the
    theme tokens through palette.js, this is only the DOM's half. */
@@ -368,13 +408,10 @@ const CSS = `
 .dk-strip{scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x proximity}
 .dk-strip::-webkit-scrollbar{display:none}
 .dk-chip{scroll-snap-align:center}
-/* IMMERSIVE: after 10 s idle every piece of DOM chrome fades — ours (the pills) and the runtime's (navbar,
-   dock) — so the rave fills the glass. Nothing is removed (axe/e2e still see it; the gate never idles):
-   opacity + no pointer events, and a full-screen reveal layer catches the next touch. */
-[data-rave]{transition:opacity .7s ease}
-[data-rave][data-chrome="off"]{opacity:0;pointer-events:none}
-:root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock],:root[data-immersive] [data-dock-fade]{opacity:0;pointer-events:none;transition:opacity .7s ease}
-@media(prefers-reduced-motion:reduce){.dk-dot,[data-enter] .dk-enter-ring{animation:none!important}[data-rave],:root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock]{transition:none}}`;
+/* FULLSCREEN (the transport's maximize key): the runtime's navbar/dock fade so the rave fills the glass; our
+   island stays — the minimize key lives on it. Nothing is removed (axe/e2e still see it). */
+:root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock],:root[data-immersive] [data-dock-fade]{opacity:0;pointer-events:none;transition:opacity .5s ease}
+@media(prefers-reduced-motion:reduce){.dk-dot,[data-enter] .dk-enter-ring{animation:none!important}:root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock]{transition:none}}`;
 
 // ================= the rave =================
 export function afterdark({ S }) {
@@ -390,24 +427,18 @@ export function afterdark({ S }) {
   const mute = useStore($muted) === "1";
   const stage3d = useStore($stage3d), stage3dWhy = useStore($stage3dWhy);
   const bpm = useStore($bpm);
-  const chrome = useStore($chrome);
+  const buffer = useStore($buffer);
+  const runway = buffer >= 60 ? `${Math.floor(buffer / 60)}:${String(buffer % 60).padStart(2, "0")}` : `0:${String(buffer).padStart(2, "0")}`;
+  const fs = useStore($fs);
   const stageRef = useRef();
   const engineRef = useRef(null);
 
-  // immersive: mirror the chrome state onto the root so the runtime's navbar/dock hide with ours; a key
-  // press anywhere reveals. Leaving the view (profile tab) always restores everything.
+  // fullscreen: stamp the root so the runtime's navbar/dock hide; leaving the view restores everything
   useEffect(() => {
     if (typeof document === "undefined") return () => {};
-    if (chrome) delete document.documentElement.dataset.immersive; else document.documentElement.dataset.immersive = "";
+    if (fs) document.documentElement.dataset.immersive = ""; else delete document.documentElement.dataset.immersive;
     return () => { delete document.documentElement.dataset.immersive; };
-  }, [chrome]);
-  useEffect(() => {
-    if (typeof addEventListener === "undefined") return () => {};
-    const onKey = () => armChrome();
-    addEventListener("keydown", onKey);
-    if (entered) armChrome();
-    return () => { removeEventListener("keydown", onKey); disarmChrome(); };
-  }, []);
+  }, [fs]);
 
   // the 3D dance stage: probe-guarded (WebGL only) and skipped under the headless gate (Draco/addons/GLBs over
   // CDNs flake CI, and the DOM carries all meaning there). Created once; the picker drives its trio.
@@ -427,7 +458,7 @@ export function afterdark({ S }) {
   }, []);
 
   const onStage = new Set(cast);
-  const stateLine = state === "connecting" ? T(t, "connecting") : state === "reconnecting" ? T(t, "reconnecting") : state === "offline" ? T(t, "offline") : state === "live" ? T(t, "live") : T(t, "idle");
+  const stateLine = state === "connecting" ? T(t, "connecting") : state === "reconnecting" ? T(t, "reconnecting") : state === "buffering" ? T(t, "buffering") : state === "offline" ? T(t, "offline") : state === "live" ? T(t, "live") : T(t, "idle");
   const onToggle = () => (entered ? toggle() : enter());
   const applyCast = (next) => { if (!next.length) return; $cast.set(JSON.stringify(next)); engineRef.current?.setCast?.(next); };
   const toggleGirl = (id) => { const c = getCast(); applyCast(c.includes(id) ? (c.length > 1 ? c.filter((x) => x !== id) : c) : [...c, id]); };
@@ -439,7 +470,7 @@ export function afterdark({ S }) {
   const pickStars = () => applyMoves(DEFAULT_MOVES.slice());
   const pickAllMoves = () => applyMoves(moves.length >= MOVE_IDS.length ? DEFAULT_MOVES.slice() : MOVE_IDS.slice());
   const isStars = sameSet(moves, DEFAULT_MOVES);
-  const onPointer = (e) => { if (env.mode === "orient") return; env.mode = "pointer"; const r = e.currentTarget.getBoundingClientRect(); env.ttx = clamp((e.clientX - r.left) / r.width * 2 - 1, -1, 1); env.tty = clamp((e.clientY - r.top) / r.height * 2 - 1, -1, 1); };
+  const onPointer = (e) => { if (env.mode === "orient" || ptrs.size) return; env.mode = "pointer"; const r = e.currentTarget.getBoundingClientRect(); env.ttx = clamp((e.clientX - r.left) / r.width * 2 - 1, -1, 1); env.tty = clamp((e.clientY - r.top) / r.height * 2 - 1, -1, 1); };
 
   return html`<${Fragment}>
     <style>${CSS}</style>
@@ -452,11 +483,8 @@ export function afterdark({ S }) {
     ${/* the 3D dancers, over the rave field, under the DOM chrome */""}
     <canvas ref=${stageRef} data-dancers aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
 
-    ${/* the reveal layer: only while the chrome is hidden — the next touch anywhere brings it back (and keeps
-         the pointer parallax alive meanwhile) */""}
-    ${!chrome ? html`<div data-reveal class="fixed inset-0 z-10" onPointerDown=${() => armChrome()} onPointerMove=${onPointer}></div>` : null}
     <div data-rave data-state=${state} data-cast=${cast.length} data-entered=${entered ? "yes" : "no"} data-3d=${stage3d} data-3d-why=${stage3dWhy}
-      data-chrome=${chrome ? "on" : "off"} data-bpm=${bpm || ""} onPointerDown=${() => armChrome()}
+      data-fs=${fs ? "yes" : "no"} data-bpm=${bpm || ""}
       class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       ${/* top label: the track/vibe + a live pulse dot; the status WORD is announced politely */""}
       <div class="shrink-0 flex justify-center">
@@ -468,13 +496,15 @@ export function afterdark({ S }) {
           ${/* the link's state, one word — only once the rave is entered: before that the Enter cover IS the
                state, and a sentence in the pill wrapped it onto two lines (measured 2026-09-11) */""}
           ${entered ? html`<span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] dk-ink-2 tabular-nums" aria-live="polite">· ${stateLine}</span>` : null}
+          ${/* the runway: seconds of audio already ON the phone (the DVR, downloaded ahead) */""}
+          ${entered && buffer > 0 ? html`<span class="dk-line w-px h-3"></span><span data-buffer=${buffer} class="flex items-center gap-1 font-mono tracking-wider text-[length:var(--ms-label)] dk-ink-2 tabular-nums"><iconify-icon icon="lucide:hard-drive-download" class="text-[length:var(--ms-label)]"></iconify-icon>${runway}</span>` : null}
           ${/* the locked tempo — proof the floor is in time; appears once the clock is confident */""}
           ${bpm ? html`<span class="dk-line w-px h-3"></span><span data-tempo class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-[var(--app-accent)] tabular-nums">${bpm} bpm</span>` : null}
         </${Island}>
       </div>
 
       ${/* the void: where the dancers perform (in the canvas behind) — pointer parallax lives here */""}
-      <div class="flex-1 min-h-0 relative" onPointerMove=${onPointer}>
+      <div class="dk-void flex-1 min-h-0 relative" onPointerMove=${onPointer} ...${camHandlers}>
         ${/* the Enter cover sits in the UPPER third of the void, over the beams — never over the dancers, who
              stand mid-frame (the centred ring printed «УВІЙТИ» across the lead girl, measured 2026-09-11) */""}
         ${!entered ? html`<div class="absolute inset-0 flex flex-col items-center justify-start pt-[6%] gap-4 pointer-events-none">
@@ -485,10 +515,7 @@ export function afterdark({ S }) {
             </span>
             <span class="font-mono uppercase tracking-[0.28em] text-sm dk-ink">${T(t, "enter")}</span>
           </button>
-        </div>` : html`<div class="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none">
-          ${/* how many are dancing — the stage is the visual, this counts it */""}
-          <span class="font-mono uppercase tracking-[0.2em] text-[length:var(--ms-label)] dk-ink-3">${cast.length} / ${ALL_IDS.length} ${T(t, "onStage")}</span>
-        </div>`}
+        </div>` : null}
       </div>
 
       ${/* ONE island: the move filmstrip, the dancer filmstrip + the transport, together */""}
@@ -537,6 +564,7 @@ export function afterdark({ S }) {
         <${Transport} locale=${loc} playing=${playing} onToggle=${onToggle} stopIcon=${true}
           actions=${[
             { id: "mute", icon: mute ? "lucide:volume-x" : "lucide:volume-2", label: T(t, mute ? "aUnmute" : "aMute"), active: mute, pressed: mute, onClick: () => setMuted(!mute), attr: { "data-mute": "" } },
+            { id: "fs", icon: fs ? "lucide:minimize" : "lucide:maximize", label: T(t, fs ? "aExitFs" : "aFs"), active: fs, pressed: fs, onClick: toggleFullscreen, attr: { "data-fs-key": "" } },
           ]} />
       </${Island}>
     </div>

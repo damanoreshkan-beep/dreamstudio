@@ -4,8 +4,10 @@
 // retargets onto anyone, so the stage is an AUTO-CHOREOGRAPHER — it reads the live BEAT CLOCK and cross-fades
 // the whole floor between light / groove / drive moves, each dancer offset so no two do the same thing.
 //
-// IN TIME, not just on loudness (v2): the dances themselves stay NATURAL (owner: never slow or bend a clip
-// to the beat — a real floor is lit in time, not choreographed to it). The beat clock drives the LIGHTING
+// IN TIME, not just on loudness (v2): the LIGHTING carries the time (below) AND — owner, 2026-09-11, second
+// call: «рухи повинні бути у такт з ритмом, хоча б на 30%, глітч допустимий» — every clip is RATE-LOCKED to
+// the track (its whole-beat loop vs the live bpm, at least 30 % of the correction, all of it when the clock
+// is sure, within ±25 %) and nudged into phase with the bar every bar. The beat clock drives the LIGHTING
 // RIG: a four-colour chase (one wash leads each beat of the bar), the ambient dimming between beats and
 // popping on each one, a dip before the downbeat and a slam on it, a white strobe in the drive tier, the
 // dancefloor grid and the light pool — all on the ANTICIPATED beat phase, with the kick transient as the
@@ -33,6 +35,10 @@ const TARGET_H = 1.7;
 const ORDER = GIRLS.map((g) => g.id);
 const IDLE_URL = new URL("assets/clip-idle.glb", import.meta.url).href;   // top-level: the build copies files in assets/, not subdirs
 const LOCK = 0.3;                                                    // clock confidence above which the floor follows it
+const CLIP_BPM_REF = 125;                                            // Mixamo dance clips are captured near this tempo
+const SYNC_MIN = 0.3;                                                // the least of the tempo correction ever applied while locked
+const MIN_GAP = 0.8;                                                 // metres between two girls' hips — never inside each other
+const MAX_DRIFT_X = 1.4, MAX_DRIFT_Z = 1.1;                          // how far the crowd solver may push a girl off her slot
 
 const C_KEY = 0xffe9f4, C_MAG = 0xff3eb5, C_GRN = 0x39ff6a, C_GOLD = 0xf5b942, C_VIO = 0x8b5cf6;
 // the wash ramp the floor cycles per bar — the brand colours until the theme palette arrives, then the theme's
@@ -112,6 +118,33 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   lightPool.rotation.x = -Math.PI / 2; lightPool.position.set(0, 0.004, -0.6); scene.add(lightPool);
   const shadowMat = new THREE.MeshBasicMaterial({ map: radial("rgba(0,0,0,0.6)", "rgba(0,0,0,0)"), transparent: true, depthWrite: false });
 
+  // ── SMOKE + VOLUMETRIC CONES (owner, 2026-09-11: «напускай диму, світло має бути фізика», at no FPS cost).
+  // No post-processing: the classic club fakes. The haze is a POINT CLOUD of soft sprites drifting up
+  // through the stage (one draw call), tinted by whichever wash leads the beat — smoke is what makes light
+  // visible. The four fixtures hang open CONES over the floor with a fresnel-soft, apex-bright shader
+  // (colour-only additive, like the grid): a beam through haze, brightening with its wash's chase and
+  // swaying slowly. Daylight thins both.
+  const SMOKE_N = 72;
+  const smokePos = new Float32Array(SMOKE_N * 3), smokeVel = new Float32Array(SMOKE_N * 3), smokeSeed = new Float32Array(SMOKE_N);
+  const respawn = (i, fresh) => {
+    smokePos[i * 3] = (Math.random() - 0.5) * 9; smokePos[i * 3 + 1] = fresh ? Math.random() * 2.4 : -0.3 + Math.random() * 0.4; smokePos[i * 3 + 2] = -4.5 + Math.random() * 6.5;
+    smokeVel[i * 3] = (Math.random() - 0.5) * 0.1; smokeVel[i * 3 + 1] = 0.05 + Math.random() * 0.07; smokeVel[i * 3 + 2] = (Math.random() - 0.5) * 0.06;
+    smokeSeed[i] = Math.random() * 6.28;
+  };
+  for (let i = 0; i < SMOKE_N; i++) respawn(i, true);
+  const smokeGeo = new THREE.BufferGeometry();
+  smokeGeo.setAttribute("position", new THREE.BufferAttribute(smokePos, 3).setUsage(THREE.DynamicDrawUsage));
+  const smokeMat = new THREE.PointsMaterial({ map: radial("rgba(255,255,255,0.5)", "rgba(255,255,255,0)"), size: 2.6, sizeAttenuation: true, transparent: true, depthWrite: false, opacity: 0.3, color: 0x8c88a0 });
+  const smoke = new THREE.Points(smokeGeo, smokeMat); smoke.frustumCulled = false; scene.add(smoke);
+  const CONE_VERT = `varying float vA; varying float vF; void main(){ vA = uv.y; vec4 mv = modelViewMatrix * vec4(position, 1.0); vec3 n = normalize(normalMatrix * normal); vF = 1.0 - abs(dot(n, normalize(-mv.xyz))); gl_Position = projectionMatrix * mv; }`;
+  const CONE_FRAG = `precision highp float; varying float vA; varying float vF; uniform vec3 uColor; uniform float uPower;
+void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2); gl_FragColor = vec4(uColor * along * edge * uPower * 0.3, 0.0); }`;
+  const coneGeo = new THREE.ConeGeometry(1.15, 4.4, 28, 1, true); coneGeo.translate(0, -2.2, 0);   // origin = the apex (the fixture)
+  const cones = [-1.8, -0.6, 0.6, 1.8].map((x, i) => {
+    const m = new THREE.Mesh(coneGeo, new THREE.ShaderMaterial({ uniforms: { uColor: { value: BAR_COLORS[i].clone() }, uPower: { value: 0 } }, vertexShader: CONE_VERT, fragmentShader: CONE_FRAG, side: THREE.DoubleSide, ...additive }));
+    m.position.set(x, 3.7, -1.4); scene.add(m); return m;
+  });
+
   const draco = new DRACOLoader().setDecoderPath(DRACO_PATH);
   const loader = new GLTFLoader().setDRACOLoader(draco);
 
@@ -123,18 +156,28 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   // Hips.position track is in its SOURCE rig's units, so played raw on a smaller rig it lifts her off the
   // floor by the difference, times her fit scale — Pirate flew a metre up. Standard retargeting of the root
   // translation: scale the hips track by target/source bind height; rotations retarget as they are.
-  const hipsOf = (obj) => { let h = null; obj.traverse((o) => { if (!h && /hips$/i.test(o.name)) h = o; }); return h ? { bone: h, y: h.position.y } : { bone: null, y: 0 }; };
-  const retargetHips = (clip, srcY, dstY) => {
-    if (!srcY || !dstY || Math.abs(srcY - dstY) < 1e-4) return clip;
-    const c = clip.clone(), r = dstY / srcY;
-    for (const t of c.tracks) if (/hips\.position$/i.test(t.name)) for (let i = 0; i < t.values.length; i++) t.values[i] *= r;
+  const hipsOf = (obj) => { let h = null; obj.traverse((o) => { if (!h && /hips$/i.test(o.name)) h = o; }); return h ? { bone: h, y: h.position.y, prefix: h.name.replace(/hips$/i, "") } : { bone: null, y: 0, prefix: "" }; };
+  // "The same Mixamo skeleton" is also not the same NAMES: Mixamo numbers a rig it has seen before —
+  // Louise's bones are `mixamorig8:Hips`, everyone else's `mixamorig:Hips` (measured 2026-09-11: 53
+  // "No target node found" warnings and a girl frozen mid-pose). A clip's tracks are renamed to the target
+  // rig's prefix, then the hips translation is scaled by target/source bind height.
+  const retargetHips = (clip, srcY, dstY, srcPrefix, dstPrefix) => {
+    const rename = srcPrefix && dstPrefix && srcPrefix !== dstPrefix;
+    const scale = srcY && dstY && Math.abs(srcY - dstY) >= 1e-4;
+    if (!rename && !scale) return clip;
+    const c = clip.clone(), r = scale ? dstY / srcY : 1;
+    for (const t of c.tracks) {
+      if (rename && t.name.startsWith(srcPrefix)) t.name = dstPrefix + t.name.slice(srcPrefix.length);
+      if (scale && /hips\.position$/i.test(t.name)) for (let i = 0; i < t.values.length; i++) t.values[i] *= r;
+    }
     return c;
   };
-  const poolEntry = (clip, hipsY) => ({ clip, hipsY });
+  // a clip's beat count: snap its loop to whole beats at the capture tempo (a 4.6 s clip ≈ 10 beats)
+  const poolEntry = (clip, hips) => { const beats = Math.max(1, Math.round(clip.duration * CLIP_BPM_REF / 60)); return { clip, hipsY: hips.y, prefix: hips.prefix || (clip.tracks[0]?.name.replace(/hips\..*$/i, "") ?? ""), beats, bpm: beats * 60 / clip.duration }; };
   function loadClip(id, url) {
     if (pool.has(id) || loading.has(id)) return;
     loading.add(id);
-    loader.loadAsync(url).then((g) => { loading.delete(id); if (!dead && g.animations[0]) { pool.set(id, poolEntry(g.animations[0], hipsOf(g.scene).y)); assignMoves(); } }).catch(() => { loading.delete(id); });
+    loader.loadAsync(url).then((g) => { loading.delete(id); if (!dead && g.animations[0]) { pool.set(id, poolEntry(g.animations[0], hipsOf(g.scene))); assignMoves(); } }).catch(() => { loading.delete(id); });
   }
   loadClip("idle", IDLE_URL);                                      // the breathing idle — a real standing wait (pause)
 
@@ -182,7 +225,7 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   function applyPositions() {
     for (const id of order) {
       const e = cast.get(id); if (!e || !e.root) continue;
-      e.root.position.x = e.tx + e.centerDX; e.root.position.z = e.tz; e.root.rotation.y = e.yaw;
+      e.root.position.x = e.tx + e.centerDX + e.ox; e.root.position.z = e.tz + e.oz; e.root.rotation.y = e.yaw;
       if (e.shadow) e.shadow.position.set(e.tx, 0.006, e.tz);
     }
   }
@@ -192,7 +235,7 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     if (!e || !e.mixer || e.current === id) return;
     const src = pool.get(id); if (!src) return;
     let a = e.actions.get(id);
-    if (!a) { a = e.mixer.clipAction(retargetHips(src.clip, src.hipsY, e.hipsY)); a.setLoop(THREE.LoopRepeat, Infinity); e.actions.set(id, a); }
+    if (!a) { a = e.mixer.clipAction(retargetHips(src.clip, src.hipsY, e.hipsY, src.prefix, e.prefix)); a.setLoop(THREE.LoopRepeat, Infinity); e.actions.set(id, a); }
     a.enabled = true; a.setEffectiveWeight(1); a.reset(); a.play();
     if (e.currentAction && e.currentAction !== a) a.crossFadeFrom(e.currentAction, fade, true);
     e.currentAction = a; e.current = id;
@@ -210,7 +253,7 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   }
 
   async function loadGirl(id) {
-    const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, nextSwap: performance.now() + 4000 + Math.random() * 7000, nextSwapBar: 2 + ((Math.random() * 4) | 0) };
+    const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, ox: 0, oz: 0, hx: 0, hz: 0, nextSwap: performance.now() + 4000 + Math.random() * 7000, nextSwapBar: 2 + ((Math.random() * 4) | 0) };
     cast.set(id, e);
     const token = ++e.token;
     let gltf;
@@ -226,13 +269,13 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     e.baseY = -box.min.y; root.position.y = e.baseY;
     root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } });
     e.mixer = new THREE.AnimationMixer(root);
-    const hips = hipsOf(root); e.hips = hips.bone; e.hipsY = hips.y;            // her rig's hips, bind pose (before any mixer)
+    const hips = hipsOf(root); e.hips = hips.bone; e.hipsY = hips.y; e.prefix = hips.prefix;   // her rig's hips + bone-name prefix, bind pose (before any mixer)
     // THE FLOOR IS DEFINED BY THE FEET, every frame (owner, 2026-09-11: «всі персонажі мають бути на сцені на
     // полу стояти» — a height bug must be impossible by construction). The foot bones are measured in world
     // space after the mixer runs and the root is lifted so the LOWER foot touches y=0; no bind-pose estimate,
     // no per-rig constant, no clip can float or sink her. `baseY` is only the first frame's guess.
     e.feet = []; root.traverse((o) => { if (/(Toe_End|ToeBase|Foot)$/i.test(o.name)) e.feet.push(o); });
-    if (gltf.animations[0] && !pool.has(id)) pool.set(id, poolEntry(gltf.animations[0], e.hipsY));   // her own move: the instant fallback
+    if (gltf.animations[0] && !pool.has(id)) pool.set(id, poolEntry(gltf.animations[0], hips));   // her own move: the instant fallback
     e.baseScale = s; e.root = root;
     scene.add(root);
     e.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.55, 32), shadowMat);
@@ -340,6 +383,25 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     const hemiNight = (0.95 * (1 - 0.45 * lit * (1 - Math.max(beatEnv, slam)))) * dip * (1 - calm * 0.3) + 0.3 * calm;
     const hemiDay = 1.7 * (1 - 0.1 * lit * (1 - beatEnv));
     hemi.intensity = hemiNight + (hemiDay - hemiNight) * day;
+    // smoke: drift up with a slow swirl, respawn at the floor; tinted by the leading wash, thinner by day
+    const st = (now - t0) / 1000;
+    for (let i = 0; i < SMOKE_N; i++) {
+      const o = i * 3, ph = smokeSeed[i];
+      smokePos[o] += (smokeVel[o] + Math.sin(st * 0.35 + ph) * 0.05) * dt;
+      smokePos[o + 1] += smokeVel[o + 1] * dt * (1 + 0.6 * hit);
+      smokePos[o + 2] += (smokeVel[o + 2] + Math.cos(st * 0.29 + ph * 1.7) * 0.04) * dt;
+      if (smokePos[o + 1] > 2.9 || Math.abs(smokePos[o]) > 5 || smokePos[o + 2] > 2.4 || smokePos[o + 2] < -5) respawn(i, false);
+    }
+    smokeGeo.attributes.position.needsUpdate = true;
+    smokeMat.color.set(0x8c88a0).lerp(washes[chase].color, 0.45 * Math.max(hit, 0.15)).lerp(WHITE, 0.5 * day);
+    smokeMat.opacity = (0.26 + 0.12 * hit) * (1 - 0.55 * day) * (1 - 0.6 * calm);
+    // the cones: each rides its wash's chase; a slow sway from the fixture
+    for (let i = 0; i < 4; i++) {
+      const c = cones[i];
+      c.material.uniforms.uColor.value.copy(washes[i].color);
+      c.material.uniforms.uPower.value = clamp(washes[i].intensity / 2.8, 0, 1) * (1 - 0.75 * day) * (1 - 0.5 * calm);
+      c.rotation.z = Math.sin(st * 0.45 + i * 1.9) * 0.28; c.rotation.x = Math.sin(st * 0.33 + i * 2.6) * 0.16;
+    }
     lightPool.material.color.copy(washes[0].color);
     lightPool.material.opacity = (0.3 + 0.7 * hit) * dip * (1 - calm * 0.7) * (1 - 0.5 * day);   // the floor blinks with the beat
     lightPool.scale.setScalar(1 + 0.12 * hit);
@@ -347,8 +409,9 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     gridU.uConf.value = locked ? conf : 0.35; gridU.uCalm.value = calm;
     gridU.uColor.value.copy(BAR_COLORS[colorIdx]); gridU.uColor2.value.copy(BAR_COLORS[(colorIdx + 1) % BAR_COLORS.length]);
 
-    // dances play at NATURAL speed, always — never slow-mo, never bent to the beat (the lights carry the time)
-    const sq = 1 - 0.055 * kEff, ex = 1 + 0.05 * kEff, hop = 0.055 * kEff;
+    // the body: a squash on the kick, plus a small hop ON THE BEAT once the clock is sure
+    const beatKick = Math.max(kEff, beatEnv * 0.6 * (1 - calm));
+    const sq = 1 - 0.055 * beatKick, ex = 1 + 0.05 * beatKick, hop = 0.055 * beatKick;
     const list = tiers[tier] || tiers.groove;
     for (const id of order) {
       const e = cast.get(id); if (!e || !e.mixer || !e.root) continue;
@@ -360,7 +423,22 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
         let m = e.current; for (let k = 0; k < 4 && (m === e.current || !pool.has(m)); k++) m = list[(Math.random() * list.length) | 0];
         playMove(e, m, 0.7); e.nextSwap = now + 7000 + Math.random() * 7000; e.nextSwapBar = bar + 4 + ((Math.random() * 4) | 0);
       }
-      e.mixer.timeScale = 1; e.mixer.update(dt);
+      // RATE-LOCK to the track (see the header): whole-beat loop vs live bpm, ≥30 % of the correction, all
+      // of it as confidence rises; and once a bar, pull the clip's beat onto the track's beat (half the
+      // error at once — a visible catch-step is allowed)
+      const src = pool.get(e.current);
+      let ts = 1;
+      if (locked && src && !still && tier !== "calm") {
+        const want = (env.bpm || CLIP_BPM_REF) / src.bpm;
+        ts = clamp(1 + (want - 1) * Math.max(SYNC_MIN, conf), 0.75, 1.3);
+        const a = e.currentAction;
+        if (barTick && a) {
+          const beatLen = src.clip.duration / src.beats;
+          const err = frac((env.beatPhase || 0) - frac(a.time / beatLen) + 0.5) - 0.5;   // in beats, −.5..+.5
+          a.time = ((a.time + err * beatLen * 0.5) % src.clip.duration + src.clip.duration) % src.clip.duration;
+        }
+      }
+      e.mixer.timeScale = ts; e.mixer.update(dt);
       e.root.scale.set(e.baseScale * ex, e.baseScale * sq, e.baseScale * ex);
       if (e.feet && e.feet.length) {
         // ground by the feet: measure the lowest foot with the root at 0, then lift by exactly that much
@@ -369,11 +447,47 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
         e.root.position.y = (Number.isFinite(low) ? -low : e.baseY) + hop;
       } else e.root.position.y = e.baseY + hop;
       // the contact shadow follows the HIPS, not the model's origin — a dance travels, the origin does not
-      if (e.hips && e.shadow) { e.root.updateMatrixWorld(); e.hips.getWorldPosition(_v); e.shadow.position.x = _v.x; e.shadow.position.z = _v.z; }
+      if (e.hips && e.shadow) { e.root.updateMatrixWorld(); e.hips.getWorldPosition(_v); e.shadow.position.x = _v.x; e.shadow.position.z = _v.z; e.hx = _v.x; e.hz = _v.z; }
     }
 
+    // ── THE CROWD SOLVER (owner, 2026-09-11: «вона може бути позаду, але не налазити»). A dance TRAVELS — a
+    // running man crosses a metre, house drifts — so two girls on neighbouring slots end up inside each other.
+    // Every frame: each girl is pulled softly back to her slot, and any pair whose HIPS are closer than
+    // MIN_GAP on the floor plane is pushed apart along the line between them (half each, a quarter of the
+    // overlap per frame — a constraint, not a bounce). Depth is free: standing behind is a large distance on
+    // the plane, standing inside is not. The push is capped so nobody leaves the stage.
+    let crowdMin = Infinity;
+    for (const id of order) {
+      const e = cast.get(id); if (!e || !e.root) continue;
+      const k = Math.min(1, dt * 0.8);
+      e.ox -= e.ox * k; e.oz -= e.oz * k;
+    }
+    for (let i = 0; i < order.length; i++) {
+      const a = cast.get(order[i]); if (!a || !a.root) continue;
+      for (let j = i + 1; j < order.length; j++) {
+        const b = cast.get(order[j]); if (!b || !b.root) continue;
+        const dx = b.hx - a.hx, dz = b.hz - a.hz;
+        const dist = Math.hypot(dx, dz);
+        if (dist < crowdMin) crowdMin = dist;
+        if (dist >= MIN_GAP) continue;
+        const nx = dist > 1e-3 ? dx / dist : (a.tx <= b.tx ? -1 : 1), nz = dist > 1e-3 ? dz / dist : 0;
+        const push = (MIN_GAP - dist) * 0.35;
+        a.ox -= push * nx; a.oz -= push * nz; b.ox += push * nx; b.oz += push * nz;
+      }
+    }
+    for (const id of order) {
+      const e = cast.get(id); if (!e || !e.root) continue;
+      e.ox = clamp(e.ox, -MAX_DRIFT_X, MAX_DRIFT_X); e.oz = clamp(e.oz, -MAX_DRIFT_Z, MAX_DRIFT_Z);
+      e.root.position.x = e.tx + e.centerDX + e.ox; e.root.position.z = e.tz + e.oz;
+    }
+    env.crowdMin = crowdMin;                                                    // the closest pair, for the eye/device check
+
+    // THE CAMERA: an orbit around the crowd — yaw/pitch from a finger drag, distance from a pinch (view.js
+    // eases env.cam) — with the tilt parallax riding on top. The fit distance stays the zoom's 1.0.
     const tx = env.tiltX || 0, ty = env.tiltY || 0;
-    camera.position.set(tx * 0.24, camY - ty * 0.18, camDist);
+    const cam = env.cam || {}, yaw = cam.yaw || 0, pitch = cam.pitch || 0, R = camDist * (cam.zoom || 1);
+    const cp = Math.cos(pitch);
+    camera.position.set(Math.sin(yaw) * cp * R + tx * 0.24, camY + Math.sin(pitch) * R - ty * 0.18, Math.cos(yaw) * cp * R);
     camera.lookAt(0, lookY, 0);
     renderer.render(scene, camera);
   }
@@ -389,7 +503,7 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     dispose() {
       dead = true; cancelAnimationFrame(raf); removeEventListener("resize", computeLayout);
       for (const e of cast.values()) disposeEntry(e);
-      grid.geometry.dispose(); grid.material.dispose();
+      grid.geometry.dispose(); grid.material.dispose(); smokeGeo.dispose(); smokeMat.dispose(); coneGeo.dispose(); for (const c of cones) c.material.dispose();
       try { renderer.dispose(); renderer.forceContextLoss?.(); } catch { /* gone */ }
     },
   };
