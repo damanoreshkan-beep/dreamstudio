@@ -21,10 +21,11 @@ const clipUrl = (id) => new URL(`assets/clip-${id}.glb`, import.meta.url).href; 
 
 // the move library, tiered by intensity (clip id = the girl it was captured from, but any girl can play it).
 // The director picks a tier from the section energy; each dancer takes a different move within it.
-const LIGHT = ["akai", "pirate"];                                   // arm wave, basic hip hop — calm/low
+const CALM = ["idle"];                                             // breathing idle — a real standing wait (pause)
+const LIGHT = ["akai", "pirate"];                                   // arm wave, basic hip hop — quiet-but-playing
 const GROOVE = ["kaya", "michelle", "nightshade", "louise", "kachujin"]; // northern soul, house, twist, wave, salsa
 const DRIVE = ["arissa", "eve", "sophie", "jolleen"];              // snake, shuffle, robot, bboy — the drops
-const TIERS = { calm: LIGHT, light: LIGHT, groove: GROOVE, drive: DRIVE };
+const TIERS = { calm: CALM, light: LIGHT, groove: GROOVE, drive: DRIVE };
 
 const C_KEY = 0xffe9f4, C_MAG = 0xff3eb5, C_GRN = 0x39ff6a, C_GOLD = 0xf5b942;
 
@@ -57,8 +58,9 @@ export function createDanceStage(canvas, getEnv, onReady) {
   let order = [];
   let dead = false, loaded = 0, camDist = 6, camY = 1.05, lookY = 0.95;
 
-  // load the whole move library once (tiny clip-only GLBs), so any girl can dance any move regardless of cast
-  for (const id of ORDER) {
+  // load the whole move library once (tiny clip-only GLBs) + the breathing idle, so any girl can dance any
+  // move regardless of cast, and everyone has a real standing wait for pause
+  for (const id of [...ORDER, "idle"]) {
     loader.loadAsync(clipUrl(id)).then((g) => { if (!dead && g.animations[0]) { pool.set(id, g.animations[0]); assignMoves(); } }).catch(() => {});
   }
 
