@@ -290,7 +290,10 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     box = new THREE.Box3().setFromObject(root);
     e.centerDX = -(box.min.x + box.max.x) / 2;
     e.baseY = -box.min.y; root.position.y = e.baseY;
-    root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } });
+    // anisotropic filtering: a skinned body is seen at glancing angles most of the time, and without it the
+    // 2048 textures smear into a blur on sleeves and legs (owner, 2026-09-11: «все поплило»)
+    const aniso = renderer.capabilities.getMaxAnisotropy();
+    root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; for (const m of [].concat(o.material || [])) for (const k of ["map", "normalMap", "roughnessMap", "metalnessMap", "emissiveMap"]) if (m[k]) { m[k].anisotropy = aniso; m[k].needsUpdate = true; } } });
     e.mixer = new THREE.AnimationMixer(root);
     const hips = hipsOf(root); e.hips = hips.bone; e.hipsY = hips.y; e.prefix = hips.prefix;   // her rig's hips + bone-name prefix, bind pose (before any mixer)
     // THE FLOOR IS DEFINED BY THE FEET, every frame (owner, 2026-09-11: «всі персонажі мають бути на сцені на
