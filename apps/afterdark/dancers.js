@@ -12,7 +12,12 @@
 // popping on each one, a dip before the downbeat and a slam on it, a white strobe in the drive tier, the
 // dancefloor grid and the light pool — all on the ANTICIPATED beat phase, with the kick transient as the
 // fallback wherever the clock is unsure (breakdown, idle groove). Musical structure only picks moves: tiers
-// change on a PHRASE (16 beats), per-character swaps land on a BAR. The reactive grid lives HERE (a 3D plane
+// change on a PHRASE (16 beats). Every dance PLAYS OUT (owner, 2026-09-11: «кожен танець дотанцювати, плавно
+// перейти на інший через idle, без перепригувань; рухи не рандом, природно»): a move runs for whole loops
+// (a phrase or two), then cross-fades into the breathing idle for a breath, then into the NEXT move — chosen
+// like a dancer would: stay in the same tier or step one tier over, never repeat the last move, keep to her
+// own repertoire — never a cut mid-step; and a loop's root motion is held on the floor, so a dance that
+// travels never snaps back to its origin. The reactive grid lives HERE (a 3D plane
 // under their feet has real perspective; the shader background is occluded by the matte floor). On pause
 // everyone eases into the breathing idle under house lights.
 //
@@ -243,9 +248,23 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     a.enabled = true; a.setEffectiveWeight(1); a.reset(); a.play();
     if (e.currentAction && e.currentAction !== a) a.crossFadeFrom(e.currentAction, fade, true);
     e.currentAction = a; e.current = id;
+    e.loops = 0; e.prevT = 0; e.wantLoops = id === "idle" ? 0 : 1 + ((Math.random() * 2) | 0);   // a move runs 1–2 whole loops
   }
 
   let tier = "groove", lastTierAt = 0, rotation = 0;
+  // the next move for a dancer: from the current tier's list (or, one time in three, a neighbouring tier —
+  // a dancer drifts in energy), never the move she just did, preferring her repertoire (a seeded half of the
+  // list) so two dancers on the same tier do not mirror each other. Only loaded clips count.
+  const NEIGHBOUR = { light: ["groove"], groove: ["light", "drive"], drive: ["groove"] };
+  function nextMove(e, list) {
+    let from = list;
+    if (Math.random() < 0.33) { const n = NEIGHBOUR[tier] || []; const t = n[(Math.random() * n.length) | 0]; if (t && tiers[t]?.length) from = tiers[t]; }
+    const loaded = from.filter((m) => pool.has(m) && m !== e.last && m !== "idle");
+    if (!loaded.length) return null;
+    const mine = loaded.filter((_, i) => ((i + Math.floor(e.seed * 97)) % 2) === 0);
+    const pick = (mine.length && Math.random() < 0.75) ? mine : loaded;
+    return pick[(Math.random() * pick.length) | 0];
+  }
   function assignMoves(fade = 0.5) {
     const list = tiers[tier] || tiers.groove;
     order.forEach((id, i) => {
@@ -257,7 +276,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   }
 
   async function loadChar(id) {
-    const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, ox: 0, oz: 0, hx: 0, hz: 0, nextSwap: performance.now() + 4000 + Math.random() * 7000, nextSwapBar: 2 + ((Math.random() * 4) | 0) };
+    const e = { root: null, mixer: null, actions: new Map(), current: null, currentAction: null, token: 0, tx: 0, tz: 0, yaw: 0, centerDX: 0, baseY: 0, baseScale: 1, ox: 0, oz: 0, hx: 0, hz: 0, loops: 0, wantLoops: 2, prevT: 0, bridgeUntil: 0, last: null, seed: Math.random() };
     cast.set(id, e);
     const token = ++e.token;
     let gltf;
@@ -343,7 +362,11 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     const target = !active ? "calm" : sEnergy < 0.14 ? "light" : sEnergy < 0.36 ? "groove" : "drive";
     const dwell = (target === "calm" || tier === "calm") ? 500 : 5000;
     const may = (target === "calm" || tier === "calm") ? now - lastTierAt > dwell : (locked ? phraseTick : now - lastTierAt > dwell);
-    if (target !== tier && may) { tier = target; lastTierAt = now; rotation++; assignMoves(0.6); }
+    if (target !== tier && may) {
+      tier = target; lastTierAt = now; rotation++;
+      if (tier === "calm") assignMoves(0.6);                                     // pause: everyone eases into the idle now
+      else for (const id of order) { const e = cast.get(id); if (e) e.wantLoops = Math.min(e.wantLoops, e.loops + 1); }   // finish this loop, then bridge into the new tier
+    }
 
     // ── THE LIGHTING RIG (this is where "in time" lives) ──
     // chase: the wash for THIS beat of the bar leads (a full pop), the others stay low; between beats every
@@ -419,13 +442,18 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
     const list = tiers[tier] || tiers.groove;
     for (const id of order) {
       const e = cast.get(id); if (!e || !e.mixer || !e.root) continue;
-      // keep the floor ALIVE: each character swaps to another move of the tier on her own clock (staggered) —
-      // on a BAR when the clock is locked, on a timer otherwise — so even a steady passage keeps evolving.
-      // Paused/calm → hold the calm move.
-      const due = locked ? (barTick && bar >= e.nextSwapBar) : now > e.nextSwap;
-      if (active && tier !== "calm" && list.length > 1 && due) {
-        let m = e.current; for (let k = 0; k < 4 && (m === e.current || !pool.has(m)); k++) m = list[(Math.random() * list.length) | 0];
-        playMove(e, m, 0.7); e.nextSwap = now + 7000 + Math.random() * 7000; e.nextSwapBar = bar + 4 + ((Math.random() * 4) | 0);
+      // THE DANCE PLAYS OUT: count whole loops; once the move has run its loops, bridge through the idle for a
+      // breath (1.2–2 s), then take the next move — the neighbour tier is allowed, the last move is not, and
+      // her repertoire is a stable slice of the tier (seeded), so she has a style. Paused/calm → the idle.
+      if (active && tier !== "calm" && e.currentAction) {
+        // (research 2026-09-11: club dancers start a new move on the "1" of an 8-count — two bars — so with a
+        // confident clock the next move waits for a bar line; crowds read as people when blend times differ)
+        const fade = 0.4 + e.seed * 0.3;
+        if (e.current === "idle") {
+          if (now > e.bridgeUntil && (!locked || barTick)) { const m = nextMove(e, list); if (m) playMove(e, m, fade); }
+        } else if (e.loops >= e.wantLoops && pool.has("idle")) {
+          e.last = e.current; playMove(e, "idle", fade); e.bridgeUntil = now + 1200 + Math.random() * 800;
+        }
       }
       // RATE-LOCK to the track (see the header): whole-beat loop vs live bpm, ≥30 % of the correction, all
       // of it as confidence rises; and once a bar, pull the clip's beat onto the track's beat (half the
@@ -443,7 +471,10 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
             a.time = ((a.time + err * beatLen * 0.5) % src.clip.duration + src.clip.duration) % src.clip.duration; }
         }
       }
+      // a loop wrap snaps the clip's root motion back to its origin — hold the ground across it (see playMove)
+      { const a = e.currentAction; if (a) { const d = a.getClip().duration; if (a.time + dt * ts >= d - 1e-3) e.hold = e.hold || { x: e.hx, z: e.hz }; } }
       e.mixer.timeScale = ts; e.mixer.update(dt);
+      { const a = e.currentAction; if (a) { if (a.time < e.prevT) e.loops++; e.prevT = a.time; } }
       e.root.scale.set(e.baseScale * ex, e.baseScale * sq, e.baseScale * ex);
       if (e.feet && e.feet.length) {
         // ground by the feet: measure the lowest foot with the root at 0, then lift by exactly that much
