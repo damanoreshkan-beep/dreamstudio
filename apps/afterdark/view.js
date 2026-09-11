@@ -24,14 +24,23 @@ import { Island, Transport } from "/_rt/ui.js";
 import { GlStage } from "/_rt/glstage.js";
 import { retryDelay, progressCheck } from "/_rt/tide.js";
 import { bassEnergy, stepPulse, idleGroove, integratePhase } from "/_rt/afterdark.js";
-import { GIRLS, girlById, trioFor } from "./girls.js";
+import { GIRLS } from "./girls.js";
 
 const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ---- persisted working set ----
-const $focus = persistentAtom("afterdark:focus", GIRLS[1].id);   // the lead girl (centre of the trio)
+// the CAST: which girls are on stage (1..11). A JSON id array; the engine lays them out as a crowd that fits
+// the screen. Tapping a chip toggles a girl on/off; the last one can't be removed (the stage is never empty).
+const DEFAULT_CAST = ["kaya", "michelle", "arissa"];
+const $cast = persistentAtom("afterdark:cast", JSON.stringify(DEFAULT_CAST));
+const ALL_IDS = GIRLS.map((g) => g.id);
+function getCast() {
+  let a; try { a = JSON.parse($cast.get()); } catch { a = null; }
+  a = Array.isArray(a) ? a.filter((id) => ALL_IDS.includes(id)) : [];
+  return a.length ? a : DEFAULT_CAST.slice();
+}
 const $muted = persistentAtom("afterdark:muted", "0");
 // the Enter cover is dismissed once the audio gesture happened; under the gate the shot is the live rave, so
 // we seed past the gesture (like tide seeds past the real stream) and the mock owns the state machine.
@@ -203,7 +212,8 @@ header.navbar [data-title],header.navbar [data-battery]{color:rgba(255,255,255,.
 export function afterdark({ S }) {
   const t = useStore(S.t);
   const loc = useStore(S.locale);
-  const focusId = useStore($focus);
+  useStore($cast);                                                // re-render when the cast changes
+  const cast = getCast();
   const playing = useStore($playing);
   const state = useStore($state);
   const entered = useStore($entered);
@@ -222,17 +232,18 @@ export function afterdark({ S }) {
         if (!stageRef.current) return;
         engine = createDanceStage(stageRef.current, () => env);
         engineRef.current = engine;
-        if (engine.ok) engine.setTrio(trioFor($focus.get()));
+        if (engine.ok) engine.setCast(getCast());
       } catch { /* no WebGL / no addons: the rave field + DOM still carry the screen */ }
     })();
     return () => { engine?.dispose?.(); engineRef.current = null; };
   }, []);
 
-  const trio = trioFor(focusId);                                 // [left, centre, right] — the three on stage
-  const focus = girlById(focusId);
+  const onStage = new Set(cast);
   const stateLine = state === "connecting" ? T(t, "connecting") : state === "reconnecting" ? T(t, "reconnecting") : state === "offline" ? T(t, "offline") : state === "live" ? T(t, "live") : T(t, "idle");
   const onToggle = () => (entered ? toggle() : enter());
-  const setFocus = (id) => { if (id === $focus.get()) return; $focus.set(id); engineRef.current?.setTrio?.(trioFor(id)); };
+  const applyCast = (next) => { if (!next.length) return; $cast.set(JSON.stringify(next)); engineRef.current?.setCast?.(next); };
+  const toggleGirl = (id) => { const c = getCast(); applyCast(c.includes(id) ? (c.length > 1 ? c.filter((x) => x !== id) : c) : [...c, id]); };
+  const pickAll = () => applyCast(cast.length >= ALL_IDS.length ? DEFAULT_CAST.slice() : ALL_IDS.slice());
   const onPointer = (e) => { if (env.mode === "orient") return; env.mode = "pointer"; const r = e.currentTarget.getBoundingClientRect(); env.ttx = clamp((e.clientX - r.left) / r.width * 2 - 1, -1, 1); env.tty = clamp((e.clientY - r.top) / r.height * 2 - 1, -1, 1); };
 
   return html`<${Fragment}>
@@ -241,12 +252,12 @@ export function afterdark({ S }) {
          rave is dark-committed). The opaque gradient is the first-paint/offline floor; GlStage paints the rave
          over it; the transparent dancers canvas sits over that; the DOM chrome (z-10) over all. */""}
     <div class="fixed inset-0 z-0" style="background:radial-gradient(120% 90% at 50% 8%, #1A0A22 0%, #0C0614 46%, #050308 100%)"></div>
-    <${GlStage} shader=${new URL("afterdark.frag", import.meta.url)} seed=${(focus.id.charCodeAt(0) % 13) / 13}
+    <${GlStage} shader=${new URL("afterdark.frag", import.meta.url)} seed=${((cast[0] || "a").charCodeAt(0) % 13) / 13}
       vary=${vary} ink=${ink} zClass="z-0" />
     ${/* the 3D dancers, over the rave field, under the DOM chrome */""}
     <canvas ref=${stageRef} data-dancers aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
 
-    <div data-rave data-state=${state} data-focus=${focusId} data-entered=${entered ? "yes" : "no"}
+    <div data-rave data-state=${state} data-cast=${cast.length} data-entered=${entered ? "yes" : "no"}
       class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       ${/* top label: the track/vibe + a live pulse dot; the status WORD is announced politely */""}
       <div class="shrink-0 flex justify-center">
@@ -270,22 +281,28 @@ export function afterdark({ S }) {
             <span class="font-mono uppercase tracking-[0.28em] text-sm text-white/90">${T(t, "enter")}</span>
           </button>
         </div>` : html`<div class="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none">
-          ${/* who leads, and her move — the stage is the visual, this names it */""}
-          <span class="font-mono uppercase tracking-[0.2em] text-[length:var(--ms-label)] text-white/55">${focus.name} · ${T(t, focus.danceKey)}</span>
+          ${/* how many are dancing — the stage is the visual, this counts it */""}
+          <span class="font-mono uppercase tracking-[0.2em] text-[length:var(--ms-label)] text-white/55">${cast.length} / ${ALL_IDS.length} ${T(t, "onStage")}</span>
         </div>`}
       </div>
 
       ${/* ONE island: the dancer filmstrip + the transport, together */""}
       <${Island} tone="dark" className="shrink-0 flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
         <div class="ad-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "dancers")}>
+          ${/* tap a girl to add/remove her from the stage; the last one can't be removed */""}
+          <button data-all type="button" aria-pressed=${cast.length >= ALL_IDS.length ? "true" : "false"}
+            aria-label=${T(t, "all")} onClick=${pickAll}
+            class=${`ad-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.05] ring-1 ring-white/15 hover:opacity-100"}`}>
+            <iconify-icon icon="lucide:users" class="text-[length:var(--ms-label)] text-white/85"></iconify-icon>
+            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide text-white/85">${T(t, "all")}</span>
+          </button>
           ${GIRLS.map((g) => {
-            const lead = g.id === focusId;
-            const onStage = trio.includes(g.id);
-            return html`<button key=${g.id} data-girl=${g.id} type="button" aria-pressed=${lead ? "true" : "false"}
-              aria-label=${`${g.name} — ${T(t, g.danceKey)}`} onClick=${() => setFocus(g.id)}
-              class=${`ad-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${lead ? "bg-white/15 ring-2 ring-[var(--app-accent)] scale-[1.03]" : onStage ? "bg-white/[.07] ring-1 ring-white/20" : "bg-white/[.03] ring-1 ring-white/10 opacity-70 hover:opacity-100"}`}>
-              <span class="w-3.5 h-3.5 rounded-full shrink-0" style=${`background:${g.tint};box-shadow:0 0 6px ${g.tint}88`}></span>
-              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide ${lead ? "text-white" : "text-white/80"}`}>${g.name}</span>
+            const on = onStage.has(g.id);
+            return html`<button key=${g.id} data-girl=${g.id} type="button" aria-pressed=${on ? "true" : "false"}
+              aria-label=${`${g.name} — ${T(t, g.danceKey)}`} onClick=${() => toggleGirl(g.id)}
+              class=${`ad-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.04] ring-1 ring-white/10 opacity-65 hover:opacity-100"}`}>
+              <span class="w-3.5 h-3.5 rounded-full shrink-0" style=${`background:${g.tint};box-shadow:${on ? `0 0 7px ${g.tint}` : "none"}`}></span>
+              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide ${on ? "text-white" : "text-white/75"}`}>${g.name}</span>
             </button>`;
           })}
         </div>
