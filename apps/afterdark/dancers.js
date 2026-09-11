@@ -181,6 +181,11 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     root.traverse((o) => { if (o.isMesh) { o.frustumCulled = false; o.castShadow = false; } });
     e.mixer = new THREE.AnimationMixer(root);
     const hips = hipsOf(root); e.hips = hips.bone; e.hipsY = hips.y;            // her rig's hips, bind pose (before any mixer)
+    // THE FLOOR IS DEFINED BY THE FEET, every frame (owner, 2026-09-11: «всі персонажі мають бути на сцені на
+    // полу стояти» — a height bug must be impossible by construction). The foot bones are measured in world
+    // space after the mixer runs and the root is lifted so the LOWER foot touches y=0; no bind-pose estimate,
+    // no per-rig constant, no clip can float or sink her. `baseY` is only the first frame's guess.
+    e.feet = []; root.traverse((o) => { if (/(Toe_End|ToeBase|Foot)$/i.test(o.name)) e.feet.push(o); });
     if (gltf.animations[0] && !pool.has(id)) pool.set(id, { clip: gltf.animations[0], hipsY: e.hipsY });   // seed the library with her own move
     e.baseScale = s; e.root = root;
     scene.add(root);
@@ -245,7 +250,12 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
       }
       e.mixer.timeScale = ts; e.mixer.update(dt);
       e.root.scale.set(e.baseScale * ex, e.baseScale * sq, e.baseScale * ex);
-      e.root.position.y = e.baseY + hop;
+      if (e.feet && e.feet.length) {
+        // ground by the feet: measure the lowest foot with the root at 0, then lift by exactly that much
+        e.root.position.y = 0; e.root.updateMatrixWorld(true);
+        let low = Infinity; for (const f of e.feet) { f.getWorldPosition(_v); if (_v.y < low) low = _v.y; }
+        e.root.position.y = (Number.isFinite(low) ? -low : e.baseY) + hop;
+      } else e.root.position.y = e.baseY + hop;
       // the contact shadow follows the HIPS, not the model's origin — a dance travels, the origin does not
       if (e.hips && e.shadow) { e.root.updateMatrixWorld(); e.hips.getWorldPosition(_v); e.shadow.position.x = _v.x; e.shadow.position.z = _v.z; }
     }
