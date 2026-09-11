@@ -33,6 +33,7 @@ import { bassEnergy, stepPulse, idleGroove, integratePhase } from "/_rt/afterdar
 import { spectralFlux, createBeatState, stepBeat, BPM_REF } from "/_rt/afterbeat.js";
 import { GIRLS } from "./girls.js";
 import { MOVES, MOVE_IDS, DEFAULT_MOVES } from "./dances.js";
+import { readPalette, isDay, SLOTS } from "./palette.js";
 
 const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
 // THE DVR (edge live.js): the same stream, pulled ONCE by the server into a 6-min HLS window. The client sits
@@ -219,7 +220,19 @@ const env = {
   // `beatA`/`barA` are the ANTICIPATED phases (led by the audio output latency + a frame) — what the eye should
   // move to, so an accent lands WITH the kick, not after it. Idle (no audio) free-runs at IDLE_BPM, confidence 0.
   beatState: null, bpm: IDLE_BPM, beatPhase: 0, barPhase: 0, beatIndex: 0, confidence: 0, beatA: 0, barA: 0, lead: 0.08, drive: 0,
+  // THE PALETTE (palette.js): the theme's colours packed as 8 vec4s, eased toward `palTarget` so a theme toggle
+  // cross-fades; `day` 0..1 = a light theme (the floor is lit as DAY). The shader gets `pal` as points[8] and
+  // day as env.x (the runtime's own channel); the 3D rig reads both off env.
+  pal: null, palTarget: null, day: 0, themeKey: "", frame: 0,
 };
+function retheme() { env.palTarget = readPalette(); if (!env.pal) env.pal = new Float32Array(env.palTarget); }
+if (typeof globalThis !== "undefined") globalThis.__afterdark = env;   // a device debug handle: bpm/confidence/day/palette in the console
+// The theme has TWO axes — the mode (html[data-theme] = signal | signal-light) and the MATERIAL
+// (html[data-material], whose stylesheet arrives LATER than the attribute) — so no attribute observer can
+// catch the moment the tokens actually change. A cheap fingerprint of the tokens, checked twice a second, can.
+function themeKey() {
+  try { const r = document.documentElement, cs = getComputedStyle(r); return `${r.getAttribute("data-theme")}|${r.getAttribute("data-material")}|${cs.getPropertyValue("--color-base-100")}|${cs.getPropertyValue("--app-accent")}|${cs.getPropertyValue("--color-accent")}`; } catch { return ""; }
+}
 function vary() {
   const now = performance.now();
   const dt = env.last ? Math.min(0.1, (now - env.last) / 1000) : 0; env.last = now;
@@ -244,6 +257,12 @@ function vary() {
     const beats = env.tick * IDLE_BPM / 60;
     env.beatPhase = frac(beats); env.beatIndex = Math.floor(beats); env.barPhase = frac(beats / 4); env.lead = 0;
   }
+  // the theme: ease the palette + day toward the applied theme (a toggle cross-fades in ~0.4 s)
+  if ((env.frame++ % 30) === 0) { const key = themeKey(); if (key !== env.themeKey) { env.themeKey = key; retheme(); } }
+  if (!env.palTarget) retheme();
+  const k = clamp(dt * 6, 0, 1);
+  for (let i = 0; i < SLOTS * 4; i++) env.pal[i] += (env.palTarget[i] - env.pal[i]) * k;
+  env.day += ((isDay() ? 1 : 0) - env.day) * k;
   const leadBeats = env.lead * env.bpm / 60;
   env.beatA = frac(env.beatPhase + leadBeats); env.barA = frac(env.barPhase + leadBeats / 4);
   const shown = env.confidence > 0.35 ? Math.round(env.bpm) : 0;
@@ -308,17 +327,35 @@ async function enter() {
 }
 
 const CSS = `
-/* the stage is DARK-COMMITTED (theme-independent), so the runtime app-bar — transparent, theme-ink text —
-   would vanish over it in the light farm theme. Give it a dark-glass surface + light text in BOTH themes,
-   matching the islands. Scoped to the stage view: it unmounts on the profile tab. */
-header.navbar{background:rgba(10,6,18,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.07)}
-header.navbar [data-title],header.navbar [data-battery]{color:rgba(255,255,255,.92)!important}
-/* the runtime halos the wordmark in the PAGE's tone (paper in the light theme) — over a dark-committed
-   stage that halo is a pale smudge behind the name, so the halo here is the stage's own night. */
-header.navbar [data-title]{text-shadow:0 1px 2px #0A0510,0 0 14px #0A0510}
-/* the transport sits on a dark island in BOTH themes, so its primary key is the dark theme's cream key in
-   both — the light theme's black primary on dark glass was a black disc on black (measured 2026-09-11). */
-[data-rave] .btn-primary{background:#F2EEE6;border-color:#F2EEE6;color:#0A0510}
+/* NIGHT (a dark theme): the stage is near-black and the chrome is dark glass with light ink. The runtime
+   app-bar — transparent, theme-ink text — would vanish over the night stage in some dark themes, so it gets
+   the same dark glass. Scoped to the stage view: it unmounts on the profile tab. */
+:root:not([data-theme$="-light"]) header.navbar{background:rgba(10,6,18,.9);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.07)}
+:root:not([data-theme$="-light"]) header.navbar [data-title],:root:not([data-theme$="-light"]) header.navbar [data-battery]{color:rgba(255,255,255,.92)!important}
+:root:not([data-theme$="-light"]) header.navbar [data-title]{text-shadow:0 1px 2px #0A0510,0 0 14px #0A0510}
+/* the transport's primary key on dark glass is the cream key (the light theme's black primary on dark
+   glass was a black disc on black, measured 2026-09-11); by day the theme's own primary is right */
+:root:not([data-theme$="-light"]) [data-rave] .btn-primary{background:#F2EEE6;border-color:#F2EEE6;color:#0A0510}
+.dk-bg{background:radial-gradient(120% 90% at 50% 8%, #1A0A22 0%, #0C0614 46%, #050308 100%)}
+.dk-ink{color:rgba(255,255,255,.92)}.dk-ink-2{color:rgba(255,255,255,.82)}.dk-ink-3{color:rgba(255,255,255,.6)}
+.dk-line{background:rgba(255,255,255,.2)}
+.dk-chip-on{background:rgba(255,255,255,.15);box-shadow:0 0 0 2px var(--app-accent)}
+.dk-chip-off{background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.dk-chip-dim{opacity:.65}.dk-chip-dim:hover{opacity:1}
+.dk-enter{background:rgba(0,0,0,.5);color:#fff}
+/* DAY (a light theme, owner 2026-09-11): the room is the theme's paper lit by the sun, so the chrome turns
+   into the theme's own light glass with its ink — the palette itself (beams, washes, floor) comes from the
+   theme tokens through palette.js, this is only the DOM's half. */
+:root[data-theme$="-light"] .dk-bg{background:radial-gradient(120% 90% at 50% 8%, color-mix(in oklch,var(--color-base-100) 70%,white) 0%, var(--color-base-100) 50%, color-mix(in oklch,var(--color-base-100) 80%,var(--color-warning)) 100%)}
+:root[data-theme$="-light"] [data-rave] .dk-isle{background:color-mix(in oklch,var(--color-base-100) 74%,transparent);border-color:color-mix(in oklch,var(--color-base-content) 12%,transparent);color:var(--color-base-content);box-shadow:0 8px 30px -12px color-mix(in oklch,var(--color-base-content) 35%,transparent)}
+:root[data-theme$="-light"] .dk-ink{color:var(--color-base-content)}
+:root[data-theme$="-light"] .dk-ink-2{color:color-mix(in oklch,var(--color-base-content) 82%,transparent)}
+:root[data-theme$="-light"] .dk-ink-3{color:color-mix(in oklch,var(--color-base-content) 60%,transparent)}
+:root[data-theme$="-light"] .dk-line{background:color-mix(in oklch,var(--color-base-content) 20%,transparent)}
+:root[data-theme$="-light"] .dk-chip-on{background:color-mix(in oklch,var(--color-base-content) 12%,transparent)}
+:root[data-theme$="-light"] .dk-chip-off{background:color-mix(in oklch,var(--color-base-content) 5%,transparent);box-shadow:0 0 0 1px color-mix(in oklch,var(--color-base-content) 14%,transparent)}
+:root[data-theme$="-light"] .dk-enter{background:color-mix(in oklch,var(--color-base-100) 70%,transparent);color:var(--color-base-content)}
+:root[data-theme$="-light"] .dk-enter-ring{box-shadow:0 0 0 1px color-mix(in oklch,var(--color-base-content) 18%,transparent),0 0 40px 0 color-mix(in oklch,var(--app-accent) 45%,transparent)}
 .dk-dot{width:.5rem;height:.5rem;border-radius:9999px;background:var(--app-accent);box-shadow:0 0 8px var(--app-accent)}
 [data-rave][data-state="live"] .dk-dot{animation:adPulse .46s ease-in-out infinite}
 [data-rave][data-state="connecting"] .dk-dot,[data-rave][data-state="reconnecting"] .dk-dot{animation:adBlink 1s steps(2) infinite}
@@ -409,9 +446,9 @@ export function afterdark({ S }) {
     ${/* the fixed night stage — z-0 (NOT negative: a negative z hides behind the light farm-theme body, and the
          rave is dark-committed). The opaque gradient is the first-paint/offline floor; GlStage paints the rave
          over it; the transparent dancers canvas sits over that; the DOM chrome (z-10) over all. */""}
-    <div class="fixed inset-0 z-0" style="background:radial-gradient(120% 90% at 50% 8%, #1A0A22 0%, #0C0614 46%, #050308 100%)"></div>
+    <div class="dk-bg fixed inset-0 z-0"></div>
     <${GlStage} shader=${new URL("afterdark.frag", import.meta.url)} seed=${((cast[0] || "a").charCodeAt(0) % 13) / 13}
-      vary=${vary} ink=${ink} zClass="z-0" />
+      vary=${vary} ink=${ink} points=${() => env.pal} zClass="z-0" />
     ${/* the 3D dancers, over the rave field, under the DOM chrome */""}
     <canvas ref=${stageRef} data-dancers aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
 
@@ -423,16 +460,16 @@ export function afterdark({ S }) {
       class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
       ${/* top label: the track/vibe + a live pulse dot; the status WORD is announced politely */""}
       <div class="shrink-0 flex justify-center">
-        <${Island} tone="dark" className="flex items-center gap-2.5 !py-1.5 !px-3.5 rounded-full">
+        <${Island} tone="dark" className="dk-isle flex items-center gap-2.5 !py-1.5 !px-3.5 rounded-full">
           <span class="dk-dot shrink-0"></span>
-          <span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-white/90">${T(t, "station")}</span>
-          <span class="w-px h-3 bg-white/20"></span>
-          <span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-white/65">${T(t, "genre")}</span>
+          <span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] dk-ink">${T(t, "station")}</span>
+          <span class="dk-line w-px h-3"></span>
+          <span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] dk-ink-3">${T(t, "genre")}</span>
           ${/* the link's state, one word — only once the rave is entered: before that the Enter cover IS the
                state, and a sentence in the pill wrapped it onto two lines (measured 2026-09-11) */""}
-          ${entered ? html`<span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-white/80 tabular-nums" aria-live="polite">· ${stateLine}</span>` : null}
+          ${entered ? html`<span class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] dk-ink-2 tabular-nums" aria-live="polite">· ${stateLine}</span>` : null}
           ${/* the locked tempo — proof the floor is in time; appears once the clock is confident */""}
-          ${bpm ? html`<span class="w-px h-3 bg-white/20"></span><span data-tempo class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-[var(--app-accent)] tabular-nums">${bpm} bpm</span>` : null}
+          ${bpm ? html`<span class="dk-line w-px h-3"></span><span data-tempo class="font-mono uppercase tracking-wider text-[length:var(--ms-label)] text-[var(--app-accent)] tabular-nums">${bpm} bpm</span>` : null}
         </${Island}>
       </div>
 
@@ -443,39 +480,39 @@ export function afterdark({ S }) {
         ${!entered ? html`<div class="absolute inset-0 flex flex-col items-center justify-start pt-[6%] gap-4 pointer-events-none">
           <button data-enter aria-label=${T(t, "enter")} onClick=${enter}
             class="pointer-events-auto flex flex-col items-center gap-3 select-none group">
-            <span class="dk-enter-ring w-24 h-24 rounded-full bg-black/50 backdrop-blur-md flex items-center justify-center text-white">
+            <span class="dk-enter dk-enter-ring w-24 h-24 rounded-full backdrop-blur-md flex items-center justify-center">
               <iconify-icon icon="lucide:play" class="text-4xl translate-x-0.5"></iconify-icon>
             </span>
-            <span class="font-mono uppercase tracking-[0.28em] text-sm text-white/90">${T(t, "enter")}</span>
+            <span class="font-mono uppercase tracking-[0.28em] text-sm dk-ink">${T(t, "enter")}</span>
           </button>
         </div>` : html`<div class="absolute inset-x-0 bottom-1 flex justify-center pointer-events-none">
           ${/* how many are dancing — the stage is the visual, this counts it */""}
-          <span class="font-mono uppercase tracking-[0.2em] text-[length:var(--ms-label)] text-white/55">${cast.length} / ${ALL_IDS.length} ${T(t, "onStage")}</span>
+          <span class="font-mono uppercase tracking-[0.2em] text-[length:var(--ms-label)] dk-ink-3">${cast.length} / ${ALL_IDS.length} ${T(t, "onStage")}</span>
         </div>`}
       </div>
 
       ${/* ONE island: the move filmstrip, the dancer filmstrip + the transport, together */""}
-      <${Island} tone="dark" className="shrink-0 flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
+      <${Island} tone="dark" className="dk-isle shrink-0 flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
         <div class="dk-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "moves")} data-moves=${moves.length}>
           ${/* which dances the floor may play: ★ = the top picks (default), «Усі» = the whole library; a chip's
                dot is its intensity tier (violet light · green groove · magenta drive) */""}
           <button data-stars type="button" aria-pressed=${isStars ? "true" : "false"} aria-label=${T(t, "starMoves")} onClick=${pickStars}
-            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${isStars ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.05] ring-1 ring-white/15 hover:opacity-100"}`}>
-            <iconify-icon icon="lucide:star" class="text-[length:var(--ms-label)] text-white/85"></iconify-icon>
-            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide text-white/85">${T(t, "starMoves")}</span>
+            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${isStars ? "dk-chip-on" : "dk-chip-off"}`}>
+            <iconify-icon icon="lucide:star" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
+            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "starMoves")}</span>
           </button>
           <button data-all-moves type="button" aria-pressed=${moves.length >= MOVE_IDS.length ? "true" : "false"} aria-label=${T(t, "all")} onClick=${pickAllMoves}
-            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${moves.length >= MOVE_IDS.length ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.05] ring-1 ring-white/15 hover:opacity-100"}`}>
-            <iconify-icon icon="lucide:sparkles" class="text-[length:var(--ms-label)] text-white/85"></iconify-icon>
-            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide text-white/85">${T(t, "all")}</span>
+            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${moves.length >= MOVE_IDS.length ? "dk-chip-on" : "dk-chip-off"}`}>
+            <iconify-icon icon="lucide:sparkles" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
+            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "all")}</span>
           </button>
           ${MOVES.map((m) => {
             const on = onMoves.has(m.id), tint = TIER_TINT[m.tier] || TIER_TINT.groove;
             return html`<button key=${m.id} data-move=${m.id} type="button" aria-pressed=${on ? "true" : "false"}
               aria-label=${m.name} onClick=${() => toggleMove(m.id)}
-              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.04] ring-1 ring-white/10 opacity-65 hover:opacity-100"}`}>
+              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "dk-chip-on" : "dk-chip-off dk-chip-dim"}`}>
               <span class="w-2 h-2 rounded-full shrink-0" style=${`background:${tint};box-shadow:${on ? `0 0 6px ${tint}` : "none"}`}></span>
-              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide whitespace-nowrap ${on ? "text-white" : "text-white/75"}`}>${m.name}</span>
+              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide whitespace-nowrap ${on ? "dk-ink" : "dk-ink-3"}`}>${m.name}</span>
             </button>`;
           })}
         </div>
@@ -483,17 +520,17 @@ export function afterdark({ S }) {
           ${/* tap a girl to add/remove her from the stage; the last one can't be removed */""}
           <button data-all type="button" aria-pressed=${cast.length >= ALL_IDS.length ? "true" : "false"}
             aria-label=${T(t, "all")} onClick=${pickAll}
-            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.05] ring-1 ring-white/15 hover:opacity-100"}`}>
-            <iconify-icon icon="lucide:users" class="text-[length:var(--ms-label)] text-white/85"></iconify-icon>
-            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide text-white/85">${T(t, "all")}</span>
+            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "dk-chip-on" : "dk-chip-off"}`}>
+            <iconify-icon icon="lucide:users" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
+            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "all")}</span>
           </button>
           ${GIRLS.map((g) => {
             const on = onStage.has(g.id);
             return html`<button key=${g.id} data-girl=${g.id} type="button" aria-pressed=${on ? "true" : "false"}
               aria-label=${`${g.name} — ${T(t, g.danceKey)}`} onClick=${() => toggleGirl(g.id)}
-              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "bg-white/15 ring-2 ring-[var(--app-accent)]" : "bg-white/[.04] ring-1 ring-white/10 opacity-65 hover:opacity-100"}`}>
+              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "dk-chip-on" : "dk-chip-off dk-chip-dim"}`}>
               <span class="w-3.5 h-3.5 rounded-full shrink-0" style=${`background:${g.tint};box-shadow:${on ? `0 0 7px ${g.tint}` : "none"}`}></span>
-              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide ${on ? "text-white" : "text-white/75"}`}>${g.name}</span>
+              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide ${on ? "dk-ink" : "dk-ink-3"}`}>${g.name}</span>
             </button>`;
           })}
         </div>

@@ -14,6 +14,10 @@
 // under their feet has real perspective; the shader background is occluded by the matte floor). On pause
 // everyone eases into the breathing idle under house lights.
 //
+// THEME-LIT (owner, 2026-09-11): the rig's colours come from the active theme (palette.js → env.pal: four
+// washes, sun, room tones, key) and a light theme lights the floor as DAY (env.day 0..1): a sunlit sky fill,
+// a warm strong key, the washes and the strobe pulled back (daylight cannot black out), a paper-toned floor.
+//
 // PROBE-guarded like the shader: created only where WebGL answers; the view skips it under the headless gate.
 
 import * as THREE from "three";
@@ -31,14 +35,16 @@ const IDLE_URL = new URL("assets/clip-idle.glb", import.meta.url).href;   // top
 const LOCK = 0.3;                                                    // clock confidence above which the floor follows it
 
 const C_KEY = 0xffe9f4, C_MAG = 0xff3eb5, C_GRN = 0x39ff6a, C_GOLD = 0xf5b942, C_VIO = 0x8b5cf6;
-// the brand ramp the floor cycles per bar: magenta → violet → green → gold (warm haze vs cool beams)
+// the wash ramp the floor cycles per bar — the brand colours until the theme palette arrives, then the theme's
 const BAR_COLORS = [new THREE.Color(C_MAG), new THREE.Color(C_VIO), new THREE.Color(C_GRN), new THREE.Color(C_GOLD)];
+const NIGHT_SKY = new THREE.Color(0x9a7ad8), NIGHT_GROUND = new THREE.Color(0x161022), NIGHT_FLOOR = new THREE.Color(0x07040c), WHITE = new THREE.Color(0xffffff);
+const _c = new THREE.Color(), _c2 = new THREE.Color(), _sun = new THREE.Color(), _key = new THREE.Color(), _bot = new THREE.Color();
 
 // the reactive dancefloor: an additive grid that scrolls toward the crowd, brightens on the beat, and rings
 // out from the centre on every bar; colour cycles with the bar. uBeat/uBar are the ANTICIPATED phases.
 const FLOOR_VERT = `varying vec2 vP; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vP = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }`;
 const FLOOR_FRAG = `precision highp float; varying vec2 vP;
-uniform float uTime, uBeat, uBar, uPulse, uConf, uCalm; uniform vec3 uColor, uColor2;
+uniform float uTime, uBeat, uBar, uPulse, uConf, uCalm, uDay; uniform vec3 uColor, uColor2;
 void main(){
   float beat = 0.25 + 0.9 * max(uPulse, exp(-uBeat * 5.0) * uConf);
   vec2 g = abs(fract(vP * 0.9 + vec2(0.0, uTime * 0.18)) - 0.5);
@@ -46,10 +52,10 @@ void main(){
   vec2 c = vP - vec2(0.0, -0.8);
   float r = length(c);
   float ring = exp(-pow((r - uBar * 6.0) * 1.6, 2.0)) * (1.0 - uBar) * uConf;
-  float fade = smoothstep(7.5, 1.0, r);
+  float fade = 1.0 - smoothstep(1.0, 7.5, r);
   vec3 col = mix(uColor, uColor2, smoothstep(0.0, 1.0, uBar));
-  float a = (line * beat * 0.32 + ring * 0.55) * fade * (1.0 - 0.8 * uCalm);
-  gl_FragColor = vec4(col * a, 1.0);
+  float a = (line * beat * 0.32 + ring * 0.55) * fade * (1.0 - 0.8 * uCalm) * (1.0 - 0.6 * uDay);
+  gl_FragColor = vec4(col * a, 0.0);
 }`;
 
 // `onStatus(state, detail)` is the stage's DOM readout (glstage law: every meaning the canvas carries is
@@ -93,10 +99,16 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
   // table top; matte and near-black so the coloured lights tint it without turning it into a wooden deck.
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, 24), new THREE.MeshStandardMaterial({ color: 0x07040c, roughness: 0.75, metalness: 0.25, transparent: true, opacity: 0.85, alphaMap: radial("#ffffff", "#000000") }));
   floor.rotation.x = -Math.PI / 2; floor.position.set(0, -0.002, -2); scene.add(floor);
-  const gridU = { uTime: { value: 0 }, uBeat: { value: 0 }, uBar: { value: 0 }, uPulse: { value: 0 }, uConf: { value: 0 }, uCalm: { value: 0 }, uColor: { value: BAR_COLORS[0].clone() }, uColor2: { value: BAR_COLORS[1].clone() } };
-  const grid = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), new THREE.ShaderMaterial({ uniforms: gridU, vertexShader: FLOOR_VERT, fragmentShader: FLOOR_FRAG, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  const gridU = { uTime: { value: 0 }, uBeat: { value: 0 }, uBar: { value: 0 }, uPulse: { value: 0 }, uConf: { value: 0 }, uCalm: { value: 0 }, uDay: { value: 0 }, uColor: { value: BAR_COLORS[0].clone() }, uColor2: { value: BAR_COLORS[1].clone() } };
+  // ADDITIVE LIGHT ON A TRANSPARENT CANVAS: the stock AdditiveBlending also ADDS ALPHA, so wherever a light
+  // layer covers the (semi-transparent) floor the canvas pixel turns opaque and the page composites its
+  // premultiplied — i.e. darkened — colour: the floor read as a black slab by day (measured 2026-09-11).
+  // Custom blending adds colour only (dst alpha × 1 + src alpha × 0), so light leaks onto the field behind.
+  const additive = { blending: THREE.CustomBlending, blendEquation: THREE.AddEquation, blendSrc: THREE.OneFactor, blendDst: THREE.OneFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor, depthWrite: false, transparent: true };
+  const grid = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), new THREE.ShaderMaterial({ uniforms: gridU, vertexShader: FLOOR_VERT, fragmentShader: FLOOR_FRAG, ...additive }));
   grid.rotation.x = -Math.PI / 2; grid.position.set(0, 0.003, -1.5); scene.add(grid);
-  const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: radial("rgba(255,62,181,0.30)", "rgba(255,62,181,0)"), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+  // the pool's map carries its falloff in RGB (black edge), not in alpha, so colour-only blending fades it
+  const lightPool = new THREE.Mesh(new THREE.PlaneGeometry(9, 9), new THREE.MeshBasicMaterial({ map: radial("rgba(77,77,77,1)", "rgba(0,0,0,1)"), color: C_MAG, ...additive }));   // grey map × the lead wash colour
   lightPool.rotation.x = -Math.PI / 2; lightPool.position.set(0, 0.004, -0.6); scene.add(lightPool);
   const shadowMat = new THREE.MeshBasicMaterial({ map: radial("rgba(0,0,0,0.6)", "rgba(0,0,0,0)"), transparent: true, depthWrite: false });
 
@@ -290,22 +302,46 @@ export function createDanceStage(canvas, getEnv, onStatus = () => {}) {
     // chase: the wash for THIS beat of the bar leads (a full pop), the others stay low; between beats every
     // wash sinks, so the floor blinks with the kick instead of glowing through it. The kick transient still
     // punches everything (unsure clock → that alone runs the rig, as before).
+    // THE THEME: colours off env.pal (eased by the view), day 0..1 — applied every frame (a handful of sets)
+    const day = clamp(env.day || 0, 0, 1), pal = env.pal;
+    if (pal && pal.length >= 32) {
+      for (let i = 0; i < 4; i++) { washes[i].color.setRGB(pal[i * 4], pal[i * 4 + 1], pal[i * 4 + 2]); BAR_COLORS[i].copy(washes[i].color); }
+      _sun.setRGB(pal[16], pal[17], pal[18]); _bot.setRGB(pal[24], pal[25], pal[26]); _key.setRGB(pal[28], pal[29], pal[30]);
+    } else { _sun.setHex(C_GOLD); _bot.copy(NIGHT_FLOOR); _key.setHex(C_KEY); }
+    // sky: at night the violet dome tinted by the second wash; by day white warmed by the sun
+    hemi.color.copy(NIGHT_SKY).lerp(washes[1].color, 0.35).lerp(_c.copy(WHITE).lerp(_sun, 0.25), day);
+    hemi.groundColor.copy(NIGHT_GROUND).lerp(_bot, day);
+    key.color.copy(_key).lerp(_c2.copy(_sun).lerp(WHITE, 0.5), day);
+    floor.material.color.copy(NIGHT_FLOOR).lerp(_c.copy(_bot).multiplyScalar(0.85), day);
+    floor.material.opacity = 0.85 - 0.3 * day;
+    renderer.toneMappingExposure = 1.15 - 0.15 * day;
+    gridU.uDay.value = day;
+
     const kEff = kick * (1 - calm * 0.85);
     const drive = tier === "drive" ? 1 : tier === "groove" ? 0.35 : 0;
     const dip = 1 - 0.55 * lit * (barA > 0.86 ? (barA - 0.86) / 0.14 : 0);       // the breath before the downbeat
     const slam = lit * Math.exp(-barA * 4);                                       // the downbeat, a slower envelope
     const chase = beatIndex & 3;
+    // by day the washes are coloured accents in sunlight, not the light itself; the sun (key + sky) carries
+    // the room, and nothing can black it out — dims, dips and the strobe are pulled back with `day`
+    const dayDip = 1 - (1 - dip) * (1 - 0.7 * day);
     for (let i = 0; i < 4; i++) {
       const lead = chase === i ? 1 : 0.22;
       const on = Math.max(pulse * 0.8, beatEnv * lead, slam * 0.5);
       const idle = 0.55 * (1 - lit) + 0.12 * lit;                                // unlit rig: the old steady glow
-      washes[i].intensity = ((idle + 2.6 * on) * dip) * (1 - calm) + 0.45 * calm;
+      washes[i].intensity = ((idle + 2.6 * on) * dayDip) * (1 - calm) * (1 - 0.6 * day) + 0.45 * calm * (1 - 0.5 * day);
     }
-    // the white key: steady house light when unsure; locked → dims between beats, STROBES in the drive tier
-    const strobe = drive * lit * Math.exp(-beatA * 18) * (0.5 + 0.5 * Math.min(1, sEnergy * 2));
-    key.intensity = (2.0 * (1 - 0.5 * lit * (1 - beatEnv)) + 0.7 * pulse + 5.5 * strobe) * dip * (1 - calm * 0.4) + 0.8 * calm;
-    hemi.intensity = (0.95 * (1 - 0.45 * lit * (1 - Math.max(beatEnv, slam)))) * dip * (1 - calm * 0.3) + 0.3 * calm;
-    lightPool.material.opacity = (0.3 + 0.7 * hit) * dip * (1 - calm * 0.7);      // the floor blinks with the beat
+    // the key: steady house light when unsure; locked → dims between beats, STROBES in the drive tier; by day
+    // it is the SUN — strong, warm, steady, with only a breath of the beat
+    const strobe = drive * lit * Math.exp(-beatA * 18) * (0.5 + 0.5 * Math.min(1, sEnergy * 2)) * (1 - 0.85 * day);
+    const keyNight = (2.0 * (1 - 0.5 * lit * (1 - beatEnv)) + 0.7 * pulse + 5.5 * strobe) * dip * (1 - calm * 0.4) + 0.8 * calm;
+    const keyDay = 3.2 * (1 - 0.12 * lit * (1 - beatEnv)) + 0.3 * pulse + 5.5 * strobe;
+    key.intensity = keyNight + (keyDay - keyNight) * day;
+    const hemiNight = (0.95 * (1 - 0.45 * lit * (1 - Math.max(beatEnv, slam)))) * dip * (1 - calm * 0.3) + 0.3 * calm;
+    const hemiDay = 1.7 * (1 - 0.1 * lit * (1 - beatEnv));
+    hemi.intensity = hemiNight + (hemiDay - hemiNight) * day;
+    lightPool.material.color.copy(washes[0].color);
+    lightPool.material.opacity = (0.3 + 0.7 * hit) * dip * (1 - calm * 0.7) * (1 - 0.5 * day);   // the floor blinks with the beat
     lightPool.scale.setScalar(1 + 0.12 * hit);
     gridU.uTime.value = (now - t0) / 1000; gridU.uBeat.value = beatA; gridU.uBar.value = barA; gridU.uPulse.value = pulse;
     gridU.uConf.value = locked ? conf : 0.35; gridU.uCalm.value = calm;
