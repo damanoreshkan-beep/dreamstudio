@@ -1,0 +1,102 @@
+// afterdark — the CAST tab: who dances and what they dance (owner, 2026-09-12: «окремий таб: персонажі сіткою
+// аватарів, окремо танці»). Two sections behind one strip: the CHARACTER GRID — every Mixamo character as a
+// round avatar, tap to put on / take off the stage (up to MAX_CAST) — and the MOVE LIBRARY: the 36 curated
+// dances and the library's dances in the open, the other ~2100 motions (walks, fights, idles…) behind one
+// «Ще +» key (owner: «другорядні рухи сховай за кнопкою ще+»), with a search that cuts through all of it.
+// This tab only edits the persisted working set (state.js); the stage view listens and drives the engine.
+import { html } from "htm/preact";
+import { useEffect, useState } from "preact/hooks";
+import { useStore } from "@nanostores/preact";
+import { persistentAtom } from "@nanostores/persistent";
+import { Segmented } from "/_rt/ui.js";
+import { T } from "/_rt/i18n.js";
+import { CHARACTERS, avatarUrl } from "./characters.js";
+import { MOVES, DEFAULT_MOVES, loadCatalog, getCatalog } from "./dances.js";
+import { $cast, $moves, getCast, getMoves, toggleChar, toggleMove, setCast, setMoves, mixCast, DEFAULT_CAST, MAX_CAST } from "./state.js";
+
+const $section = persistentAtom("afterdark:castTab", "chars");
+const TIER_TINT = { light: "#8B5CF6", groove: "#39FF6A", drive: "#FF3EB5" };
+const SHOW_MAX = 400;                          // the long tail renders this many at once; the search reaches the rest
+const norm = (s) => String(s || "").toLowerCase();
+const chip = (on) => `btn btn-sm rounded-full h-auto min-h-0 py-1.5 gap-1.5 normal-case font-normal ${on ? "btn-primary" : "btn-ghost border border-base-content/15"}`;
+
+function MoveChip({ m, on, name }) {
+  const tint = TIER_TINT[m.tier] || TIER_TINT.groove;
+  return html`<button key=${m.id} data-move=${m.id} type="button" aria-pressed=${on ? "true" : "false"} title=${name} onClick=${() => toggleMove(m.id)} class=${chip(on) + " pl-2 pr-3"}>
+    <span class="w-2 h-2 rounded-full shrink-0" style=${`background:${tint};box-shadow:${on ? `0 0 6px ${tint}` : "none"}`}></span>
+    <span class="font-mono text-[0.78rem] tracking-wide whitespace-nowrap">${name}</span>
+  </button>`;
+}
+
+export function castView({ S }) {
+  const t = useStore(S.t);
+  const section = useStore($section);
+  useStore($cast); useStore($moves);
+  const cast = getCast(), moves = getMoves();
+  const onStage = new Set(cast), onFloor = new Set(moves);
+  const [kind, setKind] = useState("all");
+  const [capHint, setCapHint] = useState(false);
+  const [more, setMore] = useState(false);
+  const [q, setQ] = useState("");
+  const [catalog, setCatalog] = useState(getCatalog());
+  useEffect(() => { if (section === "moves" && !catalog) loadCatalog().then((c) => setCatalog(c)); }, [section]);
+  useEffect(() => { if (!capHint) return; const id = setTimeout(() => setCapHint(false), 2200); return () => clearTimeout(id); }, [capHint]);
+
+  const chars = CHARACTERS.filter((g) => kind === "all" || (kind === "creature" ? g.kind === "creature" : g.kind !== "creature"));
+  const tap = (id) => { if (!toggleChar(id)) setCapHint(true); };
+  const isTopCast = cast.length === DEFAULT_CAST.length && DEFAULT_CAST.every((id) => onStage.has(id));
+
+  const ql = norm(q.trim());
+  const libDances = (catalog || []).filter((m) => m.dance);
+  const libRest = (catalog || []).filter((m) => !m.dance);
+  const hit = (m, name) => !ql || norm(name).includes(ql) || norm(m.title).includes(ql);
+  const curated = MOVES.filter((m) => hit(m, m.name));
+  const dances = libDances.filter((m) => hit(m, m.name));
+  const rest = (more || ql) ? libRest.filter((m) => hit(m, m.name)) : [];
+  const allDanceIds = [...MOVES.map((m) => m.id), ...libDances.map((m) => m.id)];
+  const isStars = moves.length === DEFAULT_MOVES.length && DEFAULT_MOVES.every((id) => onFloor.has(id));
+  const allDancesOn = allDanceIds.length > 0 && allDanceIds.every((id) => onFloor.has(id));
+
+  return html`<div data-cast-tab class="h-full min-h-0 overflow-y-auto pb-[calc(var(--dock-h)+env(safe-area-inset-bottom)+1rem)]">
+    <div class="sticky top-0 z-10 bg-base-200/90 backdrop-blur-md py-2 -mx-[var(--ms-pad)] px-[var(--ms-pad)]">
+      <${Segmented} attr="data-cast-section" size="sm" label=${T(t, "tabCast")} value=${section} onChange=${(v) => $section.set(v)}
+        items=${[{ id: "chars", label: T(t, "dancers"), icon: "lucide:users", meta: String(cast.length) }, { id: "moves", label: T(t, "moves"), icon: "lucide:footprints", meta: String(moves.length) }]} />
+    </div>
+
+    ${section === "chars" ? html`
+      <div class="flex items-center gap-2 py-2 flex-wrap">
+        <span data-cast-count class="badge badge-ghost font-mono tabular-nums">${cast.length}/${MAX_CAST}</span>
+        <button data-cast-top type="button" class=${chip(isTopCast)} onClick=${() => setCast(DEFAULT_CAST.slice())}><iconify-icon icon="lucide:star"></iconify-icon>${T(t, "starMoves")}</button>
+        <button data-mix type="button" class=${chip(false)} onClick=${() => mixCast()}><iconify-icon icon="lucide:shuffle"></iconify-icon>${T(t, "mix")}</button>
+        <div class="ml-auto"><${Segmented} attr="data-kind" size="sm" variant="ghost" label=${T(t, "kind")} value=${kind} onChange=${setKind}
+          items=${[{ id: "all", label: T(t, "all"), icon: "lucide:users" }, { id: "human", label: T(t, "kindHuman"), icon: "lucide:user" }, { id: "creature", label: T(t, "kindCreature"), icon: "lucide:ghost" }]} /></div>
+      </div>
+      <p data-cap-hint class=${`text-[0.82rem] text-warning transition-opacity duration-300 ${capHint ? "opacity-100" : "opacity-0"}`} aria-live="polite">${T(t, "capHint")}</p>
+      <div data-char-grid class="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-x-2 gap-y-4 pt-1">
+        ${chars.map((g) => { const on = onStage.has(g.id); return html`<button key=${g.id} data-char=${g.id} type="button" aria-pressed=${on ? "true" : "false"} aria-label=${g.name} onClick=${() => tap(g.id)}
+            class=${`flex flex-col items-center gap-1.5 min-w-0 rounded-2xl p-1 active:scale-[.96] transition-[transform,opacity] ${on ? "" : "opacity-60 hover:opacity-100"}`}>
+            <span class="rounded-full p-0.5 transition-shadow duration-200 bg-base-content/5" style=${on ? `box-shadow:0 0 0 2.5px ${g.tint},0 0 16px ${g.tint}66` : ""}>
+              <img src=${avatarUrl(g.id)} alt="" width="72" height="72" loading="lazy" decoding="async" class="w-16 h-16 sm:w-[4.5rem] sm:h-[4.5rem] rounded-full object-cover block" />
+            </span>
+            <span class="text-[0.7rem] leading-tight truncate max-w-full text-base-content/80">${g.name}</span>
+          </button>`; })}
+      </div>` : html`
+      <div class="flex items-center gap-2 py-2 flex-wrap">
+        <span data-moves class="badge badge-ghost font-mono tabular-nums" data-moves=${moves.length}>${moves.length}</span>
+        <button data-stars type="button" class=${chip(isStars)} onClick=${() => setMoves(DEFAULT_MOVES.slice())}><iconify-icon icon="lucide:star"></iconify-icon>${T(t, "starMoves")}</button>
+        <button data-all-moves type="button" aria-pressed=${allDancesOn ? "true" : "false"} class=${chip(allDancesOn)} onClick=${() => setMoves(allDancesOn ? DEFAULT_MOVES.slice() : allDanceIds)}><iconify-icon icon="lucide:sparkles"></iconify-icon>${T(t, "allDances")}</button>
+        <input data-move-search type="search" value=${q} placeholder=${T(t, "searchMoves")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[9rem]" />
+      </div>
+      <h3 class="text-[0.78rem] font-medium text-muted pt-1 pb-1.5">${T(t, "moves")} · ${curated.length + dances.length}</h3>
+      <div data-move-list class="flex flex-wrap gap-1.5">
+        ${curated.map((m) => html`<${MoveChip} key=${m.id} m=${m} on=${onFloor.has(m.id)} name=${m.name} />`)}
+        ${dances.map((m) => html`<${MoveChip} key=${m.id} m=${m} on=${onFloor.has(m.id)} name=${m.name} />`)}
+      </div>
+      ${!catalog ? html`<p class="text-[0.82rem] text-muted py-3">${T(t, "loadingLib")}</p>` : more || ql ? html`
+        <h3 class="text-[0.78rem] font-medium text-muted pt-4 pb-1.5">${T(t, "moreMoves")} · ${rest.length}</h3>
+        <div data-more-list class="flex flex-wrap gap-1.5">${rest.slice(0, SHOW_MAX).map((m) => html`<${MoveChip} key=${m.id} m=${m} on=${onFloor.has(m.id)} name=${m.name} />`)}</div>
+        ${rest.length > SHOW_MAX ? html`<p class="text-[0.82rem] text-muted py-3">${T(t, "narrowSearch")}</p>` : null}`
+        : html`<button data-more type="button" class="btn btn-ghost btn-sm rounded-full mt-4 gap-1.5 border border-base-content/15" onClick=${() => setMore(true)}>
+            <iconify-icon icon="lucide:plus"></iconify-icon>${T(t, "more")} +${libRest.length}</button>`}`}
+  </div>`;
+}

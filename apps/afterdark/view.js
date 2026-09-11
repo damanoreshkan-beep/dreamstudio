@@ -31,8 +31,9 @@ import { retryDelay, progressCheck } from "/_rt/tide.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { bassEnergy, stepPulse, idleGroove, integratePhase } from "/_rt/afterdark.js";
 import { spectralFlux, createBeatState, stepBeat, BPM_REF } from "/_rt/afterbeat.js";
-import { CHARACTERS, avatarUrl } from "./characters.js";
-import { MOVES, MOVE_IDS, DEFAULT_MOVES } from "./dances.js";
+import { MOVE_IDS, loadCatalog } from "./dances.js";
+import { $cast, $moves, getCast, getMoves } from "./state.js";
+export { castView } from "./cast.js";
 import { readPalette, isDay, SLOTS } from "./palette.js";
 
 const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
@@ -82,26 +83,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const frac = (x) => x - Math.floor(x);
 const IDLE_BPM = 126;                                               // the groove when there is no audio
 
-// ---- persisted working set ----
-// the CAST: which characters are on stage (1..11). A JSON id array; the engine lays them out as a crowd that fits
-// the screen. Tapping a chip toggles a character on/off; the last one can't be removed (the stage is never empty).
-const DEFAULT_CAST = ["kaya", "michelle", "arissa"];
-const $cast = persistentAtom("afterdark:cast", JSON.stringify(DEFAULT_CAST));
-const ALL_IDS = CHARACTERS.map((g) => g.id);
-function getCast() {
-  let a; try { a = JSON.parse($cast.get()); } catch { a = null; }
-  a = Array.isArray(a) ? a.filter((id) => ALL_IDS.includes(id)) : [];
-  return a.length ? a : DEFAULT_CAST.slice();
-}
-// the MOVES: which dances the floor may play (1..36). A JSON id array; default = the ★ picks. Tapping a chip
-// toggles a move; the last one can't be removed (the floor never runs dry). Clips load on demand.
-const $moves = persistentAtom("afterdark:moves", JSON.stringify(DEFAULT_MOVES));
-function getMoves() {
-  let a; try { a = JSON.parse($moves.get()); } catch { a = null; }
-  a = Array.isArray(a) ? a.filter((id) => MOVE_IDS.includes(id)) : [];
-  return a.length ? a : DEFAULT_MOVES.slice();
-}
-const TIER_TINT = { light: "#8B5CF6", groove: "#39FF6A", drive: "#FF3EB5" };
+// ---- persisted working set: who is on stage and what they dance — state.js (the cast tab edits, we follow) ----
 const $muted = persistentAtom("afterdark:muted", "0");
 const $dock = persistentAtom("afterdark:dock", "1");             // "1" = the island is open; "0" = folded to one key (owner, 2026-09-11)
 // the Enter cover is dismissed once the audio gesture happened; under the gate the shot is the live rave, so
@@ -494,18 +476,14 @@ export function afterdark({ S }) {
     return () => { engine?.dispose?.(); engineRef.current = null; };
   }, []);
 
-  const onStage = new Set(cast);
   const onToggle = () => (entered ? toggle() : enter());
-  const applyCast = (next) => { if (!next.length) return; $cast.set(JSON.stringify(next)); engineRef.current?.setCast?.(next); };
-  const toggleChar = (id) => { const c = getCast(); applyCast(c.includes(id) ? (c.length > 1 ? c.filter((x) => x !== id) : c) : [...c, id]); };
-  const pickAll = () => applyCast(cast.length >= ALL_IDS.length ? DEFAULT_CAST.slice() : ALL_IDS.slice());
-  const onMoves = new Set(moves);
-  const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
-  const applyMoves = (next) => { if (!next.length) return; $moves.set(JSON.stringify(next)); engineRef.current?.setMoves?.(next); };
-  const toggleMove = (id) => { const m = getMoves(); applyMoves(m.includes(id) ? (m.length > 1 ? m.filter((x) => x !== id) : m) : [...m, id]); };
-  const pickStars = () => applyMoves(DEFAULT_MOVES.slice());
-  const pickAllMoves = () => applyMoves(moves.length >= MOVE_IDS.length ? DEFAULT_MOVES.slice() : MOVE_IDS.slice());
-  const isStars = sameSet(moves, DEFAULT_MOVES);
+  // the working set is edited on the cast tab; a change lands on the engine here (a library move needs its
+  // tier from the catalog first, so the floor never has to guess)
+  useEffect(() => { engineRef.current?.setCast?.(cast); }, [cast.join()]);
+  useEffect(() => {
+    if (moves.some((id) => !MOVE_IDS.includes(id))) loadCatalog().then(() => engineRef.current?.setMoves?.(getMoves()));
+    else engineRef.current?.setMoves?.(moves);
+  }, [moves.join()]);
   const onPointer = (e) => { if (env.mode === "orient" || ptrs.size) return; env.mode = "pointer"; const r = e.currentTarget.getBoundingClientRect(); env.ttx = clamp((e.clientX - r.left) / r.width * 2 - 1, -1, 1); env.tty = clamp((e.clientY - r.top) / r.height * 2 - 1, -1, 1); };
 
   return html`<${Fragment}>
@@ -539,53 +517,10 @@ export function afterdark({ S }) {
         </div>` : null}
       </div>
 
-      ${/* ONE island: the move filmstrip, the dancer filmstrip + the transport, together — and a fold key that
-           collapses the whole thing SMOOTHLY into that one key (grid-rows + max-width transitions, see CSS) */""}
+      ${/* ONE island: the transport — and a fold key that collapses the whole thing SMOOTHLY into that one key
+           (grid-rows + max-width transitions, see CSS). The pickers live on the cast tab. */""}
       <${Island} tone="dark" className="dk-isle dk-dock shrink-0 flex flex-col gap-[var(--ms-gap)] w-full mx-auto" data-dock=${dockOpen ? "open" : "folded"}>
         <div class="dk-fold"><div class="dk-fold-in flex flex-col gap-[var(--ms-gap)]">
-        <div class="dk-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "moves")} data-moves=${moves.length}>
-          ${/* which dances the floor may play: ★ = the top picks (default), «Усі» = the whole library; a chip's
-               dot is its intensity tier (violet light · green groove · magenta drive) */""}
-          <button data-stars type="button" aria-pressed=${isStars ? "true" : "false"} aria-label=${T(t, "starMoves")} onClick=${pickStars}
-            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${isStars ? "dk-chip-on" : "dk-chip-off"}`}>
-            <iconify-icon icon="lucide:star" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
-            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "starMoves")}</span>
-          </button>
-          <button data-all-moves type="button" aria-pressed=${moves.length >= MOVE_IDS.length ? "true" : "false"} aria-label=${T(t, "all")} onClick=${pickAllMoves}
-            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${moves.length >= MOVE_IDS.length ? "dk-chip-on" : "dk-chip-off"}`}>
-            <iconify-icon icon="lucide:sparkles" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
-            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "all")}</span>
-          </button>
-          ${MOVES.map((m) => {
-            const on = onMoves.has(m.id), tint = TIER_TINT[m.tier] || TIER_TINT.groove;
-            return html`<button key=${m.id} data-move=${m.id} type="button" aria-pressed=${on ? "true" : "false"}
-              aria-label=${m.name} onClick=${() => toggleMove(m.id)}
-              class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full pl-1.5 pr-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${on ? "dk-chip-on" : "dk-chip-off dk-chip-dim"}`}>
-              <span class="w-2 h-2 rounded-full shrink-0" style=${`background:${tint};box-shadow:${on ? `0 0 6px ${tint}` : "none"}`}></span>
-              <span class=${`font-mono text-[length:var(--ms-label)] tracking-wide whitespace-nowrap ${on ? "dk-ink" : "dk-ink-3"}`}>${m.name}</span>
-            </button>`;
-          })}
-        </div>
-        <div class="dk-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "dancers")}>
-          ${/* tap a character to add/remove her from the stage; the last one can't be removed */""}
-          <button data-all type="button" aria-pressed=${cast.length >= ALL_IDS.length ? "true" : "false"}
-            aria-label=${T(t, "all")} onClick=${pickAll}
-            class=${`dk-chip shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-[background-color,box-shadow,transform,opacity] duration-200 ${cast.length >= ALL_IDS.length ? "dk-chip-on" : "dk-chip-off"}`}>
-            <iconify-icon icon="lucide:users" class="text-[length:var(--ms-label)] dk-ink-2"></iconify-icon>
-            <span class="font-mono uppercase text-[length:var(--ms-label)] tracking-wide dk-ink-2">${T(t, "all")}</span>
-          </button>
-          ${/* one round avatar per character, no names (owner, 2026-09-11) — the name stays as the label for
-               a screen reader; the ring is the character's tint when on stage */""}
-          ${CHARACTERS.map((g) => {
-            const on = onStage.has(g.id);
-            return html`<button key=${g.id} data-char=${g.id} type="button" aria-pressed=${on ? "true" : "false"}
-              aria-label=${g.name} title=${g.name} onClick=${() => toggleChar(g.id)}
-              class=${`dk-chip dk-av shrink-0 rounded-full p-0 transition-[box-shadow,transform,opacity] duration-200 ${on ? "" : "dk-chip-dim"}`}
-              style=${on ? `box-shadow:0 0 0 2px ${g.tint},0 0 12px ${g.tint}66` : ""}>
-              <img src=${avatarUrl(g.id)} alt="" width="40" height="40" loading="lazy" decoding="async" class="w-10 h-10 rounded-full object-cover block" />
-            </button>`;
-          })}
-        </div>
         <${Transport} locale=${loc} playing=${playing} onToggle=${onToggle} stopIcon=${true}
           actions=${[
             { id: "mute", icon: mute ? "lucide:volume-x" : "lucide:volume-2", label: T(t, mute ? "aUnmute" : "aMute"), active: mute, pressed: mute, onClick: () => setMuted(!mute), attr: { "data-mute": "" } },

@@ -4,8 +4,32 @@
   "category": "creative",
   "accent": "#FF3EB5",
   "tabs": [
-    { "id": "stage", "type": "tool", "icon": "lucide:disc-3", "label": "tabStage", "view": "afterdark", "fit": true, "needs": ["wakeLock", "orientation"] },
-    { "id": "me", "type": "profile", "icon": "lucide:user", "label": "tabMe", "titleKey": "tabMe" }
+    {
+      "id": "stage",
+      "type": "tool",
+      "icon": "lucide:disc-3",
+      "label": "tabStage",
+      "view": "afterdark",
+      "fit": true,
+      "needs": [
+        "wakeLock",
+        "orientation"
+      ]
+    },
+    {
+      "id": "cast",
+      "type": "tool",
+      "icon": "lucide:users",
+      "label": "tabCast",
+      "view": "castView"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
   ],
   "profile": {
     "icon": "lucide:disc-3",

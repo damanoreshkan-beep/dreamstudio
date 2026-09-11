@@ -23,5 +23,17 @@
   "installDesc": "Opens like an app, straight into the rave",
   "installIosHint": "In Safari: tap Share, then Add to Home Screen.",
   "installGenericHint": "In the browser menu choose Install or Add to Home Screen.",
-  "close": "Close"
+  "close": "Close",
+  "tabCast": "Cast",
+  "mix": "Mix",
+  "kind": "Who",
+  "kindHuman": "Humans",
+  "kindCreature": "Creatures",
+  "capHint": "The stage holds up to 12 characters — take one off first.",
+  "allDances": "All dances",
+  "searchMoves": "Search a move…",
+  "moreMoves": "Other moves",
+  "more": "More",
+  "loadingLib": "Loading the library…",
+  "narrowSearch": "Showing the first 400 — narrow the search."
 }

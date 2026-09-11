@@ -47,12 +47,30 @@ export const MOVES = [
 export const MOVE_IDS = MOVES.map((m) => m.id);
 export const DEFAULT_MOVES = MOVES.filter((m) => m.star).map((m) => m.id);
 export const moveById = (id) => MOVES.find((m) => m.id === id) || null;
-export const moveUrl = (id) => new URL(`assets/move-${id}.glb`, import.meta.url).href;   // top-level: the build copies files in assets/, not subdirs
+// The LIBRARY: every other Mixamo motion (moves.json — id, name, dance flag, tier), clips on the VPS. The 36
+// curated moves ship in assets/; a library id is any Mixamo numeric product id. Loaded once, lazily (the cast
+// tab's «Ще +», or the stage when a saved selection holds library ids).
+export const LIB_URL = "https://dreamstudio.mooo.com/geo/mx";
+const BUNDLED = new Set(MOVE_IDS);
+export const isMoveId = (id) => /^\d{6,}$/.test(String(id));
+export const moveUrl = (id) => (BUNDLED.has(id) ? new URL(`assets/move-${id}.glb`, import.meta.url).href : (isMoveId(id) ? `${LIB_URL}/move/${id}.glb` : null));   // top-level: the build copies files in assets/, not subdirs
+let catalog = null, catalogP = null;
+const libTier = new Map();
+export function loadCatalog() {
+  if (!catalogP) catalogP = fetch(new URL("moves.json", import.meta.url)).then((r) => r.json()).then((list) => {
+    catalog = list.filter((m) => !BUNDLED.has(m.id));
+    for (const m of catalog) libTier.set(m.id, m.tier);
+    return catalog;
+  }).catch(() => { catalogP = null; return []; });
+  return catalogP;
+}
+export const getCatalog = () => catalog;
+export const libTierOf = (id) => libTier.get(id) || "groove";
 
 // The director's tiers for a selection: every tier holds only switched-on moves; a tier left empty borrows
 // the whole selection so the floor never freezes (the calm tier is the breathing idle, always).
 export function tiersFor(ids) {
-  const on = MOVES.filter((m) => ids.includes(m.id));
+  const on = ids.map((id) => moveById(id) || { id, tier: libTierOf(id) });
   const pick = (t) => on.filter((m) => m.tier === t).map((m) => m.id);
   const all = on.map((m) => m.id);
   const light = pick("light"), groove = pick("groove"), drive = pick("drive");
