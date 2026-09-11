@@ -1,0 +1,18 @@
+{
+  "id": "afterdark",
+  "theme": "signal",
+  "category": "creative",
+  "accent": "#FF3EB5",
+  "tabs": [
+    { "id": "stage", "type": "tool", "icon": "lucide:disc-3", "label": "tabStage", "view": "afterdark", "fit": true, "needs": ["wakeLock", "orientation"] },
+    { "id": "me", "type": "profile", "icon": "lucide:user", "label": "tabMe", "titleKey": "tabMe" }
+  ],
+  "profile": {
+    "icon": "lucide:disc-3",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any"
+  },
+  "added": "2026-09-11"
+}

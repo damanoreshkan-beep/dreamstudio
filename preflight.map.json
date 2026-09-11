@@ -17,6 +17,7 @@
     "lodash-es": "https://esm.sh/lodash-es@4.17.21",
     "canvas": "https://jsr.io/@microspec/core/1.2.66/packages/gates/canvas-stub.js",
     "/_rt/acts.js": "./rt/acts.js",
+    "/_rt/afterdark.js": "./rt/afterdark.js",
     "/_rt/ai-astro.js": "./rt/ai-astro.js",
     "/_rt/ai-books.js": "./rt/ai-books.js",
     "/_rt/ai-tarot.js": "./rt/ai-tarot.js",
