@@ -25,9 +25,19 @@ and the DOM chrome is dark glass in both farm themes.
   whole floor; each dancer swaps moves on her own clock. The kick punches a squash + a rim-light flash. The
   cast lays out as a crowd that fits the viewport width (cols from aspect). Probe-guarded; SKIPPED under the
   headless gate (Draco/addons/GLBs over CDNs flake CI) — the DOM carries every meaning there.
-- **The floor (2026-09-11).** A dark half-transparent standard plane catches the coloured lights, an
-  additive light pool under the crowd breathes with the kick, and each dancer stands on a soft contact
-  shadow (a canvas radial). Three standard meshes; no shadow maps on a phone GPU.
+- **The floor (2026-09-11).** A matte near-black plane that fades out radially (alphaMap — a finite
+  plane's far edge is a table-top horizon) catches the coloured lights, an additive light pool under the
+  crowd breathes with the kick, and each dancer stands on a soft contact shadow that follows her HIPS
+  bone. Three standard meshes; no shadow maps on a phone GPU.
+- **Standing on the floor is a construction, not an estimate.** Measured (`glb-inspect`, the GLB JSON
+  chunk): the rigs share the bone tree but NOT the size — hips bind height 0.37 (pirate), 0.71 (kaya),
+  1.03 (michelle), 1.13 (akai) in their own units; each clip's `Hips.position` track is in its SOURCE
+  rig's units. Two rules therefore hold in `dancers.js`: (1) a shared clip's hips track is scaled by
+  target/source bind height when the action is created (root-translation retargeting, the bob stays
+  proportional); (2) every frame, after the mixer, the foot bones (`*Foot`, `*ToeBase`, `*Toe_End`) are
+  measured in world space and the root is lifted so the LOWER foot touches y=0. No per-rig constant, no
+  bind-pose guess; a jump clip is flattened to a slide, which is the cheaper failure. Owner, 2026-09-11:
+  «такого багу як по висоті бути не може, всі персонажі мають бути на сцені на полу стояти».
 
 ## The eye on the LIVE app (2026-09-11) — the audit
 
