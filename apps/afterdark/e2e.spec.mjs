@@ -72,6 +72,16 @@ export default [
     },
   },
   {
+    name: "острівець: тумблер згортає панель у кнопку і розгортає назад", run: async (h) => {
+      await ready(h);
+      h.expect((await h.attr("[data-dock-toggle]", "aria-expanded")) === "true", "панель має бути розгорнута спочатку");
+      await h.tap("[data-dock-toggle]"); await h.wait(600);
+      h.expect((await h.attr("[data-dock-toggle]", "aria-expanded")) === "false", "панель не згорнулась");
+      await h.tap("[data-dock-toggle]"); await h.wait(600);
+      h.expect((await h.attr("[data-dock-toggle]", "aria-expanded")) === "true", "панель не розгорнулась");
+    },
+  },
+  {
     name: "звук: кнопка вимкнення звуку перемикається", run: async (h) => {
       await ready(h);
       const before = await h.attr("[data-mute]", "aria-pressed");

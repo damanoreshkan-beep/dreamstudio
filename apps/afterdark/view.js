@@ -89,6 +89,7 @@ function getMoves() {
 }
 const TIER_TINT = { light: "#8B5CF6", groove: "#39FF6A", drive: "#FF3EB5" };
 const $muted = persistentAtom("afterdark:muted", "0");
+const $dock = persistentAtom("afterdark:dock", "1");             // "1" = the island is open; "0" = folded to one key (owner, 2026-09-11)
 // the Enter cover is dismissed once the audio gesture happened; under the gate the shot is the live rave, so
 // we seed past the gesture (like tide seeds past the real stream) and the mock owns the state machine.
 const $entered = atom(gate);
@@ -397,6 +398,15 @@ const CSS = `
 .dk-chip-off{background:rgba(255,255,255,.05);box-shadow:0 0 0 1px rgba(255,255,255,.14)}
 .dk-chip-dim{opacity:.65}.dk-chip-dim:hover{opacity:1}
 .dk-enter{background:rgba(0,0,0,.5);color:#fff}
+/* THE FOLD: the island collapses into its one key. Two animatable things do it — the content's grid row goes
+   1fr → 0fr (a real height animation without a magic max-height) and the island's max-width shrinks to the
+   key's; padding follows. Reduced motion = an instant fold. */
+.dk-dock{max-width:28rem;transition:max-width .45s cubic-bezier(.4,0,.2,1),padding .45s cubic-bezier(.4,0,.2,1)}
+.dk-fold{display:grid;grid-template-rows:1fr;transition:grid-template-rows .45s cubic-bezier(.4,0,.2,1),opacity .3s ease .1s;opacity:1}
+.dk-fold-in{min-height:0;overflow:hidden}
+.dk-dock[data-dock="folded"]{max-width:3.75rem;padding:.25rem;gap:0}
+.dk-dock[data-dock="folded"] .dk-fold{grid-template-rows:0fr;opacity:0;pointer-events:none;transition:grid-template-rows .45s cubic-bezier(.4,0,.2,1),opacity .2s ease}
+@media(prefers-reduced-motion:reduce){.dk-dock,.dk-fold{transition:none}}
 /* the void owns the finger: no browser pan/zoom, the drag orbits and the pinch zooms the 3D camera */
 .dk-void{touch-action:none;overscroll-behavior:contain}
 /* DAY (a light theme, owner 2026-09-11): the room is the theme's paper lit by the sun, so the chrome turns
@@ -436,6 +446,7 @@ export function afterdark({ S }) {
   const state = useStore($state);
   const entered = useStore($entered);
   const mute = useStore($muted) === "1";
+  const dockOpen = useStore($dock) !== "0";
   const stage3d = useStore($stage3d), stage3dWhy = useStore($stage3dWhy);
   const bpm = useStore($bpm);
   const buffer = useStore($buffer);
@@ -512,8 +523,10 @@ export function afterdark({ S }) {
         </div>` : null}
       </div>
 
-      ${/* ONE island: the move filmstrip, the dancer filmstrip + the transport, together */""}
-      <${Island} tone="dark" className="dk-isle shrink-0 flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
+      ${/* ONE island: the move filmstrip, the dancer filmstrip + the transport, together — and a fold key that
+           collapses the whole thing SMOOTHLY into that one key (grid-rows + max-width transitions, see CSS) */""}
+      <${Island} tone="dark" className="dk-isle dk-dock shrink-0 flex flex-col gap-[var(--ms-gap)] w-full mx-auto" data-dock=${dockOpen ? "open" : "folded"}>
+        <div class="dk-fold"><div class="dk-fold-in flex flex-col gap-[var(--ms-gap)]">
         <div class="dk-strip flex items-center gap-2 overflow-x-auto -mx-1 px-1 py-0.5" role="group" aria-label=${T(t, "moves")} data-moves=${moves.length}>
           ${/* which dances the floor may play: ★ = the top picks (default), «Усі» = the whole library; a chip's
                dot is its intensity tier (violet light · green groove · magenta drive) */""}
@@ -560,6 +573,11 @@ export function afterdark({ S }) {
             { id: "mute", icon: mute ? "lucide:volume-x" : "lucide:volume-2", label: T(t, mute ? "aUnmute" : "aMute"), active: mute, pressed: mute, onClick: () => setMuted(!mute), attr: { "data-mute": "" } },
             { id: "fs", icon: fs ? "lucide:minimize" : "lucide:maximize", label: T(t, fs ? "aExitFs" : "aFs"), active: fs, pressed: fs, onClick: toggleFullscreen, attr: { "data-fs-key": "" } },
           ]} />
+        </div></div>
+        <button data-dock-toggle type="button" aria-expanded=${dockOpen ? "true" : "false"} aria-label=${T(t, dockOpen ? "aFold" : "aUnfold")} onClick=${() => $dock.set(dockOpen ? "0" : "1")}
+          class="dk-dock-key btn btn-ghost btn-sm btn-circle mx-auto dk-ink-2">
+          <iconify-icon icon=${dockOpen ? "lucide:chevron-down" : "lucide:chevron-up"} class="text-xl"></iconify-icon>
+        </button>
       </${Island}>
     </div>
   </${Fragment}>`;
