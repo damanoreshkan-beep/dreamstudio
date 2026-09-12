@@ -63,7 +63,9 @@ export function castView({ S }) {
   // when its content was taller than the viewport — the owner could not scroll the grid at all (2026-09-12);
   // and the header's negative side margins made the page wider than the viewport (a horizontal scroll).
   return html`<div data-cast-tab class="pb-[calc(var(--dock-h)+env(safe-area-inset-bottom)+1rem)] overflow-x-clip">
-    <div class="sticky z-10 bg-base-200/90 backdrop-blur-md py-2" style="top:calc(var(--hdr-h) + var(--ms-safe-top))">
+    ${/* the section strip scrolls away with the list — nothing floats over the content (owner, 2026-09-12:
+         «нічого не має плавати») */""}
+    <div class="py-2">
       <${Segmented} attr="data-cast-section" size="sm" label=${T(t, "tabCast")} value=${section} onChange=${(v) => $section.set(v)}
         items=${[{ id: "chars", label: T(t, "dancers"), icon: "lucide:users", meta: String(cast.length) }, { id: "moves", label: T(t, "moves"), icon: "lucide:footprints", meta: String(moves.length) }]} />
     </div>
