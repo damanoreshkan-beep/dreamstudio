@@ -21,7 +21,10 @@
       "type": "tool",
       "icon": "lucide:users",
       "label": "tabCast",
-      "view": "castView"
+      "view": "castView",
+      "needs": [
+        "auth"
+      ]
     },
     {
       "id": "me",
