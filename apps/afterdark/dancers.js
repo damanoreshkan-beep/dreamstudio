@@ -167,7 +167,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   // "No target node found" warnings and a character frozen mid-pose). A clip's tracks are renamed to the target
   // rig's prefix, then the hips translation is scaled by target/source bind height.
   const retargetHips = (clip, srcY, dstY, srcPrefix, dstPrefix) => {
-    const rename = srcPrefix && dstPrefix && srcPrefix !== dstPrefix;
+    const rename = srcPrefix !== dstPrefix;   // a generated rig may carry no prefix at all — its tracks are then stripped, not skipped
     const scale = srcY && dstY && Math.abs(srcY - dstY) >= 1e-4;
     if (!rename && !scale) return clip;
     const c = clip.clone(), r = scale ? dstY / srcY : 1;
@@ -313,7 +313,7 @@ void main(){ float along = pow(vA, 2.4); float edge = 0.04 + 0.96 * pow(vF, 2.2)
   }
 
   function setCast(ids) {
-    const want = ORDER.filter((id) => ids.includes(id));
+    const want = [...ORDER.filter((id) => ids.includes(id)), ...ids.filter((id) => !ORDER.includes(id))];   // the library in its order, then the viewer's own
     if (!want.length) return;
     for (const id of [...cast.keys()]) if (!want.includes(id)) { disposeEntry(cast.get(id)); cast.delete(id); }
     order = want;

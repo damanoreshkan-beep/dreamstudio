@@ -1,8 +1,33 @@
 // afterdark — the WORKING SET shared by the stage and the cast tab: who is on stage, which moves the floor may
 // play. Persisted per viewer; the stage subscribes and drives the 3D engine, the cast tab edits.
+import { atom } from "nanostores";
 import { persistentAtom } from "@nanostores/persistent";
-import { CHARACTERS } from "./characters.js";
+import { CHARACTERS, registerChars } from "./characters.js";
 import { DEFAULT_MOVES, MOVE_IDS, isMoveId } from "./dances.js";
+
+// MY CHARACTERS: the ones this viewer made from a prompt (genchar.js) — {id, name, tint, kind, glb, avatar, ts},
+// newest first. The body lives on the edge (/feed/character/<id>.glb, immutable); the avatar is a small data
+// URL so the grid needs no network for it. Registered into characters.js so the stage resolves them like the library.
+export const $myChars = persistentAtom("afterdark:myChars", "[]");
+export function getMyChars() {
+  let a; try { a = JSON.parse($myChars.get()); } catch { a = null; }
+  return Array.isArray(a) ? a.filter((c) => c && typeof c.id === "string" && typeof c.glb === "string") : [];
+}
+export const addMyChar = (c) => $myChars.set(JSON.stringify([c, ...getMyChars().filter((x) => x.id !== c.id)]));
+export function removeMyChar(id) {
+  $myChars.set(JSON.stringify(getMyChars().filter((x) => x.id !== id)));
+  const c = getCast().filter((x) => x !== id); if (c.length) setCast(c);
+}
+registerChars(getMyChars());
+$myChars.listen(() => registerChars(getMyChars()));
+
+// the generation in flight (one at a time): `$genCharLoading` = "" | "picture" | "queued" | "mesh" | "rig" | "store",
+// `$genCharPct` the stage's own percent (0 = unknown), `$genCharError` = "" | an i18n error key, `$newChar` = the
+// last body made (the grid rings it)
+export const $genCharLoading = atom("");
+export const $genCharPct = atom(0);
+export const $genCharError = atom("");
+export const $newChar = atom("");
 
 // the CAST: which characters are on stage (1..MAX_CAST). A JSON id array; the engine lays them out as a crowd
 // that fits the screen. The last one can't be removed (the stage is never empty); the cap keeps a phone alive —
@@ -11,10 +36,12 @@ import { DEFAULT_MOVES, MOVE_IDS, isMoveId } from "./dances.js";
 export const MAX_CAST = 12;
 export const DEFAULT_CAST = ["kaya", "michelle", "arissa"];
 export const ALL_IDS = CHARACTERS.map((g) => g.id);
+const allIds = () => [...ALL_IDS, ...getMyChars().map((c) => c.id)];
 export const $cast = persistentAtom("afterdark:cast", JSON.stringify(DEFAULT_CAST));
 export function getCast() {
   let a; try { a = JSON.parse($cast.get()); } catch { a = null; }
-  a = Array.isArray(a) ? a.filter((id) => ALL_IDS.includes(id)).slice(0, MAX_CAST) : [];
+  const ok = allIds();
+  a = Array.isArray(a) ? a.filter((id) => ok.includes(id)).slice(0, MAX_CAST) : [];
   return a.length ? a : DEFAULT_CAST.slice();
 }
 export const setCast = (next) => { if (next.length) $cast.set(JSON.stringify(next.slice(0, MAX_CAST))); };
@@ -25,9 +52,9 @@ export function toggleChar(id) {
   if (c.length >= MAX_CAST) return false;
   setCast([...c, id]); return true;
 }
-/** A fresh crowd: MAX_CAST characters drawn at random from the whole library. */
+/** A fresh crowd: MAX_CAST characters drawn at random from the whole library (and my own). */
 export function mixCast(rand = Math.random) {
-  const pool = ALL_IDS.slice(); const out = [];
+  const pool = allIds(); const out = [];
   while (out.length < MAX_CAST && pool.length) out.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]);
   setCast(out);
 }

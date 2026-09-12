@@ -55,6 +55,18 @@ export default [
     },
   },
   {
+    name: "каст → «Створити»: аркуш з описом, ім'ям і видом; кнопка неактивна без опису (нічого не генерує під гейтом)", run: async (h) => {
+      await h.click('[data-tab="cast"]'); await h.wait(200);
+      h.expect((await h.count("[data-gen-open]")) === 1, "немає кнопки «Створити»");
+      await h.tap("[data-gen-open]"); await h.wait(300);
+      h.expect((await h.count("dialog[open] [data-gen-form]")) === 1, "аркуш створення не відкрився");
+      h.expect((await h.count("[data-gen-prompt]")) === 1 && (await h.count('[data-gen-kind="creature"]')) === 1, "у формі немає опису або виду");
+      h.expect((await h.count("[data-gen-go][disabled]")) === 1, "кнопка має бути неактивна без опису");
+      h.expect((await h.count("[data-gen-progress]")) === 0, "прогрес не має показуватись до старту");
+      await h.click('[data-tab="stage"]'); await h.wait(120);
+    },
+  },
+  {
     name: "каст → танці: 36 кураторських + танці бібліотеки, «Ще +» відкриває решту, «Топ» повертає дефолт", run: async (h) => {
       await h.click('[data-tab="cast"]'); await h.wait(200);
       await h.click('[data-cast-section="moves"]'); await h.wait(300);

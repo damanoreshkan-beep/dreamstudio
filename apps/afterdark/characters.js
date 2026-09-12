@@ -113,10 +113,14 @@ export const CHARACTERS = [
   { id: "zombiegirl", name: "Zombiegirl", tint: "#FBBF24", kind: "creature" },
 ];
 
+// the viewer's OWN characters (genchar.js: a prompt → a rigged body on the edge), registered by state.js —
+// each {id, name, tint, kind, glb, avatar}; they resolve through the same three lookups as the library
+const MINE = new Map();
+export const registerChars = (list) => { MINE.clear(); for (const c of list) MINE.set(c.id, c); };
 export const charIndex = (id) => { const i = CHARACTERS.findIndex((g) => g.id === id); return i < 0 ? 0 : i; };
-export const charById = (id) => CHARACTERS[charIndex(id)];
-export const glbUrl = (id) => (BUNDLED.has(id) ? new URL(`assets/${id}.glb`, import.meta.url).href : `${LIB_URL}/char/${id}.glb`);
-export const avatarUrl = (id) => (BUNDLED.has(id) ? new URL(`assets/av-${id}.png`, import.meta.url).href : `${LIB_URL}/av/av-${id}.png`);   // a 256 px LOSSLESS head shot rendered from the full-resolution GLB (owner: no compression)
+export const charById = (id) => MINE.get(id) || CHARACTERS[charIndex(id)];
+export const glbUrl = (id) => MINE.get(id)?.glb || (BUNDLED.has(id) ? new URL(`assets/${id}.glb`, import.meta.url).href : `${LIB_URL}/char/${id}.glb`);
+export const avatarUrl = (id) => MINE.get(id)?.avatar || (BUNDLED.has(id) ? new URL(`assets/av-${id}.png`, import.meta.url).href : `${LIB_URL}/av/av-${id}.png`);   // a 256 px LOSSLESS head shot rendered from the full-resolution GLB (owner: no compression)
 
 // The trio for a focused character: her two list-neighbours (wrapping) flank her, she leads centre.
 // Returns [leftId, centreId, rightId] — the contract dancers.js's three slots consume.
