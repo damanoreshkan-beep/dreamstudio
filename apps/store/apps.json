@@ -2093,7 +2093,7 @@
     "bg": "#07060C",
     "fg": "#F5B942",
     "href": "./blackout/",
-    "version": "1.12",
+    "version": "1.16",
     "category": "play",
     "needs": [
       "auth",
