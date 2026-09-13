@@ -35,13 +35,14 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   const scene = new THREE.Scene();
-  const NIGHT = new THREE.Color(0x07060c);
-  scene.background = NIGHT; scene.fog = new THREE.Fog(NIGHT, 18, 88);
+  // Silent Hill grade: a cold grey-teal murk, the fog close and thick, no colour left in the light
+  const NIGHT = new THREE.Color(0x0a0e0f);
+  scene.background = NIGHT; scene.fog = new THREE.Fog(NIGHT, 6, 58);
   const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 220);
   // the runner is seen from BEHIND: the key comes over the camera's shoulder, the moon rims her from the front
-  const hemi = new THREE.HemisphereLight(0x9a7ad8, 0x2a2238, 1.1); scene.add(hemi);
-  const moon = new THREE.DirectionalLight(0xcfd8ff, 0.8); moon.position.set(-3, 10, -6); scene.add(moon);
-  const fill = new THREE.DirectionalLight(0xffe2c0, 1.6); fill.position.set(2, 7, 6); scene.add(fill);
+  const hemi = new THREE.HemisphereLight(0x3a4a48, 0x141816, 0.55); scene.add(hemi);
+  const moon = new THREE.DirectionalLight(0x6e7f80, 0.45); moon.position.set(-3, 10, -6); scene.add(moon);
+  const fill = new THREE.DirectionalLight(0x8a8478, 0.9); fill.position.set(2, 7, 6); scene.add(fill);
 
   const world = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 });
   const street = createWorld(scene, RAPIER, world);   // the road (+ its ground colliders), sidewalks, buildings, props, NPCs — see world.js
@@ -81,7 +82,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   try { await Promise.all([loadClips(), street.ready]); await loadSkin(skinId); } catch (e) { onStatus("failed", "glb: " + String(e && e.message || e).slice(0, 70)); return null; }
 
   // the burst: a few emissive cubes thrown from a smashed bin
-  const burstGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12), burstMat = new THREE.MeshBasicMaterial({ color: 0x39ff6a });
+  const burstGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12), burstMat = new THREE.MeshBasicMaterial({ color: 0x6b7a5a });
   const bursts = [];
   function burst(x, y, z) { for (let i = 0; i < 10; i++) { const m = new THREE.Mesh(burstGeo, burstMat); m.position.set(x, y, z); scene.add(m); bursts.push({ m, vx: (Math.random() - 0.5) * 6, vy: 2 + Math.random() * 4, vz: (Math.random() - 0.5) * 6, life: 0.7 }); } }
 
@@ -137,7 +138,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     camPos.lerp(want, 0.2); camera.position.copy(camPos); camera.lookAt(look);
     // the dark eats the light: within 25 m of the wall the whole scene dims
     const gap = street.wallZ() - q.z, dim = clamp(gap / 25, 0.12, 1) * (state === "over" ? clamp(1 - (now - overAt) / 1200, 0, 1) : 1);
-    hemi.intensity = 1.1 * dim; moon.intensity = 0.8 * dim; fill.intensity = 1.6 * dim;
+    hemi.intensity = 0.55 * dim; moon.intensity = 0.45 * dim; fill.intensity = 0.9 * dim;
     renderer.render(scene, camera);
     fpsN++; if (now - fpsT >= 1000) { fps = fpsN; fpsN = 0; fpsT = now; }
     if (++frame % 6 === 0) onStat({ frame, dist, coins, gap, speed: speed * RUN_SPEED, fps, x: q.x, y: feetY, z: q.z, grounded });

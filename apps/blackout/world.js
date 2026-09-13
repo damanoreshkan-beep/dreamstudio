@@ -43,9 +43,9 @@ function facadeSet(img, seed) {
   g.drawImage(img, 0, 0, N, N); ge.fillStyle = "#000"; ge.fillRect(0, 0, N, N);
   const ww = 1.25 * px, wh = 1.7 * px;
   for (let f = 0; f < 3; f++) for (let b = 0; b < 3; b++) {
-    const x = (0.9 + b * 3) * px, y = N - (1.0 + f * 3 + 1.7) * px, on = r() < 0.5, warm = r() < 0.6;
-    g.fillStyle = "#1a1620"; g.fillRect(x - 5, y - 5, ww + 10, wh + 10);
-    const col = on ? (warm ? "#ffd39a" : "#c6d6ff") : "#0d0b12";
+    const x = (0.9 + b * 3) * px, y = N - (1.0 + f * 3 + 1.7) * px, on = r() < 0.22, warm = r() < 0.6;
+    g.fillStyle = "#121514"; g.fillRect(x - 5, y - 5, ww + 10, wh + 10);
+    const col = on ? (warm ? "#8f7a52" : "#5e6f6c") : "#0b0d0c";
     g.fillStyle = col; g.globalAlpha = on ? 0.55 + r() * 0.4 : 1; g.fillRect(x, y, ww, wh); g.globalAlpha = 1;
     if (on) { ge.fillStyle = col; ge.globalAlpha = 0.45 + r() * 0.5; ge.fillRect(x, y, ww, wh); ge.globalAlpha = 1; }
   }
@@ -91,6 +91,8 @@ function pool(geo, mat, cap, parent) {
   };
 }
 const radial = (inner, outer) => { const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d"); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, inner); gr.addColorStop(1, outer); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
+// the grade: every textured surface loses most of its colour and takes a cold grey-teal cast (Silent Hill)
+const grade = (m, k = 0.25) => { m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, " + k.toFixed(2) + ") * vec3(0.82, 0.9, 0.88);"); }; m.needsUpdate = true; return m; };
 const vertical = () => { const c = document.createElement("canvas"); c.width = 4; c.height = 128; const g = c.getContext("2d"); const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "rgba(255,255,255,0.55)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 4, 128); return new THREE.CanvasTexture(c); };
 
 export function createWorld(scene, RAPIER, world) {
@@ -103,14 +105,14 @@ export function createWorld(scene, RAPIER, world) {
   const mesh = (geo, mat, x, y, z, parent, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); parent.add(m); return m; };
 
   const M = {
-    step: new THREE.MeshStandardMaterial({ color: 0x5a4a2a, roughness: 0.8 }),
-    crate: new THREE.MeshStandardMaterial({ color: 0xf5b942, roughness: 0.6, emissive: 0x6a4a10, emissiveIntensity: 0.4 }),
-    barrier: new THREE.MeshStandardMaterial({ color: 0xff3eb5, roughness: 0.5, emissive: 0xff3eb5, emissiveIntensity: 0.35 }),
-    coin: new THREE.MeshStandardMaterial({ color: 0xf5b942, emissive: 0xf5b942, emissiveIntensity: 0.9, roughness: 0.3, metalness: 0.6 }),
-    head: new THREE.MeshBasicMaterial({ color: 0xffe2b0 }),
-    pool: new THREE.MeshBasicMaterial({ color: 0xffc98a, map: radial("rgba(255,255,255,0.32)", "rgba(255,255,255,0)"), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
-    beam: new THREE.MeshBasicMaterial({ color: 0xffc98a, alphaMap: vertical(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0.09 }),
-    grime: new THREE.MeshStandardMaterial({ color: 0x8a8a8a, roughness: 0.95 }),
+    step: new THREE.MeshStandardMaterial({ color: 0x35332f, roughness: 0.95 }),
+    crate: new THREE.MeshStandardMaterial({ color: 0x4a4034, roughness: 0.95, emissive: 0x1a1410, emissiveIntensity: 0.3 }),
+    barrier: new THREE.MeshStandardMaterial({ color: 0x5a3c30, roughness: 0.9, emissive: 0x3a1c14, emissiveIntensity: 0.3 }),
+    coin: new THREE.MeshStandardMaterial({ color: 0x9a7a3a, emissive: 0x7a5a1e, emissiveIntensity: 0.5, roughness: 0.6, metalness: 0.5 }),
+    head: new THREE.MeshBasicMaterial({ color: 0x9a8a5c }),
+    pool: new THREE.MeshBasicMaterial({ color: 0x8a8060, map: radial("rgba(255,255,255,0.18)", "rgba(255,255,255,0)"), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }),
+    beam: new THREE.MeshBasicMaterial({ color: 0x8a8060, alphaMap: vertical(), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, opacity: 0.035 }),
+    grime: new THREE.MeshStandardMaterial({ color: 0x4a4a48, roughness: 0.95 }),
   };
   const coinGeo = new THREE.CylinderGeometry(0.28, 0.28, 0.06, 18); coinGeo.rotateX(Math.PI / 2);
   const headGeo = new THREE.SphereGeometry(0.16, 10, 8);
@@ -131,16 +133,16 @@ export function createWorld(scene, RAPIER, world) {
       loader.loadAsync(A("assets/props.glb")),
     ]);
     for (const s of [3, 11]) facades.push(facadeSet(facadeImg, s));
-    road = new THREE.MeshStandardMaterial({ map: asphalt, color: 0x6e6b7c, roughness: 0.95 });
-    walk = new THREE.MeshStandardMaterial({ map: sidewalk, color: 0x7d7a8c, roughness: 0.92 });
-    bandMat = new THREE.MeshStandardMaterial({ map: graffiti, color: 0xb8b4c4, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 });
-    M.bin = new THREE.MeshStandardMaterial({ map: metal, color: 0xbfc4bf, roughness: 0.55, metalness: 0.35 });
+    road = grade(new THREE.MeshStandardMaterial({ map: asphalt, color: 0x3c3e3d, roughness: 1 }));
+    walk = grade(new THREE.MeshStandardMaterial({ map: sidewalk, color: 0x45474a, roughness: 1 }));
+    bandMat = grade(new THREE.MeshStandardMaterial({ map: graffiti, color: 0x5e5c5a, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), 0.35);
+    M.bin = grade(new THREE.MeshStandardMaterial({ map: metal, color: 0x4e524c, roughness: 0.9, metalness: 0.2 }));
     const cap = { sedan: 16, taxi: 16, suv: 16, van: 16, hatch: 16, bin: 16, lamp: 32, barrier: 16, planter: 16, cone: 16 };
     for (const node of props.scene.children) {
-      const { geo, mat } = propGeo(node); const m = mat.clone();
-      if (CARS.includes(node.name)) { m.roughness = 0.35; m.metalness = 0.25; }
-      if (node.name === "bin") { m.emissive = new THREE.Color(0x39ff6a); m.emissiveIntensity = 0.28; }
-      if (node.name === "lamp") { m.roughness = 0.5; m.metalness = 0.5; }
+      const { geo, mat } = propGeo(node); const m = grade(mat.clone(), 0.2);
+      m.color.multiplyScalar(0.5); m.roughness = 0.92; m.metalness = 0.1;   // Kenney's clean paint → dead, dusty, rusting
+      if (node.name === "bin") { m.emissive = new THREE.Color(0x1c2a1a); m.emissiveIntensity = 0.5; }
+      if (node.name === "lamp") { m.roughness = 0.85; m.metalness = 0.25; }
       P[node.name] = pool(geo, m, cap[node.name] || 16, group);
       P[node.name].size = geo.boundingBox.getSize(new THREE.Vector3());
     }
@@ -200,7 +202,7 @@ export function createWorld(scene, RAPIER, world) {
       mesh(walkGeo, walk, side * KERB, 0.075, z0 - CHUNK / 2, g);
       ch.colliders.push(staticBox(WALK, 0.15, CHUNK, side * KERB, 0.075, z0 - CHUNK / 2));
       // buildings: 2–3 blocks per side, lit from inside; a graffiti plinth on some; one chunk material per variant
-      const fm = facades.map((f) => new THREE.MeshStandardMaterial({ color: 0xffffff, map: f.map, emissive: 0xffffff, emissiveMap: f.glow, emissiveIntensity: 1, roughness: 0.85 }));
+      const fm = facades.map((f) => grade(new THREE.MeshStandardMaterial({ color: 0x5a5e5c, map: f.map, emissive: 0xffffff, emissiveMap: f.glow, emissiveIntensity: 0.6, roughness: 1 }), 0.3));
       ch.mats.push(...fm);
       let z = z0;
       while (z > z0 - CHUNK + 1) {
@@ -297,7 +299,7 @@ export function createWorld(scene, RAPIER, world) {
       wall.position.z = wallZ; tongue.position.z = wallZ - 7;
       for (const ch of chunks.values()) {
         const lit = Math.max(0, Math.min(1, (wallZ - ch.z - 8) / 14));
-        if (ch.lit !== lit) { ch.lit = lit; for (const m of ch.mats) m.emissiveIntensity = lit; for (const [k, s] of ch.slots) if (k === "head" || k === "beam" || k === "pool") P[k].tint(s, lit); }
+        if (ch.lit !== lit) { ch.lit = lit; for (const m of ch.mats) m.emissiveIntensity = lit * 0.6; for (const [k, s] of ch.slots) if (k === "head" || k === "beam" || k === "pool") P[k].tint(s, lit); }
         for (const n of ch.npcs) { const near = Math.abs(n.z - z) < NPC_FAR; n.holder.visible = near; if (near) n.mixer.update(dt); }
       }
     },
