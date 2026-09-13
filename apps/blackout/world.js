@@ -5,7 +5,8 @@
 // with it), lamps with an emissive head + additive cone + ground pool tinted per chunk, and NPCs — afterdark's
 // cast idling or dancing on the sidewalks (SkeletonUtils clones, one mixer each, hidden past 55 m). Every solid
 // thing is a static Rapier cuboid; coins and punch targets stay plain JS boxes. The Blackout is a wall of dark
-// following from +z whose speed grows with distance; the chunks it passes lose their light.
+// following from +z whose speed grows with distance; the chunks it passes lose their light — and out of it runs
+// the HORDE: 10–15 undead cast clones chasing the runner at ~3.5 m/s (see updateZombies).
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -19,6 +20,7 @@ const LANES = [-3, 0, 3];
 const WALK = 1.6, KERB = STREET_W / 2 + WALK / 2, WALL = STREET_W / 2 + WALK + 0.2;   // sidewalk centre, facade face
 const TILE = 9;                                                                          // facade metres per texture tile
 const NPC_H = 1.7, NPC_FAR = 55;
+const Z_SPEED = 3.5, Z_MIN = 10, Z_MAX = 15, Z_SPAWN = 6, Z_FAR = 35, Z_GAP = 1.1;   // the horde: mean speed, count by difficulty, spawn depth behind her, recycle distance
 const DRACO_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
 const A = (p) => new URL(p, import.meta.url).href;
 const CARS = ["sedan", "taxi", "suv", "van", "hatch"];
@@ -58,16 +60,42 @@ function buildingGeo(w, h, d) {
   for (let i = 0; i < 24; i++) { const [u, v] = dims[i >> 2]; uv.setXY(i, uv.getX(i) * u / TILE, uv.getY(i) * v / TILE); }
   return g;
 }
+// Kenney UVs point at palette swatches, so a photo map needs its own projection: the swatch colour is baked into
+// vertex colours (desaturated — the rust map carries the hue; glass and tyres stay dark) and the UVs become a
+// world-space box projection, one tile per RUST_M metres
+const RUST_M = 2.2;
+let swatch = null;
+function bake(g, map) {
+  const img = map.image;
+  if (swatch?.img !== img) { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); swatch = { img, w: img.width, h: img.height, px: x.getImageData(0, 0, img.width, img.height).data }; }
+  const { w, h, px } = swatch, uv = g.attributes.uv, n = uv.count, col = new Float32Array(n * 3), c = new THREE.Color();
+  for (let i = 0; i < n; i++) {
+    const j = (Math.min(h - 1, Math.floor(uv.getY(i) * h)) * w + Math.min(w - 1, Math.floor(uv.getX(i) * w))) * 4;
+    c.setRGB(px[j] / 255, px[j + 1] / 255, px[j + 2] / 255, THREE.SRGBColorSpace);
+    const l = 0.3 * c.r + 0.59 * c.g + 0.11 * c.b; c.lerp(new THREE.Color(l, l, l), 0.75);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+}
+function boxUv(g) {
+  const p = g.attributes.position, nr = g.attributes.normal, uv = g.attributes.uv;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), ax = Math.abs(nr.getX(i)), ay = Math.abs(nr.getY(i)), az = Math.abs(nr.getZ(i));
+    if (ax >= ay && ax >= az) uv.setXY(i, z / RUST_M, y / RUST_M); else if (ay >= az) uv.setXY(i, x / RUST_M, z / RUST_M); else uv.setXY(i, x / RUST_M, y / RUST_M);
+  }
+}
 // one prop of the merged GLB → one geometry (the node's meshes baked through their world matrices) + its material
-function propGeo(node) {
+function propGeo(node, rust = false) {
   node.updateWorldMatrix(true, true);
   const parts = []; let mat = null;
   node.traverse((o) => {
     if (!o.isMesh) return;
     const g = o.geometry.clone();
-    for (const k of Object.keys(g.attributes)) if (!/^(position|normal|uv)$/.test(k)) g.deleteAttribute(k);
+    if (rust && g.attributes.uv && o.material.map?.image) bake(g, o.material.map);
+    for (const k of Object.keys(g.attributes)) if (!/^(position|normal|uv|color)$/.test(k)) g.deleteAttribute(k);
     if (!g.attributes.uv) g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
-    g.applyMatrix4(o.matrixWorld); parts.push(g); mat ||= o.material;
+    g.applyMatrix4(o.matrixWorld); if (rust) boxUv(g);
+    parts.push(g); mat ||= o.material;
   });
   const geo = mergeGeometries(parts, false); for (const p of parts) p.dispose();
   geo.computeBoundingBox();
@@ -124,14 +152,16 @@ export function createWorld(scene, RAPIER, world) {
   { const uv = walkGeo.attributes.uv; for (let i = 8; i < 12; i++) uv.setXY(i, uv.getX(i) * WALK / 2, uv.getY(i) * CHUNK / 2); }
 
   // the assets: textures, the facade variants, the prop pools — the street is not built before `ready`
-  const P = {}, facades = [];
+  const P = {}, facades = [], carTex = [];
   let road = null, walk = null, bandMat = null, roadReady = false;
   const ready = (async () => {
-    const [facadeImg, graffiti, asphalt, metal, sidewalk, props] = await Promise.all([
+    const [facadeImg, graffiti, asphalt, metal, sidewalk, props, ...rust] = await Promise.all([
       new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A("assets/tex-facade.webp"); }),
       tex(A("assets/tex-graffiti.webp")), tex(A("assets/tex-asphalt.webp"), [(STREET_W + WALK * 2) / 7, CHUNK / 7]), tex(A("assets/tex-metal.webp"), [2, 1]), tex(A("assets/tex-sidewalk.webp")),
       loader.loadAsync(A("assets/props.glb")),
+      ...CARS.map((k) => tex(A(`assets/tex-car-${k}.webp`))),   // flat in assets/: the farm build copies no subdirs
     ]);
+    carTex.push(...rust);
     for (const s of [3, 11]) facades.push(facadeSet(facadeImg, s));
     road = grade(new THREE.MeshStandardMaterial({ map: asphalt, color: 0x3c3e3d, roughness: 1 }));
     walk = grade(new THREE.MeshStandardMaterial({ map: sidewalk, color: 0x45474a, roughness: 1 }));
@@ -139,8 +169,10 @@ export function createWorld(scene, RAPIER, world) {
     M.bin = grade(new THREE.MeshStandardMaterial({ map: metal, color: 0x4e524c, roughness: 0.9, metalness: 0.2 }));
     const cap = { sedan: 16, taxi: 16, suv: 16, van: 16, hatch: 16, bin: 16, lamp: 32, barrier: 16, planter: 16, cone: 16 };
     for (const node of props.scene.children) {
-      const { geo, mat } = propGeo(node); const m = grade(mat.clone(), 0.2);
+      const car = CARS.indexOf(node.name);
+      const { geo, mat } = propGeo(node, car >= 0); const m = grade(mat.clone(), car >= 0 ? 0.6 : 0.2);
       m.color.multiplyScalar(0.5); m.roughness = 0.92; m.metalness = 0.1;   // Kenney's clean paint → dead, dusty, rusting
+      if (car >= 0) { m.map = carTex[car]; m.vertexColors = true; m.color.setScalar(0.9); m.roughness = 0.8; m.metalness = 0.2; }   // Z-Image rust over the swatch tone
       if (node.name === "bin") { m.emissive = new THREE.Color(0x1c2a1a); m.emissiveIntensity = 0.5; }
       if (node.name === "lamp") { m.roughness = 0.85; m.metalness = 0.25; }
       P[node.name] = pool(geo, m, cap[node.name] || 16, group);
@@ -160,8 +192,71 @@ export function createWorld(scene, RAPIER, world) {
     if (dance) npc.clips.push({ clip: dance.animations[0], rig: hipsOf(dance.scene), w: 1 });
     const loaded = await Promise.all(NPC_SKINS.map((id) => loader.loadAsync(glbUrl(id)).then((g) => ({ root: fit(g.scene, NPC_H), rig: hipsOf(g.scene) })).catch(() => null)));
     npc.chars = loaded.filter(Boolean);
+    const run = await loader.loadAsync(A("assets/clip-run.glb")).catch(() => null);
+    if (run) { npc.run = { clip: run.animations[0], rig: hipsOf(run.scene) }; npc.dead = npc.chars.map((c) => ({ root: undead(c.root), rig: c.rig })); }
   })();
   npcReady.catch(() => {});
+
+  // THE HORDE — what runs behind us is not the dark but the people it took. Each zombie is a cast clone whose
+  // materials lost their colour (grey-green skin, no gloss, no glow), running the same run clip as the runner
+  // but blended with the idle so the stride halts and jerks, bones twisted by a fixed per-body deformity
+  // (head askew, hunched spine, arms wrenched) applied over the mixer each frame, the body lurching and leaning.
+  // They spawn out of the murk 6–14 m behind her (never behind the wall) and chase at ~3.5 m/s with lunges past
+  // her pace: a clean run keeps them 5–25 m back in the fog, a stumble lets them into the frame. The wall eats
+  // those who fall back, the fog those who drop 35 m behind; the count is kept up from the dark.
+  const zombies = [], deadMats = [];
+  let zSpawnT = 0;
+  const ZBONES = [["Head", 0.55], ["Neck", 0.3], ["Spine1", 0.35], ["Spine2", 0.25], ["LeftArm", 1.0], ["RightArm", 1.0], ["LeftForeArm", 1.2], ["RightForeArm", 1.2], ["LeftHand", 0.6], ["RightHand", 0.6]];
+  function undead(root) {
+    const r = cloneSkinned(root);
+    r.traverse((o) => {
+      if (!o.isMesh) return;
+      const m = grade(o.material.clone(), 0.12);
+      m.color.multiply(new THREE.Color(0.68, 0.74, 0.64)); m.roughness = 1; m.metalness = 0; m.envMapIntensity = 0;
+      m.emissive = new THREE.Color(0x8fa093); m.emissiveMap = m.map; m.emissiveIntensity = 0.16;   // the pallor: dead skin faintly pale in the dark, cloth stays dark
+      o.material = m; deadMats.push(m);
+    });
+    return r;
+  }
+  function spawnZombie(px, pz) {
+    const c = npc.dead[Math.floor(Math.random() * npc.dead.length)], root = cloneSkinned(c.root);
+    const holder = new THREE.Group(); holder.rotation.order = "YXZ"; holder.add(root); group.add(holder);
+    const mixer = new THREE.AnimationMixer(root), rr = Math.random;
+    const run = mixer.clipAction(retarget(npc.run.clip, npc.run.rig, c.rig, true)), idle = mixer.clipAction(retarget(npc.clips[0].clip, npc.clips[0].rig, c.rig, true));
+    run.play(); run.time = rr() * run.getClip().duration; run.setEffectiveTimeScale(0.7 + rr() * 0.4);
+    idle.play(); idle.setEffectiveWeight(0.2 + rr() * 0.45); idle.setEffectiveTimeScale(1.4 + rr() * 1.2); idle.time = rr() * idle.getClip().duration;
+    const tracks = new Set(npc.run.clip.tracks.map((t) => t.name.replace(npc.run.rig.prefix, c.rig.prefix)));
+    const bones = [];
+    for (const [name, amp] of ZBONES) {
+      const b = root.getObjectByName(c.rig.prefix + name); if (!b || !tracks.has(b.name + ".quaternion") || rr() < 0.3) continue;
+      const axis = new THREE.Vector3(rr() - 0.5, rr() - 0.5, rr() - 0.5).normalize();
+      bones.push({ b, q: new THREE.Quaternion().setFromAxisAngle(axis, (0.5 + rr() * 0.5) * amp * (rr() < 0.5 ? -1 : 1)) });
+    }
+    const z = Math.min(wallZ - 1.5, pz + Z_SPAWN + rr() * 8), x = (rr() - 0.5) * STREET_W;   // out of the murk behind her, never behind the wall
+    holder.position.set(x, 0, z);
+    zombies.push({ holder, mixer, bones, x, z, off: (rr() - 0.5) * 7, offT: 0, gap: Z_GAP + rr() * 3, k: 0.85 + rr() * 0.35, w1: 0.6 + rr() * 0.8, w2: 1.7 + rr() * 1.5, ph: rr() * 6.28, lean: 0.08 + rr() * 0.16, yaw: Math.PI });
+  }
+  function killZombie(i) { const z = zombies[i]; z.mixer.stopAllAction(); group.remove(z.holder); zombies.splice(i, 1); }
+  function updateZombies(px, pz, dt, running, t) {
+    if (!running || !npc.dead?.length) return;
+    const want = Z_MIN + Math.round(difficulty * (Z_MAX - Z_MIN));
+    if (zombies.length < want && (zSpawnT += dt) > 0.35) { zSpawnT = 0; spawnZombie(px, pz); }
+    const lim = STREET_W / 2 + 0.6;
+    for (let i = zombies.length - 1; i >= 0; i--) {
+      const zb = zombies[i];
+      if (zb.z > wallZ - 0.5 || zb.z - pz > Z_FAR) { killZombie(i); continue; }
+      if ((zb.offT -= dt) < 0) { zb.offT = 2 + Math.random() * 4; zb.off = (Math.random() - 0.5) * 7; }
+      const surge = Math.sin(t * zb.w1 + zb.ph) * Math.sin(t * zb.w2);   // the halting run: lunges past her pace, then stumbles back
+      const v = Z_SPEED * zb.k * (1 + 0.3 * surge);
+      const tx = Math.max(-lim, Math.min(lim, px + zb.off)), dx = (tx - zb.x) * Math.min(1, dt * 1.2);
+      zb.x += dx; zb.z = Math.max(pz + zb.gap, zb.z - v * dt);
+      const yaw = Math.atan2(tx - zb.x, -2.5);
+      zb.yaw += Math.atan2(Math.sin(yaw - zb.yaw), Math.cos(yaw - zb.yaw)) * Math.min(1, dt * 3);
+      zb.holder.position.set(zb.x, 0, zb.z); zb.holder.rotation.set(zb.lean + surge * 0.06, zb.yaw, Math.sin(t * zb.w2 * 0.7 + zb.ph) * 0.07);
+      zb.mixer.update(dt * (0.85 + 0.3 * surge));
+      for (const { b, q } of zb.bones) b.quaternion.multiply(q);
+    }
+  }
 
   function spawnNpc(ch, r, x, z, ry) {
     if (!npc.chars.length) return;
@@ -285,12 +380,15 @@ export function createWorld(scene, RAPIER, world) {
     ready,
     wallZ: () => wallZ,
     reset(seed) {
-      seedBase = seed || 1; difficulty = 0; wallZ = 30;
+      seedBase = seed || 1; difficulty = 0; wallZ = 30; zSpawnT = 0;
       for (const i of [...chunks.keys()]) free(i);
+      while (zombies.length) killZombie(zombies.length - 1);
     },
-    // keep AHEAD chunks in front of the runner and BEHIND behind; advance the dark; dim what it has swallowed; move the NPCs
-    update(z, dist, dt, running) {
+    zombies: () => zombies.map((z) => ({ x: +z.x.toFixed(2), z: +z.z.toFixed(2) })),
+    // keep AHEAD chunks in front of the runner and BEHIND behind; advance the dark; dim what it has swallowed; move the NPCs and the horde
+    update(z, dist, dt, running, px = 0) {
       if (!roadReady) return;
+      updateZombies(px, z, dt, running, performance.now() / 1000);
       difficulty = Math.min(1, dist / 900);
       const cur = Math.max(0, Math.floor(-z / CHUNK));
       for (let i = cur; i <= cur + AHEAD; i++) if (!chunks.has(i)) build(i);
@@ -328,9 +426,12 @@ export function createWorld(scene, RAPIER, world) {
     },
     dispose() {
       for (const i of [...chunks.keys()]) free(i);
+      while (zombies.length) killZombie(zombies.length - 1);
+      for (const m of deadMats) m.dispose();
       scene.remove(group, wall, tongue);
       for (const p of Object.values(P)) p.dispose();
       for (const f of facades) { f.map.dispose(); f.glow.dispose(); }
+      for (const t of carTex) t.dispose();
       for (const m of [road, walk, bandMat, wallMat, ...Object.values(M)]) { m?.map?.dispose(); m?.alphaMap?.dispose(); m?.dispose(); }
       for (const g of [box, coinGeo, headGeo, poolGeo, coneGeo, binGeo, roadGeo, walkGeo]) g.dispose();
     },
