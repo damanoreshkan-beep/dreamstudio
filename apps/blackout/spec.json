@@ -5,7 +5,7 @@
   "accent": "#F5B942",
   "tabs": [
     { "id": "run", "type": "tool", "icon": "lucide:zap-off", "label": "tabRun", "view": "blackout", "fit": true, "needs": ["wakeLock"] },
-    { "id": "skins", "type": "tool", "icon": "lucide:shirt", "label": "tabSkins", "view": "skins" },
+    { "id": "skins", "type": "tool", "icon": "lucide:shirt", "label": "tabSkins", "view": "skins", "needs": ["auth", "camera"] },
     { "id": "me", "type": "profile", "icon": "lucide:zap-off", "label": "tabMe", "titleKey": "tabMe" }
   ],
   "profile": {

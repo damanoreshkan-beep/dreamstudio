@@ -5,6 +5,7 @@ import { persistentAtom } from "@nanostores/persistent";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session } from "/_rt/auth.js";
 import { gate } from "/_rt/gate.js";
+import { charOf } from "/_rt/genchar.js";
 import { CHARACTERS, registerChars } from "./characters.js";
 import { DEFAULT_MOVES, MOVE_IDS, isMoveId } from "./dances.js";
 
@@ -15,11 +16,8 @@ import { DEFAULT_MOVES, MOVE_IDS, isMoveId } from "./dances.js";
 // resolve my ids before the network answers (and offline), refreshed on every session change, emptied on
 // sign-out. Avatars and public immutable .glb links only — nothing secret. Registered into characters.js so
 // the stage resolves them like the library.
-const HOST = VPS_PROXY.replace(/\/feed$/, "");
-const TINTS = ["#FF3EB5", "#39FF6A", "#F5B942", "#7C5CFF", "#22D3EE", "#FF6AD5", "#4ADE80", "#FB7185", "#FBBF24", "#38BDF8", "#F472B6", "#A3E635", "#F97316", "#2DD4BF", "#C084FC", "#FACC15"];
 const JSON_H = { "content-type": "application/json" };
-/** An edge row {char_id, name, kind, glb_url, avatar_url, created_at} → the grid's character. */
-export const charOf = (r) => ({ id: `my-${r.char_id}`, name: r.name || "", tint: TINTS[parseInt(String(r.char_id).slice(-2), 36) % TINTS.length], kind: r.kind === "creature" ? "creature" : "human", glb: HOST + r.glb_url, avatar: r.avatar_url || "", ts: Date.parse(r.created_at) || Date.now() });
+export { charOf };
 
 export const $myChars = persistentAtom("afterdark:myChars", "[]");
 export function getMyChars() {

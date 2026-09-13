@@ -1,9 +1,78 @@
 # blackout — research & state map
 
-An endless night city in full 3D on afterdark's Mixamo cast: run (joystick), punch (one key), vault
-automatically, collect coins, outrun the Blackout (the dark that kills the lights behind you), set a distance
-record, spend coins on skins and powers. Decisions and the concept live above the code (the owner's meta layer);
-this file is the evidence the build stands on.
+A lane runner in an endless night city on afterdark's Mixamo cast (the Subway Surfers rework, 2026-09-13): she runs
+by herself, a swipe moves her across four lanes, up jumps, down slides, coins on the way, the horde at her heels; a
+runner of your own from words or a photo for 1000 coins. Decisions and the concept live above the code (the owner's
+meta layer); this file is the evidence the build stands on. The sections below Ф3 describe the joystick game this
+replaced — kept for the numbers that still hold (assets, textures, pools, clips, the see pod).
+
+## Ф3 — the lane runner (2026-09-13, Claude Fable 5.1)
+
+**The owner's brief:** «переробити … механіку у стилі сабвейсьорф, прибери все зайве. 4 умовні доріжки з преградами і
+за нами толпа зомбі»; «не вигадувати а взяти готові механіки з гітхабу». Read first: the Play Store captures of Subway
+Surfers (the chase camera high behind the runner, three lanes, coin lines and arcs over the low barriers, trains as
+the lane blockers, the HUD = score + coins, nothing else) and two open Three.js lane runners, both read in full:
+
+- **neon-rush** (`xnirajjatwer/neon-rush`, no licence, 2026-09) — `inputManager.js` (a swipe = the first axis past a
+  threshold, ONE action per touch; keys ←→↑↓/WASD/Space), `player.js` (lane lerp `1 − e^(−13·dt)`, lean
+  `−vx·0.05` clamped ±0.35, gravity −34 / jump 12.5, slide 0.62 s), `obstacleManager.js` (rows by pattern: vehicle ·
+  dodge 1–2 lanes · uniform jump · uniform slide (chance 0.55 + 0.25·d) · mixed; safety net: never every lane a
+  dodge), `collisionSystem.js` (**resolved by ACTION, never box maths**: `jump` safe only in the air above 0.32,
+  `slide` only while sliding, `dodge` never — z window 0.85, x tolerance 1.05), `segmentManager.js` (40 m segments,
+  130 m ahead, 18 behind, 1–3 rows by difficulty, coins on the open lanes between rows), `game.js` (speed 9 → 24 over
+  1600 m).
+- **jyoti-run** (`BIRAL0-0/jyoti-run`, no licence, 2026-09) — `Teacher.js` + `config.js TEACHER`: the chaser state
+  machine with its fairness guards — appears/menaces at 5.5 behind after the 1st mistake, surges to 3.2 for 0.6 s,
+  the 2nd mistake is the catch, −1 mistake per 150 clean metres, a catch needs ≤1.5 sustained 0.4 s, a lunge grace
+  while mid-jump/slide; `Difficulty.js` (speed linear, spawn chance smoothstepped 500 → 1500 m).
+
+Neither carries a licence, so nothing is copied verbatim: the MECHANICS and their numbers are ported into our own
+files (`world.js rowStates` = spawnRow widened to four lanes; `stage.js` = player + collision; `world.js chase`
+= the Teacher in metres behind the runner). What we set differently, and why:
+
+| Ours | Theirs | Why |
+|---|---|---|
+| 4 lanes × 2.2 m (x = ±1.1, ±3.3) | 3 × 2.2 | the owner's brief; the 10 m street holds them with 0.6 m to the kerb |
+| gravity −22, jump 7.4 → 1.24 m in 0.67 s | −34 / 12.5 → 2.3 m | a 0.6 m barrier needs 1.2 m; 2.3 m reads as flying |
+| `jump` safe above y 0.35 | 0.32 | the same idea, our barrier is 0.6 m high |
+| slide 0.75 s (the Running Slide clip fitted to 0.85 s) | 0.62 | the Mixamo clip's own slide phase |
+| speed 6.5 → 15 m/s over 1500 m; a stumble dips to 0.45 and recovers in 1.1 s | 9 → 24 / one hit = death | one-hit death is the SS feel only with the inspector; we keep the two-stumble rule |
+| the horde menaces at 5.2 m, surges to 2.3, grabs at 1.1; −1 mistake / 150 m | 5.5 / 3.2 / 1.5 / 150 | the camera sits 7.2 m behind: at 5.2 the zombies fill the frame's low edge, at 2.3 they are at her heels |
+| rows 1–3 per 24 m chunk, 4 chunks ahead / 2 behind | 1–3 per 40 m, 130 m ahead | the chunk grammar the street already had |
+| `dodge` = a dumpster or a car across the lane, at most 2 lanes | a full barrier, at most 2 of 3 | the props the street already ships |
+
+**Removed as «зайве»:** the joystick, the orbit camera, the punch and the smashable bins, the sidewalk dancers,
+the Blackout wall (behind the camera, it was never in frame), and **Rapier** — a lane runner has a flat floor and
+resolves obstacles by action, so the physics engine (2.86 MB, `@dimforge/rapier3d-compat`) left with the joystick.
+`dpad.js` is no longer imported.
+
+**Clips added (the box, `pipeline/export-clips.mjs`, Mixamo API, 2026-09-13):** Running Slide `119710901` (47 KB),
+Jogging Stumble `121450901` (48 KB), Zombie Running `104020901` (33 KB), Zombie Attack `102320906` (80 KB), Zombie
+Idle `104110902` (65 KB, unused yet). A one-shot's `fitTo` sets its timeScale so the clip plays out inside the
+move's window (jump 0.7 s, slide 0.85 s, stumble 0.9 s).
+
+**A runner of your own (1000 coins).** The generator is `rt/genchar.js` — afterdark's two-job pipeline (prompt →
+`/feed/image` k:2 portrait → `/feed/character` TRELLIS + Make-It-Animatable) promoted to the product's rt/ as
+`makeGenerator({jobKey, $loading, $pct, $error, onDone, onFail})`; afterdark's `genchar.js` is now a 12-line binding.
+The PHOTO path adds one hop: `POST /feed/vision {image, mode:"look"}` (edge `vision.js`, the `caps/vision.js`
+cascade that existed since 2026-08-18 with no route: Gemini keyed rows → OVH Qwen2.5-VL, inline bytes only) answers
+the English LOOK paragraph — gender/age impression, build, hair, clothing, footwear, accessories, **no identity** —
+which then rides the words path unchanged. The coins leave the wallet when the job starts (`spend`) and come back
+on any failure (`onFail` → `refund`); a resumed job that fails after a reload does not refund (it was charged in the
+run that started it and the edge may still finish it). The wallet is the local `persistentAtom` the skins already
+spend — a client-side price, like the skins (a server-authoritative wallet is a separate decision).
+
+**State map (the run tab):** `data-state` idle | run | over · `data-phys` loading | ready | failed | skipped ·
+`data-lane` 0…3 · `data-near` 0…1 (the horde's closeness — the red edge and the dimming) · `data-acts` (the verbs
+counted, keys and swipes alike) · `data-dist` / `data-coins`. The skins tab: `[data-mine-grid]` (the create card
+`[data-gen-open]` + my runners, each with `[data-remove]`), `[data-skin-grid]` (the cast), the sheet
+`[data-gen-form]` with `[data-gen-mode]` words | photo, `[data-gen-prompt]` / the intake `Chooser`
+(`[data-src-upload]`, `[data-src-camera]`) → `[data-gen-photo]`, `[data-gen-go]`, `[data-gen-progress]`,
+`[data-gen-error]`.
+
+**Not measured yet (UNVERIFIED until the S25):** real fps of the horde (10–12 skinned clones + the street) —
+`report("stage.fps")` at frame 720, `bash vps/logs.sh blackout`; the swipe threshold (40 px) on a 6.9" screen; whether
+the Zombie Running clip's timeScale (0.6 … speed/6) reads as a chase at 15 m/s.
 
 ## Ф2 — the premium street (2026-09-13, Claude Fable 5.1; measured on the box: dev `?live`, own headless Chromium/SwiftShader)
 

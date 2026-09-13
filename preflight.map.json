@@ -44,6 +44,7 @@
     "/_rt/earshot.js": "./rt/earshot.js",
     "/_rt/fixture433.js": "./rt/fixture433.js",
     "/_rt/fmradio.js": "./rt/fmradio.js",
+    "/_rt/genchar.js": "./rt/genchar.js",
     "/_rt/grain.js": "./rt/grain.js",
     "/_rt/gsmband.js": "./rt/gsmband.js",
     "/_rt/hackrf.js": "./rt/hackrf.js",
