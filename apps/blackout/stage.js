@@ -122,7 +122,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
       const got = street.collect(q.x, feetY, q.z); if (got) { coins += got; onEvent("coin", got); }
       if (q.z > street.wallZ() - 0.4) { state = "over"; overAt = now; play("death", 0.1, true); onEvent("over", { dist, coins }); }
     }
-    street.update(q.z, dist, dt, state !== "idle");
+    street.update(q.z, dist, dt, state !== "idle", q.x);
     street.spin(now / 1000);
     if (!oneShot) play(speed > 0.08 && grounded ? "run" : (grounded ? "idle" : "jump"), 0.2);
     if (current === "run") actions.run.setEffectiveTimeScale(0.9 + speed * 0.5);
