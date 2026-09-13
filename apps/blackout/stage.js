@@ -154,7 +154,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
       // the obstacle under her feet in her lane, resolved by ACTION (neon-rush collisionSystem): never by box maths
       const o = street.hit(lane, z);
       if (o) {
-        const safe = o.kind === "jump" ? y - floor > JUMP_SAFE_Y : o.kind === "bin" ? y - floor > BIN_SAFE_Y : o.kind === "slide" ? slideT > 0 : false;
+        const safe = o.kind === "jump" ? y - floor > JUMP_SAFE_Y : o.kind === "bin" || o.kind === "car" ? y - floor > BIN_SAFE_Y : o.kind === "slide" ? slideT > 0 : false;   // a car's roof sits at 1.05 m, the vault tops at 1.6
         if (!safe) {
           if (boostT > 0) {   // boosted: whatever is in the lane is knocked flat
             if (o.walker) { street.fell(o.walker); kills++; coins += 5; sfx("zombie-die"); onEvent("kill"); } else sfx(o.kind === "jump" ? "hit-wood" : o.kind === "slide" ? "hit-metal" : "hit-car");
