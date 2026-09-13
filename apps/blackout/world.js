@@ -126,8 +126,8 @@ export function createWorld(scene, RAPIER, world) {
   let road = null, walk = null, bandMat = null, roadReady = false;
   const ready = (async () => {
     const [facadeImg, graffiti, asphalt, metal, sidewalk, props] = await Promise.all([
-      new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A("assets/textures/facade.webp"); }),
-      tex(A("assets/textures/graffiti.webp")), tex(A("assets/textures/asphalt.webp"), [(STREET_W + WALK * 2) / 7, CHUNK / 7]), tex(A("assets/textures/metal.webp"), [2, 1]), tex(A("assets/textures/sidewalk.webp")),
+      new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A("assets/tex-facade.webp"); }),
+      tex(A("assets/tex-graffiti.webp")), tex(A("assets/tex-asphalt.webp"), [(STREET_W + WALK * 2) / 7, CHUNK / 7]), tex(A("assets/tex-metal.webp"), [2, 1]), tex(A("assets/tex-sidewalk.webp")),
       loader.loadAsync(A("assets/props.glb")),
     ]);
     for (const s of [3, 11]) facades.push(facadeSet(facadeImg, s));

@@ -13,7 +13,7 @@ this file is the evidence the build stands on.
   flatten+join per model → wrapper node = the prop name → mergeDocuments → unpartition → dedup → webp 512 → draco).
   **Name the merged scene** (`setName("props")`): GLTFLoader uniquifies node names, and a scene named "sedan" turned
   the sedan wrapper into `sedan_1` — `P[kind]` undefined, `.size` TypeError in `car()`.
-- **Textures are Z-Image (zimg, 1024², "seamless tileable … orthographic")** → webp in `assets/textures/`: facade (dark
+- **Textures are Z-Image (zimg, 1024², "seamless tileable … orthographic")** → webp `assets/tex-*.webp` (FLAT: `deploy/build.mjs` copies only top-level files of `assets/`, a `textures/` subdir 404s on prod — measured after the first deploy): facade (dark
   brick, 96 KB) + graffiti (269 KB) + asphalt (275 KB) + sidewalk (paving slabs, 2 m tiles on the kerb top) + metal
   (512², 12 KB). The HF guest quota ran dry mid-batch — a retry loop with 90–240 s backoff got every prompt through.
   Seams: `MirroredRepeatWrapping` — free and invisible.
