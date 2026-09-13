@@ -1,9 +1,9 @@
 // blackout — the 3D stage: Three.js over a Rapier world (Ф1, 2026-09-13). The FLOOR IS THE PHYSICS: a kinematic
 // capsule driven by Rapier's character controller (autostep walks the kerbs and steps, a crate ahead triggers the
 // vault = a real vertical velocity), the Mixamo model hangs under it with a one-time bind-pose offset. The street
-// (world.js) is born ahead and freed behind; coins and punch targets are plain boxes. Clips are DATA (CLIPS): the
-// run/jump/punch here are stand-ins from the library on the box (Running Man in place, a running jump, an uprock
-// window) until the owner exports the real Mixamo clips — swapping a file swaps the move.
+// (world.js) is born ahead and freed behind; coins and punch targets are plain boxes. Clips are DATA (CLIPS): Mixamo
+// Running / Forward Running Jump / Cross Punch / Death Falling Forwards exported via the API
+// (~/mixamo-library/pipeline/export-clips.mjs) — swapping a file swaps the move.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -16,7 +16,8 @@ const CLIPS = {
   idle: { url: new URL("assets/clip-idle.glb", import.meta.url).href, loop: true },
   run: { url: new URL("assets/clip-run.glb", import.meta.url).href, loop: true, inPlace: true },
   jump: { url: new URL("assets/clip-jump.glb", import.meta.url).href, inPlace: true },
-  punch: { url: new URL("assets/clip-punch.glb", import.meta.url).href, inPlace: true, window: [0.55, 1.15] },
+  punch: { url: new URL("assets/clip-punch.glb", import.meta.url).href, inPlace: true },
+  death: { url: new URL("assets/clip-death.glb", import.meta.url).href, inPlace: true, hold: true },
 };
 const TARGET_H = 1.7, CAP_R = 0.3, CAP_HH = 0.5, GRAVITY = -9.81;
 const RUN_SPEED = 4.4, JUMP_V = 5.3, STEP_MAX = 0.5;
@@ -85,10 +86,10 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     rig = hipsOf(root); mixer = new THREE.AnimationMixer(root); actions = {}; current = null; oneShot = null;
     for (const [cid, c] of Object.entries(CLIPS)) {
       const a = mixer.clipAction(retarget(raw[cid].clip, raw[cid].rig, rig, !!c.inPlace));
-      if (c.loop) a.setLoop(THREE.LoopRepeat, Infinity); else { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = false; }
+      if (c.loop) a.setLoop(THREE.LoopRepeat, Infinity); else { a.setLoop(THREE.LoopOnce, 1); a.clampWhenFinished = !!c.hold; }
       actions[cid] = a;
     }
-    mixer.addEventListener("finished", () => { oneShot = null; current = null; });
+    mixer.addEventListener("finished", (e) => { if (e.action === actions.death) return; oneShot = null; current = null; });
     skin = id;
   }
   function play(id, fade = 0.2, once = false) {
@@ -139,7 +140,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     if (state === "run") {
       dist = Math.max(dist, 2 - q.z);
       const got = street.collect(q.x, feetY, q.z); if (got) { coins += got; onEvent("coin", got); }
-      if (q.z > street.wallZ() - 0.4) { state = "over"; overAt = now; onEvent("over", { dist, coins }); }
+      if (q.z > street.wallZ() - 0.4) { state = "over"; overAt = now; play("death", 0.1, true); onEvent("over", { dist, coins }); }
     }
     street.update(q.z, dist, dt, state !== "idle");
     street.spin(now / 1000);

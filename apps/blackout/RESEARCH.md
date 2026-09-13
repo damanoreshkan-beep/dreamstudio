@@ -24,11 +24,11 @@ this file is the evidence the build stands on.
   level-0 bone and drops the copies; assets rebuilt. Blackout ships **Arissa** as the free default (bundled) and
   lists 11 skins, Kaya at 20.
 - **A stored skin id that left the list must fall back** (`skinById`), or the stage 404s on `../afterdark/assets/kaya.glb`.
-- **Clips are stand-ins** from the box (no run/jump/punch in the 104 clips on disk — the library holds dances):
-  run = Running Man in place (`108780902`), jump = Sword And Shield Running Jump (`122670901`), punch = a 0.6 s window
-  of Breakdance Uprock (`122110901`), idle = the breathing idle. The REAL set to export via the Mixamo API (memory
-  `reference_mixamo_api_export`): Running `117600901`, Forward Running Jump `124490901`, Cross Punch `90009`,
-  Death Falling Forwards `128670935`; convert with `pipeline/clip.mjs`, drop into `assets/clip-*.glb`, nothing else changes.
+- **Clips are the real Mixamo set (2026-09-13)**, exported through the API with no UI (`pipeline/export-clips.mjs`,
+  token from the owner's Chromium `localStorage` → `~/.config/mixamo/token`, 24 h): Running `117600901` (37 KB),
+  Forward Running Jump `124490901` (45 KB), Cross Punch `90009` (31 KB, whole clip — no window), Death Falling
+  Forwards `128670935` (100 KB, `hold` = clampWhenFinished, the mixer's `finished` ignores it so the body stays down),
+  idle = the breathing idle. Skeleton-only FBX → `clip.mjs` → clip-only GLB; swapping a file swaps the move.
 - **SwiftShader here: 7–8 fps**, dt clamped to 0.05 → the run reads 1.5 m/s (4.4 × 0.37): a software artefact, the
   simulation is consistent. Real fps comes from the S25 via `report("stage.fps")` at frame 720 (`vps/logs.sh blackout`).
 - **The farm's haptic check taps the first key before e2e** → the punch counter test is relative (`n0 + 1`).
