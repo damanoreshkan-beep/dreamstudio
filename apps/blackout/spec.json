@@ -1,0 +1,18 @@
+{
+  "id": "blackout",
+  "theme": "signal",
+  "category": "play",
+  "accent": "#F5B942",
+  "tabs": [
+    { "id": "run", "type": "tool", "icon": "lucide:zap-off", "label": "tabRun", "view": "blackout", "fit": true, "needs": ["wakeLock"] },
+    { "id": "skins", "type": "tool", "icon": "lucide:shirt", "label": "tabSkins", "view": "skins" },
+    { "id": "me", "type": "profile", "icon": "lucide:zap-off", "label": "tabMe", "titleKey": "tabMe" }
+  ],
+  "profile": {
+    "icon": "lucide:zap-off",
+    "theme": true,
+    "lang": true,
+    "install": true
+  },
+  "added": "2026-09-13"
+}
