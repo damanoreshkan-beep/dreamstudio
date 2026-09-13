@@ -19,6 +19,10 @@ export const SFX = {
   bite: { gain: 0.9 }, fall: { gain: 0.9 }, heartbeat: { loop: true, gain: 0.0 },
   wind: { loop: true, gain: 0.35 }, "lamp-hum": { loop: true, gain: 0.12 }, "lamp-pop": { gain: 0.5 }, siren: { gain: 0.35 }, crow: { gain: 0.4 },
   "whoosh-start": { gain: 0.8 }, over: { gain: 0.9 },
+  // the armoury and the street's second night (2026-09-13, late): shots, the reload, what a round does to a walker
+  "shot-pistol": { gain: 0.85, spread: 0.05 }, "shot-shotgun": { gain: 0.95, spread: 0.04 }, "shot-smg": { gain: 0.7, spread: 0.06 },
+  reload: { gain: 0.6 }, "zombie-hit": { gain: 0.7, spread: 0.1 }, "zombie-die": { gain: 0.8, spread: 0.08 },
+  can: { gain: 0.8 }, boost: { loop: true, gain: 0.0 }, bats: { gain: 0.5 },
 };
 const url = (name) => new URL(`assets/sfx-${name}.mp3`, import.meta.url).href;
 const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";   // afterdark's station, the direct Icecast feed (CORS-open: the analyser hears it)

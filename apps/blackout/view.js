@@ -1,8 +1,9 @@
-// blackout — a lane runner in an endless night city: she runs by herself, a swipe moves her a lane, up jumps, down
-// slides, coins on the way, the horde at her heels. ONE fit screen: the Three.js stage (stage.js) under a thin DOM
-// layer that is the truth the gate/e2e read (data-state/dist/coins/lane/near/acts). The stage is probe-guarded and
-// SKIPPED under the headless gate (Draco and GLBs over CDNs flake CI) — the HUD then shows a fixed mid-run frame and
-// the verbs still move the mirrored lane. The second tab spends the coins: the cast's skins, and a runner of your own.
+// blackout — a lane runner in Gotham's night: she runs by herself, a swipe moves her a lane, up jumps, down slides, a TAP
+// fires her weapon down the lane; coins and energy cans on the way, walkers in the lanes, the horde at her heels. ONE
+// fit screen: the Three.js stage (stage.js) under a thin DOM layer that is the truth the gate/e2e read
+// (data-state/dist/coins/lane/near/acts/shots/ammo/boost). The stage is probe-guarded and SKIPPED under the headless
+// gate (Draco and GLBs over CDNs flake CI) — the HUD then shows a fixed mid-run frame and the verbs still move the
+// mirrored lane. The second tab spends the coins: the cast's skins, the armoury, and a runner of your own.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
@@ -11,21 +12,23 @@ import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { haptic, wakeLock } from "/_rt/sensors.js";
 import { report } from "/_rt/telemetry.js";
-import { SKINS, GEN_PRICE, skinById, avatarUrl, owned, myChars, pickSkin, removeMyChar, finishRun, $best, $coins, $owned, $skin, $myChars, $muted, $state, $run, $phys, $why, $last, $newChar } from "./state.js";
+import { SKINS, WEAPONS, GEN_PRICE, skinById, weaponById, avatarUrl, owned, arms, myChars, pickSkin, pickWeapon, removeMyChar, finishRun, $best, $coins, $owned, $arms, $weapon, $skin, $myChars, $muted, $state, $run, $phys, $why, $last, $newChar } from "./state.js";
 import { GenSheet } from "./gen.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const SWIPE_PX = 40;   // neon-rush inputManager: one action per touch, the first axis past the threshold wins
-const KEYS = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "jump", KeyW: "jump", Space: "jump", ArrowDown: "slide", KeyS: "slide" };
+const SWIPE_PX = 40;   // neon-rush inputManager: one action per touch, the first axis past the threshold wins; a touch that never gets there is a TAP = a shot
+const KEYS = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "jump", KeyW: "jump", ArrowDown: "slide", KeyS: "slide" };
+const WEAPON_ICON = { pistol: "lucide:crosshair", shotgun: "lucide:flame", smg: "lucide:zap" };
 
 export function blackout({ S }) {
   const t = useStore(S.t);
   const state = useStore($state), run = useStore($run), phys = useStore($phys), why = useStore($why);
-  const best = useStore($best), skin = useStore($skin), last = useStore($last), mutedNow = useStore($muted) === "1";
-  const [acts, setActs] = useState(0);
+  const best = useStore($best), skin = useStore($skin), last = useStore($last), mutedNow = useStore($muted) === "1", weapon = useStore($weapon);
+  const [acts, setActs] = useState(0), [shots, setShots] = useState(0), [moodNow, setMood] = useState("");
   const canvasRef = useRef(null), hud = useRef(null);
   const engine = useRef(null);
-  const touch = useRef(null);   // { id, x, y, done }
+  const touch = useRef(null);   // { id, x, y, done, t0 }
+  const moodTimer = useRef(0);
 
   // one verb: the engine moves her; under the gate the mirrored lane moves so the DOM still tells the truth
   const act = useCallback((what) => {
@@ -36,13 +39,21 @@ export function blackout({ S }) {
     const r = $run.get(), lane = what === "left" ? Math.max(0, r.lane - 1) : what === "right" ? Math.min(3, r.lane + 1) : r.lane;
     $run.set({ ...r, lane });
   }, []);
+  // a tap: one round; under the gate the mirrored magazine empties one by one
+  const fire = useCallback(() => {
+    if ($state.get() !== "run") return;
+    setShots((n) => n + 1);
+    if (engine.current) { if (engine.current.fire()) haptic.bump(); return; }
+    if (!gate) return;
+    const r = $run.get(); $run.set({ ...r, ammo: Math.max(0, r.ammo - 1) });
+  }, []);
   const start = useCallback(() => {
     if (!gate && !engine.current) return;
-    $state.set("run"); $run.set({ frame: 0, dist: 0, coins: 0, speed: 0, fps: 0, lane: 1, near: 0 });
+    $state.set("run"); $run.set({ frame: 0, dist: 0, coins: 0, speed: 0, fps: 0, lane: 1, near: 0, boost: 0, ammo: weaponById($weapon.get()).mag, reload: false, kills: 0 });
     engine.current?.start((Math.random() * 0xffffffff) >>> 0);
   }, []);
 
-  // the stage: created once, skipped under the gate; the skin follows the store
+  // the stage: created once, skipped under the gate; the skin and the weapon follow the store
   useEffect(() => {
     if (gate) return () => {};
     let eng = null, gone = false;
@@ -57,6 +68,8 @@ export function blackout({ S }) {
           onEvent: (e, v) => {
             if (e === "coin") haptic.tick();
             else if (e === "stumble") haptic.bump();
+            else if (e === "kill") haptic.ok?.();
+            else if (e === "mood") { setMood(v); clearTimeout(moodTimer.current); moodTimer.current = setTimeout(() => setMood(""), 700); }
             else if (e === "over") { haptic.buzz([30, 60, 30]); setTimeout(() => finishRun(v.dist, v.coins), 1100); }
           },
         }, $skin.get());
@@ -67,24 +80,26 @@ export function blackout({ S }) {
     return () => { gone = true; engine.current = null; eng?.dispose(); if ($state.get() === "run") $state.set("idle"); };
   }, []);
   useEffect(() => { engine.current?.setSkin(skin); }, [skin]);
+  useEffect(() => { engine.current?.setWeapon(weapon); }, [weapon]);
   // the screen stays awake for the run only
   useEffect(() => { if (state !== "run" || gate) return () => {}; const wl = wakeLock.acquire(); return () => wl?.release?.(); }, [state]);
 
-  // keyboard: arrows / WASD / Space are the four verbs, Enter starts
+  // keyboard: arrows / WASD are the four verbs, Space fires, Enter starts
   useEffect(() => {
     const typing = (el) => el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
     const dn = (e) => {
       if (typing(e.target) || e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
       if (e.code === "Enter") { if ($state.get() !== "run") { e.preventDefault(); start(); } return; }
+      if (e.code === "Space" || e.code === "KeyX") { e.preventDefault(); fire(); return; }
       const what = KEYS[e.code]; if (!what) return;
       e.preventDefault(); act(what);
     };
     addEventListener("keydown", dn);
     return () => removeEventListener("keydown", dn);
-  }, [start, act]);
+  }, [start, act, fire]);
 
-  // the swipe: the whole stage listens; the first axis past SWIPE_PX decides, once per touch
-  const swDown = (e) => { if (touch.current) return; touch.current = { id: e.pointerId, x: e.clientX, y: e.clientY, done: false }; };
+  // the touch: the whole stage listens; the first axis past SWIPE_PX decides, once per touch; a touch that lifts short of it is a shot
+  const swDown = (e) => { if (touch.current) return; touch.current = { id: e.pointerId, x: e.clientX, y: e.clientY, done: false, t0: performance.now() }; };
   const swMove = (e) => {
     const s = touch.current; if (!s || e.pointerId !== s.id || s.done) return;
     const dx = e.clientX - s.x, dy = e.clientY - s.y;
@@ -92,20 +107,21 @@ export function blackout({ S }) {
     s.done = true;
     act(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "slide" : "jump"));
   };
-  const swUp = (e) => { if (touch.current && e.pointerId === touch.current.id) touch.current = null; };
+  const swUp = (e) => { const s = touch.current; if (!s || e.pointerId !== s.id) return; touch.current = null; if (!s.done && e.type === "pointerup" && performance.now() - s.t0 < 400) fire(); };
 
-  const sk = skinById(skin), ready = gate || phys === "ready";
-  const m = Math.round(run.dist), near = clamp(run.near || 0, 0, 1);
+  const sk = skinById(skin), W = weaponById(weapon), ready = gate || phys === "ready";
+  const m = Math.round(run.dist), near = clamp(run.near || 0, 0, 1), boost = run.boost || 0;
   return html`<${Fragment}>
     <style>${CSS}</style>
     <div class="bo-bg fixed inset-0 z-0"></div>
     <canvas ref=${canvasRef} data-stage aria-hidden="true" class="fixed inset-0 z-0 w-full h-full"></canvas>
     <div class="bo-edge fixed inset-0 z-0 pointer-events-none" aria-hidden="true" style=${`opacity:${(near * near).toFixed(2)}`}></div>
+    <div class="bo-boost fixed inset-0 z-0 pointer-events-none" aria-hidden="true" style=${`opacity:${boost ? 1 : 0}`}></div>
 
     <div ref=${hud} data-game data-state=${state} data-phys=${phys} data-why=${why} data-dist=${m} data-coins=${run.coins} data-lane=${run.lane}
-      data-near=${near.toFixed(2)} data-frame=${run.frame} data-best=${best} data-skin=${skin} data-acts=${acts}
+      data-near=${near.toFixed(2)} data-frame=${run.frame} data-best=${best} data-skin=${skin} data-acts=${acts} data-shots=${shots} data-ammo=${run.ammo} data-boost=${boost} data-weapon=${weapon} data-kills=${run.kills || 0}
       class="relative z-10 h-full min-h-0 flex flex-col select-none">
-      ${/* the HUD: the distance and the coins, nothing else — on the run only */""}
+      ${/* the HUD: the distance and the coins; the sound key; the weapon and its magazine; the energy — on the run only */""}
       <div class="flex items-start justify-between px-1 pt-1 pointer-events-none">
         <div class="bo-chip flex flex-col items-start leading-none">
           <span class="font-mono tabular-nums text-3xl font-bold">${m}<span class="text-base font-normal opacity-70 ml-1">${T(t, "unitM")}</span></span>
@@ -117,8 +133,16 @@ export function blackout({ S }) {
             class="bo-chip w-10 h-10 rounded-full flex items-center justify-center text-lg active:scale-95 transition-transform"><iconify-icon icon=${mutedNow ? "lucide:volume-x" : "lucide:volume-2"}></iconify-icon></button>
         </div>
       </div>
+      ${state === "run" ? html`<div class="flex items-center justify-end gap-2 px-2 pt-2 pointer-events-none">
+        ${boost ? html`<div data-hud-boost class="bo-chip bo-cyan font-mono tabular-nums text-xs leading-none flex items-center gap-1.5"><iconify-icon icon="lucide:zap"></iconify-icon>${boost}</div>` : null}
+        <div data-hud-arms class="bo-chip font-mono tabular-nums text-xs leading-none flex items-center gap-1.5" style=${`color:${W.tint}`}>
+          <iconify-icon icon=${WEAPON_ICON[W.id] || "lucide:crosshair"}></iconify-icon><span class=${run.reload ? "opacity-50" : ""}>${run.reload ? "···" : `${run.ammo}/${W.mag}`}</span>
+        </div>
+      </div>` : null}
+      ${/* the selfie ring sits over the stage's second viewport (stage.js FACE_PX at 16,150); the mood tints its rim */""}
+      ${state === "run" && !gate ? html`<div data-face data-mood=${moodNow} class="bo-face" aria-hidden="true"></div>` : null}
 
-      ${/* the control layer: the whole stage takes the swipe */""}
+      ${/* the control layer: the whole stage takes the swipe, a tap fires */""}
       <div class="flex-1 min-h-0 relative">
         <div data-swipe class="absolute inset-0 touch-none" onPointerDown=${swDown} onPointerMove=${swMove} onPointerUp=${swUp} onPointerCancel=${swUp} aria-hidden="true"></div>
 
@@ -127,6 +151,7 @@ export function blackout({ S }) {
           <div class="flex items-center gap-3 bo-chip px-3 py-2 rounded-2xl">
             <img src=${avatarUrl(sk.id)} alt="" width="40" height="40" class="w-10 h-10 rounded-full object-cover" style=${`box-shadow:0 0 0 2px ${sk.tint}`} />
             <div class="flex flex-col items-start leading-tight"><span class="text-sm">${sk.name}</span><span class="font-mono text-xs opacity-70">${T(t, "best")} ${best} ${T(t, "unitM")}</span></div>
+            <span class="font-mono text-xs flex items-center gap-1 pl-2 border-l border-white/15" style=${`color:${W.tint}`}><iconify-icon icon=${WEAPON_ICON[W.id]}></iconify-icon>${W.name}</span>
           </div>
           <button data-start type="button" disabled=${!ready} class="bo-go font-mono uppercase tracking-[0.25em] px-8 py-4 rounded-full text-lg font-bold disabled:opacity-50" onClick=${start}>
             ${ready ? T(t, "go") : (phys === "failed" ? T(t, "failed") : T(t, "loading"))}
@@ -148,14 +173,15 @@ export function blackout({ S }) {
   </${Fragment}>`;
 }
 
-// the skins: a runner of your own (made from words or a photo, GEN_PRICE coins) above the cast, priced in the
-// coins the runs earn; a tap buys and wears, or wears what is owned
+// the shop: a runner of your own (made from words or a photo, GEN_PRICE coins) above the cast, priced in the coins
+// the runs earn; the armoury below; a tap buys and wears (or wields), or wears what is owned
 export function skins({ S, openScreen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale), screen = useStore(S.screen);
-  const coins = +useStore($coins) || 0, skin = useStore($skin), best = useStore($best), fresh = useStore($newChar);
-  useStore($owned); useStore($myChars);
-  const have = owned(), mine = myChars();
+  const coins = +useStore($coins) || 0, skin = useStore($skin), best = useStore($best), fresh = useStore($newChar), weapon = useStore($weapon);
+  useStore($owned); useStore($myChars); useStore($arms);
+  const have = owned(), mine = myChars(), held = arms();
   const tap = (id) => { if (!pickSkin(id)) haptic.tick(); else haptic.bump(); };
+  const wield = (id) => { if (!pickWeapon(id)) haptic.tick(); else haptic.bump(); };
   const genOpen = screen === "gen";
   const cell = (g, own, extra) => { const on = g.id === skin, can = own || coins >= g.price; return html`
     <button key=${g.id} data-skin=${g.id} data-owned=${own ? "yes" : "no"} type="button" aria-pressed=${on ? "true" : "false"} aria-label=${`${g.name}${own ? "" : ` · ${g.price}`}`} onClick=${() => tap(g.id)}
@@ -171,6 +197,17 @@ export function skins({ S, openScreen, closeScreen }) {
     <div class="flex items-center justify-between gap-3 flex-wrap">
       <span class="badge badge-lg badge-warning font-mono tabular-nums gap-1" data-wallet=${coins}><iconify-icon icon="lucide:circle-dollar-sign"></iconify-icon> ${coins}</span>
       <span class="font-mono text-xs opacity-70">${T(t, "best")} ${best} ${T(t, "unitM")}</span>
+    </div>
+    <h2 class="font-mono uppercase tracking-widest text-[0.7rem] text-base-content/70 mt-1">${T(t, "arms")}</h2>
+    <div data-arms-grid class="grid grid-cols-3 gap-2">
+      ${WEAPONS.map((w) => { const own = held.includes(w.id), on = w.id === weapon, can = own || coins >= w.price; return html`
+        <button key=${w.id} data-arm=${w.id} data-owned=${own ? "yes" : "no"} type="button" aria-pressed=${on ? "true" : "false"} aria-label=${`${w.name}${own ? "" : ` · ${w.price}`}`} onClick=${() => wield(w.id)}
+          class=${`flex flex-col items-start gap-1 rounded-2xl p-3 text-left active:scale-[.97] transition-transform border ${on ? "border-transparent" : "border-base-content/10"}`} style=${on ? `box-shadow:0 0 0 2px ${w.tint},0 0 18px ${w.tint}55` : ""}>
+          <span class=${`text-2xl ${on || can ? "" : "opacity-40"}`} style=${`color:${w.tint}`}><iconify-icon icon=${WEAPON_ICON[w.id]}></iconify-icon></span>
+          <span class="text-[0.8rem] font-semibold leading-tight">${w.name}</span>
+          <span class="font-mono text-[0.65rem] leading-tight text-base-content/70">${w.mag} · ${w.rate}/s${w.lanes ? " · ×3" : ""}</span>
+          <span class=${`font-mono text-[0.7rem] leading-none tabular-nums ${own ? "text-base-content/70" : "text-base-content"}`}>${on ? T(t, "wielded") : own ? T(t, "ownedSkin") : html`${w.price} <iconify-icon icon="lucide:circle-dollar-sign" class="align-[-1px]"></iconify-icon>`}</span>
+        </button>`; })}
     </div>
     <h2 class="font-mono uppercase tracking-widest text-[0.7rem] text-base-content/70 mt-1">${T(t, "mine")}</h2>
     <div data-mine-grid class="grid grid-cols-3 sm:grid-cols-4 gap-x-2 gap-y-3">
@@ -195,10 +232,17 @@ export function skins({ S, openScreen, closeScreen }) {
 }
 
 const CSS = `
-.bo-bg{background:radial-gradient(120% 70% at 50% 100%,#1a1230 0%,#07060c 60%)}
+.bo-bg{background:radial-gradient(120% 70% at 50% 100%,#141a30 0%,#05070c 60%)}
 .bo-edge{background:radial-gradient(80% 70% at 50% 55%,rgba(0,0,0,0) 45%,rgba(120,10,16,.55) 100%);transition:opacity .25s linear}
+.bo-boost{background:radial-gradient(70% 60% at 50% 50%,rgba(0,0,0,0) 55%,rgba(34,211,238,.28) 100%);transition:opacity .4s ease}
 .bo-chip{padding:.4rem .6rem;border-radius:1rem;background:rgba(7,6,12,.55);backdrop-filter:blur(8px);color:#f2eee6}
 .bo-gold{color:#f5b942}
+.bo-cyan{color:#22d3ee}
+.bo-face{position:fixed;left:16px;top:150px;width:132px;height:132px;border-radius:50%;--rim:rgba(242,238,230,.35);--glow:rgba(0,0,0,.6);box-shadow:0 0 0 2px var(--rim),0 0 18px var(--glow),0 0 0 30px #05070c;transition:box-shadow .15s ease}
+.bo-face[data-mood="hit"],.bo-face[data-mood="caught"]{--rim:#ff3b3b;--glow:#ff3b3b99}
+.bo-face[data-mood="boost"],.bo-face[data-mood="kill"],.bo-face[data-mood="smash"]{--rim:#22d3ee;--glow:#22d3ee99}
+.bo-face[data-mood="coins"]{--rim:#f5b942;--glow:#f5b94299}
+.bo-face[data-mood="jump"],.bo-face[data-mood="land"]{--rim:rgba(242,238,230,.9)}
 .bo-scrim{background:radial-gradient(60% 45% at 50% 50%,rgba(7,6,12,.82) 0%,rgba(7,6,12,.55) 60%,rgba(7,6,12,0) 100%);color:#f2eee6}
 .bo-title{color:#f2eee6;text-shadow:0 0 24px rgba(245,185,66,.55)}
 .bo-go{background:#f5b942;color:#07060c;box-shadow:0 6px 28px rgba(245,185,66,.4)}

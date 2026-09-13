@@ -103,6 +103,47 @@ one material, so the street flashes on the kick. The Run tap is the gesture: `ct
 stream starts. No audio under the gate (`createEngine` returns null); the mute key in the HUD (`[data-mute]`) holds
 `blackout:muted`.
 
+**Gotham, the second level, the armoury, the selfie (2026-09-13, night; owner: «баг з Т після прижку. біг анімація …
+підглючує. не вистачає естакад 2 рівня і тунелів … енергетики … швидкість 2x … більше препятствій … небо з луною. кажани.
+готем сіті … пистолет та вороги попереду … різні зброя … у магазині … мініатюри селфі ігрока і його емоції … nfs
+carbon … кіберпанк … хочу вау. хочу екшн»).**
+
+- **The T after a jump** was the mixer: a `LoopOnce` action that is not `clampWhenFinished` is DISABLED when it ends
+  and the rig snaps to its bind pose until the next `play()` — a frame or more at low fps. Every one-shot now holds
+  its last pose and the landing/slide-end/stumble-end cross-fade into the run explicitly (`oneShot = null; play("run")`).
+- **The twitching run** was the clip's timeScale: `speed / 4.4` reached 3.4× at 15 m/s. Clamped 0.9 … 1.6 (1.9 boosted).
+- **Decks** (`world.js deck/floorAt`): from chunk 3, when none runs, on one or two neighbouring lanes, 1.5–2 chunks
+  long; ramp 5 m → top 2.4 m → ramp 5 m; rails and posts. `floorAt(lane, z)` is the floor under her: the stage moves
+  her on it (`y = floor` on the ground, gravity above it, a run off the edge = a fall); a floor more than 0.6 m above
+  her feet while grounded = the deck's end head-on → the grab (boosted: an automatic vault). Obstacle rows skip a lane
+  whose floor changes across the row; coins ride the deck. **Tunnels**: a whole chunk of walls, ceiling and tube
+  lights (they pulse with the lamps), no buildings; every 6+ chunks, never over a deck; the wind bed drops to 0.3 inside.
+- **Density:** rows 1–4 per chunk (was 1–3), difficulty reaches 1 at 800 m (was 1200).
+- **The energy can** (`drink`): one per ~5 chunks on a lane with no row within 2.5 m; 6 s of ×2 speed (eased in over
+  a third of a second), the fov 60 → 70, a cyan rim on the HUD, the `boost` bed; whatever is in the lane is knocked
+  flat (a walker dies and pays).
+- **Walkers** (`spawnWalker`): rowStates now hands out `walker` lanes (≤ 2 blocking lanes per row with the dodges);
+  a cast clone on Zombie Walk `121340901` shuffling toward her at 0.7 m/s, 2 hit points, Zombie Reaction Hit
+  `102460901` on a hit, Zombie Death `121380901` (clamped) when it drops; a body stays 6 s. Run into one: she shoves it
+  down and stumbles. Shoot it: +5 coins.
+- **The armoury** (`state.js WEAPONS`, data): pistol free (1 dmg, 3/s, 8 rounds, 1.1 s reload, 28 m), shotgun 350
+  (2 dmg, 1.2/s, 4 rounds, the lanes either side too, 14 m), SMG 600 (1 dmg, 8/s, 24 rounds, 24 m). A TAP anywhere on
+  the stage (a touch that lifts before 40 px and 400 ms) or Space/X fires; `world.shoot` picks the nearest live
+  walker in range in the lane (± spread); a tracer (a lit 1.4 m rod at 60 m/s) flies to it or to the range; the gun
+  is a primitive in her `RightHand` bone with a muzzle that flashes the weapon's tint. Empty → the reload runs
+  (`···` in the HUD). Bought and wielded on the shop tab (`[data-arm]`), the same wallet as the skins.
+- **The selfie** (owner: NFS Carbon): a second render pass of the same scene from a 34° camera on her shoulder
+  looking back at her face, scissored into a 132 px square at (16, 150) CSS px (`FACE_PX`); the HUD draws the ring
+  over it (`[data-face]`) and tints it by `data-mood` (hit/caught red, boost/kill/smash cyan, coins gold). The camera
+  shakes on a landing or a hit (`face.shake`, decays at 6/s) and zooms on a jump or a can (`face.zoom`). The cast has no
+  facial blendshapes — the emotion is the camera's, like a helmet cam.
+- **The sky and the bats:** a 7 m moon with a sprite halo and 420 stars ride with the camera 170–190 m out, `fog:
+  false`; a flock of 14 bats (two-triangle V's in an InstancedMesh, wings on a 9–15 Hz sine) crosses the street
+  every 26–56 s, 4.2 s per pass, with the `bats` effect. Gothic roofs: a spire on 45 % of the buildings (14–56 m
+  tall now), an antenna on 35 %, a neon sign (five cyberpunk hues) on 50 % of the faces.
+- **Nine more effects** (`sfx-jobs4`): the three shots, the reload, the hit and the death of a walker, the can, the
+  boost bed, the bats — AudioGen, 53 s for nine, no duplicates (md5 checked).
+
 **Not measured yet (UNVERIFIED until the S25):** whether the Icecast stream plays inside the WebView APK (afterdark
 plays it in Chrome; the shell's WebView is the open question), the beat lock time on the phone (afterdark measures
 ~4–8 s), and real fps of the horde (10–12 skinned clones + the street) —

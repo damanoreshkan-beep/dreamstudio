@@ -40,17 +40,44 @@ export default [
     },
   },
   {
-    name: "бігуни: 11 у складі + свій, Arissa одягнута, гаманець 1250; купівля за 25 знімає монети й одягає; свій бігун одягається безкоштовно", run: async (h) => {
+    name: "постріл: тап по сцені (без свайпу) рахується як постріл і знімає набій з магазину; Space теж", run: async (h) => {
+      await h.click('[data-tab="run"]'); await ready(h);
+      const s0 = +(await g(h, "shots")), a0 = +(await g(h, "ammo"));
+      h.expect((await g(h, "weapon")) === "pistol", `зброя на старті не пістолет: ${await g(h, "weapon")}`);
+      await h.tap("[data-swipe]"); await h.wait(150);
+      h.expect(+(await g(h, "shots")) === s0 + 1, `пострілів після тапу: ${await g(h, "shots")} (було ${s0})`);
+      h.expect(+(await g(h, "ammo")) === a0 - 1, `набоїв після пострілу: ${await g(h, "ammo")} (було ${a0})`);
+      await key(h, "Space");
+      h.expect(+(await g(h, "shots")) === s0 + 2, "Space не стріляє");
+      h.expect((await h.count("[data-hud-arms]")) === 1 && (await h.count("[data-hud-boost]")) === 1, "у HUD немає зброї або енергії (гейт: буст 4 с)");
+    },
+  },
+  {
+    name: "зброя: три стволи, пістолет у руці; дробовик за 350 і автомат за 600 купуються й беруться в руку (1250 → 300); пістолет назад безкоштовно", run: async (h) => {
+      await h.click('[data-tab="skins"]'); await h.wait(300);
+      h.expect((await h.count("[data-arms-grid] [data-arm]")) === 3, `стволів має бути 3, є ${await h.count("[data-arms-grid] [data-arm]")}`);
+      h.expect((await h.attr('[data-arm="pistol"]', "aria-pressed")) === "true", "пістолет не в руці на старті");
+      await h.tap('[data-arm="shotgun"]'); await h.wait(200);
+      h.expect((await h.attr('[data-arm="shotgun"]', "aria-pressed")) === "true", "дробовик не купився/не взявся");
+      h.expect((await h.attr("[data-wallet]", "data-wallet")) === "900", `гаманець після дробовика: ${await h.attr("[data-wallet]", "data-wallet")}`);
+      await h.tap('[data-arm="smg"]'); await h.wait(200);
+      h.expect((await h.attr('[data-arm="smg"]', "aria-pressed")) === "true" && (await h.attr("[data-wallet]", "data-wallet")) === "300", `автомат: ${await h.attr('[data-arm="smg"]', "aria-pressed")} · гаманець ${await h.attr("[data-wallet]", "data-wallet")}`);
+      await h.tap('[data-arm="pistol"]'); await h.wait(200);
+      h.expect((await h.attr('[data-arm="pistol"]', "aria-pressed")) === "true" && (await h.attr("[data-wallet]", "data-wallet")) === "300", "пістолет не взявся назад безкоштовно");
+    },
+  },
+  {
+    name: "бігуни: 11 у складі + свій, Arissa одягнута, гаманець 300 після зброї; купівля за 25 знімає монети й одягає; свій бігун одягається безкоштовно", run: async (h) => {
       await h.click('[data-tab="skins"]'); await h.wait(300);
       h.expect((await h.count("[data-skin-grid] [data-skin]")) === 11, `скінів має бути 11, є ${await h.count("[data-skin-grid] [data-skin]")}`);
       h.expect((await h.count('[data-mine-grid] [data-skin="my-gate1"]')) === 1, "свого бігуна немає в сітці");
       h.expect((await h.attr('[data-skin="arissa"]', "aria-pressed")) === "true", "Arissa не одягнута на старті");
-      h.expect((await h.attr("[data-wallet]", "data-wallet")) === "1250", "гаманець не 1250 під гейтом");
+      h.expect((await h.attr("[data-wallet]", "data-wallet")) === "300", `гаманець після зброї не 300: ${await h.attr("[data-wallet]", "data-wallet")}`);
       await h.tap('[data-skin="michelle"]'); await h.wait(200);
       h.expect((await h.attr('[data-skin="michelle"]', "aria-pressed")) === "true", "Michelle не купилась/не одяглась");
-      h.expect((await h.attr("[data-wallet]", "data-wallet")) === "1225", `гаманець після купівлі: ${await h.attr("[data-wallet]", "data-wallet")}`);
+      h.expect((await h.attr("[data-wallet]", "data-wallet")) === "275", `гаманець після купівлі: ${await h.attr("[data-wallet]", "data-wallet")}`);
       await h.tap('[data-skin="my-gate1"]'); await h.wait(200);
-      h.expect((await h.attr('[data-skin="my-gate1"]', "aria-pressed")) === "true" && (await h.attr("[data-wallet]", "data-wallet")) === "1225", "свій бігун не одягнувся безкоштовно");
+      h.expect((await h.attr('[data-skin="my-gate1"]', "aria-pressed")) === "true" && (await h.attr("[data-wallet]", "data-wallet")) === "275", "свій бігун не одягнувся безкоштовно");
       await h.tap('[data-skin="arissa"]'); await h.wait(200);
       h.expect((await h.attr('[data-skin="arissa"]', "aria-pressed")) === "true", "своя Arissa не одяглась назад");
       await h.click('[data-tab="run"]'); await ready(h);
