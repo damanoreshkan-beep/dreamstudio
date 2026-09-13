@@ -4,10 +4,11 @@ import { atom } from "nanostores";
 import { persistentAtom } from "@nanostores/persistent";
 import { gate } from "/_rt/gate.js";
 
-// afterdark's cast minus Kaya: her rig's joint orientations do not take the shared clips (she T-poses on the
-// breathing idle in afterdark too — measured 2026-09-13), so she is not a skin here.
+// afterdark's cast. Kaya (and Louise, Sophie) T-posed until 2026-09-13: the converter wrote duplicate bone chains
+// and the clips drove a leaf copy — fixed in the assets (pipeline collapse-bones), not here.
 export const SKINS = [
   { id: "arissa", name: "Arissa", tint: "#F5B942", price: 0 },
+  { id: "kaya", name: "Kaya", tint: "#FF3EB5", price: 20 },
   { id: "michelle", name: "Michelle", tint: "#39FF6A", price: 25 },
   { id: "eve", name: "Eve", tint: "#7C5CFF", price: 40 },
   { id: "sophie", name: "Sophie", tint: "#22D3EE", price: 60 },

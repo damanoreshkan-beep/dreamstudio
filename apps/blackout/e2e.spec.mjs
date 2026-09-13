@@ -43,9 +43,9 @@ export default [
     },
   },
   {
-    name: "скіни: 10 бігунів, Arissa одягнута, гаманець 50; купівля за 25 знімає монети й одягає; недоступна — ні; своя — одягається безкоштовно", run: async (h) => {
+    name: "скіни: 11 бігунів, Arissa одягнута, гаманець 50; купівля за 25 знімає монети й одягає; недоступна — ні; своя — одягається безкоштовно", run: async (h) => {
       await h.click('[data-tab="skins"]'); await h.wait(300);
-      h.expect((await h.count("[data-skin-grid] [data-skin]")) === 10, `скінів має бути 10, є ${await h.count("[data-skin-grid] [data-skin]")}`);
+      h.expect((await h.count("[data-skin-grid] [data-skin]")) === 11, `скінів має бути 11, є ${await h.count("[data-skin-grid] [data-skin]")}`);
       h.expect((await h.attr('[data-skin="arissa"]', "aria-pressed")) === "true", "Arissa не одягнута на старті");
       h.expect((await h.attr("[data-wallet]", "data-wallet")) === "50", "гаманець не 50 під гейтом");
       await h.tap('[data-skin="michelle"]'); await h.wait(200);

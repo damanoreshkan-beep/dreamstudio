@@ -14,11 +14,15 @@ this file is the evidence the build stands on.
   punch targets are plain AABBs — no sensors, no `ActiveCollisionTypes` question; follow camera settles behind the
   heading 1.8 s after the last drag; the dark dims the lights within 25 m) · `view.js` (floating joystick left, orbit
   right, ONE punch key, cover / HUD / over card; WASD + Space + X/C + Enter on a keyboard) · skins tab.
-- **Kaya's rig does not take the shared clips.** Every clip put her in a T-pose while her bones carried the clip's
-  quaternions (hands mirror-perfect at ±0.61 m, feet symmetric under the hips mid-run). The same file + the same
-  `clip-idle.glb` in afterdark: Kaya T-poses there too, Michelle/Arissa stand arms-down (screenshot, dev `?live`).
-  Her joint orientations are baked differently → not a blackout bug, an afterdark one nobody caught in a crowd.
-  Blackout ships **Arissa** as the free default (bundled, 668 KB) and lists 10 skins without Kaya.
+- **Kaya's T-pose was the converter, not her rig (resolved 2026-09-13).** Every clip put her in a T-pose while her
+  bones carried the clip's quaternions — because the bones the clip drove were not the bones the mesh was bound to.
+  FBXLoader→GLTFExporter writes a multi-mesh character with a COPY chain of every bone per skinned mesh
+  (`mixamorigLeftArm` › `mixamorigLeftArm` › …, identity transforms, under the real bone); Three's GLTFLoader
+  de-dupes the names in skin-load order, so the plain `mixamorigLeftArm` the track resolves to was a leaf copy of
+  the body skin and the real bone never moved. 32 of 105 library characters (Kaya, Louise, Sophie among the
+  bundled 11) had it. Fix: `pipeline/collapse-bones.mjs` inside `retex.mjs` re-points every skin joint to the
+  level-0 bone and drops the copies; assets rebuilt. Blackout ships **Arissa** as the free default (bundled) and
+  lists 11 skins, Kaya at 20.
 - **A stored skin id that left the list must fall back** (`skinById`), or the stage 404s on `../afterdark/assets/kaya.glb`.
 - **Clips are stand-ins** from the box (no run/jump/punch in the 104 clips on disk — the library holds dances):
   run = Running Man in place (`108780902`), jump = Sword And Shield Running Jump (`122670901`), punch = a 0.6 s window

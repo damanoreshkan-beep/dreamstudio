@@ -29,6 +29,18 @@ and the DOM chrome is dark glass in both farm themes.
   plane's far edge is a table-top horizon) catches the coloured lights, an additive light pool under the
   crowd breathes with the kick, and each dancer stands on a soft contact shadow that follows her HIPS
   bone. Three standard meshes; no shadow maps on a phone GPU.
+- **A character that T-poses on every shared clip is a converter artefact, not a rig difference (2026-09-13,
+  Kaya — also Louise and Sophie, hidden in the crowd).** FBXLoader→GLTFExporter writes a multi-mesh Mixamo
+  character with a COPY chain of every bone per skinned mesh (`mixamorigLeftArm` › `mixamorigLeftArm` › …,
+  identity transforms, hanging under the real bone; Kaya 4 skins × 88 joints = 264 copies). GLTFLoader de-dupes
+  the names (`_1`, `_2`, …) in the order the skins load, so the plain name a clip track resolves to is a joint of
+  the FIRST skin — a leaf copy when that skin is not the level-0 one — and the real bone (parent of the copies)
+  stays at bind: quaternions on the bones, T-pose on the mesh. Arissa "worked" only because her body skin loaded
+  first. Measured over all 105 library GLBs: 49 carry copies, 32 T-pose. Fix at the source:
+  `~/mixamo-library/pipeline/collapse-bones.mjs` (in `retex.mjs`) re-points every skin joint and animation
+  channel to the level-0 bone of that name (same world transform → the inverse bind matrices hold) and drops
+  the copies; bundled kaya/arissa/sophie/louise and the 49 library `ship/` GLBs rebuilt and re-uploaded.
+  Proof: headless pose test — Kaya's body bounds on the idle went from x ±0.94 m (bind) to ±0.25 m (arms down).
 - **Standing on the floor is a construction, not an estimate.** Measured (`glb-inspect`, the GLB JSON
   chunk): the rigs share the bone tree but NOT the size — hips bind height 0.37 (pirate), 0.71 (kaya),
   1.03 (michelle), 1.13 (akai) in their own units; each clip's `Hips.position` track is in its SOURCE
