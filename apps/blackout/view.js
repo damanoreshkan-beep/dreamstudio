@@ -95,7 +95,6 @@ export function blackout({ S }) {
   // the joystick: the base floats to the finger, the knob follows within JOY_R, the vector is the knob
   const joyDown = (e) => {
     if (joy.current) return;
-    e.currentTarget.setPointerCapture?.(e.pointerId);
     const r = e.currentTarget.getBoundingClientRect();
     joy.current = { id: e.pointerId, ox: e.clientX, oy: e.clientY };
     if (base.current) { base.current.style.left = `${clamp(e.clientX - r.left, 60, r.width - 60)}px`; base.current.style.top = `${clamp(e.clientY - r.top, 60, r.height - 60)}px`; base.current.dataset.on = ""; }
