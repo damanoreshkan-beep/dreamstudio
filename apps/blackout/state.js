@@ -6,6 +6,7 @@ import { persistentAtom } from "@nanostores/persistent";
 import { gate } from "/_rt/gate.js";
 import { session } from "/_rt/auth.js";
 import { fetchMyChars, removeChar } from "/_rt/genchar.js";
+import { watchPurchases } from "/_rt/coins.js";
 
 // afterdark's cast. Kaya (and Louise, Sophie) T-posed until 2026-09-13: the converter wrote duplicate bone chains
 // and the clips drove a leaf copy — fixed in the assets (pipeline collapse-bones), not here.
@@ -81,6 +82,10 @@ export const coins = () => +$coins.get() || 0;
 /** Take `n` coins from the wallet; false when it cannot afford them. */
 export function spend(n) { const c = coins(); if (c < n) return false; $coins.set(String(c - n)); return true; }
 export const refund = (n) => $coins.set(String(coins() + n));
+/** Coins bought in Telegram Stars land here — the claim answers once per purchase, so the wallet grows exactly once. */
+export const $bought = atom(0);   // the last claim's coins, for the toast
+export const credit = (n) => { if (n > 0) { $coins.set(String(coins() + n)); $bought.set(n); } };
+if (!gate) watchPurchases(credit);   // on boot and whenever the page comes back from Telegram
 
 // the live run: idle (cover) | run | over (card). The stage writes $run ~6×/s; the HUD reads it.
 // `near` = how close the horde is, 0 (out in the murk) … 1 (at the heels) — the HUD's red edge.

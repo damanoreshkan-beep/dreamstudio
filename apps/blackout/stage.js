@@ -196,9 +196,15 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
       sound.bedTo("heartbeat", running && near > 0.45 ? (near - 0.45) * 1.6 : 0, 0.9 + near * 0.5, 0.08);
       sound.bedTo("boost", boostT > 0 ? 0.8 : 0, 1, 0.1);
     } else street.pulse(0.5);
-    // the chase camera: high behind her, easing after her lane and her floor, wider when boosted
-    look.set(x * 0.35, floor + 0.9, z - 7);
-    want.set(x * 0.45, floor + 4.0, z + 7.8);
+    // the chase camera: high behind her, easing after her lane and her floor, wider when boosted; on the menu it
+    // circles her slowly at eye height (the menu's stage is her, the moon and the street behind)
+    if (state === "idle") {
+      const a = now / 11000, r = 6.2;
+      look.set(x, 0.7, z); want.set(x + Math.sin(a) * r, 2.3 + Math.sin(a * 0.7) * 0.5, z + Math.cos(a) * r);
+    } else {
+      look.set(x * 0.35, floor + 0.9, z - 7);
+      want.set(x * 0.45, floor + 4.0, z + 7.8);
+    }
     camPos.lerp(want, 0.18); camera.position.copy(camPos); camera.lookAt(look);
     const fov = boostT > 0 ? 70 : 60; if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * 0.08; camera.updateProjectionMatrix(); }
     // the horde at her heels eats the light; a tunnel keeps its own
@@ -209,13 +215,16 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     const cw = canvas.clientWidth || innerWidth, chh = canvas.clientHeight || innerHeight;
     renderer.setScissorTest(false); renderer.setViewport(0, 0, cw, chh); renderer.clear();
     renderer.render(scene, camera);
-    // THE SELFIE: a camera on her shoulder looking back at her face — shaken by the road, zoomed by the moment
+    // THE SELFIE: a camera on her shoulder looking back at her face — shaken by the road, zoomed by the moment; on
+    // the run only (the menu and the card have no ring for it)
     face.shake *= Math.exp(-dt * 6); face.zoom *= Math.exp(-dt * 2.5);
-    const sh = face.shake * 0.08;
-    faceCam.position.set(x + 0.25 + (Math.random() - 0.5) * sh, y + 1.72 + (Math.random() - 0.5) * sh, z - 1.15 + face.zoom * 0.25);
-    faceCam.lookAt(x, y + 1.55, z); faceCam.aspect = 1; faceCam.fov = 34 - face.zoom * 8; faceCam.updateProjectionMatrix();
-    renderer.setScissorTest(true); renderer.setScissor(16, chh - 150 - FACE_PX, FACE_PX, FACE_PX); renderer.setViewport(16, chh - 150 - FACE_PX, FACE_PX, FACE_PX);
-    renderer.render(scene, faceCam);
+    if (running) {
+      const sh = face.shake * 0.08;
+      faceCam.position.set(x + 0.25 + (Math.random() - 0.5) * sh, y + 1.72 + (Math.random() - 0.5) * sh, z - 1.15 + face.zoom * 0.25);
+      faceCam.lookAt(x, y + 1.55, z); faceCam.aspect = 1; faceCam.fov = 34 - face.zoom * 8; faceCam.updateProjectionMatrix();
+      renderer.setScissorTest(true); renderer.setScissor(16, chh - 150 - FACE_PX, FACE_PX, FACE_PX); renderer.setViewport(16, chh - 150 - FACE_PX, FACE_PX, FACE_PX);
+      renderer.render(scene, faceCam);
+    }
     fpsN++; if (now - fpsT >= 1000) { fps = fpsN; fpsN = 0; fpsT = now; }
     if (++frame % 6 === 0) onStat({ frame, dist, coins, speed, fps, lane, near, boost: boostT > 0 ? Math.ceil(boostT) : 0, ammo, reload: reloadT > 0, kills, x: +x.toFixed(2), y: +y.toFixed(2), z: +z.toFixed(2) });
     if (!reported && frame > 720 && running) { reported = true; report("stage.fps", { fps, dpr: renderer.getPixelRatio(), skin }, "info"); }

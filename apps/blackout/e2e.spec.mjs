@@ -113,6 +113,18 @@ export default [
     },
   },
   {
+    name: "монети за зірки: «Поповнити» відкриває аркуш із трьома пакетами (один — вигідний), Back закриває", run: async (h) => {
+      await h.click('[data-tab="skins"]'); await h.wait(300);
+      h.expect((await h.count("[data-topup]")) === 1, "немає кнопки «Поповнити»");
+      await h.tap("[data-topup]"); await h.wait(300);
+      h.expect((await h.count("dialog[open] [data-coin-form]")) === 1, "аркуш поповнення не відкрився");
+      h.expect((await h.count("[data-coin-packs] [data-pack]")) === 3, `пакетів має бути 3, є ${await h.count("[data-coin-packs] [data-pack]")}`);
+      h.expect((await h.count('[data-pack="c5000"] .badge')) === 1, "найбільший пакет не позначено як вигідний");
+      await h.back(); await h.wait(300);
+      h.expect((await h.count("dialog[open] [data-coin-form]")) === 0, "Back не закрив аркуш");
+    },
+  },
+  {
     name: "i18n EN/UA", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);

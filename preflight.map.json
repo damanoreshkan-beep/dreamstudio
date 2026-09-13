@@ -37,6 +37,7 @@
     "/_rt/chat.js": "./rt/chat.js",
     "/_rt/chroma.js": "./rt/chroma.js",
     "/_rt/codebreak.js": "./rt/codebreak.js",
+    "/_rt/coins.js": "./rt/coins.js",
     "/_rt/ctcss.js": "./rt/ctcss.js",
     "/_rt/demod.js": "./rt/demod.js",
     "/_rt/df.js": "./rt/df.js",
