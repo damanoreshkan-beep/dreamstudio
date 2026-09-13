@@ -4,12 +4,12 @@
   "category": "play",
   "accent": "#F5B942",
   "tabs": [
-    { "id": "run", "type": "tool", "icon": "lucide:zap-off", "label": "tabRun", "view": "blackout", "fit": true, "needs": ["wakeLock"] },
-    { "id": "skins", "type": "tool", "icon": "lucide:shirt", "label": "tabSkins", "view": "skins", "needs": ["auth", "camera"] },
-    { "id": "me", "type": "profile", "icon": "lucide:zap-off", "label": "tabMe", "titleKey": "tabMe" }
+    { "id": "run", "type": "tool", "icon": "lucide:footprints", "label": "tabRun", "view": "blackout", "fit": true, "needs": ["wakeLock"] },
+    { "id": "skins", "type": "tool", "icon": "lucide:shopping-bag", "label": "tabSkins", "view": "skins", "needs": ["auth", "camera"] },
+    { "id": "me", "type": "profile", "icon": "lucide:user", "label": "tabMe", "titleKey": "tabMe" }
   ],
   "profile": {
-    "icon": "lucide:zap-off",
+    "icon": "lucide:user",
     "theme": true,
     "lang": true,
     "install": true

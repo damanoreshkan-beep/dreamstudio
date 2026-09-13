@@ -222,6 +222,14 @@ export function createWorld(scene) {
     bandMat = grade(new THREE.MeshStandardMaterial({ map: graffiti, color: 0x5e5c5a, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), 0.35);
     M.bin = grade(new THREE.MeshStandardMaterial({ map: metal, color: 0x4e524c, roughness: 0.9, metalness: 0.2 }));
     M.bar = grade(new THREE.MeshStandardMaterial({ map: metal, color: 0x7a6a4a, roughness: 0.8, metalness: 0.35, emissive: 0x2a1a0a, emissiveIntensity: 0.4 }));
+    // the deck wears the street's asphalt (tiled along its length), its rails and posts the painted metal (owner, 2026-09-13: the rails had no texture)
+    const deckTex = asphalt.clone(); deckTex.repeat.set(1, 9); deckTex.needsUpdate = true;
+    M.deck.map = deckTex; M.deck.color.set(0x4a4c50); M.deck.needsUpdate = true; grade(M.deck);
+    M.rail.map = metal; M.rail.color.set(0x8a8e92); M.rail.needsUpdate = true;
+    M.post.map = metal; M.post.color.set(0x6a6e70); M.post.needsUpdate = true;
+    // the energy can's label (Z-Image through docs/research/mascot-tools/genraw.mjs): a wrap around the cylinder
+    const canTex = await tex(A("assets/tex-can.webp")).catch(() => null);
+    if (canTex) { canTex.wrapS = THREE.RepeatWrapping; canTex.repeat.set(2, 1); M.can.map = canTex; M.can.emissiveMap = canTex; M.can.color.set(0xffffff); M.can.emissive.set(0x9bffb0); M.can.emissiveIntensity = 0.9; M.can.needsUpdate = true; }
     const cap = { sedan: 16, taxi: 16, suv: 16, van: 16, hatch: 16, bin: 24, lamp: 32, barrier: 16, planter: 16, cone: 16 };
     for (const node of props.scene.children) {
       const car = CARS.indexOf(node.name);
