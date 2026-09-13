@@ -33,8 +33,8 @@ export default [
       h.expect((await g(h, "lane")) === "3", `після →→→ доріжка ${await g(h, "lane")}`);
       await key(h, "KeyD");
       h.expect((await g(h, "lane")) === "3", "правіше третьої не буває");
-      await key(h, "ArrowUp"); await key(h, "ArrowDown"); await key(h, "Space");
-      h.expect(+(await g(h, "acts")) === n0 + 9, `дій: ${await g(h, "acts")} (було ${n0})`);
+      await key(h, "ArrowUp"); await key(h, "ArrowDown");
+      h.expect(+(await g(h, "acts")) === n0 + 8, `дій: ${await g(h, "acts")} (було ${n0})`);   // Space is a shot now, not a verb
       await key(h, "ArrowLeft"); await key(h, "ArrowLeft");
       h.expect((await g(h, "lane")) === "1", "не повернулась на стартову доріжку");
     },
