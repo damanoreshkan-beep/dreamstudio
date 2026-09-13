@@ -128,10 +128,10 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     if (current === "run") actions.run.setEffectiveTimeScale(0.9 + speed * 0.5);
     mixer?.update(dt);
     for (let i = bursts.length - 1; i >= 0; i--) { const b = bursts[i]; b.life -= dt; b.vy += GRAVITY * dt; b.m.position.x += b.vx * dt; b.m.position.y += b.vy * dt; b.m.position.z += b.vz * dt; if (b.life <= 0) { scene.remove(b.m); bursts.splice(i, 1); } }
-    // the follow camera: an orbit around the chest; it settles behind her heading unless a finger is orbiting
-    const ic = input.cam || cam;
-    if (now - (input.dragT || 0) > 1800 && speed > 0.08) ic.yaw += wrap(yaw - Math.PI - ic.yaw) * 0.06;
-    cam.yaw += wrap(ic.yaw - cam.yaw) * 0.12; cam.pitch += ((ic.pitch ?? 0.2) - cam.pitch) * 0.12; cam.zoom += ((ic.zoom ?? 1) - cam.zoom) * 0.12;
+    // the follow camera: rigidly behind her back (yaw - π); the joystick never moves it, a drag adds an orbit offset that settles back
+    const ic = input.cam || { yaw: 0, pitch: 0.2, zoom: 1 };
+    if (now - (input.dragT || 0) > 1800 && ic.yaw) ic.yaw += wrap(-ic.yaw) * 0.06;
+    cam.yaw += wrap(yaw - Math.PI + ic.yaw - cam.yaw) * 0.12; cam.pitch += ((ic.pitch ?? 0.2) - cam.pitch) * 0.12; cam.zoom += ((ic.zoom ?? 1) - cam.zoom) * 0.12;
     const R = 5 * cam.zoom, cp = Math.cos(cam.pitch);
     look.set(q.x, q.y + 0.35, q.z);
     want.set(look.x + Math.sin(cam.yaw) * cp * R, look.y + 0.8 + Math.sin(cam.pitch) * R, look.z + Math.cos(cam.yaw) * cp * R);
