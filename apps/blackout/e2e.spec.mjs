@@ -75,7 +75,7 @@ export default [
   },
   {
     name: "звук: кнопка в HUD перемикає тишу (aria-pressed, data-muted) і повертає назад", run: async (h) => {
-      await ready(h);
+      await h.click('[data-tab="run"]'); await ready(h);
       h.expect((await h.count("[data-mute]")) === 1, "немає кнопки звуку");
       const was = await h.attr("[data-mute]", "data-muted");
       await h.tap("[data-mute]"); await h.wait(150);
