@@ -4,7 +4,7 @@
 
 # Тьма
 
-**Нічна вулиця в 3D: чотири доріжки, перешкоди, монети — і орда за спиною. Свайп — доріжка, вгору — стрибок, вниз — підкат.**
+**Місто гасне за спиною, а з темряви біжать ті, кого вона вже забрала. Біжи, поки світять ліхтарі — і зроби бігуна зі своїх слів або зі свого фото.**
 
 ![](https://img.shields.io/badge/-play-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

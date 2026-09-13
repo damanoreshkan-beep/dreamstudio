@@ -176,8 +176,11 @@ export function skins({ S, openScreen, closeScreen }) {
         <span class="text-[0.75rem] leading-tight">${T(t, "genOpen")}</span>
         <span class="font-mono text-[0.7rem] leading-none tabular-nums">${GEN_PRICE} <iconify-icon icon="lucide:circle-dollar-sign" class="align-[-1px]"></iconify-icon></span>
       </button>
-      ${mine.map((g) => cell(g, true, html`<span class="font-mono text-[0.7rem] leading-none text-base-content/70">${g.id === skin ? T(t, "worn") : T(t, "ownedSkin")}</span>
-        <span data-remove=${g.id} role="button" tabindex="0" aria-label=${T(t, "remove")} data-haptic="bump" class="absolute top-1 right-1 w-6 h-6 rounded-full bg-base-100/70 flex items-center justify-center text-xs" onClick=${(e) => { e.stopPropagation(); removeMyChar(g.id); }}><iconify-icon icon="lucide:x"></iconify-icon></span>`))}
+      ${mine.map((g) => html`<div key=${g.id} class="relative min-w-0">
+        ${cell(g, true, html`<span class="font-mono text-[0.7rem] leading-none text-base-content/70">${g.id === skin ? T(t, "worn") : T(t, "ownedSkin")}</span>`)}
+        <button data-remove=${g.id} type="button" aria-label=${T(t, "remove")} title=${T(t, "remove")} data-haptic="bump" onClick=${() => removeMyChar(g.id)}
+          class="absolute top-1 right-1 w-6 h-6 rounded-full bg-base-100 border border-base-content/15 text-base-content/70 flex items-center justify-center text-sm leading-none">×</button>
+      </div>`)}
     </div>
     <h2 class="font-mono uppercase tracking-widest text-[0.7rem] text-base-content/70 mt-1">${T(t, "cast")}</h2>
     <div data-skin-grid class="grid grid-cols-3 sm:grid-cols-4 gap-x-2 gap-y-3">
