@@ -369,8 +369,8 @@ export function createWorld(scene) {
       ch.obstacles.push({ kind, lane, z, zHalf: 0.3 });
     } else if (kind === "walker") {        // an undead in the lane — shot, or dodged
       spawnWalker(ch, lane, z);
-    } else {                               // a dumpster or a car across the lane — only another lane clears it
-      if (r() < 0.5) { const sc = 1.25; place(ch, "bin", x, y, z, Math.PI / 2, sc); ch.obstacles.push({ kind, lane, z, zHalf: 0.9 }); }
+    } else {                               // a dumpster — vaulted with the roll (owner, 2026-09-13) — or a car across the lane, only another lane clears it
+      if (r() < 0.5) { const sc = 1.25; place(ch, "bin", x, y, z, Math.PI / 2, sc); ch.obstacles.push({ kind: "bin", lane, z, zHalf: 0.9 }); }
       else { car(ch, r, x, z, true); ch.obstacles.push({ kind, lane, z, zHalf: 1.0 }); }
     }
   }
@@ -538,6 +538,11 @@ export function createWorld(scene) {
         if (Math.abs(o.z - pz) < o.zHalf + 0.45) { o.done = true; return o; }
       }
       return null;
+    },
+    // a dumpster within `reach` metres ahead in her lane (the jump becomes the vault)
+    binAhead(lane, pz, reach) {
+      for (const ch of chunks.values()) for (const o of ch.obstacles) if (!o.done && o.kind === "bin" && o.lane === lane && o.z < pz && pz - o.z < reach) return true;
+      return false;
     },
     // a shot down `lane` (and `spread` lanes either side) from pz, `range` metres ahead: the nearest live walker takes
     // `dmg`; returns {walker, dead, lane, z} or null. A dying walker plays Zombie Death and pays coins once.
