@@ -55,6 +55,8 @@ export const $coins = persistentAtom(`${NS}coins`, "0");
 export const $runs = persistentAtom(`${NS}runs`, "0");
 export const $skin = persistentAtom(`${NS}skin`, "arissa");
 export const $owned = persistentAtom(`${NS}owned`, '["arissa"]');
+export const $muted = persistentAtom(`${NS}muted`, "0");   // "1" = the effects and the stream are silent (the beat clock free-runs)
+export const muted = () => $muted.get() === "1";
 export const owned = () => { try { const a = JSON.parse($owned.get()); return Array.isArray(a) ? a : ["arissa"]; } catch { return ["arissa"]; } };
 export const coins = () => +$coins.get() || 0;
 /** Take `n` coins from the wallet; false when it cannot afford them. */

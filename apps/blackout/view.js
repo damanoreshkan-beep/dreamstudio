@@ -11,7 +11,7 @@ import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { haptic, wakeLock } from "/_rt/sensors.js";
 import { report } from "/_rt/telemetry.js";
-import { SKINS, GEN_PRICE, skinById, avatarUrl, owned, myChars, pickSkin, removeMyChar, finishRun, $best, $coins, $owned, $skin, $myChars, $state, $run, $phys, $why, $last, $newChar } from "./state.js";
+import { SKINS, GEN_PRICE, skinById, avatarUrl, owned, myChars, pickSkin, removeMyChar, finishRun, $best, $coins, $owned, $skin, $myChars, $muted, $state, $run, $phys, $why, $last, $newChar } from "./state.js";
 import { GenSheet } from "./gen.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -21,7 +21,7 @@ const KEYS = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "righ
 export function blackout({ S }) {
   const t = useStore(S.t);
   const state = useStore($state), run = useStore($run), phys = useStore($phys), why = useStore($why);
-  const best = useStore($best), skin = useStore($skin), last = useStore($last);
+  const best = useStore($best), skin = useStore($skin), last = useStore($last), mutedNow = useStore($muted) === "1";
   const [acts, setActs] = useState(0);
   const canvasRef = useRef(null), hud = useRef(null);
   const engine = useRef(null);
@@ -111,7 +111,11 @@ export function blackout({ S }) {
           <span class="font-mono tabular-nums text-3xl font-bold">${m}<span class="text-base font-normal opacity-70 ml-1">${T(t, "unitM")}</span></span>
           <span class="font-mono tabular-nums text-sm mt-1 bo-gold" data-hud-coins><iconify-icon icon="lucide:circle-dollar-sign" class="align-[-2px]"></iconify-icon> ${run.coins}</span>
         </div>
-        ${state === "run" ? html`<div class="bo-chip font-mono tabular-nums text-xs opacity-70 leading-none">${T(t, "best")} ${best}</div>` : null}
+        <div class="flex items-center gap-2 pointer-events-auto">
+          ${state === "run" ? html`<div class="bo-chip font-mono tabular-nums text-xs opacity-70 leading-none">${T(t, "best")} ${best}</div>` : null}
+          <button data-mute type="button" aria-label=${T(t, "sound")} aria-pressed=${mutedNow ? "true" : "false"} data-muted=${mutedNow ? "1" : "0"} onClick=${() => $muted.set(mutedNow ? "0" : "1")}
+            class="bo-chip w-10 h-10 rounded-full flex items-center justify-center text-lg active:scale-95 transition-transform"><iconify-icon icon=${mutedNow ? "lucide:volume-x" : "lucide:volume-2"}></iconify-icon></button>
+        </div>
       </div>
 
       ${/* the control layer: the whole stage takes the swipe */""}

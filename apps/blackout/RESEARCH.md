@@ -70,7 +70,42 @@ counted, keys and swipes alike) · `data-dist` / `data-coins`. The skins tab: `[
 (`[data-src-upload]`, `[data-src-camera]`) → `[data-gen-photo]`, `[data-gen-go]`, `[data-gen-progress]`,
 `[data-gen-error]`.
 
-**Not measured yet (UNVERIFIED until the S25):** real fps of the horde (10–12 skinned clones + the street) —
+**Sound (2026-09-13, evening; owner: «звуків багато треба щоб користувач повністю погрузився … музику з afterdark
+підключити, у такт світло фонарів»).** No text-to-audio capability existed on the edge; the catalogue through the HF
+API from the VPS (13 synonyms, 81 RUNNING Spaces) and four probes on the pods (`vps/hftts.mjs`, one prompt) gave
+`/feed/sfx` (edge `sfx.js`, the voice route's shape, kind:"audio" on the browser workers):
+
+| Space | hardware | probe | verdict |
+|---|---|---|---|
+| `fffiloni/audiogen` (Meta AudioGen) | bare ZeroGPU | 5 s WAV 160 KB in 15 s, "Submit" | leads — made for effects, no fields |
+| `stabilityai/stable-audio-3` | bare ZeroGPU | 8 steps in 16 s, but 60 s of WAV (10.5 MB) | second — radio "Model" → Small SFX, "Duration" by label |
+| `fffiloni/audioldm2-…-API` | bare ZeroGPU | 10 s WAV 320 KB in 23 s | tail |
+| `artificialguybr/Stable-Audio-Open-Zero` | duration=120 | "ZeroGPU worker error RuntimeError" | dropped |
+| `OpenMOSS-Team/MOSS-SoundEffect-v2.0` | duration=180 | never admitted anonymously | dropped |
+| `Wubble-AI/…-v1` | cpu-basic | answered nothing twice | dropped |
+
+The library (`docs/research/sfx-tools/sfxraw.mjs` inside the edge container → `sfxpack.mjs` → `assets/sfx-*.mp3`,
+mono 44.1 kHz VBR, 26 → 25 effects, 630 KB): AudioGen answered every prompt at exactly 5.00 s (its duration slider
+steps 5/10, the 10 s asks came back 5 s), one bucket per pod per 1–2 effects (the first batch lost 22 of 26 to a
+refusal each; detached with 25 s pauses it took 105 s for 22). One trap: two prompts on two pods came back byte-identical
+(`heartbeat` = `lamp-hum`, md5 ea96f57b) — a re-run with a reworded prompt replaced it; check md5 before shipping.
+Measured (ffmpeg volumedetect): means −6 … −24 dB, so the mix lives in `SFX` gains (land −6.7 dB → 0.6, coin −24 dB
+→ 0.5); one-shots trimmed with a 0.15 s fade (jump 1.2 s, land 1.0 s, hits 1.2–1.6 s), beds kept whole to loop.
+
+The engine (`sound.js`): one Web Audio graph from the core's `createEngine`; effects are `AudioBufferSource`s with a
+±spread on `playbackRate`; beds (steps, wind, lamp hum, the horde's moans and running, the heartbeat) are looping
+sources whose gains follow the run every frame (`bedTo`: the steps' rate = speed / 4.4, the horde = 0.25 + near·0.75,
+the heartbeat from near 0.45). THE MUSIC is afterdark's station, the direct Icecast feed (CORS-open, so the analyser
+hears it — afterdark's own fallback path; the DVR/hls.js path is not needed to run, so it is not here), into the same
+context; two analysers as in afterdark (smoothed → `bassEnergy`/`stepPulse`, raw → `spectralFlux`/`stepBeat` from
+`rt/afterbeat.js`); `beat.phase` (latency-led) drives `world.pulse(1 − phase)` — every lamp head, cone and pool shares
+one material, so the street flashes on the kick. The Run tap is the gesture: `ctx.resume`, the library loads, the
+stream starts. No audio under the gate (`createEngine` returns null); the mute key in the HUD (`[data-mute]`) holds
+`blackout:muted`.
+
+**Not measured yet (UNVERIFIED until the S25):** whether the Icecast stream plays inside the WebView APK (afterdark
+plays it in Chrome; the shell's WebView is the open question), the beat lock time on the phone (afterdark measures
+~4–8 s), and real fps of the horde (10–12 skinned clones + the street) —
 `report("stage.fps")` at frame 720, `bash vps/logs.sh blackout`; the swipe threshold (40 px) on a 6.9" screen; whether
 the Zombie Running clip's timeScale (0.6 … speed/6) reads as a chase at 15 m/s.
 

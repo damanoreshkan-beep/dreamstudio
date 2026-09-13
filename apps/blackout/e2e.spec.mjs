@@ -74,6 +74,18 @@ export default [
     },
   },
   {
+    name: "звук: кнопка в HUD перемикає тишу (aria-pressed, data-muted) і повертає назад", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-mute]")) === 1, "немає кнопки звуку");
+      const was = await h.attr("[data-mute]", "data-muted");
+      await h.tap("[data-mute]"); await h.wait(150);
+      h.expect((await h.attr("[data-mute]", "data-muted")) !== was, "тап не перемкнув тишу");
+      h.expect((await h.attr("[data-mute]", "aria-pressed")) === (was === "0" ? "true" : "false"), "aria-pressed не відповідає стану");
+      await h.tap("[data-mute]"); await h.wait(150);
+      h.expect((await h.attr("[data-mute]", "data-muted")) === was, "другий тап не повернув стан");
+    },
+  },
+  {
     name: "i18n EN/UA", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);

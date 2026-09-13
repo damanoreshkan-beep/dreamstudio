@@ -12,7 +12,8 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { report } from "/_rt/telemetry.js";
 import { createWorld, LANES, laneX } from "./world.js";
 import { hipsOf, fit, retarget } from "./rig.js";
-import { glbUrl } from "./state.js";
+import { glbUrl, muted } from "./state.js";
+import { createSound } from "./sound.js";
 
 const DRACO_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
 const CLIPS = {
@@ -75,6 +76,11 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   }
   try { await Promise.all([loadClips(), street.ready]); await loadSkin(skinId); } catch (e) { onStatus("failed", "glb: " + String(e && e.message || e).slice(0, 70)); return null; }
 
+  // the sound (sound.js): null where Web Audio is missing; it wakes on the Run tap and the effects load then
+  const sound = createSound({ muted });
+  const sfx = (name, o) => sound?.play(name, o);
+  let nextAmbience = 0, coinStreak = 0, lastCoinAt = 0;
+
   function resize() { const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   resize(); addEventListener("resize", resize);
 
@@ -99,22 +105,37 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     const px = x; x += (laneX(lane) - x) * (1 - Math.exp(-LANE_LERP * dt));
     const vx = (x - px) / Math.max(dt, 1e-4);
     // the air: our gravity; the slide: a timer
-    if (y > 0 || vy > 0) { vy += GRAVITY * dt; y = Math.max(0, y + vy * dt); if (y === 0 && vy < 0) { vy = 0; if (running && !oneShot) play("run", 0.12); } }
+    if (y > 0 || vy > 0) { vy += GRAVITY * dt; y = Math.max(0, y + vy * dt); if (y === 0 && vy < 0) { vy = 0; if (running) { sfx("land"); if (!oneShot) play("run", 0.12); } } }
     if (slideT > 0 && (slideT -= dt) <= 0) slideT = 0;
     if (running) {
-      const got = street.collect(x, y, z); if (got) { coins += got; onEvent("coin", got); }
+      const got = street.collect(x, y, z);
+      if (got) { coins += got; coinStreak = now - lastCoinAt < 700 ? coinStreak + 1 : 0; lastCoinAt = now; sfx("coin", { rate: 1 + Math.min(coinStreak, 10) * 0.035 }); onEvent("coin", got); }
       // the obstacle under her feet in her lane, resolved by ACTION (neon-rush collisionSystem): never by box maths
       const o = street.hit(lane, z);
       if (o) {
         const safe = o.kind === "jump" ? y > JUMP_SAFE_Y : o.kind === "slide" ? slideT > 0 : false;
         if (!safe) {
+          sfx(o.kind === "jump" ? "hit-wood" : o.kind === "slide" ? "hit-metal" : "hit-car");
           if (o.kind === "dodge" || street.stumble()) caught(now);
-          else { stumbleT = 1.1; slideT = 0; play("stumble", 0.06, true); onEvent("stumble"); }
+          else { stumbleT = 1.1; slideT = 0; play("stumble", 0.06, true); sfx("stumble"); sfx(Math.random() < 0.5 ? "zombie-growl-1" : "zombie-growl-2"); onEvent("stumble"); }
         }
       }
+      // the street's own life, now and then: a siren between the buildings, a crow off a lamp
+      if (now > nextAmbience) { nextAmbience = now + 18000 + Math.random() * 30000; sfx(Math.random() < 0.5 ? "siren" : "crow"); }
     }
     street.update(z, dist, dt, running, x, speed, metres);
     street.spin(now / 1000);
+    // the beat (the stream's kick, or the idle groove) lights the lamps; the beds follow her speed and the horde's closeness
+    if (sound) {
+      const b = sound.tick(now), near = street.near();
+      street.pulse(1 - b.phase);
+      sound.bedTo("run", running ? 1 : 0, Math.max(0.6, speed / RUN_CLIP_MS));
+      sound.bedTo("wind", state !== "idle" ? 1 : 0.4);
+      sound.bedTo("lamp-hum", state !== "idle" ? 1 : 0);
+      sound.bedTo("horde", running || state === "over" ? 0.25 + near * 0.75 : 0, 1);
+      sound.bedTo("horde-run", running ? near * 0.8 : 0, 0.9 + near * 0.3);
+      sound.bedTo("heartbeat", running && near > 0.45 ? (near - 0.45) * 1.6 : 0, 0.9 + near * 0.5, 0.08);
+    } else street.pulse(0.5);
     holder.position.set(x, y, z); holder.rotation.set(y > 0 ? -0.1 : 0, Math.PI, clamp(-vx * 0.035, -0.3, 0.3));
     if (!oneShot) play(running ? "run" : "idle", 0.2);
     if (current === "run") actions.run.setEffectiveTimeScale(Math.max(0.6, speed / RUN_CLIP_MS));
@@ -134,30 +155,34 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   function caught(now) {
     state = "over"; street.catch(); slideT = 0; stumbleT = 0;
     play("death", 0.1, true);
+    sfx("zombie-scream"); setTimeout(() => { sfx("bite"); sfx("fall"); }, 500); setTimeout(() => sfx("over"), 900);
     onEvent("over", { dist, coins, at: now });
   }
   onStatus("ready", ""); tick();
-  globalThis.__blackout = { get mixer() { return mixer; }, get actions() { return actions; }, get current() { return current; }, get rig() { return rig; }, get fps() { return fps; }, get state() { return state; }, get lane() { return lane; }, world: street, holder, catch: () => { if (state === "run") caught(performance.now()); } };
+  globalThis.__blackout = { get mixer() { return mixer; }, get actions() { return actions; }, get current() { return current; }, get rig() { return rig; }, get fps() { return fps; }, get state() { return state; }, get lane() { return lane; }, world: street, holder, sound, catch: () => { if (state === "run") caught(performance.now()); } };
 
   return {
     start(s) {
       seed = s || 1; street.reset(seed);
       lane = 1; x = laneX(1); y = 0; vy = 0; z = 2; slideT = 0; stumbleT = 0; dist = 0; coins = 0; oneShot = null; state = "run"; reported = false;
+      coinStreak = 0; nextAmbience = performance.now() + 12000;
+      // the Run tap is the audio gesture: the context wakes, the library loads, the stream starts
+      if (sound) { sound.resume(); sound.load().then(() => sfx("whoosh-start")); sound.music(true); }
       onEvent("start");
     },
     // the four verbs of a lane runner; each is one swipe or one key
     act(what) {
       if (state !== "run") return false;
-      if (what === "left") { if (lane <= 0) return false; lane--; return true; }
-      if (what === "right") { if (lane >= LANES - 1) return false; lane++; return true; }
-      if (what === "jump") { if (y > 0) return false; slideT = 0; vy = JUMP_V; y = 0.001; play("jump", 0.06, true); return true; }
-      if (what === "slide") { if (y > 0 || slideT > 0) return false; slideT = SLIDE_S; play("slide", 0.06, true); return true; }
+      if (what === "left") { if (lane <= 0) return false; lane--; sfx("lane"); return true; }
+      if (what === "right") { if (lane >= LANES - 1) return false; lane++; sfx("lane"); return true; }
+      if (what === "jump") { if (y > 0) return false; slideT = 0; vy = JUMP_V; y = 0.001; play("jump", 0.06, true); sfx("jump"); return true; }
+      if (what === "slide") { if (y > 0 || slideT > 0) return false; slideT = SLIDE_S; play("slide", 0.06, true); sfx("slide"); return true; }
       return false;
     },
     async setSkin(id) { if (id === skin) return; try { await loadSkin(id); } catch (e) { onStatus("failed", "glb: " + String(e && e.message || e).slice(0, 70)); } },
     dispose() {
       dead = true; cancelAnimationFrame(raf); removeEventListener("resize", resize);
-      street.dispose();
+      sound?.dispose(); street.dispose();
       try { renderer.dispose(); renderer.forceContextLoss?.(); } catch { /* gone */ }
     },
   };

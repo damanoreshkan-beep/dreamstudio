@@ -27,6 +27,7 @@ const A = (p) => new URL(p, import.meta.url).href;
 const CARS = ["sedan", "taxi", "suv", "van", "hatch"];
 const HORDE_SKINS = ["arissa", "michelle", "sophie", "eve", "nightshade"];   // arissa is bundled (dev); the rest are afterdark's
 
+const clamp01 = (v) => Math.max(0, Math.min(1, v));
 // seeded, so a run replays and the daily seed is a date
 export function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
@@ -377,6 +378,8 @@ export function createWorld(scene) {
       while (zombies.length) killZombie(zombies.length - 1);
     },
     zombies: () => zombies.map((z) => ({ x: +z.x.toFixed(2), z: +z.z.toFixed(2) })),
+    // the lamps breathe with the beat (sound.js): every head, cone and pool shares one material, so one write lights the street
+    pulse(k) { const v = 0.55 + 0.45 * clamp01(k); M.head.color.setScalar(v); M.pool.opacity = 0.5 + 0.5 * v; M.beam.opacity = 0.02 + 0.03 * v; },
     // keep AHEAD chunks in front of the runner and BEHIND behind; move the horde; forgive clean metres
     update(z, dist, dt, running, px, speed, metres) {
       if (!roadReady) return;
