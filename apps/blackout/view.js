@@ -226,7 +226,8 @@ export function blackout({ S, openScreen, closeScreen }) {
         </div>` : null}
       </div>
     </div>
-    <${CoinSheet} t=${t} loc=${loc} open=${screen === "topup"} onClose=${closeScreen} />
+    ${/* mounted only while open: a closed dialog on the fit screen still widened the page by 42 px (CI, 2026-09-13) */""}
+    ${screen === "topup" ? html`<${CoinSheet} t=${t} loc=${loc} open=${true} onClose=${closeScreen} />` : null}
   </${Fragment}>`;
 }
 
@@ -298,7 +299,7 @@ const CSS = `
 .bo-bg{background:radial-gradient(120% 70% at 50% 100%,#141a30 0%,#05070c 60%)}
 .bo-edge{background:radial-gradient(80% 70% at 50% 55%,rgba(0,0,0,0) 45%,rgba(120,10,16,.55) 100%);transition:opacity .25s linear}
 .bo-boost{background:radial-gradient(70% 60% at 50% 50%,rgba(0,0,0,0) 55%,rgba(34,211,238,.28) 100%);transition:opacity .4s ease}
-.bo-chip{padding:.4rem .6rem;border-radius:1rem;background:rgba(7,6,12,.55);backdrop-filter:blur(8px);color:#f2eee6}
+.bo-chip{padding:.4rem .6rem;border-radius:1rem;background:rgba(7,6,12,.82);backdrop-filter:blur(8px);color:#f2eee6}   /* .82, not .55: the boost's cyan rim showed through and the light theme's HUD lost its 4.5:1 (CI, 2026-09-13) */
 .bo-gold{color:#f5b942}
 .bo-cyan{color:#22d3ee}
 .bo-star{background:rgba(245,185,66,.16);color:#f5b942;border:1px solid rgba(245,185,66,.35)}
