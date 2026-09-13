@@ -9,6 +9,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { report } from "/_rt/telemetry.js";
 import { createWorld, STREET_W } from "./world.js";
+import { hipsOf, fit, retarget } from "./rig.js";
 import { glbUrl } from "./state.js";
 
 const DRACO_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
@@ -24,19 +25,6 @@ const RUN_SPEED = 4.4, JUMP_V = 5.3, STEP_MAX = 0.5;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
-const hipsOf = (obj) => { let h = null; obj.traverse((o) => { if (!h && /hips$/i.test(o.name)) h = o; }); return h ? { bone: h, y: h.position.y, prefix: h.name.replace(/hips$/i, "") } : { bone: null, y: 0, prefix: "" }; };
-// afterdark's retarget (prefix rename + hips translation scaled by bind height); IN PLACE pins the hips' x/z
-function retarget(clip, src, dst, inPlace) {
-  const c = clip.clone(), r = src.y && dst.y ? dst.y / src.y : 1, rename = src.prefix !== dst.prefix;
-  for (const t of c.tracks) {
-    if (rename && t.name.startsWith(src.prefix)) t.name = dst.prefix + t.name.slice(src.prefix.length);
-    if (/hips\.position$/i.test(t.name)) {
-      const v = t.values, x0 = v[0], z0 = v[2];
-      for (let i = 0; i < v.length; i += 3) { v[i] = inPlace ? x0 * r : v[i] * r; v[i + 1] *= r; v[i + 2] = inPlace ? z0 * r : v[i + 2] * r; }
-    }
-  }
-  return c;
-}
 
 export async function createStage(canvas, { getInput, onStatus, onStat, onEvent }, skinId) {
   let RAPIER;
@@ -56,10 +44,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   const fill = new THREE.DirectionalLight(0xffe2c0, 1.6); fill.position.set(2, 7, 6); scene.add(fill);
 
   const world = new RAPIER.World({ x: 0, y: GRAVITY, z: 0 });
-  world.createCollider(RAPIER.ColliderDesc.cuboid(STREET_W, 0.1, 100000).setTranslation(0, -0.1, 0));
-  const asphalt = new THREE.Mesh(new THREE.PlaneGeometry(STREET_W + 4, 300), new THREE.MeshStandardMaterial({ color: 0x1c1727, roughness: 0.92 }));
-  asphalt.rotation.x = -Math.PI / 2; scene.add(asphalt);
-  const street = createWorld(scene, RAPIER, world);
+  const street = createWorld(scene, RAPIER, world);   // the road (+ its ground colliders), sidewalks, buildings, props, NPCs — see world.js
 
   const body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, CAP_HH + CAP_R + 0.05, 2));
   const collider = world.createCollider(RAPIER.ColliderDesc.capsule(CAP_HH, CAP_R), body);
@@ -76,12 +61,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   }
   async function loadSkin(id) {
     const g = await loader.loadAsync(glbUrl(id));
-    const root = g.scene;
-    let box = new THREE.Box3().setFromObject(root);
-    root.scale.setScalar(TARGET_H / (box.getSize(new THREE.Vector3()).y || TARGET_H));
-    box = new THREE.Box3().setFromObject(root);
-    root.position.set(-(box.min.x + box.max.x) / 2, -box.min.y, -(box.min.z + box.max.z) / 2);
-    root.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    const root = fit(g.scene, TARGET_H);
     holder.clear(); holder.add(root);
     rig = hipsOf(root); mixer = new THREE.AnimationMixer(root); actions = {}; current = null; oneShot = null;
     for (const [cid, c] of Object.entries(CLIPS)) {
@@ -98,7 +78,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     const prev = actions[current]; if (prev) a.crossFadeFrom(prev, fade, true);
     current = id; if (once) oneShot = id;
   }
-  try { await loadClips(); await loadSkin(skinId); } catch (e) { onStatus("failed", "glb: " + String(e && e.message || e).slice(0, 70)); return null; }
+  try { await Promise.all([loadClips(), street.ready]); await loadSkin(skinId); } catch (e) { onStatus("failed", "glb: " + String(e && e.message || e).slice(0, 70)); return null; }
 
   // the burst: a few emissive cubes thrown from a smashed bin
   const burstGeo = new THREE.BoxGeometry(0.12, 0.12, 0.12), burstMat = new THREE.MeshBasicMaterial({ color: 0x39ff6a });
@@ -136,7 +116,6 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     vy = grounded && vy <= 0 ? 0 : vy + GRAVITY * dt;
     const q = body.translation(), feetY = q.y - CAP_HH - CAP_R;
     holder.position.set(q.x, feetY, q.z); holder.rotation.y = yaw;
-    asphalt.position.z = q.z;
     if (state === "run") {
       dist = Math.max(dist, 2 - q.z);
       const got = street.collect(q.x, feetY, q.z); if (got) { coins += got; onEvent("coin", got); }
@@ -186,7 +165,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     async setSkin(id) { if (id === skin) return; try { await loadSkin(id); } catch (e) { onStatus("failed", "glb: " + String(e && e.message || e).slice(0, 70)); } },
     dispose() {
       dead = true; cancelAnimationFrame(raf); removeEventListener("resize", resize);
-      street.dispose(); asphalt.geometry.dispose(); asphalt.material.dispose(); burstGeo.dispose(); burstMat.dispose();
+      street.dispose(); burstGeo.dispose(); burstMat.dispose();
       try { world.free(); renderer.dispose(); renderer.forceContextLoss?.(); } catch { /* gone */ }
     },
   };

@@ -5,6 +5,38 @@ automatically, collect coins, outrun the Blackout (the dark that kills the light
 record, spend coins on skins and powers. Decisions and the concept live above the code (the owner's meta layer);
 this file is the evidence the build stands on.
 
+## Ф2 — the premium street (2026-09-13, Claude Fable 5.1; measured on the box: dev `?live`, own headless Chromium/SwiftShader)
+
+- **Props are Kenney CC0** (Car Kit + City Kit Roads/Suburban, kenney.nl zips): sedan, taxi, suv, van, hatchback-sports,
+  dumpster (×4), light-curved (×7), construction-barrier (×8), planter (×3.2), construction-cone (×8) merged into ONE
+  draco GLB `assets/props.glb` (67 KB, 3 palette textures) by `~/mixamo-library/pipeline/_props.mjs` (gltf-transform:
+  flatten+join per model → wrapper node = the prop name → mergeDocuments → unpartition → dedup → webp 512 → draco).
+  **Name the merged scene** (`setName("props")`): GLTFLoader uniquifies node names, and a scene named "sedan" turned
+  the sedan wrapper into `sedan_1` — `P[kind]` undefined, `.size` TypeError in `car()`.
+- **Textures are Z-Image (zimg, 1024², "seamless tileable … orthographic")** → webp in `assets/textures/`: facade (dark
+  brick, 96 KB) + graffiti (269 KB) + asphalt (275 KB) + sidewalk (paving slabs, 2 m tiles on the kerb top) + metal
+  (512², 12 KB). The HF guest quota ran dry mid-batch — a retry loop with 90–240 s backoff got every prompt through.
+  Seams: `MirroredRepeatWrapping` — free and invisible.
+  The facade is composed at boot: brick photo + a 3×3 window grid per 9 m tile drawn on a canvas (two seeded variants),
+  the glow map holds only the lit windows. Buildings scale their box UVs per face (`buildingGeo`) — one material per
+  chunk per variant, NO texture clones (a 1024² clone per building = a GPU upload each).
+- **Instance pools** (`pool()`): one InstancedMesh per prop kind, a free-list of slots, free slots parked at scale 0,
+  `count` = highest slot in use (SwiftShader halved its frame time when every zero-scale instance stopped running
+  the vertex shader: 1.5 → 3 fps). Per-instance colour = the lamp head/beam/pool dimming when the Blackout passes.
+- **The huge Rapier ground was sinking the capsule 0.14 m** (`cuboid(10, 0.1, 100000)`, HEAD measured −0.14 on flat
+  road, −0.26 further in). Per-chunk 24 m road cuboids (chunk 0 + 8 m start pad) → feet at 0.02. World owns the road.
+- **Vault through a car proven** (`scratchpad/drive.mjs`: seed 35, sedan across lane 0 at z −54.2, d 1.5): feet
+  0.02 → 1.58 over the roof, down past it, still running, 4 arc coins. Lane cars sit ACROSS (d 1.5) — a lengthwise
+  car (d 2.6) can't be cleared from the 1.5 m trigger at JUMP_V 5.3 (y 0.69 at the rear edge). Kerb cars are
+  lengthwise side obstacles with a crate-height AABB (1.05). (On the sunken ground the same run peaked at 2.5 m —
+  grounded flipped true on the roof and re-fired the vault; with the per-chunk road it is one clean arc.)
+- **NPCs** = afterdark's cast (michelle/sophie/eve/nightshade + bundled arissa) via `SkeletonUtils.clone`, one mixer
+  each, the breathing idle (75 %) or Quake (`../afterdark/assets/move-108780901.glb`, when reachable), hidden past
+  55 m. Dev serves only `apps/blackout/` → in dev only arissa spawns; prod is same-origin. A failed skin is skipped.
+- `rig.js` = hipsOf / fit / retarget shared by stage and world (was inline in stage).
+- SwiftShader here: ~2 fps at 420×860 full scene (fill-bound: 1024² textures + additive beams); physics tests ran at
+  200×400 with the eye candy hidden (6 fps). Real fps = the S25 via `report("stage.fps")`.
+
 ## Ф1 — the game (2026-09-13, Claude Fable 5.1; measured on the box: dev server `?live`, Chromium/SwiftShader)
 
 - **Shipped:** `state.js` (skins, wallet, record, live-run atoms; gate = a fixed mid-run frame) · `world.js` (24 m
