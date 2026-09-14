@@ -36,6 +36,8 @@ jobs:
         run: deno install --minimum-dependency-age 0
       - name: Assemble dist/
         run: deno task build
+      - name: BB10-lite static store (zero-JS fallback for stock WebKit; nginx routes BB10 UAs to /lite/)
+        run: deno task lite
       - name: Digital Asset Links (Android App Links for the APK shells)
         # Writes dist/.well-known/assetlinks.json — one entry per installable app, so a tapped
         # dreamstudio.mooo.com link opens the installed APK shell instead of the browser. Must ship in the
