@@ -53,8 +53,6 @@ jobs:
           name: dist-eye
           path: dist-eye/
           retention-days: 14
-      - name: BB10-lite static store (zero-JS; after dist-eye so the eye skips it, before rsync so it ships)
-        run: deno task lite
       - name: Ship dist/ (secrets only — no infrastructure in the tree)
         env:
           VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
