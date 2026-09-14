@@ -77,6 +77,12 @@ export function pickWeapon(id) {
   return true;
 }
 export const muted = () => $muted.get() === "1";
+// the mix: four levels 0…1 over sound.js's own balance — the whole game, the stream, the effects (her, the horde, the
+// arms), the city (wind, lamps, crows, sirens, bats). Music at 0 does not just go quiet: the stream is not fetched.
+export const MIX = { master: 1, music: 1, sfx: 1, city: 1 };
+export const $mix = persistentAtom(`${NS}mix`, JSON.stringify(MIX));
+export const mix = () => { try { const m = JSON.parse($mix.get()); return Object.fromEntries(Object.keys(MIX).map((k) => [k, Number.isFinite(m?.[k]) ? Math.max(0, Math.min(1, m[k])) : MIX[k]])); } catch { return { ...MIX }; } };
+export const setMix = (k, v) => $mix.set(JSON.stringify({ ...mix(), [k]: v }));
 export const owned = () => { try { const a = JSON.parse($owned.get()); return Array.isArray(a) ? a : ["arissa"]; } catch { return ["arissa"]; } };
 export const coins = () => +$coins.get() || 0;
 /** Take `n` coins from the wallet; false when it cannot afford them. */

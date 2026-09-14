@@ -144,7 +144,53 @@ carbon … кіберпанк … хочу вау. хочу екшн»).**
 - **Nine more effects** (`sfx-jobs4`): the three shots, the reload, the hit and the death of a walker, the can, the
   boost bed, the bats — AudioGen, 53 s for nine, no duplicates (md5 checked).
 
-**Not measured yet (UNVERIFIED until the S25):** whether the Icecast stream plays inside the WebView APK (afterdark
+**Coins for Stars, the renders, the menu (2026-09-13, night; owner: «кнопку поповнити баланс зірками … картинки зброї,
+а не іконки … головне меню перероби»).**
+
+- **The purchase rides the Stars rail the farm already had** (`edge/stars.js`, `runtime/tma.js`): a tip took the Mini
+  App's initData; a coin pack takes `{sku}` from a SEALED session instead, so the invoice link works from a
+  browser or the APK (Telegram opens `t.me/$…` itself) as well as through `openInvoice` inside a Mini App. Packs are
+  data on both ends (edge `COIN_PACKS`, `rt/coins.js PACKS`): c500 25★ · c1500 60★ · c5000 150★ — cheaper per coin as
+  they grow, the largest marked best value. The webhook parses `coins:<user>:<sku>:<ts>` and writes `coin_purchase`
+  (`charge_id` unique: a retried update never credits twice); `/feed/stars/claim` flips the caller's uncredited
+  rows and answers the sum — the wallet grows exactly once per purchase. Measured live (probe session): invoice 200
+  with a real link, claim 200 `{coins:0, purchases:0, packs}`; the paid path waits for the owner's phone.
+- **The claim is a passive read.** The first cut used `requireUser` and its `{"error":"sign in"}` body — the
+  runtime's authwall matches that body, so a boot-time claim opened the sign-in wall on every visitor (the see-pod
+  drive caught it: a 401, then Google's GSI errors). Now: `whoami` with a plain 401, and the client never asks
+  without a session id in storage (character.js `/mine` is the precedent).
+- **Weapon renders** (Z-Image through `mascot-tools/genraw.mjs`, two takes each): "game inventory item render …
+  three-quarter view … rim light … pure black background, no text, no hands" — every first take usable (a faint
+  engraved word on the pistol's slide is the model's habit); 512 px webp, `assets/arm-<id>.webp`, on the shop cards
+  and the menu.
+- **The menu** replaces the cover: the stage keeps rendering with her idle under the moon and the camera circling
+  (r 6.2 m, a 69 s lap, eye height 2.3 ± 0.5), the title and the tagline over it, three cards (runner → the shop,
+  weapon → the shop, coins → the top-up sheet), the run key, the last run's distance and coins. The selfie pass runs
+  on the run only (the menu has no ring for it, and it drew a bare square).
+
+**The sound settings and the default balance (2026-09-14; owner: «зроби налаштування звуку. ефекти. музика і так
+далі» + «сам по дефолту збалансуй звук»).**
+
+- **Measured before mixed.** `ffmpeg -af ebur128=peak=true` over all 34 effects and 25 s of the stream: the effects
+  spread 14 LU (land −27.3, slide −25.1 … can −10.9, crow −13.3), coin's true peak +5.1 dBTP, the stream −9.8 LUFS
+  (LRA 0.6 — mastered techno). With the old hand gains the stream sat at ≈ −13 and the action at −26…−32: the music
+  buried the game by 15–20 dB. The beds (steps, horde, wind, heartbeat) ignored their `gain` field altogether —
+  `bedTo` drove the gain node to the stage's 0…1 directly.
+- **The balance is data:** each `SFX` entry carries its measured `lufs` and the loudness its ROLE plays at (`at`), the
+  gain is `dbToGain(at − lufs)` (rt/scifi.js, unit-tested). Roles follow the usual game-mix order — what hurts her
+  −17, the arms −17…−20, the horde −21…−23, her body −22…−25, reward −19…−23, the city −27…−36 — and the music at −26,
+  ~8 LU under the action (a dense stream under effects that must read). A beds' 0…1 is now a share of its balanced
+  level. A `DynamicsCompressor` brickwall (−3 dB, 20:1, 3 ms) sits after the master: stacked hits over the kick never
+  clip a phone speaker.
+- **The sheet** (menu → sliders glyph): the kit's `Segmented` on/off (the daisy `toggle` collapsed to 6 px in a flex
+  row on the see pod; the kit has no toggle, the profile uses segments) and four kit `Slider`s — volume, music,
+  effects, the city — on `faderGain` (half the travel −27 dB; linear reads loud until the bottom). Levels persist as
+  `blackout:mix`. Music at 0 does not fetch the stream at all (driven: `live:false` at 0, `live:true` after raising it
+  mid-run). Dragging effects/city plays a coin/crow through that bus. The run's HUD keeps the one-tap mute: a sheet
+  over a live run would get her caught.
+
+**Not measured yet (UNVERIFIED until the S25):** a real Stars payment end to end (the webhook's `coins` line, the
+claim on return); whether the Icecast stream plays inside the WebView APK (afterdark
 plays it in Chrome; the shell's WebView is the open question), the beat lock time on the phone (afterdark measures
 ~4–8 s), and real fps of the horde (10–12 skinned clones + the street) —
 `report("stage.fps")` at frame 720, `bash vps/logs.sh blackout`; the swipe threshold (40 px) on a 6.9" screen; whether

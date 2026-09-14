@@ -11,13 +11,13 @@ import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
-import { Sheet } from "/_rt/ui.js";
+import { Sheet, Slider, Segmented } from "/_rt/ui.js";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { haptic, wakeLock } from "/_rt/sensors.js";
 import { report } from "/_rt/telemetry.js";
 import { PACKS, bestValue, buyCoins, claimCoins } from "/_rt/coins.js";
-import { SKINS, WEAPONS, GEN_PRICE, skinById, weaponById, avatarUrl, owned, arms, myChars, pickSkin, pickWeapon, removeMyChar, finishRun, credit, $bought, $best, $runs, $coins, $owned, $arms, $weapon, $skin, $myChars, $muted, $state, $run, $phys, $why, $last, $newChar } from "./state.js";
+import { SKINS, WEAPONS, GEN_PRICE, skinById, weaponById, avatarUrl, owned, arms, myChars, pickSkin, pickWeapon, removeMyChar, finishRun, credit, $bought, $best, $runs, $coins, $owned, $arms, $weapon, $skin, $myChars, $muted, $mix, MIX, mix, setMix, $state, $run, $phys, $why, $last, $newChar } from "./state.js";
 import { GenSheet } from "./gen.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -51,6 +51,23 @@ function CoinSheet({ t, loc, open, onClose }) {
       </div>
       <p class="text-[0.8rem] text-base-content/70">${T(t, "topUpHint")}</p>
       ${note ? html`<p data-coin-note class=${`text-[0.85rem] ${note === "opened" ? "text-base-content" : "text-error"}`} aria-live="polite">${T(t, note)}</p>` : null}
+    </div>
+  </${Sheet}>`;
+}
+
+// ── the sound: one switch over the whole game, then four levels; dragging the effects or the city plays a sample of it ──
+const MIX_KEY = { master: "mixMaster", music: "mixMusic", sfx: "mixSfx", city: "mixCity" };
+function SoundSheet({ t, loc, onClose, preview }) {
+  useStore($mix);
+  const off = useStore($muted) === "1", m = mix(), heard = useRef(0);
+  const set = (k, v) => { setMix(k, v); const now = performance.now(); if ((k === "sfx" || k === "city") && now - heard.current > 250) { heard.current = now; preview(k); } };
+  return html`<${Sheet} id="sound-sheet" open=${true} onClose=${onClose} title=${T(t, "sound")} icon="lucide:volume-2" locale=${loc}>
+    <div data-sound-form class="flex flex-col gap-4">
+      <${Segmented} attr="data-sound-on" label=${T(t, "soundOn")} value=${off ? "off" : "on"} onChange=${(v) => $muted.set(v === "off" ? "1" : "0")}
+        items=${[{ id: "on", label: T(t, "soundOnYes"), icon: "lucide:volume-2" }, { id: "off", label: T(t, "soundOnNo"), icon: "lucide:volume-x" }]} />
+      <div data-mix-levels inert=${off} class=${`flex flex-col gap-4 transition-opacity ${off ? "opacity-40" : ""}`}>
+        ${Object.keys(MIX).map((k) => html`<${Slider} key=${k} id=${k} attr="data-mix" label=${T(t, MIX_KEY[k])} value=${m[k]} step=${0.05} onInput=${(v) => set(k, v)} />`)}
+      </div>
     </div>
   </${Sheet}>`;
 }
@@ -189,8 +206,8 @@ export function blackout({ S, openScreen, closeScreen }) {
               <span class="font-mono uppercase tracking-[0.35em] text-[2.6rem] font-bold bo-title">${T(t, "title")}</span>
               <span class="font-mono text-[0.7rem] uppercase tracking-[0.25em] text-white/60 mt-1">${T(t, "tagline")}</span>
             </div>
-            <button data-mute type="button" aria-label=${T(t, "sound")} aria-pressed=${mutedNow ? "true" : "false"} data-muted=${mutedNow ? "1" : "0"} onClick=${() => $muted.set(mutedNow ? "0" : "1")}
-              class="bo-chip w-10 h-10 rounded-full flex items-center justify-center text-lg active:scale-95 transition-transform"><iconify-icon icon=${mutedNow ? "lucide:volume-x" : "lucide:volume-2"}></iconify-icon></button>
+            <button data-sound-open type="button" aria-label=${T(t, "sound")} onClick=${() => openScreen("sound")}
+              class="bo-chip w-10 h-10 rounded-full flex items-center justify-center text-lg active:scale-95 transition-transform"><iconify-icon icon=${mutedNow ? "lucide:volume-x" : "lucide:sliders-horizontal"}></iconify-icon></button>
           </div>
           <div class="flex flex-col gap-2">
             <div class="grid grid-cols-2 gap-2">
@@ -228,6 +245,7 @@ export function blackout({ S, openScreen, closeScreen }) {
     </div>
     ${/* mounted only while open: a closed dialog on the fit screen still widened the page by 42 px (CI, 2026-09-13) */""}
     ${screen === "topup" ? html`<${CoinSheet} t=${t} loc=${loc} open=${true} onClose=${closeScreen} />` : null}
+    ${screen === "sound" ? html`<${SoundSheet} t=${t} loc=${loc} onClose=${closeScreen} preview=${(bus) => engine.current?.preview(bus)} />` : null}
   </${Fragment}>`;
 }
 
