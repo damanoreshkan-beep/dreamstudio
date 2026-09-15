@@ -6,8 +6,14 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { session } from "/_rt/auth.js";
 import { gate } from "/_rt/gate.js";
 import { charOf } from "/_rt/genchar.js";
+import { makeWallet } from "/_rt/wallet.js";
 import { CHARACTERS, registerChars } from "./characters.js";
 import { DEFAULT_MOVES, MOVE_IDS, isMoveId } from "./dances.js";
+
+// THE WALLET is the farm's (rt/wallet.js, 2026-09-15): a character of your own is paid from it — GEN_PRICE is the
+// display copy of the edge's price (wallet.js CATALOG.afterdark.gen), which is the one charged.
+export const GEN_PRICE = 1000;
+export const wallet = makeWallet("afterdark", { gateBalance: 1250 });
 
 // MY CHARACTERS: the ones this viewer made from a prompt (genchar.js) — {id, name, tint, kind, glb, avatar, ts},
 // newest first. The row of truth is on the edge (`user_characters`, keyed by the sealed session; the edge

@@ -63,6 +63,10 @@ export default [
       h.expect((await h.count("[data-gen-prompt]")) === 1 && (await h.count('[data-gen-kind="creature"]')) === 1, "у формі немає опису або виду");
       h.expect((await h.count("[data-gen-go][disabled]")) === 1, "кнопка має бути неактивна без опису");
       h.expect((await h.count("[data-gen-progress]")) === 0, "прогрес не має показуватись до старту");
+      h.expect(/1000/.test(await h.text("[data-gen-go]")), "на кнопці немає ціни 1000");
+      h.expect((await h.attr("[data-wallet]", "data-wallet")) === "1250", `гаманець під гейтом не 1250: ${await h.attr("[data-wallet]", "data-wallet")}`);
+      await h.tap("[data-topup]"); await h.wait(300);
+      h.expect((await h.count("dialog[open] [data-coin-form]")) === 1 && (await h.count("[data-coin-packs] [data-pack]")) === 3, "«Поповнити» не відкрило аркуш із трьома пакетами");
       await h.click('[data-tab="stage"]'); await h.wait(120);
     },
   },

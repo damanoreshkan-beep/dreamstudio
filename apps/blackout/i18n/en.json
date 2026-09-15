@@ -35,6 +35,8 @@
   "opened": "The payment is open in Telegram",
   "payFailed": "The payment did not go through",
   "payCancel": "The payment was cancelled",
+  "guestCoins": "The night keeps what you pick up — sign in to take it home",
+  "signIn": "Sign in",
   "lastRun": "last run",
   "menuRunner": "Runner",
   "menuArms": "Weapon",

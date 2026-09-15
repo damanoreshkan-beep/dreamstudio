@@ -6,7 +6,7 @@ import { persistentAtom } from "@nanostores/persistent";
 import { gate } from "/_rt/gate.js";
 import { session } from "/_rt/auth.js";
 import { fetchMyChars, removeChar } from "/_rt/genchar.js";
-import { watchPurchases } from "/_rt/coins.js";
+import { makeWallet } from "/_rt/wallet.js";
 
 // afterdark's cast. Kaya (and Louise, Sophie) T-posed until 2026-09-13: the converter wrote duplicate bone chains
 // and the clips drove a leaf copy — fixed in the assets (pipeline collapse-bones), not here.
@@ -61,20 +61,28 @@ export const glbUrl = (id) => { const s = skinById(id); if (s.glb) return s.glb;
 
 const NS = "blackout:";
 export const $best = persistentAtom(`${NS}best`, "0");
-export const $coins = persistentAtom(`${NS}coins`, "0");
 export const $runs = persistentAtom(`${NS}runs`, "0");
 export const $skin = persistentAtom(`${NS}skin`, "arissa");
-export const $owned = persistentAtom(`${NS}owned`, '["arissa"]');
 export const $muted = persistentAtom(`${NS}muted`, "0");   // "1" = the effects and the stream are silent (the beat clock free-runs)
 export const $weapon = persistentAtom(`${NS}weapon`, "pistol");
-export const $arms = persistentAtom(`${NS}arms`, '["pistol"]');
-export const arms = () => { try { const a = JSON.parse($arms.get()); return Array.isArray(a) ? a : ["pistol"]; } catch { return ["pistol"]; } };
-// a weapon tap: owned → wield; affordable → buy + wield; else nothing (the card shows the price)
-export function pickWeapon(id) {
-  const w = weaponById(id), have = arms();
-  if (!have.includes(w.id)) { if (!spend(w.price)) return false; $arms.set(JSON.stringify([...have, w.id])); }
-  $weapon.set(w.id);
-  return true;
+
+// THE WALLET is the farm's (rt/wallet.js, 2026-09-15): the balance and what is bought live on the edge, per account.
+// A skin is the item `skin:<id>`, a weapon `arm:<id>`; the prices above are display copies of the edge's catalogue.
+// Under the gate: a local wallet of 1250.
+export const wallet = makeWallet("blackout", { gateBalance: 1250 });
+export const { $wallet, $bought } = wallet;
+export const ownsSkin = (id) => { const s = skinById(id); return !!s.glb || wallet.owns(`skin:${s.id}`, s.price); };
+export const ownsArm = (id) => { const w = weaponById(id); return wallet.owns(`arm:${w.id}`, w.price); };
+// what she actually wears and wields: a stored pick the wallet does not own (signed out, another account) falls back
+// to the free one — but only once the wallet has answered, so a boot does not swap her body twice
+export const wornSkin = (id) => (!$wallet.get().ready || ownsSkin(id) ? id : "arissa");
+export const wieldedArm = (id) => (!$wallet.get().ready || ownsArm(id) ? id : "pistol");
+// a weapon tap: owned → wield; else the edge buys it and it is wielded. Resolves the buy's outcome ("ok" | "poor" | "eSignIn" | "error").
+export async function pickWeapon(id) {
+  const w = weaponById(id);
+  const r = ownsArm(w.id) ? "ok" : await wallet.buy(`arm:${w.id}`, w.price);
+  if (r === "ok") $weapon.set(w.id);
+  return r;
 }
 export const muted = () => $muted.get() === "1";
 // the mix: four levels 0…1 over sound.js's own balance — the whole game, the stream, the effects (her, the horde, the
@@ -83,15 +91,6 @@ export const MIX = { master: 1, music: 1, sfx: 1, city: 1 };
 export const $mix = persistentAtom(`${NS}mix`, JSON.stringify(MIX));
 export const mix = () => { try { const m = JSON.parse($mix.get()); return Object.fromEntries(Object.keys(MIX).map((k) => [k, Number.isFinite(m?.[k]) ? Math.max(0, Math.min(1, m[k])) : MIX[k]])); } catch { return { ...MIX }; } };
 export const setMix = (k, v) => $mix.set(JSON.stringify({ ...mix(), [k]: v }));
-export const owned = () => { try { const a = JSON.parse($owned.get()); return Array.isArray(a) ? a : ["arissa"]; } catch { return ["arissa"]; } };
-export const coins = () => +$coins.get() || 0;
-/** Take `n` coins from the wallet; false when it cannot afford them. */
-export function spend(n) { const c = coins(); if (c < n) return false; $coins.set(String(c - n)); return true; }
-export const refund = (n) => $coins.set(String(coins() + n));
-/** Coins bought in Telegram Stars land here — the claim answers once per purchase, so the wallet grows exactly once. */
-export const $bought = atom(0);   // the last claim's coins, for the toast
-export const credit = (n) => { if (n > 0) { $coins.set(String(coins() + n)); $bought.set(n); } };
-if (!gate) watchPurchases(credit);   // on boot and whenever the page comes back from Telegram
 
 // the live run: idle (cover) | run | over (card). The stage writes $run ~6×/s; the HUD reads it.
 // `near` = how close the horde is, 0 (out in the murk) … 1 (at the heels) — the HUD's red edge.
@@ -99,7 +98,9 @@ export const $state = atom(gate ? "run" : "idle");
 export const $run = atom(gate ? { frame: 240, dist: 128, coins: 7, speed: 7.1, fps: 0, lane: 1, near: 0.35, boost: 4, ammo: 6, reload: false, kills: 2 } : { frame: 0, dist: 0, coins: 0, speed: 0, fps: 0, lane: 1, near: 0, boost: 0, ammo: 8, reload: false, kills: 0 });
 export const $phys = atom(gate ? "skipped" : "loading");
 export const $why = atom("");
-export const $last = atom({ dist: 0, coins: 0, record: false });   // the run just finished (the card)
+// the run just finished (the card): `coins` picked up, `granted` what the wallet kept (null while the edge answers),
+// `kept` false for a guest — nothing was saved
+export const $last = atom({ dist: 0, coins: 0, granted: null, kept: null, record: false });
 
 // the generation in flight (one at a time): "" | look | picture | queued | mesh | rig | store
 export const $genLoading = atom("");
@@ -107,25 +108,26 @@ export const $genPct = atom(0);
 export const $genError = atom("");
 export const $newChar = atom("");
 
-if (gate) { $coins.set("1250"); $best.set("340"); $owned.set('["arissa"]'); $skin.set("arissa"); $myChars.set('[{"id":"my-gate1","name":"Nox","tint":"#7C5CFF","kind":"human","glb":"about:blank","avatar":"","ts":0}]'); }
+if (gate) { $best.set("340"); $skin.set("arissa"); $weapon.set("pistol"); $myChars.set('[{"id":"my-gate1","name":"Nox","tint":"#7C5CFF","kind":"human","glb":"about:blank","avatar":"","ts":0}]'); }
 
-// a skin tap: owned (or mine) → select; affordable → buy + select; else nothing (the card shows the price)
-export function pickSkin(id) {
-  const s = skinById(id), have = owned();
-  if (!s.glb && !have.includes(s.id)) {
-    if (!spend(s.price)) return false;
-    $owned.set(JSON.stringify([...have, s.id]));
-  }
-  $skin.set(s.id);
-  return true;
+// a skin tap: owned (or mine) → select; else the edge buys it and it is worn. Resolves the buy's outcome.
+export async function pickSkin(id) {
+  const s = skinById(id);
+  const r = ownsSkin(s.id) ? "ok" : await wallet.buy(`skin:${s.id}`, s.price);
+  if (r === "ok") $skin.set(s.id);
+  return r;
 }
 
-// the run ends: bank the coins, the record, the count
+// a run starts: the wallet's ticket is asked for now (a guest gets none) — the run does not wait for it
+let ticket = Promise.resolve(null);
+export const beginRun = () => { ticket = wallet.startRun(); };
+// the run ends: the record, the count, the card — then the wallet claims the coins and the card shows what it kept
 export function finishRun(dist, coinsGot) {
   const d = Math.round(dist), record = d > (+$best.get() || 0);
   if (record) $best.set(String(d));
-  $coins.set(String(coins() + coinsGot));
   $runs.set(String((+$runs.get() || 0) + 1));
-  $last.set({ dist: d, coins: coinsGot, record });
+  $last.set({ dist: d, coins: coinsGot, granted: null, kept: null, record });
   $state.set("over");
+  const mine = ticket; ticket = Promise.resolve(null);
+  wallet.finishRun(mine, coinsGot).then(({ granted, kept }) => { if ($last.get().dist === d) $last.set({ ...$last.get(), granted, kept }); });
 }

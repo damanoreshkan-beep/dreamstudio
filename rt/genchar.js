@@ -20,6 +20,8 @@ const TINTS = ["#FF3EB5", "#39FF6A", "#F5B942", "#7C5CFF", "#22D3EE", "#FF6AD5",
 const HOST = VPS_PROXY.replace(/\/feed$/, "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** An edge refusal → the app's error key; 402 = the farm wallet cannot pay the body. Pure. */
+export const genStatusCode = (status) => (status === 402 ? "ePoor" : status === 429 ? "eRate" : status === 401 ? "eSignIn" : status === 413 ? "eBig" : "eFailed");
 /** The picture prompt: the English description plus the fixed look the mesh Space needs. Pure. */
 export const lookPrompt = (en) => String(en || "").trim().slice(0, 600) + LOOK;
 // what /feed/vision is asked about a photo: the LOOK a character artist would copy, never who it is (the edge's
@@ -43,11 +45,13 @@ function headShot(url) {
 }
 
 /**
- * The generator an app owns. `jobKey` is its localStorage slot for the job in flight; `$loading` ("" | picture |
- * queued | mesh | rig | store), `$pct`, `$error` (an i18n key) are the app's atoms; `onDone(char)` gets the finished
- * character; `onFail(code)` (optional) runs before the error atom is set — a wallet refund lives there.
+ * The generator an app owns. `app` is its id in the edge's wallet catalogue — the body job is paid from the farm
+ * wallet at that app's price (a refusal is "ePoor"); `jobKey` is its localStorage slot for the job in flight;
+ * `$loading` ("" | picture | queued | mesh | rig | store), `$pct`, `$error` (an i18n key) are the app's atoms;
+ * `onDone(char)` gets the finished character; `onCharged()` (optional) runs once the edge has taken the price;
+ * `onFail(code)` (optional) runs before the error atom is set.
  */
-export function makeGenerator({ jobKey, $loading, $pct, $error, onDone, onFail }) {
+export function makeGenerator({ app, jobKey, $loading, $pct, $error, onDone, onCharged, onFail }) {
   const jobGet = () => { try { const j = JSON.parse(localStorage.getItem(jobKey) || "null"); return j && typeof j.id === "string" && Date.now() - j.ts < JOB_TTL ? j : null; } catch { return null; } };
   const jobSet = (j) => { try { j ? localStorage.setItem(jobKey, JSON.stringify(j)) : localStorage.removeItem(jobKey); } catch { /* private mode */ } };
   const whoNow = () => session.get()?.user?.login || "";
@@ -80,7 +84,7 @@ export function makeGenerator({ jobKey, $loading, $pct, $error, onDone, onFail }
     $error.set(e?.code || "eFailed"); $loading.set("");
     if (e?.why) console.warn("[genchar]", e.why);
   }
-  const statusCode = (r) => (r.status === 429 ? "eRate" : r.status === 401 ? "eSignIn" : r.status === 413 ? "eBig" : "eFailed");
+  const statusCode = (r) => genStatusCode(r.status);
 
   /**
    * Make a character from `prompt` (any language) or from `photo` (a data: URL — described by /feed/vision first);
@@ -114,9 +118,10 @@ export function makeGenerator({ jobKey, $loading, $pct, $error, onDone, onFail }
       let image, avatar;
       try { image = (await toDataURL(url, 1024)).data; avatar = await headShot(url); } finally { URL.revokeObjectURL(url); }
       $loading.set("queued"); $pct.set(0);
-      const r = await fetch(CHAR, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image, name, kind, avatar }) });
+      const r = await fetch(CHAR, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app, image, name, kind, avatar }) });
       const j0 = await r.json().catch(() => ({}));
       if (!(r.status === 202 || r.status === 409) || !j0.job) throw { code: statusCode(r) };   // 409 = my own job still running: follow it
+      if (r.status === 202) onCharged?.();
       const began = Date.now();
       jobSet({ id: j0.job, ts: began, user: whoNow() });
       return await followJob(j0.job, alive, began);

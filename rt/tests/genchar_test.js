@@ -1,6 +1,14 @@
 // rt/genchar.js — the pure parts of the character generator: the picture prompt, the fallback name, the row map.
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { lookPrompt, nameFrom, charOf, looksLikeLook, LOOK, LOOK_ASK } from "../genchar.js";
+import { lookPrompt, nameFrom, charOf, looksLikeLook, genStatusCode, LOOK, LOOK_ASK } from "../genchar.js";
+
+Deno.test("genchar: the body job's refusal is the app's error key — 402 means the farm wallet cannot pay it", () => {
+  assertEquals(genStatusCode(402), "ePoor");
+  assertEquals(genStatusCode(401), "eSignIn");
+  assertEquals(genStatusCode(429), "eRate");
+  assertEquals(genStatusCode(413), "eBig");
+  assertEquals(genStatusCode(400), "eFailed");
+});
 
 Deno.test("genchar: a vision answer is a look only when it is a real English description — never a Space's error, a refusal or Cyrillic", () => {
   assert(looksLikeLook("young adult woman, slim build, medium height, light skin, long dark brown wavy hair, black leather jacket, white t-shirt, blue jeans, white sneakers"));

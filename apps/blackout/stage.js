@@ -14,7 +14,7 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 import { report } from "/_rt/telemetry.js";
 import { createWorld, LANES, laneX } from "./world.js";
 import { hipsOf, fit, retarget } from "./rig.js";
-import { glbUrl, muted, mix, weaponById, $weapon } from "./state.js";
+import { glbUrl, muted, mix, weaponById, wieldedArm, $weapon } from "./state.js";
 import { createSound } from "./sound.js";
 
 const DRACO_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
@@ -105,7 +105,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
   const tracers = [];
   let W = null, ammo = 0, reloadT = 0, fireCd = 0, muzzleT = 0;
   function arm(id) { W = weaponById(id); ammo = W.mag; reloadT = 0; fireCd = 0; muzzleMat.color.set(W.tint); }
-  arm($weapon.get());
+  arm(wieldedArm($weapon.get()));
 
   function resize() { const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   resize(); addEventListener("resize", resize);
@@ -242,7 +242,7 @@ export async function createStage(canvas, { getInput, onStatus, onStat, onEvent 
     start(s) {
       seed = s || 1; street.reset(seed);
       lane = 1; x = laneX(1); y = 0; vy = 0; z = 2; slideT = 0; stumbleT = 0; dist = 0; coins = 0; oneShot = null; state = "run"; reported = false; airborne = false; boostT = 0; boostK = 1; kills = 0;
-      coinStreak = 0; nextAmbience = performance.now() + 12000; arm($weapon.get());
+      coinStreak = 0; nextAmbience = performance.now() + 12000; arm(wieldedArm($weapon.get()));
       // the Run tap is the audio gesture: the context wakes, the library loads, the stream starts
       if (sound) { sound.resume(); sound.load().then(() => sfx("whoosh-start")); sound.music(true); }
       onEvent("start");

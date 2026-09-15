@@ -13,7 +13,8 @@ import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { CHARACTERS, avatarUrl } from "./characters.js";
 import { MOVES, DEFAULT_MOVES, loadCatalog, getCatalog } from "./dances.js";
-import { $cast, $moves, getCast, getMoves, toggleChar, toggleMove, setCast, setMoves, mixCast, DEFAULT_CAST, MAX_CAST, $myChars, getMyChars, removeMyChar, $genCharLoading, $genCharPct, $genCharError, $newChar } from "./state.js";
+import { CoinSheet } from "/_rt/coinsheet.js";
+import { $cast, $moves, getCast, getMoves, toggleChar, toggleMove, setCast, setMoves, mixCast, DEFAULT_CAST, MAX_CAST, $myChars, getMyChars, removeMyChar, $genCharLoading, $genCharPct, $genCharError, $newChar, GEN_PRICE, wallet } from "./state.js";
 import { generateCharacter, cancelGenerate, genElapsed } from "./genchar.js";
 
 const $section = persistentAtom("afterdark:castTab", "chars");
@@ -24,9 +25,10 @@ const chip = (on) => `btn btn-sm rounded-full h-auto min-h-0 py-1.5 gap-1.5 norm
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 const STAGE_KEY = { picture: "gPicture", queued: "gQueued", mesh: "gMesh", rig: "gRig", store: "gStore" };
 
-// ── a new character from words: the sheet behind «Створити» (genchar.js does the work, at module level) ──
-function GenSheet({ t, loc, open, onClose }) {
-  const stage = useStore($genCharLoading), pct = useStore($genCharPct), error = useStore($genCharError);
+// ── a new character from words: the sheet behind «Створити» (genchar.js does the work, at module level); it costs
+// GEN_PRICE from the farm wallet — short of it, the sheet hands over to the top-up ──
+function GenSheet({ t, loc, open, onClose, onTopUp }) {
+  const stage = useStore($genCharLoading), pct = useStore($genCharPct), error = useStore($genCharError), w = useStore(wallet.$wallet);
   const [prompt, setPrompt] = useState("");
   const [name, setName] = useState("");
   const [kind, setKind] = useState("human");
@@ -34,6 +36,7 @@ function GenSheet({ t, loc, open, onClose }) {
   useEffect(() => { if (!stage) return; const id = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(id); }, [stage]);
   const go = () => {
     const p = prompt.trim(); if (!p || stage || gate) return;
+    if (w.signedIn && w.balance < GEN_PRICE) { $genCharError.set("ePoor"); return; }   // the edge would refuse it too (402) — spare the picture
     const nm = name.trim() || p.split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
     generateCharacter({ prompt: p, name: nm.slice(0, 40), kind }).then((c) => { if (c) onClose(); });
   };
@@ -53,7 +56,11 @@ function GenSheet({ t, loc, open, onClose }) {
           </div>
           <button data-gen-cancel type="button" class="btn btn-ghost btn-sm rounded-full" onClick=${cancelGenerate}>${T(t, "genCancel")}</button>
         </div>`
-        : html`<button data-gen-go type="button" disabled=${!prompt.trim()} onClick=${go} class="btn btn-primary rounded-full gap-2 normal-case"><iconify-icon icon="lucide:sparkles"></iconify-icon>${T(t, "genGo")}</button>`}
+        : html`<button data-gen-go type="button" disabled=${!prompt.trim()} onClick=${go} class="btn btn-primary rounded-full gap-2 normal-case"><iconify-icon icon="lucide:sparkles"></iconify-icon>${T(t, "genGo")}<span class="font-mono tabular-nums opacity-80">· ${GEN_PRICE}</span></button>`}
+      ${w.signedIn ? html`<div class="flex items-center justify-between gap-2">
+          <span data-wallet=${w.balance} class="font-mono text-[0.78rem] tabular-nums text-base-content/70"><iconify-icon icon="lucide:circle-dollar-sign" class="align-[-2px]"></iconify-icon> ${w.balance}</span>
+          <button data-topup type="button" onClick=${onTopUp} class="btn btn-ghost btn-sm rounded-full gap-1.5 normal-case"><iconify-icon icon="lucide:star" class="text-warning"></iconify-icon>${T(t, "topUp")}</button>
+        </div>` : null}
       ${error ? html`<p data-gen-error class="text-[0.85rem] text-error" aria-live="polite">${T(t, error)}</p>` : null}
     </div>
   </${Sheet}>`;
@@ -74,7 +81,7 @@ export function castView({ S }) {
   useStore($cast); useStore($moves); useStore($myChars);
   const cast = getCast(), moves = getMoves(), mine = getMyChars();
   const newChar = useStore($newChar), genStage = useStore($genCharLoading);
-  const [genOpen, setGenOpen] = useState(false);
+  const [genOpen, setGenOpen] = useState(false), [coinOpen, setCoinOpen] = useState(false);
   const onStage = new Set(cast), onFloor = new Set(moves);
   const [kind, setKind] = useState("all");
   const [capHint, setCapHint] = useState(false);
@@ -135,7 +142,8 @@ export function castView({ S }) {
             class="absolute top-0 right-0 w-6 h-6 rounded-full bg-base-100 border border-base-content/15 text-base-content/70 flex items-center justify-center text-sm leading-none">×</button>` : null}
         </div>`; })}
       </div>
-      <${GenSheet} t=${t} loc=${loc} open=${genOpen} onClose=${() => setGenOpen(false)} />` : html`
+      <${GenSheet} t=${t} loc=${loc} open=${genOpen} onClose=${() => setGenOpen(false)} onTopUp=${() => { setGenOpen(false); setCoinOpen(true); }} />
+      <${CoinSheet} t=${t} loc=${loc} open=${coinOpen} onClose=${() => setCoinOpen(false)} wallet=${wallet} />` : html`
       <div class="flex items-center gap-2 py-2 flex-wrap">
         <span data-moves class="badge badge-ghost font-mono tabular-nums" data-moves=${moves.length}>${moves.length}</span>
         <button data-stars type="button" class=${chip(isStars)} onClick=${() => setMoves(DEFAULT_MOVES.slice())}><iconify-icon icon="lucide:star"></iconify-icon>${T(t, "starMoves")}</button>

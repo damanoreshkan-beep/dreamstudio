@@ -1,7 +1,8 @@
 // blackout — A RUNNER OF YOUR OWN: the sheet behind the Create card on the skins tab. Words go the afterdark way
 // (rt/genchar.js: a picture, then a rigged body); a PHOTO is first read by /feed/vision into the English look the
-// picture model needs — the face never reaches the mesh Space. GEN_PRICE coins leave the wallet when the job
-// starts and come back on any failure. Runs at module level: a tab switch does not kill it, a reload resumes it.
+// picture model needs — the face never reaches the mesh Space. The edge charges GEN_PRICE from the farm wallet when
+// the body job is queued and gives it back when the job fails (2026-09-15); this side only reads the balance.
+// Runs at module level: a tab switch does not kill it, a reload resumes it.
 import { html } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -10,13 +11,14 @@ import { Chooser, Camera, toDataURL } from "/_rt/intake.js";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { makeGenerator, nameFrom } from "/_rt/genchar.js";
-import { GEN_PRICE, coins, spend, refund, addMyChar, $skin, $genLoading, $genPct, $genError, $newChar } from "./state.js";
+import { GEN_PRICE, wallet, $wallet, addMyChar, $skin, $genLoading, $genPct, $genError, $newChar } from "./state.js";
 
 const gen = makeGenerator({
-  jobKey: "blackout:genJob",
+  app: "blackout", jobKey: "blackout:genJob",
   $loading: $genLoading, $pct: $genPct, $error: $genError,
-  onDone: (c) => { addMyChar(c); $skin.set(c.id); $newChar.set(c.id); },
-  onFail: () => refund(GEN_PRICE),
+  onDone: (c) => { addMyChar(c); $skin.set(c.id); $newChar.set(c.id); wallet.refresh(); },
+  onCharged: wallet.refresh,
+  onFail: () => setTimeout(wallet.refresh, 1500),   // the edge refunds as the job fails; look once it has
 });
 setTimeout(gen.resumeGeneration, 0);   // after /_rt/index.js has installed the sealed fetch
 
@@ -36,10 +38,10 @@ export function GenSheet({ t, loc, open, onClose }) {
   const p = prompt.trim(), canGo = mode === "words" ? !!p : !!photo;
   const go = async () => {
     if (!canGo || stage || gate) return;
-    if (coins() < GEN_PRICE) { $genError.set("ePoor"); return; }
+    const w = $wallet.get();
+    if (w.signedIn && w.balance < GEN_PRICE) { $genError.set("ePoor"); return; }   // the edge would refuse it too (402) — spare the picture
     let image = "";
     if (mode === "photo") { try { image = (await toDataURL(photo, 1024)).data; } catch { $genError.set("eFailed"); return; } }
-    if (!spend(GEN_PRICE)) { $genError.set("ePoor"); return; }
     const nm = (name.trim() || (mode === "words" ? nameFrom(p) : "") || "—").slice(0, 40);
     gen.generateCharacter(mode === "words" ? { prompt: p, name: nm, kind } : { photo: image, name: nm, kind }).then((c) => { if (c) onClose(); });
   };
