@@ -10,6 +10,7 @@ import { atom } from "nanostores";
 import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
 import { session } from "@microspec/core/runtime/auth.js";
 import { gate } from "@microspec/core/runtime/gate.js";
+import { report } from "@microspec/core/runtime/telemetry.js";
 
 const H = { "content-type": "application/json" };
 const sidNow = () => { try { return localStorage.getItem("ms:gh:sid") || ""; } catch { return ""; } };
@@ -74,14 +75,17 @@ export function makeWallet(app, { gateBalance = 0 } = {}) {
     const n = Math.max(0, Math.floor(Number(coins) || 0));
     if (gate) { set({ balance: $wallet.get().balance + n }); return { granted: n, kept: true }; }
     const ticket = await ticketP;
-    if (!ticket) return { granted: 0, kept: !!sidNow() };   // signed in but no ticket (offline, refused): nothing granted, not a guest
+    // every claim reports what happened (logs.sh <app> 1h wallet.earn) — a run whose coins did not land is a
+    // missing ticket, a refusal or a thrown call, and the number that tells them apart is here
+    if (!ticket) { report("wallet.earn", { app, coins: n, ticket: false, signedIn: !!sidNow() }, "warn"); return { granted: 0, kept: !!sidNow() }; }
     try {
       const r = await call("earn", { ticket, coins: n });
-      if (!r.ok) return { granted: 0, kept: r.status !== 401 };
+      if (!r.ok) { report("wallet.earn", { app, coins: n, ticket, status: r.status }, "warn"); return { granted: 0, kept: r.status !== 401 }; }
       const j = await r.json();
       set({ balance: Math.max(0, Number(j.balance ?? $wallet.get().balance) || 0) });
+      report("wallet.earn", { app, coins: n, ticket, status: 200, granted: j.granted, why: j.why || "" }, "info");
       return { granted: Math.max(0, Number(j.granted) || 0), kept: true };
-    } catch { return { granted: 0, kept: true }; }
+    } catch (e) { report("wallet.earn", { app, coins: n, ticket, thrown: String(e && e.message || e).slice(0, 80) }, "warn"); return { granted: 0, kept: true }; }
   }
 
   /** A Stars payment went to Telegram: for the next two minutes a growing balance is announced; look a few times now. */
