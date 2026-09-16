@@ -1,65 +1,42 @@
-// apps/iskra/serialusb.js — a Web Serial `SerialPort` over the shell's NATIVE USB bridge (shell.usb.*).
+// apps/iskra/serialusb.js — a Web Serial `SerialPort` over the shell's NATIVE serial bridge (usb.ser*).
 //
-// WHY: the APK WebView has NO Web Serial AND NO Web USB (neither exists in a WebView —
-// Usb.java). Android's kernel cdc_acm also holds the CH9102. The shell's native `usb` capability (full
-// flavour) force-claims the interface and exposes control/bulk over `shell.call("usb.*")` — the same bridge
-// that drives the RTL8852AU. So on the phone we drive the CH9102 through it and hand esptool-js a port.
-// On desktop the page uses the real navigator.serial; only the APK path lands here.
-//
-// CH9102 is STANDARD CDC-ACM: SET_LINE_CODING (0x20) for baud, SET_CONTROL_LINE_STATE (0x22) for DTR/RTS,
-// bulk data endpoints for bytes. Endpoints/ifaces are this unit's descriptors (iface 1 = CDC data,
-// EP 0x02 OUT / 0x82 IN; iface 0 = CDC control) — re-probe a different revision.
+// The bridge runs the vendored usb-serial-for-android CDC driver (the proven library, not a hand-rolled
+// reimplementation): `usb.open` claims the device, `usb.serOpen` builds its CdcAcmSerialPort, and the rest is
+// line-coding / DTR-RTS / read / write on that port. esptool-js drives the object below exactly as it drives
+// a desktop SerialPort. On the phone this is the ONLY way to reach the CH9102 (Android holds it in cdc_acm).
 import { shell } from "/_rt/shell.js";
-import { report } from "/_rt/telemetry.js";   // DIAGNOSTIC: expose reset toggles + RX so a flash can be read from logs
 
 const CH9102 = { vid: 0x1a86, pid: 0x55d4 };
-const DATA_IFACE = 1, CTRL_IFACE = 0;
-const EP_OUT = 0x02, EP_IN = 0x82;
+const DATA_IFACE = 1;   // usb.open claims all interfaces; the CDC data endpoints live here
 
 const toHex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, "0")).join("");
 const fromHex = (h) => new Uint8Array((h.match(/../g) || []).map((x) => parseInt(x, 16)));
 
-export const usbSerialAvailable = () => shell.has("usb.open") && shell.has("usb.bulk") && shell.has("usb.control");
+// The native serial capability exists only inside our APK (bridge >= 37). In a browser this is false, so the
+// view falls back to its download-APK stub.
+export const usbSerialAvailable = () => shell.has("usb.serOpen");
 
-// A minimal Web Serial SerialPort backed by shell.usb.*. Enough of the surface for esptool-js's Transport.
+// A minimal Web Serial SerialPort backed by the native usb-serial driver. Enough for esptool-js's Transport.
 export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } = {}) {
-  const r = await shell.call("usb.open", { vid, pid, iface: DATA_IFACE });
-  if (!r?.opened) throw new Error("usb.open failed");
-  let alive = false;
-  // esptool-js toggles the reset lines ONE AT A TIME (setSignals({dataTerminalReady}) then
-  // setSignals({requestToSend})); the classic ESP reset needs the other line to HOLD, so we keep each line's
-  // last state and only change the field that was passed. Treating a missing field as false collapses DTR/RTS
-  // to 0 on every call and the chip never enters the download ROM ("Failed to connect with the device").
-  let sigDtr = false, sigRts = false;
-  let rxTotal = 0, rxSeen = false, wrTotal = 0;   // DIAGNOSTIC counters
-
-  async function setLineCoding(baud) {
-    const d = new Uint8Array(7);                 // baud(LE u32), stopBits(0=1), parity(0=none), dataBits(8)
-    new DataView(d.buffer).setUint32(0, baud >>> 0, true); d[6] = 8;
-    await shell.call("usb.control", { reqType: 0x21, request: 0x20, value: 0, index: CTRL_IFACE, length: 7, data: toHex(d) });
-  }
-  async function setControlLineState(dtr, rts) {
-    const w = (dtr ? 1 : 0) | (rts ? 2 : 0);     // wValue bit0=DTR, bit1=RTS
-    await shell.call("usb.control", { reqType: 0x21, request: 0x22, value: w, index: CTRL_IFACE, length: 0, data: "" });
-  }
+  await shell.call("usb.open", { vid, pid, iface: DATA_IFACE });   // permission + connection + claim-all
+  await shell.call("usb.serOpen", { baud: 115200 });               // build the vendored CDC port on it
+  // esptool-js toggles the reset lines one at a time; hold each line's last state so setting one never
+  // clears the other (that is the classic ESP reset: RTS->EN, DTR->GPIO0).
+  let sigDtr = false, sigRts = false, alive = false;
 
   const port = {
     getInfo: () => ({ usbVendorId: vid, usbProductId: pid }),
 
     async open({ baudRate = 115200 } = {}) {
-      await setLineCoding(baudRate);
+      await shell.call("usb.serParams", { baud: baudRate });
       alive = true;
       port.readable = new ReadableStream({
         async pull(ctrl) {
           if (!alive) { ctrl.close(); return; }
           try {
-            const rr = await shell.call("usb.bulk", { ep: EP_IN, length: 64, timeout: 200 });
-            const bytes = rr?.data ? fromHex(rr.data) : new Uint8Array(0);
-            if (bytes.length) {
-              rxTotal += bytes.length;
-              if (!rxSeen) { rxSeen = true; report("usb.rx", { first: bytes.length, hex: rr.data.slice(0, 24) }, "info"); }
-              ctrl.enqueue(bytes);
-            }
+            const r = await shell.call("usb.serRead", { length: 64, timeout: 200 });
+            const bytes = r?.data ? fromHex(r.data) : new Uint8Array(0);
+            if (bytes.length) ctrl.enqueue(bytes);
           } catch { /* a timeout while the ROM is quiet is normal */ }
         },
         cancel() { alive = false; },
@@ -67,25 +44,21 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
       port.writable = new WritableStream({
         async write(chunk) {
           const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
-          wrTotal += u8.length;
-          await shell.call("usb.bulk", { ep: EP_OUT, data: toHex(u8), timeout: 2000 });
+          await shell.call("usb.serWrite", { data: toHex(u8), timeout: 2000 });
         },
       });
     },
 
-    // esptool-js drives the ESP reset here (RTS→EN, DTR→GPIO0 through the board's transistor pair). It sets
-    // one line per call, so we hold the other at its last value instead of forcing it low.
+    // esptool-js drives the ESP reset here; we send BOTH lines' current state so the library sets them exactly.
     async setSignals({ dataTerminalReady, requestToSend } = {}) {
       if (dataTerminalReady !== undefined) sigDtr = !!dataTerminalReady;
       if (requestToSend !== undefined) sigRts = !!requestToSend;
-      report("usb.sig", { dtr: sigDtr, rts: sigRts }, "info");   // DIAGNOSTIC: the reset sequence, as it happens
-      await setControlLineState(sigDtr, sigRts);
+      await shell.call("usb.serSignals", { dtr: sigDtr, rts: sigRts });
     },
 
     async close() {
       alive = false;
-      report("usb.totals", { rx: rxTotal, wr: wrTotal, rxSeen }, "info");   // DIAGNOSTIC: did the chip ever answer?
-      try { await shell.call("usb.close", {}); } catch { /* usb.close may not exist on older bridges */ }
+      try { await shell.call("usb.close", {}); } catch { /* link already gone */ }
     },
   };
   return port;
