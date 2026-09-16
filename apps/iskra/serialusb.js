@@ -1,61 +1,63 @@
-// apps/iskra/serialusb.js — a Web Serial `SerialPort` over WebUSB (navigator.usb), for the CH9102 bridge.
+// apps/iskra/serialusb.js — a Web Serial `SerialPort` over the shell's NATIVE USB bridge (shell.usb.*).
 //
-// WHY: the APK WebView has NO navigator.serial, and Android's kernel cdc_acm holds the CH9102 so WebSerial
-// could not take it anyway. But the shell polyfills navigator.usb over its native USB bridge (the same one
-// that drives the RTL8852AU) and force-claims the interface — so WebUSB reaches the device where WebSerial
-// cannot. On desktop Chrome the page uses the real navigator.serial; only the APK path lands here.
+// WHY: the APK WebView has NO Web Serial AND NO Web USB (neither exists in a WebView —
+// Usb.java). Android's kernel cdc_acm also holds the CH9102. The shell's native `usb` capability (full
+// flavour) force-claims the interface and exposes control/bulk over `shell.call("usb.*")` — the same bridge
+// that drives the RTL8852AU. So on the phone we drive the CH9102 through it and hand esptool-js a port.
+// On desktop the page uses the real navigator.serial; only the APK path lands here.
 //
-// CH9102 is STANDARD CDC-ACM, so this is generic CDC: SET_LINE_CODING (0x20) for baud, SET_CONTROL_LINE_STATE
-// (0x22) for DTR/RTS, and the bulk data endpoints for bytes. esptool-js drives the returned port unchanged.
-// Endpoints/interfaces are this unit's descriptors (iface 0 = CDC control, 1 = data; EP 0x02 OUT / 0x82 IN).
+// CH9102 is STANDARD CDC-ACM: SET_LINE_CODING (0x20) for baud, SET_CONTROL_LINE_STATE (0x22) for DTR/RTS,
+// bulk data endpoints for bytes. Endpoints/ifaces are this unit's descriptors (iface 1 = CDC data,
+// EP 0x02 OUT / 0x82 IN; iface 0 = CDC control) — re-probe a different revision.
+import { shell } from "/_rt/shell.js";
 
 const CH9102 = { vid: 0x1a86, pid: 0x55d4 };
-const EP_NUM = 2;          // both bulk endpoints are number 2 (OUT 0x02 / IN 0x82); WebUSB addresses by number
-const CTRL_IFACE = 0;      // the CDC control interface — line-coding / control-line requests target it
-const DATA_IFACE = 1;      // the CDC data interface — bulk IN/OUT
+const DATA_IFACE = 1, CTRL_IFACE = 0;
+const EP_OUT = 0x02, EP_IN = 0x82;
 
-export const usbSerialAvailable = () => typeof navigator !== "undefined" && !!navigator.usb;
+const toHex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, "0")).join("");
+const fromHex = (h) => new Uint8Array((h.match(/../g) || []).map((x) => parseInt(x, 16)));
 
-// A minimal Web Serial SerialPort backed by WebUSB. Enough of the surface for esptool-js's Transport.
+export const usbSerialAvailable = () => shell.has("usb.open") && shell.has("usb.bulk") && shell.has("usb.control");
+
+// A minimal Web Serial SerialPort backed by shell.usb.*. Enough of the surface for esptool-js's Transport.
 export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } = {}) {
-  const dev = await navigator.usb.requestDevice({ filters: [{ vendorId: vid, productId: pid }, { vendorId: vid }] });
+  const r = await shell.call("usb.open", { vid, pid, iface: DATA_IFACE });
+  if (!r?.opened) throw new Error("usb.open failed");
+  let alive = false;
 
   async function setLineCoding(baud) {
-    // CDC SET_LINE_CODING (0x20): 7 bytes = baud(LE u32), stopBits(0=1), parity(0=none), dataBits(8)
-    const d = new Uint8Array(7);
-    new DataView(d.buffer).setUint32(0, baud >>> 0, true);
-    d[6] = 8;
-    await dev.controlTransferOut({ requestType: "class", recipient: "interface", request: 0x20, value: 0, index: CTRL_IFACE }, d);
+    const d = new Uint8Array(7);                 // baud(LE u32), stopBits(0=1), parity(0=none), dataBits(8)
+    new DataView(d.buffer).setUint32(0, baud >>> 0, true); d[6] = 8;
+    await shell.call("usb.control", { reqType: 0x21, request: 0x20, value: 0, index: CTRL_IFACE, length: 7, data: toHex(d) });
   }
   async function setControlLineState(dtr, rts) {
-    // CDC SET_CONTROL_LINE_STATE (0x22): wValue bit0=DTR, bit1=RTS
-    const w = (dtr ? 1 : 0) | (rts ? 2 : 0);
-    await dev.controlTransferOut({ requestType: "class", recipient: "interface", request: 0x22, value: w, index: CTRL_IFACE });
+    const w = (dtr ? 1 : 0) | (rts ? 2 : 0);     // wValue bit0=DTR, bit1=RTS
+    await shell.call("usb.control", { reqType: 0x21, request: 0x22, value: w, index: CTRL_IFACE, length: 0, data: "" });
   }
 
-  let alive = false;
   const port = {
     getInfo: () => ({ usbVendorId: vid, usbProductId: pid }),
 
     async open({ baudRate = 115200 } = {}) {
-      if (!dev.opened) await dev.open();
-      if (!dev.configuration) await dev.selectConfiguration(1);
-      for (const i of [CTRL_IFACE, DATA_IFACE]) { try { await dev.claimInterface(i); } catch { /* control iface may be held; the data iface is the one bulk needs */ } }
       await setLineCoding(baudRate);
       alive = true;
-
       port.readable = new ReadableStream({
         async pull(ctrl) {
           if (!alive) { ctrl.close(); return; }
           try {
-            const r = await dev.transferIn(EP_NUM, 64);
-            if (r.data && r.data.byteLength) ctrl.enqueue(new Uint8Array(r.data.buffer, r.data.byteOffset, r.data.byteLength));
-          } catch { /* a stall/timeout while the ROM is quiet is normal */ }
+            const rr = await shell.call("usb.bulk", { ep: EP_IN, length: 64, timeout: 200 });
+            const bytes = rr?.data ? fromHex(rr.data) : new Uint8Array(0);
+            if (bytes.length) ctrl.enqueue(bytes);
+          } catch { /* a timeout while the ROM is quiet is normal */ }
         },
         cancel() { alive = false; },
       });
       port.writable = new WritableStream({
-        async write(chunk) { await dev.transferOut(EP_NUM, chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)); },
+        async write(chunk) {
+          const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+          await shell.call("usb.bulk", { ep: EP_OUT, data: toHex(u8), timeout: 2000 });
+        },
       });
     },
 
@@ -66,7 +68,7 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
 
     async close() {
       alive = false;
-      try { await dev.close(); } catch { /* already gone */ }
+      try { await shell.call("usb.close", {}); } catch { /* usb.close may not exist on older bridges */ }
     },
   };
   return port;
