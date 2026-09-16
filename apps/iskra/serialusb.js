@@ -12,7 +12,6 @@ const DATA_IFACE = 1;   // usb.open claims all interfaces; the CDC data endpoint
 
 const toHex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, "0")).join("");
 const fromHex = (h) => new Uint8Array((h.match(/../g) || []).map((x) => parseInt(x, 16)));
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The native serial capability exists only inside our APK (bridge >= 37). In a browser this is false, so the
 // view falls back to its download-APK stub.
@@ -26,23 +25,16 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
   // clears the other (that is the classic ESP reset: RTS->EN, DTR->GPIO0).
   let sigDtr = false, sigRts = false, alive = false;
   let rxTotal = 0, rxSeen = false;   // DIAGNOSTIC counters
-  // The reset-into-bootloader line dance. Which DTR/RTS combo enters the download ROM is board-specific
-  // (M5 swaps the lines), so view.js can set a candidate sequence and retry. Each step is [dtr, rts, sleepMs].
-  let bootSeq = [[false, true, 100], [true, false, 0]];   // EspToolbox default (DTR=EN, RTS=GPIO0)
 
   const port = {
     getInfo: () => ({ usbVendorId: vid, usbProductId: pid }),
-    setBootSeq: (s) => { bootSeq = s; },
 
     async open({ baudRate = 115200 } = {}) {
       await shell.call("usb.serParams", { baud: baudRate });
-      // Reset the ESP32 into its download ROM here (esptool-js is told no_reset, so it does not fight this).
-      // The proven classic sequence from esptool's own_esptool.py: DTR->GPIO0, RTS->EN, both active low.
-      const sig = (dtr, rts) => shell.call("usb.serSignals", { dtr, rts });
-      report("usb.reset", { steps: bootSeq.length }, "info");
-      for (const [d, r, ms] of bootSeq) { await sig(d, r); if (ms) await sleep(ms); }
-      const last = bootSeq[bootSeq.length - 1]; sigDtr = !!last[0]; sigRts = !!last[1];
-      rxTotal = 0; rxSeen = false;   // fresh count per attempt
+      // esptool-js drives the reset itself (setSignals -> usb.serSignals) once per connect attempt, using the
+      // custom sequence view.js passes it — better than a one-shot reset here because it re-tries and reads the
+      // boot log between attempts.
+      rxTotal = 0; rxSeen = false;
       alive = true;
       port.readable = new ReadableStream({
         async pull(ctrl) {

@@ -53,26 +53,35 @@ export function iskra({ S, toast }) {
     try {
       const { ESPLoader, Transport } = await import(ESPTOOL);
       const term = { clean() {}, writeLine: (d) => { setMsg(d); report("flash.esptool", { line: String(d).slice(0, 120) }, "info"); }, write() {} };
-      // Which DTR/RTS dance enters the download ROM is board-specific (the M5 swaps the lines and inverts a
-      // level), so we try a bounded set in one press and keep the first that syncs. [dtr, rts, sleepMs] steps.
-      const SEQS = [
-        [[false, true, 100], [true, false, 0]],                  // EspToolbox: DTR=EN, RTS=GPIO0
-        [[true, false, 100], [false, true, 0]],                  //   swapped
-        [[false, true, 100], [true, false, 50], [false, false, 0]], // classic: DTR=GPIO0, RTS=EN
-        [[true, false, 100], [false, true, 50], [true, true, 0]],
-        [[true, true, 100], [false, false, 0]],
-        [[false, false, 100], [true, true, 0]],
+      // Which DTR/RTS dance enters the download ROM is board-specific (the M5 swaps EN/GPIO0 vs standard
+      // esptool). Hand esptool-js its OWN reset strategy (it resets AND reads the boot log per attempt, ×7),
+      // trying a few mappings. DSL: D=setDTR, R=setRTS, W=wait(ms), 1/0 = true/false.
+      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+      const mkReset = (dsl) => (tr) => ({
+        async reset() {
+          for (const cmd of dsl.split("|")) {
+            const k = cmd[0], v = cmd.slice(1);
+            if (k === "W") await sleep(Number(v));
+            else if (k === "D") await tr.setDTR(v === "1");
+            else if (k === "R") await tr.setRTS(v === "1");
+          }
+        },
+      });
+      const DSLS = [
+        "D0|R1|W100|D1|R0",            // EspToolbox: DTR=EN, RTS=GPIO0 (synced on this exact stick)
+        "D0|R1|W100|D1|R0|W50|D0",     // classic: DTR=GPIO0, RTS=EN
+        "R0|D1|W100|R1|D0",            // swapped roles
+        "D1|R0|W100|D0|R1",            // inverted
       ];
       let esploader = null, name = null;
-      for (let i = 0; i < SEQS.length; i++) {
+      for (let i = 0; i < DSLS.length; i++) {
         try { await transport?.disconnect(); } catch { /* first pass, or already gone */ }
         const port = await makeUsbSerialPort({ vid: CH_VENDOR });   // permission already granted; re-opens the link
-        port.setBootSeq(SEQS[i]);
         transport = new Transport(port, true);
         report("reset.try", { i }, "info");
         setMsg(T(t, "connecting"));
-        const el = new ESPLoader({ transport, baudrate: BAUD, terminal: term });
-        try { name = await el.main("no_reset"); esploader = el; report("reset.hit", { i }, "info"); break; }
+        const el = new ESPLoader({ transport, baudrate: BAUD, terminal: term, resetConstructors: { classicReset: mkReset(DSLS[i]) } });
+        try { name = await el.main(); esploader = el; report("reset.hit", { i }, "info"); break; }
         catch (e) { report("reset.miss", { i, msg: String(e?.message || e).slice(0, 40) }, "info"); }
       }
       if (!esploader) throw new Error("Failed to connect with the device");
