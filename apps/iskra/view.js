@@ -48,6 +48,16 @@ export function iskra({ S, toast }) {
     }, () => { /* the run's own rejection carries the reason */ });
   }, []);
 
+  // Unattended bring-up: a shell whose start URL carries `?autoflash=1` flashes as soon as it opens, so the
+  // hardware can be exercised over adb without a human pressing anything. Nothing else can reach it — the
+  // owner's app is built from the bare URL, so this only ever fires in a purpose-built test APK.
+  useEffect(() => {
+    if (gate || !inApk()) return;
+    if (!/[?&]autoflash=1/.test(location.search)) return;
+    const id = setTimeout(() => flash(), 900);
+    return () => clearTimeout(id);
+  }, []);
+
   const flash = async () => {
     if (busyRef.current || !inApk()) return;
     busyRef.current = true;
