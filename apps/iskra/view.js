@@ -13,6 +13,7 @@ import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
+import { usbSerialAvailable, makeUsbSerialPort } from "./serialusb.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
@@ -23,7 +24,9 @@ const FLASH_ADDR = 0x0;     // merged image (bootloader + partition table + app)
 const BAUD = 115200;
 
 const R = 54, C = 2 * Math.PI * R;   // the ring geometry (viewBox 0 0 120 120, cx/cy 60, r 54)
-const supported = () => typeof navigator !== "undefined" && "serial" in navigator;
+// The APK's native USB bridge (shell.usb.*) reaches the CH9102 where Android WebSerial cannot; desktop Chrome
+// has the real navigator.serial. Either path yields a SerialPort esptool-js drives unchanged.
+const supported = () => usbSerialAvailable() || (typeof navigator !== "undefined" && "serial" in navigator);
 
 export function iskra({ S, toast }) {
   const t = useStore(S.t);
@@ -42,7 +45,11 @@ export function iskra({ S, toast }) {
     let transport;
     try {
       const { ESPLoader, Transport } = await import(ESPTOOL);
-      const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: CH_VENDOR }] });
+      // Desktop Chrome has the real WebSerial (reliable); the APK WebView has none but carries the shell's
+      // WebUSB polyfill, so there we drive the CH9102 over WebUSB (serialusb.js). esptool-js sees one port.
+      const port = ("serial" in navigator)
+        ? await navigator.serial.requestPort({ filters: [{ usbVendorId: CH_VENDOR }] })
+        : await makeUsbSerialPort({ vid: CH_VENDOR });
       transport = new Transport(port, true);
       const term = { clean() {}, writeLine: (d) => setMsg(d), write() {} };
       const esploader = new ESPLoader({ transport, baudrate: BAUD, terminal: term });

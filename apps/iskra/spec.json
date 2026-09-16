@@ -9,7 +9,8 @@
       "type": "tool",
       "icon": "lucide:zap",
       "label": "tabFlash",
-      "view": "iskra"
+      "view": "iskra",
+      "needs": ["usb"]
     },
     {
       "id": "me",
