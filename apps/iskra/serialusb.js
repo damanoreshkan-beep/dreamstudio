@@ -25,6 +25,11 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
   const r = await shell.call("usb.open", { vid, pid, iface: DATA_IFACE });
   if (!r?.opened) throw new Error("usb.open failed");
   let alive = false;
+  // esptool-js toggles the reset lines ONE AT A TIME (setSignals({dataTerminalReady}) then
+  // setSignals({requestToSend})); the classic ESP reset needs the other line to HOLD, so we keep each line's
+  // last state and only change the field that was passed. Treating a missing field as false collapses DTR/RTS
+  // to 0 on every call and the chip never enters the download ROM ("Failed to connect with the device").
+  let sigDtr = false, sigRts = false;
 
   async function setLineCoding(baud) {
     const d = new Uint8Array(7);                 // baud(LE u32), stopBits(0=1), parity(0=none), dataBits(8)
@@ -61,9 +66,12 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
       });
     },
 
-    // esptool-js drives the ESP reset here (RTS→EN, DTR→GPIO0 through the board's transistor pair).
+    // esptool-js drives the ESP reset here (RTS→EN, DTR→GPIO0 through the board's transistor pair). It sets
+    // one line per call, so we hold the other at its last value instead of forcing it low.
     async setSignals({ dataTerminalReady, requestToSend } = {}) {
-      await setControlLineState(!!dataTerminalReady, !!requestToSend);
+      if (dataTerminalReady !== undefined) sigDtr = !!dataTerminalReady;
+      if (requestToSend !== undefined) sigRts = !!requestToSend;
+      await setControlLineState(sigDtr, sigRts);
     },
 
     async close() {
