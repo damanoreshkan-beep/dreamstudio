@@ -26,21 +26,23 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
   // clears the other (that is the classic ESP reset: RTS->EN, DTR->GPIO0).
   let sigDtr = false, sigRts = false, alive = false;
   let rxTotal = 0, rxSeen = false;   // DIAGNOSTIC counters
+  // The reset-into-bootloader line dance. Which DTR/RTS combo enters the download ROM is board-specific
+  // (M5 swaps the lines), so view.js can set a candidate sequence and retry. Each step is [dtr, rts, sleepMs].
+  let bootSeq = [[false, true, 100], [true, false, 0]];   // EspToolbox default (DTR=EN, RTS=GPIO0)
 
   const port = {
     getInfo: () => ({ usbVendorId: vid, usbProductId: pid }),
+    setBootSeq: (s) => { bootSeq = s; },
 
     async open({ baudRate = 115200 } = {}) {
       await shell.call("usb.serParams", { baud: baudRate });
       // Reset the ESP32 into its download ROM here (esptool-js is told no_reset, so it does not fight this).
       // The proven classic sequence from esptool's own_esptool.py: DTR->GPIO0, RTS->EN, both active low.
       const sig = (dtr, rts) => shell.call("usb.serSignals", { dtr, rts });
-      // EXACT sequence from EspToolbox (usb-serial-for-android), which synced on this M5StickC Plus2. On this
-      // board the lines are SWAPPED vs standard esptool: DTR -> EN (reset), RTS -> GPIO0 (boot).
-      report("usb.reset", { seq: "esptoolbox" }, "info");
-      await sig(false, true);   await sleep(100);   // dtr=false (reset), rts=true (boot)
-      await sig(true, false);                       // dtr=true  (reset), rts=false (boot)
-      sigDtr = true; sigRts = false;
+      report("usb.reset", { steps: bootSeq.length }, "info");
+      for (const [d, r, ms] of bootSeq) { await sig(d, r); if (ms) await sleep(ms); }
+      const last = bootSeq[bootSeq.length - 1]; sigDtr = !!last[0]; sigRts = !!last[1];
+      rxTotal = 0; rxSeen = false;   // fresh count per attempt
       alive = true;
       port.readable = new ReadableStream({
         async pull(ctrl) {
