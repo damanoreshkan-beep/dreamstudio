@@ -35,11 +35,13 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
       // Reset the ESP32 into its download ROM here (esptool-js is told no_reset, so it does not fight this).
       // The proven classic sequence from esptool's own_esptool.py: DTR->GPIO0, RTS->EN, both active low.
       const sig = (dtr, rts) => shell.call("usb.serSignals", { dtr, rts });
-      report("usb.reset", { seq: "classic" }, "info");
-      await sig(false, true);  await sleep(120);   // IO0 high, EN low  -> chip in reset
-      await sig(true, false);  await sleep(120);   // IO0 low,  EN high -> boots into the download ROM
-      await sig(false, false);                     // IO0 high          -> release
-      sigDtr = false; sigRts = false;
+      // On this bridge DTR is INVERTED vs esptool's assumption: measured dtr:true -> GPIO0 HIGH (the chip booted
+      // its firmware, not the ROM). So GPIO0 LOW = dtr:false. EN stays standard (rts:true -> EN low). Sequence:
+      report("usb.reset", { seq: "inv-dtr" }, "info");
+      await sig(true, true);   await sleep(120);   // GPIO0 high, EN low  -> chip in reset
+      await sig(false, false); await sleep(120);   // GPIO0 low,  EN high -> boots into the download ROM
+      await sig(true, false);                      // GPIO0 high          -> release
+      sigDtr = true; sigRts = false;
       alive = true;
       port.readable = new ReadableStream({
         async pull(ctrl) {
