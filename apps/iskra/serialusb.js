@@ -10,6 +10,7 @@
 // bulk data endpoints for bytes. Endpoints/ifaces are this unit's descriptors (iface 1 = CDC data,
 // EP 0x02 OUT / 0x82 IN; iface 0 = CDC control) — re-probe a different revision.
 import { shell } from "/_rt/shell.js";
+import { report } from "/_rt/telemetry.js";   // DIAGNOSTIC: expose reset toggles + RX so a flash can be read from logs
 
 const CH9102 = { vid: 0x1a86, pid: 0x55d4 };
 const DATA_IFACE = 1, CTRL_IFACE = 0;
@@ -30,6 +31,7 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
   // last state and only change the field that was passed. Treating a missing field as false collapses DTR/RTS
   // to 0 on every call and the chip never enters the download ROM ("Failed to connect with the device").
   let sigDtr = false, sigRts = false;
+  let rxTotal = 0, rxSeen = false, wrTotal = 0;   // DIAGNOSTIC counters
 
   async function setLineCoding(baud) {
     const d = new Uint8Array(7);                 // baud(LE u32), stopBits(0=1), parity(0=none), dataBits(8)
@@ -53,7 +55,11 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
           try {
             const rr = await shell.call("usb.bulk", { ep: EP_IN, length: 64, timeout: 200 });
             const bytes = rr?.data ? fromHex(rr.data) : new Uint8Array(0);
-            if (bytes.length) ctrl.enqueue(bytes);
+            if (bytes.length) {
+              rxTotal += bytes.length;
+              if (!rxSeen) { rxSeen = true; report("usb.rx", { first: bytes.length, hex: rr.data.slice(0, 24) }, "info"); }
+              ctrl.enqueue(bytes);
+            }
           } catch { /* a timeout while the ROM is quiet is normal */ }
         },
         cancel() { alive = false; },
@@ -61,6 +67,7 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
       port.writable = new WritableStream({
         async write(chunk) {
           const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+          wrTotal += u8.length;
           await shell.call("usb.bulk", { ep: EP_OUT, data: toHex(u8), timeout: 2000 });
         },
       });
@@ -71,11 +78,13 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
     async setSignals({ dataTerminalReady, requestToSend } = {}) {
       if (dataTerminalReady !== undefined) sigDtr = !!dataTerminalReady;
       if (requestToSend !== undefined) sigRts = !!requestToSend;
+      report("usb.sig", { dtr: sigDtr, rts: sigRts }, "info");   // DIAGNOSTIC: the reset sequence, as it happens
       await setControlLineState(sigDtr, sigRts);
     },
 
     async close() {
       alive = false;
+      report("usb.totals", { rx: rxTotal, wr: wrTotal, rxSeen }, "info");   // DIAGNOSTIC: did the chip ever answer?
       try { await shell.call("usb.close", {}); } catch { /* usb.close may not exist on older bridges */ }
     },
   };
