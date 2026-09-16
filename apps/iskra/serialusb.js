@@ -35,12 +35,11 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
       // Reset the ESP32 into its download ROM here (esptool-js is told no_reset, so it does not fight this).
       // The proven classic sequence from esptool's own_esptool.py: DTR->GPIO0, RTS->EN, both active low.
       const sig = (dtr, rts) => shell.call("usb.serSignals", { dtr, rts });
-      // On this bridge DTR is INVERTED vs esptool's assumption: measured dtr:true -> GPIO0 HIGH (the chip booted
-      // its firmware, not the ROM). So GPIO0 LOW = dtr:false. EN stays standard (rts:true -> EN low). Sequence:
-      report("usb.reset", { seq: "inv-dtr" }, "info");
-      await sig(true, true);   await sleep(120);   // GPIO0 high, EN low  -> chip in reset
-      await sig(false, false); await sleep(120);   // GPIO0 low,  EN high -> boots into the download ROM
-      await sig(true, false);                      // GPIO0 high          -> release
+      // EXACT sequence from EspToolbox (usb-serial-for-android), which synced on this M5StickC Plus2. On this
+      // board the lines are SWAPPED vs standard esptool: DTR -> EN (reset), RTS -> GPIO0 (boot).
+      report("usb.reset", { seq: "esptoolbox" }, "info");
+      await sig(false, true);   await sleep(100);   // dtr=false (reset), rts=true (boot)
+      await sig(true, false);                       // dtr=true  (reset), rts=false (boot)
       sigDtr = true; sigRts = false;
       alive = true;
       port.readable = new ReadableStream({
