@@ -5,6 +5,7 @@
 // line-coding / DTR-RTS / read / write on that port. esptool-js drives the object below exactly as it drives
 // a desktop SerialPort. On the phone this is the ONLY way to reach the CH9102 (Android holds it in cdc_acm).
 import { shell } from "/_rt/shell.js";
+import { report } from "/_rt/telemetry.js";   // DIAGNOSTIC: is the chip answering after reset?
 
 const CH9102 = { vid: 0x1a86, pid: 0x55d4 };
 const DATA_IFACE = 1;   // usb.open claims all interfaces; the CDC data endpoints live here
@@ -23,6 +24,7 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
   // esptool-js toggles the reset lines one at a time; hold each line's last state so setting one never
   // clears the other (that is the classic ESP reset: RTS->EN, DTR->GPIO0).
   let sigDtr = false, sigRts = false, alive = false;
+  let rxTotal = 0, rxSeen = false;   // DIAGNOSTIC counters
 
   const port = {
     getInfo: () => ({ usbVendorId: vid, usbProductId: pid }),
@@ -36,7 +38,11 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
           try {
             const r = await shell.call("usb.serRead", { length: 64, timeout: 200 });
             const bytes = r?.data ? fromHex(r.data) : new Uint8Array(0);
-            if (bytes.length) ctrl.enqueue(bytes);
+            if (bytes.length) {
+              rxTotal += bytes.length;
+              if (!rxSeen) { rxSeen = true; report("usb.rx", { first: bytes.length, hex: r.data.slice(0, 24) }, "info"); }
+              ctrl.enqueue(bytes);
+            }
           } catch { /* a timeout while the ROM is quiet is normal */ }
         },
         cancel() { alive = false; },
@@ -53,11 +59,13 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
     async setSignals({ dataTerminalReady, requestToSend } = {}) {
       if (dataTerminalReady !== undefined) sigDtr = !!dataTerminalReady;
       if (requestToSend !== undefined) sigRts = !!requestToSend;
+      report("usb.sig", { dtr: sigDtr, rts: sigRts }, "info");   // DIAGNOSTIC: the reset sequence, via the library
       await shell.call("usb.serSignals", { dtr: sigDtr, rts: sigRts });
     },
 
     async close() {
       alive = false;
+      report("usb.totals", { rx: rxTotal, rxSeen }, "info");   // DIAGNOSTIC: did the ROM ever answer?
       try { await shell.call("usb.close", {}); } catch { /* link already gone */ }
     },
   };
