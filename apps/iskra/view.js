@@ -14,6 +14,8 @@ import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { usbSerialAvailable, makeUsbSerialPort } from "./serialusb.js";
+import { buildApk, apkFilename, downloadBlob } from "/_rt/apk.js";
+import { report } from "/_rt/telemetry.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
@@ -37,25 +39,33 @@ export function iskra({ S, toast }) {
   const [chip, setChip] = useState(null);
   const [msg, setMsg] = useState(null);   // the latest esptool line — shown small while busy, and on error
   const busyRef = useRef(false);
+  const [apkBusy, setApkBusy] = useState(false);   // building the download-APK for a phone that has no WebSerial
 
   const flash = async () => {
     if (busyRef.current || !supported()) return;
     busyRef.current = true;
     setPhase("flashing"); setPct(0); setChip(null); setMsg(T(t, "connecting"));
+    // Instrumented to the edge (report → /feed/log) so an on-device flash can be debugged with no console:
+    // read `bash vps/logs.sh iskra 1h flash`. Steps: start → port → sync → fw → done, or error with the reason.
+    const via = ("serial" in navigator) ? "webserial" : (usbSerialAvailable() ? "shellusb" : "none");
+    report("flash.start", { via, serial: "serial" in navigator, shellUsb: usbSerialAvailable() }, "info");
     let transport;
     try {
       const { ESPLoader, Transport } = await import(ESPTOOL);
-      // Desktop Chrome has the real WebSerial (reliable); the APK WebView has none but carries the shell's
-      // WebUSB polyfill, so there we drive the CH9102 over WebUSB (serialusb.js). esptool-js sees one port.
+      // Desktop Chrome has the real WebSerial; the APK WebView has none, so there the CH9102 is driven over
+      // the shell's native USB bridge (serialusb.js → shell.call usb.*). esptool-js sees one port either way.
       const port = ("serial" in navigator)
         ? await navigator.serial.requestPort({ filters: [{ usbVendorId: CH_VENDOR }] })
         : await makeUsbSerialPort({ vid: CH_VENDOR });
+      report("flash.port", { via }, "info");
       transport = new Transport(port, true);
-      const term = { clean() {}, writeLine: (d) => setMsg(d), write() {} };
+      const term = { clean() {}, writeLine: (d) => { setMsg(d); report("flash.esptool", { line: String(d).slice(0, 120) }, "info"); }, write() {} };
       const esploader = new ESPLoader({ transport, baudrate: BAUD, terminal: term });
       const name = await esploader.main();
+      report("flash.sync", { chip: name }, "info");
       setChip(name); setMsg(null);
       const bytes = new Uint8Array(await (await fetch(FW_URL)).arrayBuffer());   // ArrayBuffer → Uint8Array (esptool-js wants bytes, NOT a binary string)
+      report("flash.fw", { bytes: bytes.length }, "info");
       await esploader.writeFlash({
         fileArray: [{ data: bytes, address: FLASH_ADDR }],
         flashSize: "keep", flashMode: "keep", flashFreq: "keep",
@@ -63,15 +73,31 @@ export function iskra({ S, toast }) {
         reportProgress: (_i, written, total) => setPct(total ? written / total : 0),
       });
       await esploader.after();   // hard-reset out of the bootloader into the freshly flashed app
+      report("flash.done", {}, "info");
       setPct(1); setPhase("done"); toast?.(T(t, "toastDone"));
     } catch (e) {
       // a dismissed port picker is "not now", not a fault — fall back to idle without an error card
-      if (e && (e.name === "NotFoundError" || e.name === "AbortError")) { setPhase("idle"); setMsg(null); }
-      else { setMsg(String(e?.message || e)); setPhase("error"); }
+      if (e && (e.name === "NotFoundError" || e.name === "AbortError")) { setPhase("idle"); setMsg(null); report("flash.cancel", { via }, "info"); }
+      else { setMsg(String(e?.message || e)); setPhase("error"); report("flash.error", { via, name: e?.name || "", msg: String(e?.message || e).slice(0, 160) }); }
     } finally {
       try { await transport?.disconnect(); } catch { /* link already gone */ }
       busyRef.current = false;
     }
+  };
+
+  // A phone browser has neither WebSerial nor the shell bridge, so flashing can't run on the web here. Build
+  // the APK instead — our own shell wrapper of this same page, which reaches the CH9102 through its native USB
+  // bridge (serialusb.js). Same farm mechanism as apps/os: the edge signs it and grants our origin the `full`
+  // flavour that carries `usb`. The start URL is this page, so Android treats a re-download as an update.
+  const getApk = async () => {
+    if (apkBusy) return;
+    setApkBusy(true);
+    try {
+      const name = T(t, "title");
+      const blob = await buildApk({ url: location.href.split("#")[0].split("?")[0], name });
+      downloadBlob(blob, apkFilename(name));
+    } catch (e) { toast?.(String(e?.message || e)); }
+    finally { setApkBusy(false); }
   };
 
   // Under the gate WebSerial is absent but the front door must still render — the e2e seeds idle, not the
@@ -79,11 +105,14 @@ export function iskra({ S, toast }) {
   if (!gate && !supported()) {
     return html`<div class="isk-stage">
       <div data-dev data-phase="unsupported" class="isk-dev">
-        <div class="isk-core">${Icon("lucide:monitor-x", "isk-glyph")}</div>
+        <div class="isk-core">${Icon("lucide:smartphone", "isk-glyph")}</div>
       </div>
       <div class="isk-card">
         <div class="isk-msg">${T(t, "unsupportedTitle")}</div>
         <div class="isk-hint">${T(t, "unsupportedHint")}</div>
+        <button id="apk-btn" disabled=${apkBusy} onClick=${getApk} class="btn btn-primary rounded-2xl isk-go">
+          ${Icon("lucide:download", "")}${apkBusy ? T(t, "apkBuilding") : T(t, "getApk")}
+        </button>
       </div>
     </div>`;
   }
