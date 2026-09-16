@@ -10,7 +10,7 @@
   "flashAgain": "Flash again",
   "retry": "Try again",
   "connecting": "Connecting to the device…",
-  "chipLine": "Chip: {chip}",
+  "flashingLine": "Writing to Iskra",
   "doneTitle": "Done",
   "doneHint": "Open ImgGen on Iskra — it now paints from the farm",
   "errorTitle": "Flashing failed",

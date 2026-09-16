@@ -10,7 +10,7 @@
   "flashAgain": "Прошити знову",
   "retry": "Спробувати ще",
   "connecting": "Підключення до пристрою…",
-  "chipLine": "Чип: {chip}",
+  "flashingLine": "Пишу в Іскру",
   "doneTitle": "Готово",
   "doneHint": "Відкрий ImgGen на Іскрі — тепер вона малює з ферми",
   "errorTitle": "Збій прошивання",

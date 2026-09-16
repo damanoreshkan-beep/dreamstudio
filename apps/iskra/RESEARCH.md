@@ -1,17 +1,33 @@
 # Iskra — research & state map
 
-One-tap ESP32 firmware flasher for **M5StickC Plus2** (ESP32-PICO family), USB bridge **CH9102** (WCH,
-`1a86:55d4`). Flashing runs **only inside our APK**: the native USB bridge (`shell.usb.*`) force-claims the
-CH9102 and `serialusb.js` presents it to **esptool-js** as an ordinary `SerialPort`. No server, no native
-tool — and no browser path.
+One-tap ESP32 firmware flasher for **M5StickC Plus2** (ESP32-PICO, USB bridge **CH9102**, `1a86:55d4`).
+The page is only the screen: the **shell** writes the image.
 
-## Why the browser is a stub
+## Where the protocol lives, and why (2026-09-16)
 
-A browser cannot reach the device. Android holds the CH9102 in the kernel `cdc_acm` driver, and no browser
-can detach it: Android Chrome/WebView have no working WebSerial for it, and on Samsung DeX Chrome exposes
-`navigator.serial` but a "success" there never reaches the chip. So the app checks one thing — **are we
-inside our APK** (`inApk() = usbSerialAvailable()`, i.e. `shell.usb.*` is present). If not, the whole app is
-a stub: one card that builds and downloads the APK. The flasher renders only in the shell.
+It used to live here: `esptool-js` drove a Web Serial port that proxied every read/write over the native
+bridge. **Measured, it cannot work.** The ESP ROM loader is chatty and timing-tight — a ~100 ms sync window
+and thousands of blocks — while each read costs a WebView↔native round-trip (~100–200 ms). Sync never caught
+a reply, and a 2.7 MB image would be ~42k crossings. Symptom in the logs: `Failed to connect with the
+device`, with the chip answering only its own boot log.
+
+So the protocol moved next to the USB. The `flash` APK flavour vendors **EspToolbox's ESP ROM loader**
+(Kotlin, MIT, `com.crescenzi.esp32`, verbatim) plus its Physicaloid AAR and the usb-serial driver; a thin
+`FlashLayer` wires it to two actions. The page makes **one** call.
+
+Board quirk that cost the most: on this M5 the reset lines are **swapped** versus stock esptool —
+**DTR drives EN, RTS drives GPIO0**. EspToolbox's `UsbRepo.reset()` encodes it, so we take that verbatim
+rather than deriving it again.
+
+## The contract
+
+| | |
+| --- | --- |
+| `shell.call("flash.run", { url, address })` | fetch the image, reset into the download ROM, write it. Resolves when done. |
+| `shell.subscribe("flash.progress")` | `{ pct?, line? }` while it writes. |
+| `spec.json` → `profile.apk: "flash"` | the flavour the Download-APK button asks the edge for. |
+
+`inApk()` is `shell.has("flash.run")` — true only inside the `flash`-flavour APK (bridge ≥ 38).
 
 ## State map (the view's phases)
 
@@ -19,37 +35,20 @@ a stub: one card that builds and downloads the APK. The flasher renders only in 
 | --- | --- | --- |
 | `browser` | `!gate && !inApk()` | stub: "flashing lives in the app" + **Download APK** button |
 | `idle` | in the APK (or the gate) | device card + Flash button + hint |
-| `flashing` | Flash pressed → connect → write | button disabled with `{p}%`, determinate ring, chip line, live log |
-| `done` | writeFlash + after() resolved | success card + "Flash again" |
-| `error` | any thrown error (except a dismissed picker) | error card + last log line + "Retry" |
+| `flashing` | Flash pressed | determinate ring from `flash.progress`, the loader's line under it |
+| `done` | `flash.run` resolved | success card + "Flash again" |
+| `error` | `flash.run` rejected | error card + the shell's `detail` + "Retry" |
 
-Under the headless gate (`/_rt/gate.js`) there is no shell bridge, so the view seeds the **flasher** (idle)
-— the e2e asserts the front door — never the browser stub.
-
-## Download-APK path (the stub's only action)
-
-`getApk` → `buildApk({ url: location.href, name })` (`/_rt/apk.js`) → edge `POST /feed/apk` signs the APK and
-grants our origin the **`full`** flavour, whose bridge carries the `usb` capability → `downloadBlob`. So the
-downloaded APK is this same page wrapped in the shell that can actually flash. Same mechanism as `apps/os`.
-The start URL is this page, so Android treats a re-download as an update, not a second copy.
-
-## esptool-js API (pinned: esptool-js@0.6.1)
-
-- Loaded lazily on the first Flash: `const { ESPLoader, Transport } = await import("https://esm.sh/esptool-js@0.6.1")`.
-- `new Transport(port, true)` → `new ESPLoader({ transport, baudrate: 115200, terminal })` → `esploader.main()`
-  (returns the chip name) → `esploader.writeFlash({...})` → `esploader.after()` (hard reset) → `transport.disconnect()`.
-- **`fileArray[].data` is a `Uint8Array`, NOT a binary string** — convert with `new Uint8Array(await res.arrayBuffer())`.
-- `reportProgress: (fileIndex, written, total) => …` — `written/total` is the fraction.
-- `port` here comes from `serialusb.js` (`shell.usb.*`), which also drives the ESP reset (RTS→EN, DTR→GPIO0).
+Under the headless gate there is no bridge, so the view seeds the **flasher** (idle) — the e2e asserts the
+front door — never the browser stub.
 
 ## Firmware
 
-The token-bearing image is served by the edge at `/feed/m5fw` (`VPS_PROXY + "/m5fw"`), fetched only at flash
-time — never bundled or committed, because it carries the device token. The code assumes a **merged** image
-(bootloader + partition table + app) written at **`0x0`** with `flashMode/flashFreq/flashSize: "keep"`.
+Served by the edge at `/feed/m5fw` (`VPS_PROXY + "/m5fw"`) and fetched **by the shell**, never bundled — the
+image carries the device token. It is a **merged** image (bootloader + partition table + app), written at
+**`0x0`**. The box's `arduino-cli` recipe confirms the equivalent offsets: bootloader `0x1000`, partitions
+`0x8000`, `boot_app0` `0xe000`, app `0x10000`, `--flash-mode/freq/size keep`, `-z`.
 
-## To confirm on the physical unit
+## Debugging on the device
 
-1. **Vendor/product id** of the bridge is `1a86:55d4` (CH9102). A different revision could ship another
-   bridge — re-probe descriptors and adjust `serialusb.js`.
-2. **DTR/RTS polarity** for the reset-into-bootloader sequence on the M5 board.
+`bash vps/logs.sh iskra 1h flash` — `flash.start` → `flash.done {bytes}` or `flash.error {code, msg}`.

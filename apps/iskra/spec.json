@@ -23,7 +23,8 @@
     "icon": "lucide:zap",
     "theme": true,
     "lang": true,
-    "install": true
+    "install": true,
+    "apk": "flash"
   },
   "added": "2026-09-15"
 }

@@ -1,35 +1,32 @@
-// Iskra — one-tap ESP32 firmware flasher over WebSerial. Point it at an M5StickC Plus2 (its CH9102 USB
-// bridge is WCH vendor 0x1a86), press Flash, and esptool-js writes the app's own firmware.bin straight to
-// the chip over the serial link and resets it. The firmware comes from the EDGE (/feed/m5fw), fetched only
-// at flash time — never bundled or committed, because the image carries the device token. esptool-js is loaded
-// LAZILY on the first flash (dynamic import) so the module graph stays clean and the headless gate never
-// reaches the network. The screen is one object — a progress ring around the device (styles in head.html,
-// the .isk-* classes). WebSerial is desktop Chrome/Edge only; where it isn't there, the view says so.
-// The flash offset and the "keep" header options assume a MERGED image (bootloader+partitions+app in one
-// .bin at 0x0); see RESEARCH.md if your build is a bare app image instead.
+// Iskra — one-tap ESP32 firmware flasher. Point it at an M5StickC Plus2, press Flash, and the SHELL writes
+// the image: `flash.run` hands the edge's firmware URL (/feed/m5fw) to the `flash` flavour, whose vendored
+// ESP ROM loader resets the chip into its download ROM and writes it, reporting progress on `flash.progress`.
+//
+// WHY THE PAGE DOES NOT DO THE PROTOCOL. It used to: esptool-js drove a serial port proxied over the bridge,
+// one round-trip per read. Measured 2026-09-16 — that cannot meet the ROM's ~100 ms sync window, and a 2.7 MB
+// image is ~42k crossings. The protocol belongs next to the USB, so it moved into the shell and this file
+// kept only the screen. A browser has no such shell, so there the app is a stub that hands over the APK.
+//
+// The screen is one object — a progress ring around the device (styles in head.html, the .isk-* classes).
 import { html } from "htm/preact";
-import { useState, useRef } from "preact/hooks";
+import { useState, useRef, useEffect } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
-import { usbSerialAvailable, makeUsbSerialPort } from "./serialusb.js";
+import { shell } from "/_rt/shell.js";
 import { buildApk, apkFilename, downloadBlob } from "/_rt/apk.js";
 import { report } from "/_rt/telemetry.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
 const FW_URL = VPS_PROXY + "/m5fw";   // the edge serves the token-bearing image; the runtime seals this fetch
-const ESPTOOL = "https://esm.sh/esptool-js@0.6.1";
-const CH_VENDOR = 0x1a86;   // WCH CH9102 / CH340 — the M5StickC Plus2 USB bridge
 const FLASH_ADDR = 0x0;     // merged image (bootloader + partition table + app) → offset 0
-const BAUD = 115200;
 
 const R = 54, C = 2 * Math.PI * R;   // the ring geometry (viewBox 0 0 120 120, cx/cy 60, r 54)
-// The ONLY way to flash is from inside our APK: its native USB bridge (shell.usb.*) force-claims the CH9102,
-// which no browser can do (Android holds it in cdc_acm; a WebSerial "success" on DeX/Chrome never reaches the
-// chip). So in a browser this app is a stub that hands over the APK; the flasher runs only in the shell.
-const inApk = () => usbSerialAvailable();
+// Flashing exists only inside our `flash`-flavour APK: no browser can force-claim the CH9102 (Android holds
+// it in cdc_acm), and the ROM's timing cannot survive the bridge. Elsewhere this app is a download-APK stub.
+const inApk = () => shell.has("flash.run");
 
 export function iskra({ S, toast }) {
   const t = useStore(S.t);
@@ -37,71 +34,37 @@ export function iskra({ S, toast }) {
   // headless DOM that has no WebSerial), so nothing here ever reaches for a device under the gate.
   const [phase, setPhase] = useState("idle");
   const [pct, setPct] = useState(0);
-  const [chip, setChip] = useState(null);
-  const [msg, setMsg] = useState(null);   // the latest esptool line — shown small while busy, and on error
+  const [msg, setMsg] = useState(null);   // the loader's latest line — shown small while busy, and on error
   const busyRef = useRef(false);
-  const [apkBusy, setApkBusy] = useState(false);   // building the download-APK for a phone that has no WebSerial
+  const [apkBusy, setApkBusy] = useState(false);   // building the download-APK for a browser that cannot flash
+
+  // Progress while the shell writes: a percentage for the ring, a line for the status. Subscribed for the
+  // screen's life so a flash started on one render keeps reporting; the cancel comes from the shell facade.
+  useEffect(() => {
+    if (gate || !inApk()) return;
+    return shell.subscribe("flash.progress", {}, (f) => {
+      if (typeof f?.pct === "number") setPct(f.pct / 100);
+      if (f?.line) setMsg(String(f.line));
+    }, () => { /* the run's own rejection carries the reason */ });
+  }, []);
 
   const flash = async () => {
     if (busyRef.current || !inApk()) return;
     busyRef.current = true;
-    setPhase("flashing"); setPct(0); setChip(null); setMsg(T(t, "connecting"));
+    setPhase("flashing"); setPct(0); setMsg(T(t, "connecting"));
     // Instrumented to the edge (report → /feed/log) so an on-device flash can be debugged with no console:
-    // read `bash vps/logs.sh iskra 1h flash`. Steps: start → port → sync → fw → done, or error with the reason.
-    report("flash.start", { via: "shellusb" }, "info");
-    let transport;
+    // read `bash vps/logs.sh iskra 1h flash`.
+    report("flash.start", { via: "native" }, "info");
     try {
-      const { ESPLoader, Transport } = await import(ESPTOOL);
-      const term = { clean() {}, writeLine: (d) => { setMsg(d); report("flash.esptool", { line: String(d).slice(0, 120) }, "info"); }, write() {} };
-      // Which DTR/RTS dance enters the download ROM is board-specific (the M5 swaps EN/GPIO0 vs standard
-      // esptool). Hand esptool-js its OWN reset strategy (it resets AND reads the boot log per attempt, ×7),
-      // trying a few mappings. DSL: D=setDTR, R=setRTS, W=wait(ms), 1/0 = true/false.
-      const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-      const mkReset = (dsl) => (tr) => ({
-        async reset() {
-          for (const cmd of dsl.split("|")) {
-            const k = cmd[0], v = cmd.slice(1);
-            if (k === "W") await sleep(Number(v));
-            else if (k === "D") await tr.setDTR(v === "1");
-            else if (k === "R") await tr.setRTS(v === "1");
-          }
-        },
-      });
-      const DSLS = [
-        "D0|R1|W100|D1|R0",            // EspToolbox: DTR=EN, RTS=GPIO0 (synced on this exact stick)
-      ];
-      let esploader = null, name = null;
-      for (let i = 0; i < DSLS.length; i++) {
-        try { await transport?.disconnect(); } catch { /* first pass, or already gone */ }
-        const port = await makeUsbSerialPort({ vid: CH_VENDOR });   // permission already granted; re-opens the link
-        transport = new Transport(port, true);
-        report("reset.try", { i }, "info");
-        setMsg(T(t, "connecting"));
-        const el = new ESPLoader({ transport, baudrate: BAUD, terminal: term, resetConstructors: { classicReset: mkReset(DSLS[i]) } });
-        try { name = await el.main(); esploader = el; report("reset.hit", { i }, "info"); break; }
-        catch (e) { report("reset.miss", { i, msg: String(e?.message || e).slice(0, 40) }, "info"); }
-      }
-      if (!esploader) throw new Error("Failed to connect with the device");
-      report("flash.port", { via: "shellusb" }, "info");
-      report("flash.sync", { chip: name }, "info");
-      setChip(name); setMsg(null);
-      const bytes = new Uint8Array(await (await fetch(FW_URL)).arrayBuffer());   // ArrayBuffer → Uint8Array (esptool-js wants bytes, NOT a binary string)
-      report("flash.fw", { bytes: bytes.length }, "info");
-      await esploader.writeFlash({
-        fileArray: [{ data: bytes, address: FLASH_ADDR }],
-        flashSize: "keep", flashMode: "keep", flashFreq: "keep",
-        eraseAll: false, compress: true,
-        reportProgress: (_i, written, total) => setPct(total ? written / total : 0),
-      });
-      await esploader.after();   // hard-reset out of the bootloader into the freshly flashed app
-      report("flash.done", {}, "info");
-      setPct(1); setPhase("done"); toast?.(T(t, "toastDone"));
+      // ONE call: the shell fetches the image, resets the chip into its download ROM and writes it.
+      const r = await shell.call("flash.run", { url: FW_URL, address: FLASH_ADDR });
+      report("flash.done", { bytes: r?.bytes || 0 }, "info");
+      setPct(1); setMsg(null); setPhase("done"); toast?.(T(t, "toastDone"));
     } catch (e) {
-      // a dismissed port picker is "not now", not a fault — fall back to idle without an error card
-      if (e && (e.name === "NotFoundError" || e.name === "AbortError")) { setPhase("idle"); setMsg(null); report("flash.cancel", {}, "info"); }
-      else { setMsg(String(e?.message || e)); setPhase("error"); report("flash.error", { name: e?.name || "", msg: String(e?.message || e).slice(0, 160) }); }
+      setMsg(String(e?.detail || e?.message || e));
+      setPhase("error");
+      report("flash.error", { code: e?.code || "", msg: String(e?.detail || e?.message || e).slice(0, 160) });
     } finally {
-      try { await transport?.disconnect(); } catch { /* link already gone */ }
       busyRef.current = false;
     }
   };
@@ -115,7 +78,9 @@ export function iskra({ S, toast }) {
     setApkBusy(true);
     try {
       const name = T(t, "title");
-      const blob = await buildApk({ url: location.href.split("#")[0].split("?")[0], name });
+      // power: the flavour this app declares in spec.json — the shell that carries the ESP loader. Without it
+      // the edge would hand back plain `full`, which answers flash.run with `unavailable`.
+      const blob = await buildApk({ url: location.href.split("#")[0].split("?")[0], name, power: "flash" });
       downloadBlob(blob, apkFilename(name));
     } catch (e) { toast?.(String(e?.message || e)); }
     finally { setApkBusy(false); }
@@ -146,7 +111,7 @@ export function iskra({ S, toast }) {
     : done ? T(t, "flashAgain") : err ? T(t, "retry") : T(t, "flash");
   const btnIcon = done ? "lucide:check" : err ? "lucide:rotate-ccw" : "lucide:zap";
   // the status line under the ring
-  const phaseLine = busy ? (chip ? T(t, "chipLine", { chip }) : T(t, "connecting"))
+  const phaseLine = busy ? T(t, "flashingLine")
     : done ? T(t, "doneTitle") : err ? T(t, "errorTitle") : "";
   const hintLine = idleHint(t, phase);
 
