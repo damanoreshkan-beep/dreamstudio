@@ -69,9 +69,6 @@ export function iskra({ S, toast }) {
       });
       const DSLS = [
         "D0|R1|W100|D1|R0",            // EspToolbox: DTR=EN, RTS=GPIO0 (synced on this exact stick)
-        "D0|R1|W100|D1|R0|W50|D0",     // classic: DTR=GPIO0, RTS=EN
-        "R0|D1|W100|R1|D0",            // swapped roles
-        "D1|R0|W100|D0|R1",            // inverted
       ];
       let esploader = null, name = null;
       for (let i = 0; i < DSLS.length; i++) {

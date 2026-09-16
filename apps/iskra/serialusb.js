@@ -40,7 +40,7 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
         async pull(ctrl) {
           if (!alive) { ctrl.close(); return; }
           try {
-            const r = await shell.call("usb.serRead", { length: 64, timeout: 200 });
+            const r = await shell.call("usb.serRead", { length: 64, timeout: 40 });
             const bytes = r?.data ? fromHex(r.data) : new Uint8Array(0);
             if (bytes.length) {
               rxTotal += bytes.length;
