@@ -26,3 +26,6 @@ meta/
 
 # Godot projects (godot/<app>/): the editor cache, never the sources
 godot/**/.godot/
+
+# firmware carries a baked-in device token — served, never committed (see apps/iskra/RESEARCH.md)
+apps/iskra/assets/firmware.bin

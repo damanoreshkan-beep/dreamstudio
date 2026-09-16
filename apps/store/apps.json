@@ -648,6 +648,38 @@
     "needs": []
   },
   {
+    "id": "iskra",
+    "title": "Іскра",
+    "titles": {
+      "uk": "Іскра",
+      "en": "Iskra"
+    },
+    "tagline": "Прошивач пристрою Іскра",
+    "taglines": {
+      "uk": "Прошивач пристрою Іскра",
+      "en": "The Iskra device flasher"
+    },
+    "glyph": "lucide:zap",
+    "art": "<path d=\"M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z\"/>",
+    "icon": true,
+    "screens": {
+      "uk": [
+        "Прошити"
+      ],
+      "en": [
+        "Flash"
+      ]
+    },
+    "shots": [],
+    "bg": "#0A0A0B",
+    "fg": "#F2B84B",
+    "href": "./iskra/",
+    "version": "1.0",
+    "category": "tools",
+    "needs": [],
+    "added": "2026-09-15"
+  },
+  {
     "id": "kalimba",
     "title": "Калімба",
     "titles": {
@@ -2073,17 +2105,17 @@
       "en": "The city goes dark behind you, and out of that dark run the ones it already took. Run while the streetlights last — and make a runner from your own words, or your own photo.",
       "uk": "Місто гасне за спиною, а з темряви біжать ті, кого вона вже забрала. Біжи, поки світять ліхтарі — і зроби бігуна зі своїх слів або зі свого фото."
     },
-    "glyph": "lucide:zap-off",
+    "glyph": "lucide:user",
     "art": "<path d=\"M13 2 4 14h6l-1 8 9-12h-6z\"/><path d=\"M3 3l18 18\"/>",
     "icon": true,
     "screens": {
       "en": [
         "Run",
-        "Runners"
+        "Shop"
       ],
       "uk": [
         "Забіг",
-        "Бігуни"
+        "Магазин"
       ]
     },
     "shots": [
@@ -2093,7 +2125,7 @@
     "bg": "#07060C",
     "fg": "#F5B942",
     "href": "./blackout/",
-    "version": "1.16",
+    "version": "1.23",
     "category": "play",
     "needs": [
       "auth",
@@ -2354,7 +2386,7 @@
     "bg": "#0A0510",
     "fg": "#FF3EB5",
     "href": "./afterdark/",
-    "version": "1.38",
+    "version": "1.39",
     "category": "creative",
     "needs": [
       "auth",
