@@ -26,9 +26,10 @@ const FLASH_ADDR = 0x0;     // merged image (bootloader + partition table + app)
 const BAUD = 115200;
 
 const R = 54, C = 2 * Math.PI * R;   // the ring geometry (viewBox 0 0 120 120, cx/cy 60, r 54)
-// The APK's native USB bridge (shell.usb.*) reaches the CH9102 where Android WebSerial cannot; desktop Chrome
-// has the real navigator.serial. Either path yields a SerialPort esptool-js drives unchanged.
-const supported = () => usbSerialAvailable() || (typeof navigator !== "undefined" && "serial" in navigator);
+// The ONLY way to flash is from inside our APK: its native USB bridge (shell.usb.*) force-claims the CH9102,
+// which no browser can do (Android holds it in cdc_acm; a WebSerial "success" on DeX/Chrome never reaches the
+// chip). So in a browser this app is a stub that hands over the APK; the flasher runs only in the shell.
+const inApk = () => usbSerialAvailable();
 
 export function iskra({ S, toast }) {
   const t = useStore(S.t);
@@ -42,22 +43,19 @@ export function iskra({ S, toast }) {
   const [apkBusy, setApkBusy] = useState(false);   // building the download-APK for a phone that has no WebSerial
 
   const flash = async () => {
-    if (busyRef.current || !supported()) return;
+    if (busyRef.current || !inApk()) return;
     busyRef.current = true;
     setPhase("flashing"); setPct(0); setChip(null); setMsg(T(t, "connecting"));
     // Instrumented to the edge (report → /feed/log) so an on-device flash can be debugged with no console:
     // read `bash vps/logs.sh iskra 1h flash`. Steps: start → port → sync → fw → done, or error with the reason.
-    const via = ("serial" in navigator) ? "webserial" : (usbSerialAvailable() ? "shellusb" : "none");
-    report("flash.start", { via, serial: "serial" in navigator, shellUsb: usbSerialAvailable() }, "info");
+    report("flash.start", { via: "shellusb" }, "info");
     let transport;
     try {
       const { ESPLoader, Transport } = await import(ESPTOOL);
-      // Desktop Chrome has the real WebSerial; the APK WebView has none, so there the CH9102 is driven over
-      // the shell's native USB bridge (serialusb.js → shell.call usb.*). esptool-js sees one port either way.
-      const port = ("serial" in navigator)
-        ? await navigator.serial.requestPort({ filters: [{ usbVendorId: CH_VENDOR }] })
-        : await makeUsbSerialPort({ vid: CH_VENDOR });
-      report("flash.port", { via }, "info");
+      // The CH9102 is driven over the shell's native USB bridge (serialusb.js → shell.call usb.*); esptool-js
+      // sees an ordinary SerialPort.
+      const port = await makeUsbSerialPort({ vid: CH_VENDOR });
+      report("flash.port", { via: "shellusb" }, "info");
       transport = new Transport(port, true);
       const term = { clean() {}, writeLine: (d) => { setMsg(d); report("flash.esptool", { line: String(d).slice(0, 120) }, "info"); }, write() {} };
       const esploader = new ESPLoader({ transport, baudrate: BAUD, terminal: term });
@@ -77,8 +75,8 @@ export function iskra({ S, toast }) {
       setPct(1); setPhase("done"); toast?.(T(t, "toastDone"));
     } catch (e) {
       // a dismissed port picker is "not now", not a fault — fall back to idle without an error card
-      if (e && (e.name === "NotFoundError" || e.name === "AbortError")) { setPhase("idle"); setMsg(null); report("flash.cancel", { via }, "info"); }
-      else { setMsg(String(e?.message || e)); setPhase("error"); report("flash.error", { via, name: e?.name || "", msg: String(e?.message || e).slice(0, 160) }); }
+      if (e && (e.name === "NotFoundError" || e.name === "AbortError")) { setPhase("idle"); setMsg(null); report("flash.cancel", {}, "info"); }
+      else { setMsg(String(e?.message || e)); setPhase("error"); report("flash.error", { name: e?.name || "", msg: String(e?.message || e).slice(0, 160) }); }
     } finally {
       try { await transport?.disconnect(); } catch { /* link already gone */ }
       busyRef.current = false;
@@ -100,11 +98,11 @@ export function iskra({ S, toast }) {
     finally { setApkBusy(false); }
   };
 
-  // Under the gate WebSerial is absent but the front door must still render — the e2e seeds idle, not the
-  // unsupported card, so gate OR a real WebSerial shows the flasher.
-  if (!gate && !supported()) {
+  // In a browser the device is unreachable, so everything but this stub is inert: show the "get the APK" card.
+  // The gate seeds the flasher (the e2e asserts the front door under a headless DOM with no shell bridge).
+  if (!gate && !inApk()) {
     return html`<div class="isk-stage">
-      <div data-dev data-phase="unsupported" class="isk-dev">
+      <div data-dev data-phase="browser" class="isk-dev">
         <div class="isk-core">${Icon("lucide:smartphone", "isk-glyph")}</div>
       </div>
       <div class="isk-card">
