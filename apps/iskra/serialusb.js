@@ -12,6 +12,7 @@ const DATA_IFACE = 1;   // usb.open claims all interfaces; the CDC data endpoint
 
 const toHex = (u8) => Array.from(u8, (b) => b.toString(16).padStart(2, "0")).join("");
 const fromHex = (h) => new Uint8Array((h.match(/../g) || []).map((x) => parseInt(x, 16)));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The native serial capability exists only inside our APK (bridge >= 37). In a browser this is false, so the
 // view falls back to its download-APK stub.
@@ -31,6 +32,14 @@ export async function makeUsbSerialPort({ vid = CH9102.vid, pid = CH9102.pid } =
 
     async open({ baudRate = 115200 } = {}) {
       await shell.call("usb.serParams", { baud: baudRate });
+      // Reset the ESP32 into its download ROM here (esptool-js is told no_reset, so it does not fight this).
+      // The proven classic sequence from esptool's own_esptool.py: DTR->GPIO0, RTS->EN, both active low.
+      const sig = (dtr, rts) => shell.call("usb.serSignals", { dtr, rts });
+      report("usb.reset", { seq: "classic" }, "info");
+      await sig(false, true);  await sleep(120);   // IO0 high, EN low  -> chip in reset
+      await sig(true, false);  await sleep(120);   // IO0 low,  EN high -> boots into the download ROM
+      await sig(false, false);                     // IO0 high          -> release
+      sigDtr = false; sigRts = false;
       alive = true;
       port.readable = new ReadableStream({
         async pull(ctrl) {
