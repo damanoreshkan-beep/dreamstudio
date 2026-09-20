@@ -215,17 +215,17 @@ export default [
       h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
       const root = await h.text("[data-island-label]");
       const chip = await h.attr("[data-channel]", "aria-label");
-      h.expect(/Mixkit Studio/.test(chip), `кружечок акаунта підписаний «${chip}» — має нести ім'я акаунта, а не форму URL`);
+      h.expect(/Nine Lives Studio/.test(chip), `кружечок акаунта підписаний «${chip}» — має нести ім'я акаунта, а не форму URL`);
       await h.tap("[data-channel]"); await h.wait(600);
       // the dived page seeds a DIFFERENT batch (2 slides) — the source label and the list both had to change
       h.expect(await settles(h, 2), "провалювання не завантажило стрічку сторінки, на якій лежить рілз");
       h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — джерело не змінилось`);
-      // …and it is named by the PAGE, not by the shape of its URL. `/profiles/mixkit-studio` derives only to
-      // "Mixkit"; the mock's page title is "Mixkit%20Studio in 4K &amp; Friends — Mixkit", so the chrome must
+      // …and it is named by the PAGE, not by the shape of its URL. `/profiles/user10241/` is a handle that
+      // names nothing; the mock's page title is "Nine%20Lives Studio &amp; Friends — Mixkit", so the chrome must
       // come off AND the machine text has to be decoded — a percent-escape and an entity, both of which
       // reached the screen raw before humanText existed.
       const lvl = await h.text("[data-island-label]");
-      h.expect(lvl === "Mixkit Studio in 4K & Friends", `острівець показує «${lvl}» замість справжньої назви сторінки «Mixkit Studio in 4K & Friends»`);
+      h.expect(lvl === "Nine Lives Studio & Friends", `острівець показує «${lvl}» замість справжньої назви сторінки «Nine Lives Studio & Friends»`);
       h.expect(!/%[0-9A-Fa-f]{2}|&[a-z]+;|&#/.test(lvl), `в назві джерела лишились нерозкодовані символи: «${lvl}»`);
       h.expect((await h.count("[data-feed-back]")) === 1, "після провалювання немає кнопки повернення");
       // …and back restores the ORIGINAL list (a restore, not a refetch)

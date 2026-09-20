@@ -89,7 +89,10 @@ const MOCK = [
   // under the gate any url but the default lands on the "Deeper …" batch. avatar stays null on purpose —
   // that is what a listing tile actually carries, and it makes the monogram the tested path.
   { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny", poster: GV + "images/BigBuckBunny.jpg", page: "https://mixkit.co/watch/10241/",
-    channel: { name: "Mixkit Studio", url: "https://mixkit.co/profiles/mixkit-studio", avatar: null } },
+    // The account's url is a HANDLE that names nothing ("user10241" — an id wearing a word's clothes, which
+    // sitelabel reads as weak), so the island has to take the page's own name. That is the same proof the
+    // clip page used to carry before the dive button came out, and the only reason GATE_TITLES exists.
+    channel: { name: "Nine Lives Studio", url: "https://mixkit.co/profiles/user10241/", avatar: null } },
   { video: GV + "ElephantsDream.mp4", title: "Elephants Dream", poster: null, page: "https://mixkit.co/watch/10242/" },
   { video: GV + "Sintel.mp4", title: "Sintel", poster: null, page: "https://mixkit.co/watch/10243/" },
   { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny dup", poster: null, page: "https://mixkit.co/watch/10241/" },
@@ -114,8 +117,10 @@ const GATE_TITLES = {
   // The gate therefore proves the decode in a real browser, on the path a page title actually travels —
   // island, sources row and all — and not only in the unit suite.
   "https://mixkit.co/watch/10241/": "Big%20Buck%20Bunny in 4K &amp; Friends — Mixkit",
-  // The account page the island's avatar dives into — machine text for the same reason as the one above.
-  "https://mixkit.co/profiles/mixkit-studio": "Mixkit%20Studio in 4K &amp; Friends — Mixkit",
+  // The account page the island's avatar dives into — machine text for the same reason as the one above. It
+  // must not OPEN with the site's name either: cleanPageTitle reads that as chrome and throws the title away,
+  // which is how the first version of this line silently left the island on the url's own shape.
+  "https://mixkit.co/profiles/user10241/": "Nine%20Lives Studio &amp; Friends — Mixkit",
   "https://mixkit.co/watch/55013/": "Deeper two · Mixkit",
 };                                    // …it must reach the screen as: Big Buck Bunny in 4K & Friends
 
