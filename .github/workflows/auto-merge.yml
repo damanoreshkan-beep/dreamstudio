@@ -24,6 +24,7 @@ jobs:
       - name: Arm auto-merge (squash)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # --delete-branch: the head goes with the merge. Without it every landed PR leaves its branch behind
-        # and the list becomes a graveyard you have to read past to find the one that is still open.
+        # --delete-branch is kept for the case where gh is still running when the PR becomes mergeable, but it
+        # cannot be relied on: with --auto, GitHub performs the merge minutes later and this process is gone.
+        # after-merge.yml is what actually takes the branch (and dispatches the deploy the bot merge suppressed).
         run: gh pr merge --auto --squash --delete-branch "${{ github.event.pull_request.html_url }}"
