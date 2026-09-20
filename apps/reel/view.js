@@ -85,7 +85,11 @@ const GREY_PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLb
 // a label from these URLs and you get "Mixkit", which is what the island used to show.
 const GV = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/";
 const MOCK = [
-  { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny", poster: GV + "images/BigBuckBunny.jpg", page: "https://mixkit.co/watch/10241/" },
+  // The first clip names its ACCOUNT, so the island's avatar is provable offline: tapping it dives, and
+  // under the gate any url but the default lands on the "Deeper …" batch. avatar stays null on purpose —
+  // that is what a listing tile actually carries, and it makes the monogram the tested path.
+  { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny", poster: GV + "images/BigBuckBunny.jpg", page: "https://mixkit.co/watch/10241/",
+    channel: { name: "Mixkit Studio", url: "https://mixkit.co/profiles/mixkit-studio", avatar: null } },
   { video: GV + "ElephantsDream.mp4", title: "Elephants Dream", poster: null, page: "https://mixkit.co/watch/10242/" },
   { video: GV + "Sintel.mp4", title: "Sintel", poster: null, page: "https://mixkit.co/watch/10243/" },
   { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny dup", poster: null, page: "https://mixkit.co/watch/10241/" },
@@ -863,12 +867,14 @@ function MoreSheet({ S, t, item, src, title, subbed, watchHere, toast }) {
    clips, so tapping it is the same move the slide already makes — push the frame, load that url — and the
    way back is the one that was already there. No avatar in the feed's data means a monogram, never a
    guessed URL. */
-function ChannelAvatar({ channel, onClick, label }) {
+function ChannelAvatar({ channel, onClick, label, current }) {
   const [broken, setBroken] = useState(false);
   if (!channel?.url) return null;
+  // Already inside their feed — the circle still says WHOSE this is, but there is nowhere to go.
+  const here = String(channel.url).replace(/#.*$/, "") === String(current || "").replace(/#.*$/, "");
   const initial = (channel.name || "?").trim().charAt(0).toUpperCase();
   return html`<button type="button" data-channel class="btn btn-ghost btn-sm btn-circle shrink-0 p-0 overflow-hidden border border-white/20 bg-white/10"
-      aria-label=${label} title=${channel.name || ""} onClick=${onClick}>
+      aria-label=${label} title=${channel.name || ""} disabled=${here} onClick=${here ? null : onClick}>
     ${channel.avatar && !broken
       ? html`<img src=${channel.avatar} alt="" class="w-6 h-6 rounded-full object-cover" loading="lazy" onError=${() => setBroken(true)} />`
       : html`<span class="w-6 h-6 rounded-full grid place-items-center text-[0.7rem] font-semibold text-white bg-white/20">${initial}</span>`}
@@ -887,8 +893,11 @@ function SourceIsland({ S, t, src, title, depth, dive, watch, channel }) {
       <${Favicon} url=${src} size="w-6 h-6" />
       ${/* Beside the favicon, which says which SITE this is, so the pair reads "site · who". It sits before
             the label because it is an identity, not an action, and the label may be their name already. */""}
-      <${ChannelAvatar} channel=${channel} label=${(channel?.name || "") + " — " + T(t, "more")}
-        onClick=${() => dive?.(channel.url, channel.name)} />
+      ${/* diveTo directly, NOT the `dive` prop: that one is an object — {label, go} for the slide's own page —
+            and it is null on any slide whose page is the one already open. Called as a function it did
+            nothing at all, silently, which is exactly how the first version of this shipped. */""}
+      <${ChannelAvatar} channel=${channel} current=${src} label=${channel?.name || ""}
+        onClick=${() => diveTo(S, channel.url, channel.name)} />
       ${/* The title gets the whole middle. The host used to sit beside it and, at 384px, the two of them
             truncated EACH OTHER — "Free stoc…" next to "mixk…", which is two half-words and no name. The
             favicon already says which site this is; the host stays where it is precision, the sources list. */""}
