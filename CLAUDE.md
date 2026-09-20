@@ -13,9 +13,16 @@ learned there does not transfer here.
 
 ## Branches do not accumulate
 
-Auto-merge deletes the head branch when a PR lands (`--delete-branch`). If you ever merge by hand, delete the
-branch in the same breath. A list of merged branches is a list you have to read past to find the one that is
-still open.
+`after-merge.yml` deletes the head branch once GitHub reports the PR merged, and dispatches the deploy in the
+same step. Both are there because a merge performed by the repository's GITHUB_TOKEN raises NO events: the
+`--delete-branch` on auto-merge never runs (gh has exited long before GitHub merges), the push-to-main
+`verify` never starts, and the deploy that chains off it never happens. Measured on PRs #2 and #5. If you
+ever merge by hand, delete the branch in the same breath — a list of merged branches is a list you have to
+read past to find the one that is still open.
+
+`prune-branches` (Actions → run workflow, dry by default) is the net for what slipped through. It asks GitHub
+for merged PRs, never `git branch --merged`: every PR lands as a squash, so a landed branch is never an
+ancestor of main.
 
 ## The gate is the contract
 

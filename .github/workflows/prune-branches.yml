@@ -1,7 +1,12 @@
 name: prune-branches
 
-# Delete branches that are already merged into main. Auto-merge takes the head with each PR it lands
-# (--delete-branch), so this is for what accumulated BEFORE that, and for a merge done by hand that forgot.
+# Delete branches whose pull request has already been merged. after-merge.yml takes the head with each PR
+# that lands, so this is the net for what accumulated before that, and for a merge done by hand that forgot.
+#
+# It asks GITHUB for merged PRs rather than asking git. `git branch --merged origin/main` cannot answer this
+# repository's question at all: every PR lands as a SQUASH, so the branch tip is never an ancestor of main
+# and the first version of this workflow reported nothing to delete — then died on `set -o pipefail` when
+# its own grep found no lines (run 1, 2026-09-20).
 # Runs only when asked: a workflow that deletes refs on a schedule is a workflow nobody reads until it
 # deletes the wrong one.
 #
@@ -25,24 +30,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Delete merged branches
+      - name: Delete the branches of merged PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APPLY: ${{ inputs.apply }}
+          REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # `--merged origin/main` is the whole safety rule: a branch whose tip main already contains carries
-          # nothing that would be lost. Anything unmerged is left alone, whatever it is named.
-          git branch -r --merged origin/main \
-            | sed 's|^ *origin/||' \
-            | grep -vE '^(main|HEAD)' \
-            | grep -v -- '->' \
-            | while read -r b; do
+          # Only PRs into main, only heads from THIS repository (a fork's branch is not ours), and only the
+          # ones whose branch is still there. A merged PR is the safety rule: main already carries its work.
+          gh pr list --repo "$REPO" --state merged --base main --limit 100 \
+            --json number,headRefName,headRepositoryOwner \
+            --jq ".[] | select(.headRepositoryOwner.login == \"${REPO%%/*}\") | \"\(.number) \(.headRefName)\"" \
+            | while read -r num branch; do
+                if [ -z "$branch" ] || [ "$branch" = "main" ]; then continue; fi
+                gh api "repos/$REPO/git/ref/heads/$branch" >/dev/null 2>&1 || continue   # already gone
                 if [ "$APPLY" = "true" ]; then
-                  echo "deleting $b"
-                  gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/$b" || echo "  (skipped: $b)"
+                  echo "deleting $branch (PR #$num)"
+                  gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" || echo "  (skipped: $branch)"
                 else
-                  echo "would delete $b"
+                  echo "would delete $branch (PR #$num)"
                 fi
               done
           echo "done (apply=$APPLY)"
