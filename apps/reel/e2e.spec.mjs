@@ -14,6 +14,31 @@ const has = async (h, re) => re.test(await h.bodyText());
 
 export default [
   {
+    /* Острівець показує АКАУНТ, який виклав кліп, і тап по ньому — це те саме провалювання, що й свайп,
+       лише в стрічку цього акаунта. Кейс існує тому, що перша версія кнопки нічого не робила: обробник
+       кликав проп `dive` як функцію, а це об'єкт {label, go}, і на більшості слайдів взагалі null. Гейт
+       тоді дав рівно ті самі 19/18 — він не торкався острівця, тож мовчазна кнопка доїхала до прода. */
+    name: "акаунт в острівці: тап по аватарці провалює у стрічку цього акаунта, Back повертає",
+    run: async (h) => {
+      await ready(h);
+      /* Не чекаємо на settles(3): той хелпер чекає, поки відпрацює фільтр битих постерів, а він ВАНТАЖИТЬ
+         постери мока по мережі. Острівець від них не залежить — під гейтом стрічка засіяна ще до першого
+         кадру, тож кружечок акаунта є одразу. Тест про провалювання і не повинен падати від того, що
+         десь не відкрився thumbnail. */
+      const avatarUp = async () => { for (let i = 0; i < 25; i++) { if ((await h.count("[data-channel]")) === 1) return true; await h.wait(200); } return false; };
+      h.expect(await avatarUp(), "в острівці немає кружечка акаунта");
+      h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
+      const root = await h.text("[data-island-label]");
+
+      await h.tap("[data-channel]"); await h.wait(600);
+      h.expect((await h.count("[data-feed-back]")) === 1, "тап по аватарці не провалив рівень — кнопки повернення немає");
+      h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — стрічка акаунта не відкрилась`);
+
+      await h.tap("[data-feed-back]"); await h.wait(600);
+      h.expect((await h.text("[data-island-label]")) === root, "Back не повернув на рівень, з якого провалились");
+    },
+  },
+  {
     name: "стрічка рендериться; биті чорні/пласкі постери й дублікати відфільтровано", run: async (h) => {
       await ready(h);
       // mock seeds 6: 3 good + a duplicate (dedupe drops) + a black-poster clip (black filter drops) +
