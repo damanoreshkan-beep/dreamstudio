@@ -1,0 +1,48 @@
+name: prune-branches
+
+# Delete branches that are already merged into main. Auto-merge takes the head with each PR it lands
+# (--delete-branch), so this is for what accumulated BEFORE that, and for a merge done by hand that forgot.
+# Runs only when asked: a workflow that deletes refs on a schedule is a workflow nobody reads until it
+# deletes the wrong one.
+#
+#   Actions → prune-branches → Run workflow        (dry run by default — it prints what it would delete)
+#   …then run it again with `apply` set to true.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Actually delete (unchecked = dry run)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Delete merged branches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLY: ${{ inputs.apply }}
+        run: |
+          set -euo pipefail
+          # `--merged origin/main` is the whole safety rule: a branch whose tip main already contains carries
+          # nothing that would be lost. Anything unmerged is left alone, whatever it is named.
+          git branch -r --merged origin/main \
+            | sed 's|^ *origin/||' \
+            | grep -vE '^(main|HEAD)' \
+            | grep -v -- '->' \
+            | while read -r b; do
+                if [ "$APPLY" = "true" ]; then
+                  echo "deleting $b"
+                  gh api -X DELETE "repos/${GITHUB_REPOSITORY}/git/refs/heads/$b" || echo "  (skipped: $b)"
+                else
+                  echo "would delete $b"
+                fi
+              done
+          echo "done (apply=$APPLY)"
