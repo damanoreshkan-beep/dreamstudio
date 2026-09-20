@@ -24,4 +24,6 @@ jobs:
       - name: Arm auto-merge (squash)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr merge --auto --squash "${{ github.event.pull_request.html_url }}"
+        # --delete-branch: the head goes with the merge. Without it every landed PR leaves its branch behind
+        # and the list becomes a graveyard you have to read past to find the one that is still open.
+        run: gh pr merge --auto --squash --delete-branch "${{ github.event.pull_request.html_url }}"

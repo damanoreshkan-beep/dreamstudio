@@ -11,6 +11,12 @@ The sibling backend repository (`microspec-edge`) works the opposite way — com
 there, because its `main` is unprotected and single-author. The two are different on purpose. What you
 learned there does not transfer here.
 
+## Branches do not accumulate
+
+Auto-merge deletes the head branch when a PR lands (`--delete-branch`). If you ever merge by hand, delete the
+branch in the same breath. A list of merged branches is a list you have to read past to find the one that is
+still open.
+
 ## The gate is the contract
 
 `deno run -A .microspec/verify.mjs "$PWD/apps/<app>"` runs the app's own e2e spec in a real browser. It needs
