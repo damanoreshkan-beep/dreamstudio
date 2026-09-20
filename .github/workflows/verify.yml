@@ -7,6 +7,7 @@ name: verify
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
@@ -40,9 +41,12 @@ jobs:
       - name: Discover apps to verify (affected-only, from the real import graph)
         id: discover
         run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
           BEFORE="${{ github.event.before }}"
           RANGE=""
-          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+          if [ -n "$BASE" ] && git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            RANGE="${BASE}...HEAD"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
             RANGE="${BEFORE}...${{ github.sha }}"
           fi
           if [ -z "$RANGE" ]; then
@@ -93,3 +97,19 @@ jobs:
           name: shot-${{ matrix.app }}
           path: apps/${{ matrix.app }}/states/
           if-no-files-found: warn
+
+  # One stable check for branch protection to require: green only when the gate DAG and every
+  # affected-app verify passed. `verify` is skipped when nothing is affected — that counts as pass.
+  gate:
+    runs-on: ubuntu-latest
+    needs: [unit, verify]
+    if: always()
+    steps:
+      - name: All required jobs passed
+        run: |
+          echo "unit=${{ needs.unit.result }} verify=${{ needs.verify.result }}"
+          [ "${{ needs.unit.result }}" = "success" ] || { echo "gates failed"; exit 1; }
+          case "${{ needs.verify.result }}" in
+            success|skipped) : ;;
+            *) echo "app verify failed"; exit 1 ;;
+          esac
