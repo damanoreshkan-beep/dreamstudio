@@ -33,7 +33,7 @@
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.26",
     "npm:@jsquash/png@3.0.1": "3.0.1",
     "npm:@jsquash/webp@1.4.0": "1.4.0",
-    "npm:@jsr/microspec__core@1": "1.2.73",
+    "npm:@jsr/microspec__core@1": "1.2.74",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:@resvg/resvg-wasm@2.6.2": "2.6.2",
@@ -1466,6 +1466,18 @@
         "npm:topojson-client"
       ]
     },
+    "@microspec/core@1.2.74": {
+      "integrity": "74f4b3f852b7b07652daa8fe0985ea02e17c2232c1dfda9b10f94902f2a40e5d",
+      "dependencies": [
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:d3-geo",
+        "npm:htm",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:topojson-client"
+      ]
+    },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
@@ -1601,8 +1613,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.73": {
-      "integrity": "sha512-NG7fumoeicCX7AR/s0QYIYhGb4+MWu0NdDFDmPy9P2mI1DBrwp2bHapRHR31qAYx53nK0CRxItkKwvPa0ydQeQ==",
+    "@jsr/microspec__core@1.2.74": {
+      "integrity": "sha512-j14k5isXIl+Q35nFoJw45MKB1jPMwUJ8Ez3Xfke4aPkX97h/OZrs9ZKXirx2gooy5vBz6N2P7pBq9KzDdLEByA==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -1624,7 +1636,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.73.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.74.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",
