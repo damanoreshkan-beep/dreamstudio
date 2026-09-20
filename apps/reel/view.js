@@ -528,7 +528,14 @@ function FullClip({ S, t }) {
       ${full.err
         ? html`<div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70 p-6 text-center">
             ${Icon("lucide:tv-minimal-play", "text-5xl opacity-40")}<div>${T(t, "videoErr")}</div>
-            <a href=${full.page} target="_blank" rel="noopener" class="btn btn-sm btn-outline text-white border-white/30 gap-2">${Icon("lucide:external-link")}${T(t, "openSite")}</a>
+            ${/* The ladder comes off the clip's page through our box, and that trip fails transiently — a
+                  502 from the pod, a page that answered slowly once. Before this the only way to ask again
+                  was to close the clip and find it in the feed again, so the same clip that plays on the
+                  second attempt read as broken. Same door the player's own error state grew (video.js). */""}
+            <div class="flex items-center gap-2 flex-wrap justify-center">
+              <button data-full-retry class="btn btn-sm btn-primary gap-2" onClick=${() => openFull(S, { page: full.page, title: full.title })}>${Icon("lucide:rotate-cw")}${T(t, "retry")}</button>
+              <a href=${full.page} target="_blank" rel="noopener" class="btn btn-sm btn-outline text-white border-white/30 gap-2">${Icon("lucide:external-link")}${T(t, "openSite")}</a>
+            </div>
           </div>`
         : html`<${Pixels} cls="w-full h-full" />`}
     </div>
