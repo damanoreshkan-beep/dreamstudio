@@ -89,7 +89,10 @@ const MOCK = [
   // under the gate any url but the default lands on the "Deeper …" batch. avatar stays null on purpose —
   // that is what a listing tile actually carries, and it makes the monogram the tested path.
   { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny", poster: GV + "images/BigBuckBunny.jpg", page: "https://mixkit.co/watch/10241/",
-    channel: { name: "Mixkit Studio", url: "https://mixkit.co/profiles/mixkit-studio", avatar: null } },
+    // The account's url is a HANDLE that names nothing ("user10241" — an id wearing a word's clothes, which
+    // sitelabel reads as weak), so the island has to take the page's own name. That is the same proof the
+    // clip page used to carry before the dive button came out, and the only reason GATE_TITLES exists.
+    channel: { name: "Nine Lives Studio", url: "https://mixkit.co/profiles/user10241/", avatar: null } },
   { video: GV + "ElephantsDream.mp4", title: "Elephants Dream", poster: null, page: "https://mixkit.co/watch/10242/" },
   { video: GV + "Sintel.mp4", title: "Sintel", poster: null, page: "https://mixkit.co/watch/10243/" },
   { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny dup", poster: null, page: "https://mixkit.co/watch/10241/" },
@@ -99,7 +102,11 @@ const MOCK = [
 // What a DIVE lands on under the gate: a different, recognisable batch, so "the feed actually changed" and
 // "back restored the old one" are both assertable without a network. Its clips dive one level deeper again.
 const MOCK_DEEP = [
-  { video: GV + "ForBiggerFun.mp4", title: "Deeper one", poster: null, page: "https://mixkit.co/watch/55012/" },
+  // Names an ACCOUNT of its own, so a SECOND dive has a door under the gate. The island's chevron used to be
+  // that door; it came out on 2026-09-20 (the rightward drag already did it), and a drag is the one gesture
+  // this harness cannot dispatch — so the stack-depth case rides the avatar, which needs a channel here.
+  { video: GV + "ForBiggerFun.mp4", title: "Deeper one", poster: null, page: "https://mixkit.co/watch/55012/",
+    channel: { name: "Deeper Studio", url: "https://mixkit.co/profiles/deeper-studio", avatar: null } },
   { video: GV + "ForBiggerJoyrides.mp4", title: "Deeper two", poster: null, page: "https://mixkit.co/watch/55013/" },
 ];
 // …and what each of those pages calls ITSELF — the `title` the /videos endpoint now returns. Wrapped in site
@@ -110,6 +117,10 @@ const GATE_TITLES = {
   // The gate therefore proves the decode in a real browser, on the path a page title actually travels —
   // island, sources row and all — and not only in the unit suite.
   "https://mixkit.co/watch/10241/": "Big%20Buck%20Bunny in 4K &amp; Friends — Mixkit",
+  // The account page the island's avatar dives into — machine text for the same reason as the one above. It
+  // must not OPEN with the site's name either: cleanPageTitle reads that as chrome and throws the title away,
+  // which is how the first version of this line silently left the island on the url's own shape.
+  "https://mixkit.co/profiles/user10241/": "Nine%20Lives Studio &amp; Friends — Mixkit",
   "https://mixkit.co/watch/55013/": "Deeper two · Mixkit",
 };                                    // …it must reach the screen as: Big Buck Bunny in 4K & Friends
 
@@ -466,11 +477,44 @@ async function openFull(S, item) {
   } catch { settle({ err: true }); }
 }
 
+/* ROTATING THE PHONE MUST NOT HAND THE CLIP TO THE SYSTEM PLAYER. Chrome on Android promotes a playing
+   <video> to fullscreen by itself when you turn the device into landscape, and the promoted element is the
+   MEDIA element: the browser paints it in the top layer with its own chrome, outside the dialog this app
+   draws. Noir goes with it — `:root[data-mono] [role="dialog"] video` (head.html) describes a video INSIDE
+   our dialog, and the system's copy is not one — so the picture the owner turned the phone to look at comes
+   back in colour, with controls we never styled. Reported from the installed app, 2026-09-20.
+   So: while the clip overlay is up, a fullscreen whose element is the media itself is undone. Nothing else
+   is touched — the player's own fullscreen button promotes its dialog BOX (video.js), which keeps the video
+   a descendant, keeps the filter, and still passes this check. Rotating now only rotates the video. */
+function useNoSystemFullscreen() {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const isMedia = (el) => !!el && /^(VIDEO|AUDIO)$/.test(el.tagName || "");
+    const on = () => {
+      const el = document.fullscreenElement || document.webkitFullscreenElement;
+      if (!isMedia(el)) return;
+      // A promise, so the refusal arrives as a rejection — a bare try/catch here catches nothing.
+      try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {}); } catch { /* already gone */ }
+    };
+    // iOS never reports a fullscreenElement for its native player, so it gets its own pair of events.
+    const iosIn = (e) => { try { e.target?.webkitExitFullscreen?.(); } catch { /* ignore */ } };
+    document.addEventListener("fullscreenchange", on);
+    document.addEventListener("webkitfullscreenchange", on);
+    document.addEventListener("webkitbeginfullscreen", iosIn, true);
+    return () => {
+      document.removeEventListener("fullscreenchange", on);
+      document.removeEventListener("webkitfullscreenchange", on);
+      document.removeEventListener("webkitbeginfullscreen", iosIn, true);
+    };
+  }, []);
+}
+
 // The overlay itself. While the ladder is being fetched there is a real wait (a page fetch on the server, then
 // one more hop), so this is a skeleton and never a spinner — and it carries the way out from the first frame,
 // because a screen you cannot leave while it loads is the worst version of this.
 function FullClip({ S, t }) {
   const full = useStore($full), locale = useStore(S.locale);
+  useNoSystemFullscreen();
   if (!full) return null;
   const close = () => { S.screen.set(null); $full.set(null); };
   if (full.url) return html`<${Player} url=${full.url} type=${full.type} title=${full.title} locale=${locale} onClose=${close} />`;
@@ -804,7 +848,7 @@ async function exportClip({ item, format, mode, t, toast }) {
    that is a decision rather than a reflex moved in here.
    A Sheet and not a popover: it is the kit's, it drag-dismisses, and it is routed through S.screen, so the
    system Back closes it like every other dismissable surface in this farm. */
-function MoreSheet({ S, t, item, src, title, subbed, watchHere, toast }) {
+function MoreSheet({ S, t, item, src, title, subbed, toast }) {
   const busy = useStore($busy), loc = useStore(S.locale), mono = useStore($mono);
   const close = () => S.screen.set(null);
   const row = "btn btn-ghost justify-start gap-3 rounded-2xl w-full font-normal";
@@ -853,12 +897,6 @@ function MoreSheet({ S, t, item, src, title, subbed, watchHere, toast }) {
             the outside would leave both numbers describing chrome that is no longer on screen. */""}
       <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg opacity-70")}${sys("clean", loc)}</button>
       ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg opacity-70")}${T(t, "sub")}</button>` : null}
-      ${/* The in-app player — a BETA, and named so. It parses the clip's page for its quality ladder on the box
-            (/feed/stream) and plays it here; it works where the page's player is one of the shapes the parser
-            knows, and the owner's rule (2026-09-04) is that a beta is reached by name, one tap deeper, while
-            the page itself is the tap on the reel and the island's circle. This row REPLACED "Open in
-            browser": the trip out is the surface's own tap now, so the sheet's row is the one that stays in. */""}
-      ${watchHere ? html`<button data-watch-here class=${row} onClick=${() => { close(); watchHere(); }}>${Icon("lucide:play", "text-lg opacity-70")}${T(t, "watchHere")}</button>` : null}
     </div>
   <//>`;
 }
@@ -881,7 +919,7 @@ function ChannelAvatar({ channel, onClick, label, current }) {
   </button>`;
 }
 
-function SourceIsland({ S, t, src, title, depth, dive, watch, channel }) {
+function SourceIsland({ S, t, src, title, depth, watchHere, channel }) {
   /* btn-GHOST on every control in here, for the island's own reason: `.btn:not(.btn-ghost)` carries
      --sf-drop, the extrusion pair, and the pair's light half has nothing to shade against on a black media
      surface — it draws a white ring instead. In the light theme (--nm-light is bright) each of these
@@ -893,9 +931,8 @@ function SourceIsland({ S, t, src, title, depth, dive, watch, channel }) {
       <${Favicon} url=${src} size="w-6 h-6" />
       ${/* Beside the favicon, which says which SITE this is, so the pair reads "site · who". It sits before
             the label because it is an identity, not an action, and the label may be their name already. */""}
-      ${/* diveTo directly, NOT the `dive` prop: that one is an object — {label, go} for the slide's own page —
-            and it is null on any slide whose page is the one already open. Called as a function it did
-            nothing at all, silently, which is exactly how the first version of this shipped. */""}
+      ${/* diveTo directly. The first version of this called the island's old `dive` prop instead, which was
+            an object ({label, go}) and null on most slides — so the circle did nothing at all, silently. */""}
       <${ChannelAvatar} channel=${channel} current=${src} label=${channel?.name || ""}
         onClick=${() => diveTo(S, channel.url, channel.name)} />
       ${/* The title gets the whole middle. The host used to sit beside it and, at 384px, the two of them
@@ -905,24 +942,18 @@ function SourceIsland({ S, t, src, title, depth, dive, watch, channel }) {
       ${/* One door instead of three. Clean screen, subscribe and the trip to the site all used to sit out
             here as their own circles; with the export actions added that would have been eight controls in a
             pill 384px wide, which is a control panel laid over the thing it is supposed to keep out of the
-            way of. What stays outside is what you reach for WITHOUT deciding — the way back, the way in, and
-            play. Everything else is one tap deeper, in a sheet the system Back closes. */""}
+            way of. What stays outside is what NO gesture already does — the way back, and play. Everything
+            else is one tap deeper, in a sheet the system Back closes. */""}
       <button data-more class=${act} aria-label=${T(t, "more")} onClick=${() => S.screen.set("more")}>${Icon("lucide:ellipsis", "text-base")}</button>
-      ${/* The white "Watch" pill, absorbed. It used to appear ONLY while the clip could not play here (a
-            signed ephemeral URL, or a player that errored) — on the theory that a clip which plays needs no
-            way out. That theory read the failure backwards: "it plays" is decided by the browser, in a CORS
-            check we cannot see from here, so the condition hid the escape hatch exactly when the surface was
-            blank. The page is always worth reaching, so the control is always there. It stays a circle and
-            never carries a word: filled with a word, on a black media surface, it was the brightest thing on
-            the screen.
-            It is the clip's PAGE — the same trip the tap on the slide takes, stated here so a keyboard can
-            take it too — so the glyph is the external-link, and never `play`: a play glyph on a control that
-            leaves the app is the icon lying about where the tap goes. The in-app player (a beta) lives in
-            the sheet, where it can afford to carry its name and the word "beta" beside it. */""}
-      ${watch ? html`<button data-watch class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "openPage")} onClick=${watch}>${Icon("lucide:external-link", "text-base")}</button>` : null}
-      ${/* forward is the mirror of back: the page this clip lives on. The destination's NAME is not written
-            here — it is what the drag reveals under the finger — so the label rides the a11y name instead. */""}
-      ${dive ? html`<button data-dive class=${act} aria-label=${`${T(t, "dive")}: ${dive.label}`} onClick=${dive.go}>${Icon("lucide:chevron-right", "text-lg")}</button>` : null}
+      ${/* The one filled control, and now it opens the clip HERE instead of leaving. Two circles used to sit
+            at this end — "open the page" (external-link) and "dive into this clip's page" (chevron-right) —
+            and the owner took both out on 2026-09-20 for the same reason: the surface already does each of
+            them with a gesture. A tap on the reel is the page; a rightward drag is the dive, and it names its
+            destination under the finger while the button never could. What no gesture reaches is the in-app
+            player, so that is what the island keeps out here. It was one tap deep in the More sheet before
+            (a beta reached by name); it is the reflex now, and the play glyph is finally honest — this one
+            does not leave the app. */""}
+      ${watchHere ? html`<button data-watch-here class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "watchHere")} onClick=${watchHere}>${Icon("lucide:play", "text-base")}</button>` : null}
     <//>
   `;
 }
@@ -1042,8 +1073,6 @@ function FeedSurface({ S, t, toast }) {
      island that showed the page's would name the wrong person on all but one slide. The page's own account
      is the fallback, which is what a feed that IS an account has — and there every slide agrees with it. */
   const channel = cur?.channel || feedChannel;
-  const watch = cur ? (cur.page || cur.orig || cur.video) : null;
-  const dive = target ? { label: targetLabel, go: () => diveTo(S, target, cur?.title) } : null;
 
   return html`<${Fragment}>
     <${DragReveal} underRef=${underRef} diveRef=${diveRef} backRef=${backRef} target=${target} targetLabel=${targetLabel} prev=${prev} />
@@ -1055,12 +1084,12 @@ function FeedSurface({ S, t, toast }) {
           off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
           transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
-      dive=${dive} watch=${watch ? () => openExternal(watch) : null} channel=${channel} />`}
+      watchHere=${cur ? () => openFull(S, cur) : null} channel=${channel} />`}
     ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
           tab plays through too — hanging it off the tab would give the same feed two different sets of
           actions depending on which way you arrived at it. */""}
     ${screen === "more" ? html`<${MoreSheet} S=${S} t=${t} toast=${toast} item=${cur} src=${src} title=${title}
-      subbed=${subs.some((s) => s.url === src)} watchHere=${watch ? () => openFull(S, cur) : null} />` : null}
+      subbed=${subs.some((s) => s.url === src)} />` : null}
     ${/* Lives with the feed, not with the tab, so it works identically from Liked — one engine, one overlay. */""}
     ${suspended ? html`<${FullClip} S=${S} t=${t} />` : null}
   </${Fragment}>`;
