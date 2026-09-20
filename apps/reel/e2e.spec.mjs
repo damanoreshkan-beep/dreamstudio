@@ -1,9 +1,11 @@
 // reel — the headless gate seeds a 3-clip public-domain mock (never the network), so the reel always renders
 // populated, and a DIVE lands on a second seeded batch ("Deeper …") so the drill-down is provable offline.
-// We assert: the slide feed + its filters, the dive (chip, island, subscribe, back — by button AND by system
-// Back), the grouped sources tab, and the Liked tab playing in place. We never assert a stream PLAYS —
-// headless has no video. Drags aren't dispatchable from this surface; every gesture has a button, and that's
-// what we tap (which is also the a11y contract: no navigation that only a finger can reach).
+// We assert: the slide feed + its filters, the dive (the island's avatar, subscribe, back — by button AND by
+// system Back), the grouped sources tab, and the Liked tab playing in place. We never assert a stream PLAYS —
+// headless has no video. Drags aren't dispatchable from this surface, and since 2026-09-20 the dive into a
+// clip's own page is a drag ONLY (the island's chevron came out — the gesture already did it, and it names
+// its destination under the finger). What the gate can still tap is the account circle, which is the same
+// dive into a different url, so the stack, the naming and the way back stay provable.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-reel]")) > 0) break; await h.wait(300); } };
 // the black-poster filter is async (loads the poster into a canvas) → poll until the feed settles
 const settles = async (h, n) => { for (let i = 0; i < 25; i++) { if ((await h.count("[data-reel]")) === n) return true; await h.wait(200); } return false; };
@@ -76,20 +78,19 @@ export default [
   },
   {
     /* Тап по слайду відкриває СТОРІНКУ кліпа в браузері (window.open — під гейтом це просто виклик без
-       вкладки), а не оверлей: власник 2026-09-04 повернув сторінку на тап, а вбудований плеєр (/feed/stream,
-       парсинг сходинок якості) оголосив бетою — він живе у шторці «Ще» під своїм іменем. Під гейтом
-       /feed/stream не смикається (мережі нема), і openFull підставляє превʼю, тож перевіряється саме
-       ЗВʼЯЗКА: тап → без оверлея; шторка → «Дивитись тут (бета)» → оверлей → Back, а не сам стрім. */
-    name: "тап по рілзу відкриває сторінку, а не оверлей; повний кліп (бета) — зі шторки, і Back його закриває", run: async (h) => {
+       вкладки), а не оверлей. А вбудований плеєр 2026-09-20 переїхав зі шторки НАЗОВНІ, на місце знятої
+       кнопки провалювання: жоден жест його не відкриває, тож він і лишається єдиною дією в острівці.
+       Під гейтом /feed/stream не смикається (мережі нема), і openFull підставляє превʼю, тож перевіряється
+       саме ЗВʼЯЗКА: тап → без оверлея; кнопка в острівці → оверлей → Back. */
+    name: "тап по рілзу відкриває сторінку, а не оверлей; «дивитись у застосунку» — кнопкою в острівці, і Back його закриває", run: async (h) => {
       await ready(h);
       h.expect(await settles(h, 3), "стрічка не влаштувалась на 3 слайдах");
       h.expect((await h.count('[role="dialog"]')) === 0, "оверлей уже відкритий до тапу");
       await h.tap("[data-reel]"); await h.wait(500);
       h.expect((await h.count('[role="dialog"]')) === 0, "тап по слайду відкрив оверлей — тап має відкривати сторінку кліпа");
-      await openMore(h);
-      h.expect((await h.count("[data-watch-here]")) === 1, "у шторці немає «Дивитись тут (бета)»");
+      h.expect((await h.count("[data-watch-here]")) === 1, "в острівці немає кнопки «дивитись у застосунку»");
       await h.tap("[data-watch-here]"); await h.wait(500);
-      h.expect((await h.count('[role="dialog"]')) === 1, "«Дивитись тут (бета)» не відкрило повний кліп");
+      h.expect((await h.count('[role="dialog"]')) === 1, "кнопка «дивитись у застосунку» не відкрила повний кліп");
       /* І стрічка під ним МОВЧИТЬ. Два елементи одночасно — це дві звукові доріжки; превʼю, що грає поверх
          відкритого кліпа, це саме те, що суспension має прибирати. */
       h.expect((await h.count("video[data-main][data-playing]")) === 0, "стрічка продовжує грати під відкритим кліпом");
@@ -114,15 +115,16 @@ export default [
       await settles(h, 3);
       h.expect((await h.count("[data-reel] a")) === 0, "на слайді лишилось посилання (відкрити оригінал)");
       h.expect((await h.count("[data-reel] button")) === 0, "на слайді лишилась кнопка");
-      // В ОСТРІВЦІ лишається тільки те, до чого тягнешся не думаючи: назва, шлях назад/вперед, play — і двері.
-      for (const [sel, what] of [["[data-island-label]", "назва джерела"], ["[data-dive]", "провалювання"], ["[data-watch]", "сторінка кліпа"], ["[data-more]", "двері «Ще»"]]) {
+      // В ОСТРІВЦІ лишається тільки те, чого НЕ робить жест: назва, акаунт, «дивитись тут» — і двері «Ще».
+      for (const [sel, what] of [["[data-island-label]", "назва джерела"], ["[data-channel]", "акаунт"], ["[data-watch-here]", "дивитись у застосунку"], ["[data-more]", "двері «Ще»"]]) {
         h.expect((await h.count(sel)) === 1, `в острівці немає контролу: ${what} (${sel})`);
       }
-      // …а те, що є РІШЕННЯМ, а не рефлексом, з острівця прибрано. Це і є суть мінімалізації: якщо ці
-      // селектори знову з'являться назовні, панель керування відросла. «Дивитись тут (бета)» — вбудований
-      // плеєр — теж рішення (бета за іменем), і «відкрити у браузері» більше не існує окремо: це сам тап.
-      for (const [sel, what] of [["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"], ["[data-watch-here]", "повний кліп (бета)"], ["[data-exp]", "експорт"]]) {
-        h.expect((await h.count(sel)) === 0, `контрол лишився в острівці замість шторки: ${what} (${sel})`);
+      /* …а те, що дублює жест або є РІШЕННЯМ, а не рефлексом, з острівця прибрано. Дві кнопки зняті
+         2026-09-20 на вимогу власника і тримаються цим твердженням: провалювання робить свайп (і показує
+         назву цілі під пальцем), а сторінку кліпа відкриває сам тап по рілзу. Решта — на тап глибше. */
+      for (const [sel, what] of [["[data-dive]", "провалювання (це свайп)"], ["[data-watch]", "сторінка кліпа (це тап по рілзу)"],
+        ["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"], ["[data-exp]", "експорт"]]) {
+        h.expect((await h.count(sel)) === 0, `контрол лишився в острівці: ${what} (${sel})`);
       }
       h.expect((await h.count("[data-open-page]")) === 0, "«відкрити у браузері» лишилось як окрема кнопка — це має бути тап по слайду");
       const isl = await h.attr("[data-island]", "class");
@@ -130,9 +132,11 @@ export default [
 
       // …і кожна з них справді жива за дверима, а не просто видалена.
       await openMore(h);
-      for (const [sel, what] of [["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"], ["[data-watch-here]", "повний кліп (бета)"]]) {
+      for (const [sel, what] of [["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"]]) {
         h.expect((await h.count(sel)) === 1, `функція зникла разом з переїздом у шторку: ${what} (${sel})`);
       }
+      // …і плеєр у шторці НЕ дублюється: він виїхав назовні, а не розмножився на двоє дверей.
+      h.expect((await h.count("[data-watch-here]")) === 1, "«дивитись у застосунку» тепер у двох місцях одночасно — в острівці і в шторці");
       // Експорт: зберегти і поділитися, для обох форматів — чотири контроли, жодного менше.
       for (const key of ["gif-save", "gif-share", "mp4-save", "mp4-share"]) {
         h.expect((await h.count(`[data-exp="${key}"]`)) === 1, `у шторці немає кнопки експорту: ${key}`);
@@ -204,24 +208,24 @@ export default [
     },
   },
   {
-    name: "провалювання: свайп-чіп відкриває сторінку рілзу як нове джерело, назад — той самий список", run: async (h) => {
+    name: "провалювання: акаунт відкривається як нове джерело з людською назвою, назад — той самий список", run: async (h) => {
       await ready(h);
       await settles(h, 3);
-      h.expect((await h.count("[data-dive]")) >= 1, "на слайді немає цілі провалювання (data-dive)");
+      h.expect((await h.count("[data-channel]")) >= 1, "в острівці немає цілі провалювання (data-channel)");
       h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
       const root = await h.text("[data-island-label]");
-      const chip = await h.attr("[data-dive]", "aria-label");
-      h.expect(/Big Buck Bunny/.test(chip), `кнопка провалювання підписана «${chip}» — має нести назву самого рілзу, а не форму URL`);
-      await h.tap("[data-dive]"); await h.wait(600);
+      const chip = await h.attr("[data-channel]", "aria-label");
+      h.expect(/Mixkit Studio/.test(chip), `кружечок акаунта підписаний «${chip}» — має нести ім'я акаунта, а не форму URL`);
+      await h.tap("[data-channel]"); await h.wait(600);
       // the dived page seeds a DIFFERENT batch (2 slides) — the source label and the list both had to change
       h.expect(await settles(h, 2), "провалювання не завантажило стрічку сторінки, на якій лежить рілз");
       h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — джерело не змінилось`);
-      // …and it is named by the PAGE, not by the shape of its URL. `/watch/10241/` derives only to "Mixkit";
-      // the mock's page title is "Big%20Buck%20Bunny in 4K &amp; Friends — Mixkit", so the site chrome must
+      // …and it is named by the PAGE, not by the shape of its URL. `/profiles/mixkit-studio` derives only to
+      // "Mixkit"; the mock's page title is "Mixkit%20Studio in 4K &amp; Friends — Mixkit", so the chrome must
       // come off AND the machine text has to be decoded — a percent-escape and an entity, both of which
       // reached the screen raw before humanText existed.
       const lvl = await h.text("[data-island-label]");
-      h.expect(lvl === "Big Buck Bunny in 4K & Friends", `острівець показує «${lvl}» замість справжньої назви сторінки «Big Buck Bunny in 4K & Friends»`);
+      h.expect(lvl === "Mixkit Studio in 4K & Friends", `острівець показує «${lvl}» замість справжньої назви сторінки «Mixkit Studio in 4K & Friends»`);
       h.expect(!/%[0-9A-Fa-f]{2}|&[a-z]+;|&#/.test(lvl), `в назві джерела лишились нерозкодовані символи: «${lvl}»`);
       h.expect((await h.count("[data-feed-back]")) === 1, "після провалювання немає кнопки повернення");
       // …and back restores the ORIGINAL list (a restore, not a refetch)
@@ -235,10 +239,10 @@ export default [
     name: "провалювання: системний Back відкручує рівень (а не виходить з апки)", run: async (h) => {
       await ready(h);
       const root = await h.text("[data-island-label]");
-      await h.tap("[data-dive]"); await h.wait(600);
+      await h.tap("[data-channel]"); await h.wait(600);
       const lvl1 = await h.text("[data-island-label]");
       h.expect(lvl1 !== root, "провалювання не спрацювало");
-      await h.tap("[data-dive]"); await h.wait(600);                   // другий рівень — стек, а не один прапорець
+      await h.tap("[data-channel]"); await h.wait(600);                // другий рівень — стек, а не один прапорець
       const lvl2 = await h.text("[data-island-label]");
       h.expect(lvl2 && lvl2 !== lvl1, `другий рівень не відкрився (острівець лишився на «${lvl1}»)`);
       await h.back(); await h.wait(500);
@@ -251,7 +255,7 @@ export default [
   {
     name: "провалювання: у джерело без підписки — кнопка «підписатись» додає його в таб джерел", run: async (h) => {
       await ready(h);
-      await h.tap("[data-dive]"); await h.wait(600);
+      await h.tap("[data-channel]"); await h.wait(600);
       // Назву читаємо ДО відкриття шторки: острівець лишається під нею, але міряти видиме крізь оверлей —
       // це вимірювати не те, що бачить власник.
       const island = await h.text("[data-island-label]");
