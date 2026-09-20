@@ -395,11 +395,13 @@ async function loadSource(url, append = false, hint = "") {
   try {
     await sessionsReady;                                   // the saved sessions, before the first fetch decides anonymous or not
     const cookie = sessionFor(url);                        // your session for this site → the page is yours, not the server's
-    // x-ms-egress:pl routes this fetch through the reel's own pinned Poland pod (open-reel), not the shared
-    // main egress — the tube serves the real page from Poland, and the pod never drifts to a refused US exit.
+    // x-ms-egress names the reel's own EGRESS GROUP — its pinned pod (open-reel + media-reel), not the shared
+    // main egress, which never drifts to an exit the tube refuses. It says `reel` and not a country because
+    // the pod's region has already moved once (Poland → Amsterdam) while this call did not change; the old
+    // `pl` still answers as an alias, for bundles cached on phones that have not checked in since.
     const r = await (cookie
-      ? fetch(`${VPS_PROXY}/videos`, { method: "POST", headers: { "content-type": "application/json", "x-ms-egress": "pl" }, body: JSON.stringify({ url, cookie }) })
-      : fetch(`${VPS_PROXY}/videos?url=${encodeURIComponent(url)}`, { headers: { "x-ms-egress": "pl" } }));
+      ? fetch(`${VPS_PROXY}/videos`, { method: "POST", headers: { "content-type": "application/json", "x-ms-egress": "reel" }, body: JSON.stringify({ url, cookie }) })
+      : fetch(`${VPS_PROXY}/videos?url=${encodeURIComponent(url)}`, { headers: { "x-ms-egress": "reel" } }));
     const d = await r.json();
     if (g !== gen) return;                                   // you already moved on — never inject into the new feed
     // ephemeral (signed, poster-only) is known BEFORE cleaning → require a poster so no-poster clips (dead
@@ -408,6 +410,7 @@ async function loadSource(url, append = false, hint = "") {
     const got = clean(Array.isArray(d.items) ? d.items : [], { requirePoster: eph });
     $items.set(append ? dedupeVideos([...$items.get(), ...got]) : got);                   // re-dedupe across the page boundary too
     $next.set(d.next || null);
+    if (!append) $feedChannel.set(d.channel || null);        // the page IS an account → it names itself, avatar and all
     if (!append) setSrcTitle(url, { pageTitle: d.title || "", hint });                     // the page has now told us its own name
     if (!append) $ephemeral.set(eph);                  // signed/expiring source → show poster + "watch" link, don't try to play
   } catch { if (g === gen && !append) $err.set(true); }
@@ -424,6 +427,13 @@ async function loadSource(url, append = false, hint = "") {
        request through our box, to reach a handful of URLs already sitting in the markup.
    So: parse on the server, play here, and the page stops being somewhere you GO. It is where the clip comes
    from. The button that used to leave the app for a browser tab is now this, and so is a tap on the reel. */
+/* WHOSE CLIPS THESE ARE. A tile names the account that posted it and /feed/videos hands that up as
+   `channel: {name, url, avatar}`; when the page you are on IS an account, the feed carries one of its own.
+   The item's wins — on a mixed listing every slide has a different owner, and the island should follow the
+   slide, not the page. A listing tile carries the name alone, so the avatar is usually null here and the
+   island draws a monogram: a missing picture is a placeholder, a made-up one is a broken image. */
+const $feedChannel = atom(null);                           // null | {name, url, avatar}
+
 const $full = atom(null);                                  // null | {page, title, url, err}
 
 async function openFull(S, item) {
@@ -849,7 +859,23 @@ function MoreSheet({ S, t, item, src, title, subbed, watchHere, toast }) {
   <//>`;
 }
 
-function SourceIsland({ S, t, src, title, depth, dive, watch }) {
+/* The account, as one circle in the island. It is a DIVE and nothing new: an account page is a list of
+   clips, so tapping it is the same move the slide already makes — push the frame, load that url — and the
+   way back is the one that was already there. No avatar in the feed's data means a monogram, never a
+   guessed URL. */
+function ChannelAvatar({ channel, onClick, label }) {
+  const [broken, setBroken] = useState(false);
+  if (!channel?.url) return null;
+  const initial = (channel.name || "?").trim().charAt(0).toUpperCase();
+  return html`<button type="button" data-channel class="btn btn-ghost btn-sm btn-circle shrink-0 p-0 overflow-hidden border border-white/20 bg-white/10"
+      aria-label=${label} title=${channel.name || ""} onClick=${onClick}>
+    ${channel.avatar && !broken
+      ? html`<img src=${channel.avatar} alt="" class="w-6 h-6 rounded-full object-cover" loading="lazy" onError=${() => setBroken(true)} />`
+      : html`<span class="w-6 h-6 rounded-full grid place-items-center text-[0.7rem] font-semibold text-white bg-white/20">${initial}</span>`}
+  </button>`;
+}
+
+function SourceIsland({ S, t, src, title, depth, dive, watch, channel }) {
   /* btn-GHOST on every control in here, for the island's own reason: `.btn:not(.btn-ghost)` carries
      --sf-drop, the extrusion pair, and the pair's light half has nothing to shade against on a black media
      surface — it draws a white ring instead. In the light theme (--nm-light is bright) each of these
@@ -859,6 +885,10 @@ function SourceIsland({ S, t, src, title, depth, dive, watch }) {
   return html`<${Island} pinned at="bottom" tone="dark" className="flex items-center gap-1 min-w-0 max-w-full rounded-full">
       ${depth ? html`<button data-feed-back class="btn btn-ghost btn-sm btn-circle text-white shrink-0" aria-label=${T(t, "back")} onClick=${() => popFrame(S)}>${Icon("lucide:chevron-left", "text-xl")}</button>` : null}
       <${Favicon} url=${src} size="w-6 h-6" />
+      ${/* Beside the favicon, which says which SITE this is, so the pair reads "site · who". It sits before
+            the label because it is an identity, not an action, and the label may be their name already. */""}
+      <${ChannelAvatar} channel=${channel} label=${(channel?.name || "") + " — " + T(t, "more")}
+        onClick=${() => dive?.(channel.url, channel.name)} />
       ${/* The title gets the whole middle. The host used to sit beside it and, at 384px, the two of them
             truncated EACH OTHER — "Free stoc…" next to "mixk…", which is two half-words and no name. The
             favicon already says which site this is; the host stays where it is precision, the sources list. */""}
@@ -911,7 +941,7 @@ function FeedSurface({ S, t, toast }) {
   const items = useStore($items), loading = useStore($loading), err = useStore($err);
   const active = useStore($active), next = useStore($next), ephemeral = useStore($ephemeral);
   const src = useStore($src), frames = useStore($frames), subs = useStore($subs), restoreTo = useStore($restoreTo);
-  const title = useStore($srcTitle);
+  const title = useStore($srcTitle), feedChannel = useStore($feedChannel);
   /* While the full clip is up, the reel underneath must stop. Two elements playing at once is two soundtracks
      and two decoders, and the preview is the last thing anyone wants to hear over the thing they opened. It
      rides the ACTIVE flag rather than a new mechanism, so the existing play effect handles it and the element
@@ -999,6 +1029,10 @@ function FeedSurface({ S, t, toast }) {
   // never per slide. The way out is unconditional: whether the clip plays inline is a browser/CORS verdict
   // this code never sees, so gating the link on it hid the link precisely when the slide was a dead poster.
   const cur = items[active];
+  /* The SLIDE's account wins over the page's: a mixed listing gives every clip a different owner, and an
+     island that showed the page's would name the wrong person on all but one slide. The page's own account
+     is the fallback, which is what a feed that IS an account has — and there every slide agrees with it. */
+  const channel = cur?.channel || feedChannel;
   const watch = cur ? (cur.page || cur.orig || cur.video) : null;
   const dive = target ? { label: targetLabel, go: () => diveTo(S, target, cur?.title) } : null;
 
@@ -1012,7 +1046,7 @@ function FeedSurface({ S, t, toast }) {
           off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
           transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
-      dive=${dive} watch=${watch ? () => openExternal(watch) : null} />`}
+      dive=${dive} watch=${watch ? () => openExternal(watch) : null} channel=${channel} />`}
     ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
           tab plays through too — hanging it off the tab would give the same feed two different sets of
           actions depending on which way you arrived at it. */""}
