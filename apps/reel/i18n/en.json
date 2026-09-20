@@ -52,5 +52,6 @@
   "expShare": "Share",
   "expBusy": "Preparing",
   "expSaved": "Saved",
-  "expFail": "Could not export"
+  "expFail": "Could not export",
+  "shareNoLink": "No link in what was shared"
 }
