@@ -750,14 +750,15 @@ function Slide({ S, item, idx, active, near, ephemeral }) {
   const [burst, setBurst] = useState(null);
   // Systemic tap dispatch (runtime useTap): SINGLE tap opens the clip's PAGE; DOUBLE tap likes + blooms a
   // heart — and never fires the single (so a like never navigates).
-  /* SINGLE tap opens the clip's page in the browser — for every slide. It opened the in-app full clip for a
-     while (2026-08-20 → 2026-09-04), and the owner sent that back: the page is what a tap on a reel promises —
-     the site's own player, the rest of the page, the comments, the account — and the in-app player is a BETA:
-     a parse of the page's ladder that works where it works. So the page is the tap, and the beta sits behind
-     its name in the More sheet (see MoreSheet), where a word can say "beta"; a glyph on the surface cannot.
-     Pause is not lost: swiping away is what "not this one" already meant. */
+  /* SINGLE tap opens the clip HERE, in our own player. This has been round the houses: the in-app player
+     was the tap, then the page was (2026-09-04, when that player was a beta that "worked where it worked"),
+     and now it is the player again — because the player earned it. It parses the ladder on the box, adapts
+     across the site's rungs, scrubs under the finger and keeps the noir; the site's page is a megabyte of
+     markup and somebody else's controls. The trip out did not disappear: it is a named row in the More
+     sheet, which is where a decision belongs. Pause is not lost — swiping away is what "not this one"
+     already meant. */
   const onTap = useTap({
-    onSingle: () => openExternal(item.page || item.orig || item.video),
+    onSingle: () => openFull(S, item),
     onDouble: (p) => { setBurst({ x: p.x, y: p.y, k: Date.now() }); addLike(item); navigator.vibrate?.(12); },
   });
   return html`<section ref=${secRef} data-reel data-idx=${idx} onClick=${onTap} class="snap-start snap-always relative h-[100dvh] w-full flex items-center justify-center bg-black overflow-hidden">
@@ -901,6 +902,7 @@ async function exportClip({ item, format, mode, t, toast }) {
    A Sheet and not a popover: it is the kit's, it drag-dismisses, and it is routed through S.screen, so the
    system Back closes it like every other dismissable surface in this farm. */
 function MoreSheet({ S, t, item, src, title, subbed, toast }) {
+  const page = item?.page || item?.orig || item?.video || "";
   const busy = useStore($busy), loc = useStore(S.locale), mono = useStore($mono);
   const close = () => S.screen.set(null);
   const row = "btn btn-ghost justify-start gap-3 rounded-2xl w-full font-normal";
@@ -949,6 +951,10 @@ function MoreSheet({ S, t, item, src, title, subbed, toast }) {
             the outside would leave both numbers describing chrome that is no longer on screen. */""}
       <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg opacity-70")}${sys("clean", loc)}</button>
       ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg opacity-70")}${T(t, "sub")}</button>` : null}
+      ${/* The site's own page. It was the tap on the reel until the in-app player took that over; it is a
+            DECISION now — the rest of the page, the comments, an account we do not model — and decisions
+            live behind this door. Named, never a glyph, and it leaves the app, so it says so. */""}
+      ${page ? html`<button data-open-page class=${row} onClick=${() => { close(); openExternal(page); }}>${Icon("lucide:external-link", "text-lg opacity-70")}${T(t, "openBrowser")}</button>` : null}
     </div>
   <//>`;
 }
@@ -1009,7 +1015,7 @@ function ChannelAvatar({ channel, onClick, label, current }) {
   </button>`;
 }
 
-function SourceIsland({ S, t, src, title, clip, depth, watchHere, channel }) {
+function SourceIsland({ S, t, src, title, clip, depth, channel }) {
   /* btn-GHOST on every control in here, for the island's own reason: `.btn:not(.btn-ghost)` carries
      --sf-drop, the extrusion pair, and the pair's light half has nothing to shade against on a black media
      surface — it draws a white ring instead. In the light theme (--nm-light is bright) each of these
@@ -1040,15 +1046,10 @@ function SourceIsland({ S, t, src, title, clip, depth, watchHere, channel }) {
             way of. What stays outside is what NO gesture already does — the way back, and play. Everything
             else is one tap deeper, in a sheet the system Back closes. */""}
       <button data-more class=${act} aria-label=${T(t, "more")} onClick=${() => S.screen.set("more")}>${Icon("lucide:ellipsis", "text-base")}</button>
-      ${/* The one filled control, and now it opens the clip HERE instead of leaving. Two circles used to sit
-            at this end — "open the page" (external-link) and "dive into this clip's page" (chevron-right) —
-            and the owner took both out on 2026-09-20 for the same reason: the surface already does each of
-            them with a gesture. A tap on the reel is the page; a rightward drag is the dive, and it names its
-            destination under the finger while the button never could. What no gesture reaches is the in-app
-            player, so that is what the island keeps out here. It was one tap deep in the More sheet before
-            (a beta reached by name); it is the reflex now, and the play glyph is finally honest — this one
-            does not leave the app. */""}
-      ${watchHere ? html`<button data-watch-here class="btn btn-ghost btn-sm btn-circle shrink-0 border-0 bg-primary text-primary-content" aria-label=${T(t, "watchHere")} onClick=${watchHere}>${Icon("lucide:play", "text-base")}</button>` : null}
+      ${/* And that is the whole island: the way back, who posted it, what it is called, and one door. The
+            player used to sit out here as a filled circle; it moved to the TAP on the reel (2026-09-20),
+            which is the shortest path there is, so keeping a button for the same thing was a control that
+            duplicated a gesture — exactly what the dive and the page button were removed for. */""}
     <//>
   `;
 }
@@ -1179,7 +1180,7 @@ function FeedSurface({ S, t, toast }) {
           off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
           transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} clip=${cur?.title || ""} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
-      watchHere=${cur ? () => openFull(S, cur) : null} channel=${channel} />`}
+      channel=${channel} />`}
     ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
           tab plays through too — hanging it off the tab would give the same feed two different sets of
           actions depending on which way you arrived at it. */""}
