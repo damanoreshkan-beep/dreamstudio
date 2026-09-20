@@ -30,14 +30,15 @@ export default [
       const avatarUp = async () => { for (let i = 0; i < 25; i++) { if ((await h.count("[data-channel]")) === 1) return true; await h.wait(200); } return false; };
       h.expect(await avatarUp(), "в острівці немає кружечка акаунта");
       h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
-      const root = await h.text("[data-island-label]");
+      const src = () => h.attr("[data-island-label]", "data-island-src");     // видимий рядок називає КЛІП, джерело — в атрибуті
+      const root = await src();
 
       await h.tap("[data-channel]"); await h.wait(600);
       h.expect((await h.count("[data-feed-back]")) === 1, "тап по аватарці не провалив рівень — кнопки повернення немає");
-      h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — стрічка акаунта не відкрилась`);
+      h.expect((await src()) !== root, `острівець лишився на «${root}» — стрічка акаунта не відкрилась`);
 
       await h.tap("[data-feed-back]"); await h.wait(600);
-      h.expect((await h.text("[data-island-label]")) === root, "Back не повернув на рівень, з якого провалились");
+      h.expect((await src()) === root, "Back не повернув на рівень, з якого провалились");
     },
   },
   {
@@ -123,9 +124,15 @@ export default [
       h.expect((await h.count("[data-reel] a")) === 0, "на слайді лишилось посилання (відкрити оригінал)");
       h.expect((await h.count("[data-reel] button")) === 0, "на слайді лишилась кнопка");
       // В ОСТРІВЦІ лишається тільки те, чого НЕ робить жест: назва, акаунт, «дивитись тут» — і двері «Ще».
-      for (const [sel, what] of [["[data-island-label]", "назва джерела"], ["[data-channel]", "акаунт"], ["[data-watch-here]", "дивитись у застосунку"], ["[data-more]", "двері «Ще»"]]) {
+      for (const [sel, what] of [["[data-island-label]", "назва"], ["[data-channel]", "акаунт"], ["[data-watch-here]", "дивитись у застосунку"], ["[data-more]", "двері «Ще»"]]) {
         h.expect((await h.count(sel)) === 1, `в острівці немає контролу: ${what} (${sel})`);
       }
+      /* І ця назва — САМОГО КЛІПА, а не стрічки. Свайп міняв картинку й аватарку, а рядок стояв на місці
+         («не міняється тайтл в островку» — власник). Ім'я джерела лишається в атрибуті, для списку джерел. */
+      h.expect((await h.text("[data-island-label]")) === "Big Buck Bunny",
+        `острівець підписаний «${await h.text("[data-island-label]")}» — має називати активний кліп`);
+      h.expect(/Nature|mixkit/i.test(await h.attr("[data-island-label]", "data-island-src")),
+        "ім'я джерела зникло з острівця — списку джерел більше нема з чим звірятись");
       /* …а те, що дублює жест або є РІШЕННЯМ, а не рефлексом, з острівця прибрано. Дві кнопки зняті
          2026-09-20 на вимогу власника і тримаються цим твердженням: провалювання робить свайп (і показує
          назву цілі під пальцем), а сторінку кліпа відкриває сам тап по рілзу. Решта — на тап глибше. */
@@ -220,24 +227,27 @@ export default [
       await settles(h, 3);
       h.expect((await h.count("[data-channel]")) >= 1, "в острівці немає цілі провалювання (data-channel)");
       h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
-      const root = await h.text("[data-island-label]");
+      const root = await h.attr("[data-island-label]", "data-island-src");
       const chip = await h.attr("[data-channel]", "aria-label");
       h.expect(/Nine Lives Studio/.test(chip), `кружечок акаунта підписаний «${chip}» — має нести ім'я акаунта, а не форму URL`);
       await h.tap("[data-channel]"); await h.wait(600);
       // the dived page seeds a DIFFERENT batch (2 slides) — the source label and the list both had to change
       h.expect(await settles(h, 2), "провалювання не завантажило стрічку сторінки, на якій лежить рілз");
-      h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — джерело не змінилось`);
+      h.expect((await h.attr("[data-island-label]", "data-island-src")) !== root, `острівець лишився на «${root}» — джерело не змінилось`);
       // …and it is named by the PAGE, not by the shape of its URL. `/profiles/user10241/` is a handle that
       // names nothing; the mock's page title is "Nine%20Lives Studio &amp; Friends — Mixkit", so the chrome must
       // come off AND the machine text has to be decoded — a percent-escape and an entity, both of which
       // reached the screen raw before humanText existed.
-      const lvl = await h.text("[data-island-label]");
+      /* Назва САМОГО ДЖЕРЕЛА живе в атрибуті: видимий рядок тепер називає кліп, на якому ти стоїш (свайп
+         міняв картинку й акаунт, а текст стояв — власник, 2026-09-20), а ім'я сторінки нікуди не поділось і
+         досі мусить бути розкодованим. */
+      const lvl = await h.attr("[data-island-label]", "data-island-src");
       h.expect(lvl === "Nine Lives Studio & Friends", `острівець показує «${lvl}» замість справжньої назви сторінки «Nine Lives Studio & Friends»`);
       h.expect(!/%[0-9A-Fa-f]{2}|&[a-z]+;|&#/.test(lvl), `в назві джерела лишились нерозкодовані символи: «${lvl}»`);
       h.expect((await h.count("[data-feed-back]")) === 1, "після провалювання немає кнопки повернення");
       // …and back restores the ORIGINAL list (a restore, not a refetch)
       await h.tap("[data-feed-back]"); await h.wait(500);
-      h.expect((await h.text("[data-island-label]")) === root, "повернення не відновило попереднє джерело");
+      h.expect((await h.attr("[data-island-label]", "data-island-src")) === root, "повернення не відновило попереднє джерело");
       h.expect(await settles(h, 3), "повернувся не той самий список із 3 слайдів");
       h.expect((await h.count("[data-feed-back]")) === 0, "кнопка повернення лишилась на нульовому рівні");
     },
@@ -245,17 +255,20 @@ export default [
   {
     name: "провалювання: системний Back відкручує рівень (а не виходить з апки)", run: async (h) => {
       await ready(h);
-      const root = await h.text("[data-island-label]");
+      /* Рівні звіряються по ДЖЕРЕЛУ (атрибут): обидва акаунти під гейтом відкривають ту саму пару кліпів,
+         тож видимий рядок — назва кліпа — на обох рівнях однаковий, і ним рівні не розрізниш. */
+      const src = () => h.attr("[data-island-label]", "data-island-src");
+      const root = await src();
       await h.tap("[data-channel]"); await h.wait(600);
-      const lvl1 = await h.text("[data-island-label]");
+      const lvl1 = await src();
       h.expect(lvl1 !== root, "провалювання не спрацювало");
       await h.tap("[data-channel]"); await h.wait(600);                // другий рівень — стек, а не один прапорець
-      const lvl2 = await h.text("[data-island-label]");
+      const lvl2 = await src();
       h.expect(lvl2 && lvl2 !== lvl1, `другий рівень не відкрився (острівець лишився на «${lvl1}»)`);
       await h.back(); await h.wait(500);
-      h.expect((await h.text("[data-island-label]")) === lvl1, "перший системний Back мав відкрутити рівно один рівень, а не впасти в корінь");
+      h.expect((await src()) === lvl1, "перший системний Back мав відкрутити рівно один рівень, а не впасти в корінь");
       await h.back(); await h.wait(500);
-      h.expect((await h.text("[data-island-label]")) === root, "другий системний Back не повернув у корінь стрічки");
+      h.expect((await src()) === root, "другий системний Back не повернув у корінь стрічки");
       h.expect((await h.count("[data-reel]")) >= 1, "апка зникла — Back вийшов далі, ніж мав");
     },
   },
@@ -265,7 +278,7 @@ export default [
       await h.tap("[data-channel]"); await h.wait(600);
       // Назву читаємо ДО відкриття шторки: острівець лишається під нею, але міряти видиме крізь оверлей —
       // це вимірювати не те, що бачить власник.
-      const island = await h.text("[data-island-label]");
+      const island = await h.attr("[data-island-label]", "data-island-src");
       await openMore(h);
       h.expect((await h.count("[data-subscribe]")) === 1, "на непідписаному джерелі немає кнопки підписки");
       await h.tap("[data-subscribe]"); await h.wait(400);
@@ -313,6 +326,24 @@ export default [
       h.expect((await h.count("[data-open-site]")) >= 1, "кнопки «відкрити сайт» немає");
       await h.tap("[data-open-site]"); await h.wait(400);               // opens the external browser (window.open)
       h.expect((await h.count("[data-frame]")) === 0, "iframe-оверлей більше не має існувати в апці");
+    },
+  },
+  {
+    /* Голий домен — теж джерело. `type="url"` змушував браузер валідувати поле ПЕРЕД сабмітом, тож
+       «site.com» мовчки не завантажувалось: наш `norm()`, який дописує https://, навіть не викликався. */
+    name: "додати-URL: голий домен без схеми вантажиться як джерело", run: async (h) => {
+      await ready(h);
+      const root = await h.attr("[data-island-label]", "data-island-src");
+      await h.tap('[data-tab="sources"]'); await h.wait(300);
+      await h.tap("#add-url"); await h.wait(300);
+      /* Домен БЕРЕТЬСЯ той, що вже є в підписках (mixkit): інакше цей кейс додав би нову картку сайту, а
+         наступні кейси рахують картки й ключі сесій — тест не має лишати по собі новий стан. */
+      await h.type("#src-input", "mixkit.co"); await h.wait(200);
+      await h.tap("#src-load"); await h.wait(800);
+      h.expect((await h.count("#src-input")) === 0, "шит не закрився — сабміт не пройшов (поле валідується як url?)");
+      const now = await h.attr("[data-island-label]", "data-island-src");
+      h.expect(now !== root, `джерело лишилось «${root}» — голий домен не підхопився`);
+      h.expect(/Mixkit/i.test(now || ""), `джерело зветься «${now}» — мало вийти з домену, який набрали`);
     },
   },
   {
