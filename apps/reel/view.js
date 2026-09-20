@@ -26,6 +26,7 @@ import { VPS_PROXY, pool } from "/_rt/feed.js";
 import { sealedFrameUrl, sealedClipUrl } from "/_rt/sealedfetch.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { gate } from "/_rt/gate.js";
+import { shell } from "/_rt/shell.js";
 import { dedupeVideos, isBlackSample, isFlatSample, hasPoster } from "/_rt/vfilter.js";
 import { resolveSearch, buildSearchUrl } from "/_rt/urlquery.js";
 import { hostOf, siteName, sourceTitle, groupByDomain, humanText, registrableDomain } from "/_rt/sitelabel.js";
@@ -325,6 +326,97 @@ function diveTo(S, url, hint) {
   pushFrame(S, $srcTitle.get());                             // the level you are leaving, by its real name
   navigator.vibrate?.(10);                                   // a gesture commit isn't a tap → the delegated haptic doesn't cover it
   openSource(url, hint);
+}
+
+// ── SHARED IN: a link another app handed us ─────────────────────────────────────────────────────────────
+// Two doors, because an INSTALLED reel is two different apps. As a PWA it is a WebAPK that Chrome (or
+// Samsung Internet) mints from manifest.json, so the door is `share_target` there: Android lists reel in the
+// system sheet and launches the start URL with the shared fields as query params. As an APK it is our own
+// shell, which has no Web Share Target at all — a WebView implements none of Web Share, in either direction.
+// The shell's mechanism is the mirror image: every `full` shell carries one DISABLED share activity-alias
+// per kind, and a page turns its own on (`share.target`) and then listens (`share.incoming`), because a farm
+// of sixty APKs must not all answer "share text". Both doors end in the same two lines — resolve a URL out
+// of what was sent, then hand it to the same function the add-URL sheet uses. A shared link is a source you
+// did not have to type.
+
+/* What was shared, reduced to a source URL. No two senders fill the three fields the same way: Chrome sends
+   `url`, Telegram sends a title and a url, TikTok sends one `text` with its caption wrapped around the link,
+   and a plain-text share may carry a bare domain and nothing else. So every field is scanned for a real link
+   first and only then for a bare domain — on the same terms the add-URL sheet accepts one, because that is
+   the same question asked by a different mouth. Our OWN links are skipped: sharing a reel back into reel
+   would load this page as a "source", which extracts nothing and looks like a bug. */
+const SHARE_KEYS = ["sh_url", "sh_text", "sh_title"];
+const LINK_RE = /https?:\/\/[^\s<>"']+/i;
+const BARE_RE = /(?:^|[\s("'])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"']*)?)/i;
+function sharedHref(raw) {
+  // A link at the end of a sentence keeps the sentence: "дивись https://x.co/a." is one whitespace token.
+  try {
+    const u = new URL(String(raw).trim().replace(/[.,;:!?)\]'"]+$/, ""));
+    if (!/^https?:$/.test(u.protocol) || !u.hostname.includes(".")) return "";
+    if (typeof location !== "undefined" && u.origin === location.origin) return "";
+    return u.href;
+  } catch { return ""; }
+}
+function sharedUrl(p) {
+  const fields = [p?.url, p?.text, p?.title].filter((s) => typeof s === "string" && s.trim());
+  for (const s of fields) { const m = s.match(LINK_RE); if (m) { const u = sharedHref(m[0]); if (u) return u; } }
+  for (const s of fields) { const m = s.match(BARE_RE); if (m) { const u = sharedHref("https://" + m[1]); if (u) return u; } }
+  return "";
+}
+
+// Play a URL as the source: subscribe to it, drop the dive stack, and land on the reel tab. The add-URL
+// sheet and both share doors are the same act — this is the one place it happens.
+function openAsSource(S, url, hint) {
+  subscribe({ name: sourceTitle(url), url });
+  resetNav(S);
+  $owner.set("reel");
+  openSource(url, hint);
+  S.tab.set("reel");
+  S.screen.set(null);
+}
+
+/* A share can arrive when no view of ours is mounted — a cold start hands it over before the first render,
+   and the shell can deliver one while the profile tab (which the runtime renders, not this file) is up. So
+   the payload WAITS, and the app's state graph is lent to this module by the first view that renders. S is
+   created once per app and never changes identity, which is what makes that safe. */
+let APP = null, TOAST = null, waiting = null;
+function shareIn(payload) { waiting = payload; flushShare(); }
+function flushShare() {
+  if (!APP || !waiting) return;
+  const p = waiting; waiting = null;
+  const url = sharedUrl(p);
+  if (url) openAsSource(APP, url);
+  // Someone shared a screenshot, or a caption with no link in it. Silence would read as a broken app.
+  else TOAST?.(T(APP.t.get(), "shareNoLink"));
+}
+function useShareIntake(S, toast) {
+  useEffect(() => { APP = S; TOAST = toast; flushShare(); }, [S, toast]);
+}
+
+/* The PWA door. Read before anything else can touch the URL, and taken OFF it in the same breath: a reload
+   of a shared link must not add the source a second time, and the address bar of an installed app is the
+   last place a caption belongs. Only our own three keys are removed — `?tab=`, `?mock`, `?__hold=1` and the
+   rest of the query belong to the runtime and to the gates. The keys are prefixed for exactly that reason:
+   `url` and `title` are names the farm's own params could collide with, and the manifest is free to map the
+   Web Share fields onto any key we like. */
+if (typeof location !== "undefined") {
+  const u = new URL(location.href);
+  if (SHARE_KEYS.some((k) => u.searchParams.has(k))) {
+    shareIn({ url: u.searchParams.get("sh_url"), text: u.searchParams.get("sh_text"), title: u.searchParams.get("sh_title") });
+    for (const k of SHARE_KEYS) u.searchParams.delete(k);
+    const q = u.searchParams.toString();
+    try { window.history.replaceState(null, "", u.pathname + (q ? `?${q}` : "") + u.hash); } catch { /* the URL is not load-bearing here */ }
+  }
+}
+
+/* The APK door. `text` only: reel's source is a page, and a shared file is not one — a shell that answered
+   "share video" would put itself in the sheet for every clip in the gallery and have nothing to do with it.
+   PackageManager remembers the alias across reboots, so this is idempotent, not a per-launch cost. The
+   subscription is never cancelled on purpose: it is the app's whole lifetime. Both calls are no-ops in a
+   browser, where there is no bridge and `shell.has` is false. */
+if (shell.has("share.target")) {
+  shell.call("share.target", { kinds: ["text"] }).catch(() => { /* an older bridge simply stays out of the sheet */ });
+  shell.subscribe("share.incoming", {}, (f) => { if (f?.text) shareIn({ text: f.text }); });
 }
 
 // ── blank-poster filter (black + flat placeholders) ─────────────────────────────────────────────────────
@@ -787,7 +879,7 @@ function SourceSheet({ S, t }) {
     const withScheme = /^https?:\/\//i.test(u) ? u : "https://" + u.replace(/^\/+/, "");
     try { const url = new URL(withScheme); return url.hostname.includes(".") ? url.href : ""; } catch { return ""; }
   };
-  const goto = (url) => { subscribe({ name: sourceTitle(url), url }); resetNav(S); $owner.set("reel"); openSource(url); S.tab.set("reel"); S.screen.set(null); };
+  const goto = (url) => openAsSource(S, url);
   const load = (e) => { e?.preventDefault?.(); const url = norm(); if (!url) return S.screen.set(null); goto(url); };
   // A pasted results URL (`…/search?q=…`) is searchable → offer to swap the term and play those results.
   const sr = resolveSearch(norm());
@@ -1194,6 +1286,7 @@ function FeedSurface({ S, t, toast }) {
 // ---- reel (the feed) --------------------------------------------------------
 export function reel({ S, toast }) {
   const t = useStore(S.t), screen = useStore(S.screen);
+  useShareIntake(S, toast);
   return html`<${Fragment}>
     <${FeedSurface} S=${S} t=${t} toast=${toast} />
     ${screen === "source" ? html`<${SourceSheet} S=${S} t=${t} />` : null}
@@ -1281,8 +1374,9 @@ function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession
   </section>`;
 }
 
-export function sources({ S, undo }) {
+export function sources({ S, undo, toast }) {
   const t = useStore(S.t), screen = useStore(S.screen);
+  useShareIntake(S, toast);
   const subs = useStore($subs), curSrc = useStore($src), watchedN = useStore($watched).size, sessions = useStore($sessions);
   const editSession = (s) => { $sessSite.set(s.url); S.screen.set("session"); };
   const play = (s) => { resetNav(S); $owner.set("reel"); openSource(s.url, s.name); S.tab.set("reel"); };   // the saved title carries into the island
@@ -1319,6 +1413,7 @@ export function sources({ S, undo }) {
 // brings the grid straight back with the source feed underneath untouched. Removal lives ONLY here.
 export function liked({ S, toast }) {
   const t = useStore(S.t), likes = useStore($likes), owner = useStore($owner);
+  useShareIntake(S, toast);   // before the early return below — a hook is not allowed to be conditional
   const sorted = [...likes].sort((a, b) => (b.ts || 0) - (a.ts || 0));
   if (owner === "liked") return html`<${FeedSurface} S=${S} t=${t} toast=${toast} />`;
   const playAt = (i) => {

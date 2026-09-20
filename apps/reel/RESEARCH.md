@@ -300,8 +300,58 @@ site's video list**; and a decision about the tap. Measured with the farm's driv
   statement of the tap); the More sheet's "Відкрити у браузері" row is REPLACED by "Дивитись тут (бета)" →
   `openFull`. `openBrowser` left both locales; `openPage` and `watchHere` arrived. The e2e proves the pair: a
   tap opens no overlay; the sheet row does, and Back closes it.
+- **…and the tap was sent back the other way (owner, 2026-09-20).** Once the in-app player got the source's
+  whole ladder (`/feed/stream` → `variants`, so it starts on a 0.5 Mbps rung instead of a pinned 1080p) the
+  beta was better than the trip out: the tap now opens OUR player, the island lost its player button, and
+  "Відкрити у браузері" is a row in the More sheet. The bullet above is the state it replaced, kept because
+  it is the reason the player exists at all.
 - **A shortie's page is a player, not a list.** `/shorties/<id>` carries five ladders and names no rail
   (`relatedEndpoint` → null), so a dive into one is "На цій сторінці відео не знайдено" — by design, not a
   defect; the tap opens it on the site. Its rail is the site's JS.
 - **The eye cannot decode H.264** (Playwright's Chromium: `canPlayType('video/mp4; codecs="avc1…"')` is
   empty), so `video.error.code === 4` in a drive is the eye, not production; judge the posters and the wire.
+
+## 8. Shared IN — a link another app hands to reel (2026-09-20)
+
+The ask: share a link from any app and have reel take it as a source, without opening reel and typing it.
+An *installed* reel is two different apps and the door is different in each; the resolver and the landing
+are the same.
+
+**PWA (Chrome / Samsung Internet).** `manifest.json` gains `share_target`: `action: "./"`, `method: "GET"`,
+the three Web Share fields mapped onto `sh_title` / `sh_text` / `sh_url`. Android then lists reel in the
+system sheet and LAUNCHES the start URL with those keys in the query — no route to add, no service-worker
+POST handler, and the precached `./` answers it offline (`sw-core` matches with `ignoreSearch`). The keys
+are prefixed because `url`, `text` and `title` are names the runtime's own query params (`?tab=`,
+`?screen=`, `?mock`, `?__hold=1`) could collide with, and the manifest may map a field onto any key it likes.
+
+**The cost nobody can code around:** a WebAPK's manifest is BAKED at install — the orientation lesson, in
+the core repo's `docs/research/webapk-identity.md`. A share target added today reaches an *already
+installed* reel only when Chrome re-mints the APK: the app is launched, its manifest has not been checked
+for 24 h, and the swap lands while the device is on WiFi, charging, with every window of the PWA closed.
+One to three days — or immediately, if the owner reinstalls it from the browser menu.
+
+**APK (our own shell).** An Android WebView implements no Web Share in either direction, so `share_target`
+means nothing there. The shell's mechanism is the mirror image: every `full` template carries one DISABLED
+share activity-alias per kind, and a page turns its own on (`share.target { kinds: ["text"] }`, persisted by
+PackageManager across reboots) and then listens on `share.incoming`. reel asks for `text` ONLY — its source
+is a page, and a shell answering "share video" would sit in the sheet for every clip in the gallery with
+nothing to do with one. No spec change was needed: the edge grants `full` to every APK built from
+`https://dreamstudio.mooo.com` (`edge/apk/templates.js`) and `share` is in every full flavour's capabilities.
+
+**The resolver is the whole trick.** Android does not hand over a URL; it hands over up to three strings,
+and no two senders fill them the same way — Chrome sends `url`, Telegram a title and a url, TikTok one
+`text` with its caption wrapped around the link, and a plain-text share may carry a bare domain. So every
+field is scanned for a real `https?://` link first and only then for a bare domain, on the same terms the
+add-URL sheet accepts one. Trailing sentence punctuation is stripped (`… https://x.co/a.` is one whitespace
+token), and our own origin is skipped: sharing a reel back into reel would load this page as a "source",
+which extracts nothing and reads as a bug.
+
+**Landing.** `openAsSource(S, url)` — subscribe, drop the dive stack, load, switch to the reel tab. It is
+exactly what the add-URL sheet was already doing inline, now named once: a shared link is a source you did
+not have to type. The payload WAITS if it arrives before any view of ours is mounted (a cold start, or a
+shell share delivered while the runtime's own profile tab is up), and the first view to render lends the
+module its `S` — safe only because `createApp` builds it once per app and never replaces it.
+
+**And it comes off the address.** `replaceState` removes the three `sh_*` keys and nothing else, so a reload
+or a restored tab cannot add the same source twice, and the address bar of an installed app does not carry
+somebody's caption. The e2e asserts both halves: the source changed, and `sh_` is gone from `baseURI`.
