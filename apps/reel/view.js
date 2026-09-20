@@ -908,20 +908,58 @@ function MoreSheet({ S, t, item, src, title, subbed, toast }) {
   <//>`;
 }
 
+/* THE ACCOUNT'S PICTURE, WHICH THE FEED DOES NOT CARRY. A listing tile names the person and — measured on
+   the pages this app reads, 2026-09-20 — ships no picture of them at all: 0 avatars in 73 images on a page
+   of 31 clips. The picture exists on their own page, so the box answers for it one account at a time
+   (/feed/avatar, cached there for 6h) and the island asks only for the account it is currently showing.
+   Cached here too, by url: one feed is a handful of accounts and the same circle comes round on every
+   swipe back. A miss is remembered as a miss — asking again on each swipe would be a page fetch per slide
+   for a picture the account does not have. Never under the gate: it fetches nothing. */
+const avatarSeen = new Map();                              // account url → string | null (null = asked, has none)
+const avatarWait = new Map();                              // account url → in-flight promise, so one swipe = one ask
+function accountAvatar(url) {
+  if (!url || gate) return Promise.resolve(null);
+  if (avatarSeen.has(url)) return Promise.resolve(avatarSeen.get(url));
+  if (avatarWait.has(url)) return avatarWait.get(url);
+  const p = fetch(`${VPS_PROXY}/avatar?url=${encodeURIComponent(url)}`, { headers: { "x-ms-egress": "reel" } })
+    .then((r) => r.json()).then((d) => d?.avatar || null).catch(() => null)
+    .then((v) => { avatarSeen.set(url, v); avatarWait.delete(url); return v; });
+  avatarWait.set(url, p);
+  return p;
+}
+
 /* The account, as one circle in the island. It is a DIVE and nothing new: an account page is a list of
    clips, so tapping it is the same move the slide already makes — push the frame, load that url — and the
-   way back is the one that was already there. No avatar in the feed's data means a monogram, never a
-   guessed URL. */
+   way back is the one that was already there. Until the picture arrives (or if there is none) it is a
+   monogram, never a guessed URL. */
 function ChannelAvatar({ channel, onClick, label, current }) {
-  const [broken, setBroken] = useState(false);
+  const url = channel?.url || "";
+  const given = channel?.avatar || null;
+  const [pic, setPic] = useState(given || avatarSeen.get(url) || null);
+  const [proxied, setProxied] = useState(false);
+  useEffect(() => {
+    setPic(given || avatarSeen.get(url) || null); setProxied(false);
+    if (!url || given) return;
+    let dead = false;
+    accountAvatar(url).then((v) => { if (!dead && v) setPic(v); });
+    return () => { dead = true; };
+  }, [url, given]);
   if (!channel?.url) return null;
   // Already inside their feed — the circle still says WHOSE this is, but there is nowhere to go.
   const here = String(channel.url).replace(/#.*$/, "") === String(current || "").replace(/#.*$/, "");
   const initial = (channel.name || "?").trim().charAt(0).toUpperCase();
+  /* A picture the CDN refuses this origin is not a missing picture — the same hotlink check the posters
+     answer (see usePosterSrc). Direct first, once through the sealed proxy on failure, and only then the
+     monogram. `proxied` also stops a loop: the proxied url's own onError must end it. */
+  const fail = () => {
+    if (proxied || !pic) return setPic(null);
+    setProxied(true);
+    framed(pic, channel.url).then((u) => setPic(u || null)).catch(() => setPic(null));
+  };
   return html`<button type="button" data-channel class="btn btn-ghost btn-sm btn-circle shrink-0 p-0 overflow-hidden border border-white/20 bg-white/10"
       aria-label=${label} title=${channel.name || ""} disabled=${here} onClick=${here ? null : onClick}>
-    ${channel.avatar && !broken
-      ? html`<img src=${channel.avatar} alt="" class="w-6 h-6 rounded-full object-cover" loading="lazy" onError=${() => setBroken(true)} />`
+    ${pic
+      ? html`<img src=${pic} alt="" class="w-6 h-6 rounded-full object-cover" loading="lazy" onError=${fail} />`
       : html`<span class="w-6 h-6 rounded-full grid place-items-center text-[0.7rem] font-semibold text-white bg-white/20">${initial}</span>`}
   </button>`;
 }
