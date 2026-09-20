@@ -30,14 +30,15 @@ export default [
       const avatarUp = async () => { for (let i = 0; i < 25; i++) { if ((await h.count("[data-channel]")) === 1) return true; await h.wait(200); } return false; };
       h.expect(await avatarUp(), "в острівці немає кружечка акаунта");
       h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
-      const root = await h.text("[data-island-label]");
+      const src = () => h.attr("[data-island-label]", "data-island-src");     // видимий рядок називає КЛІП, джерело — в атрибуті
+      const root = await src();
 
       await h.tap("[data-channel]"); await h.wait(600);
       h.expect((await h.count("[data-feed-back]")) === 1, "тап по аватарці не провалив рівень — кнопки повернення немає");
-      h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — стрічка акаунта не відкрилась`);
+      h.expect((await src()) !== root, `острівець лишився на «${root}» — стрічка акаунта не відкрилась`);
 
       await h.tap("[data-feed-back]"); await h.wait(600);
-      h.expect((await h.text("[data-island-label]")) === root, "Back не повернув на рівень, з якого провалились");
+      h.expect((await src()) === root, "Back не повернув на рівень, з якого провалились");
     },
   },
   {
@@ -77,33 +78,29 @@ export default [
     },
   },
   {
-    /* Тап по слайду відкриває СТОРІНКУ кліпа в браузері (window.open — під гейтом це просто виклик без
-       вкладки), а не оверлей. А вбудований плеєр 2026-09-20 переїхав зі шторки НАЗОВНІ, на місце знятої
-       кнопки провалювання: жоден жест його не відкриває, тож він і лишається єдиною дією в острівці.
-       Під гейтом /feed/stream не смикається (мережі нема), і openFull підставляє превʼю, тож перевіряється
-       саме ЗВʼЯЗКА: тап → без оверлея; кнопка в острівці → оверлей → Back. */
-    name: "тап по рілзу відкриває сторінку, а не оверлей; «дивитись у застосунку» — кнопкою в острівці, і Back його закриває", run: async (h) => {
+    /* Тап по слайду відкриває НАШ плеєр. Так було, потім сторінку повернули на тап (2026-09-04, коли плеєр
+       був бетою), а 2026-09-20 власник віддав тап плеєру назад: він тягне сходинки з боксу, адаптується,
+       перемотується пальцем і тримає нуар. Сторінка сайту лишилась — але як названий рядок у шторці «Ще»,
+       бо це рішення, а не рефлекс. Під гейтом /feed/stream не смикається, і openFull підставляє превʼю,
+       тож міряється саме ЗВʼЯЗКА: тап → оверлей → Back. */
+    name: "тап по рілзу відкриває наш плеєр; «відкрити у браузері» живе у шторці", run: async (h) => {
       await ready(h);
       h.expect(await settles(h, 3), "стрічка не влаштувалась на 3 слайдах");
       h.expect((await h.count('[role="dialog"]')) === 0, "оверлей уже відкритий до тапу");
-      await h.tap("[data-reel]"); await h.wait(500);
-      h.expect((await h.count('[role="dialog"]')) === 0, "тап по слайду відкрив оверлей — тап має відкривати сторінку кліпа");
-      h.expect((await h.count("[data-watch-here]")) === 1, "в острівці немає кнопки «дивитись у застосунку»");
-      await h.tap("[data-watch-here]"); await h.wait(500);
-      h.expect((await h.count('[role="dialog"]')) === 1, "кнопка «дивитись у застосунку» не відкрила повний кліп");
-      /* І плеєр несе ВЛАСНУ панель, а не нативну. Це не косметика: поки на <video> стоїть `controls`,
-         Chromium сам кидає цей елемент у системний фулскрін при повороті телефона — поза нашим діалогом,
-         без нуару, з перерваним відтворенням. Власник попросив прибрати будь-які такі тригери, тож тут
-         вимірюється саме відсутність атрибута, а не вигляд панелі. */
-      h.expect((await h.prop('[role="dialog"] video', "controls")) === false,
-        "на відео повернулись нативні контроли — з ними повертається і стрибок у фулскрін при повороті");
-      h.expect((await h.count("#player-fs")) === 0, "кнопка фулскріна повернулась у плеєр");
+      await h.tap("[data-reel]"); await h.wait(700);
+      h.expect((await h.count('[role="dialog"]')) === 1, "тап по слайду не відкрив плеєр");
       /* І стрічка під ним МОВЧИТЬ. Два елементи одночасно — це дві звукові доріжки; превʼю, що грає поверх
-         відкритого кліпа, це саме те, що суспension має прибирати. */
+         відкритого кліпа, це саме те, що suspension має прибирати. */
       h.expect((await h.count("video[data-main][data-playing]")) === 0, "стрічка продовжує грати під відкритим кліпом");
       await h.back(); await h.wait(500);
-      h.expect((await h.count('[role="dialog"]')) === 0, "системний Back не закрив повний кліп");
+      h.expect((await h.count('[role="dialog"]')) === 0, "системний Back не закрив плеєр");
       h.expect((await h.count("[data-reel]")) >= 1, "Back вийшов з апки замість закрити оверлей");
+
+      // Кнопки плеєра в острівці більше нема — тап робить те саме і коротше.
+      h.expect((await h.count("[data-watch-here]")) === 0, "кнопка плеєра лишилась в острівці — це дубль тапу");
+      await openMore(h);
+      h.expect((await h.count("[data-open-page]")) === 1, "у шторці немає «відкрити у браузері»");
+      await h.back(); await h.wait(400);
     },
   },
   {
@@ -123,27 +120,32 @@ export default [
       h.expect((await h.count("[data-reel] a")) === 0, "на слайді лишилось посилання (відкрити оригінал)");
       h.expect((await h.count("[data-reel] button")) === 0, "на слайді лишилась кнопка");
       // В ОСТРІВЦІ лишається тільки те, чого НЕ робить жест: назва, акаунт, «дивитись тут» — і двері «Ще».
-      for (const [sel, what] of [["[data-island-label]", "назва джерела"], ["[data-channel]", "акаунт"], ["[data-watch-here]", "дивитись у застосунку"], ["[data-more]", "двері «Ще»"]]) {
+      for (const [sel, what] of [["[data-island-label]", "назва"], ["[data-channel]", "акаунт"], ["[data-more]", "двері «Ще»"]]) {
         h.expect((await h.count(sel)) === 1, `в острівці немає контролу: ${what} (${sel})`);
       }
+      /* І ця назва — САМОГО КЛІПА, а не стрічки. Свайп міняв картинку й аватарку, а рядок стояв на місці
+         («не міняється тайтл в островку» — власник). Ім'я джерела лишається в атрибуті, для списку джерел. */
+      h.expect((await h.text("[data-island-label]")) === "Big Buck Bunny",
+        `острівець підписаний «${await h.text("[data-island-label]")}» — має називати активний кліп`);
+      const srcName = await h.attr("[data-island-label]", "data-island-src");
+      h.expect(!!srcName && srcName !== (await h.text("[data-island-label]")),
+        `ім'я джерела в острівці — «${srcName}»: воно мусить бути і мусить бути ІНШИМ, ніж назва кліпа, інакше списку джерел нема з чим звірятись`);
       /* …а те, що дублює жест або є РІШЕННЯМ, а не рефлексом, з острівця прибрано. Дві кнопки зняті
          2026-09-20 на вимогу власника і тримаються цим твердженням: провалювання робить свайп (і показує
          назву цілі під пальцем), а сторінку кліпа відкриває сам тап по рілзу. Решта — на тап глибше. */
-      for (const [sel, what] of [["[data-dive]", "провалювання (це свайп)"], ["[data-watch]", "сторінка кліпа (це тап по рілзу)"],
-        ["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"], ["[data-exp]", "експорт"]]) {
+      for (const [sel, what] of [["[data-dive]", "провалювання (це свайп)"], ["[data-watch]", "сторінка кліпа"],
+        ["[data-watch-here]", "плеєр (це тап по рілзу)"], ["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"], ["[data-exp]", "експорт"]]) {
         h.expect((await h.count(sel)) === 0, `контрол лишився в острівці: ${what} (${sel})`);
       }
-      h.expect((await h.count("[data-open-page]")) === 0, "«відкрити у браузері» лишилось як окрема кнопка — це має бути тап по слайду");
+      h.expect((await h.count("[data-open-page]")) === 0, "«відкрити у браузері» стоїть в острівці — його місце у шторці");
       const isl = await h.attr("[data-island]", "class");
       h.expect(!/\bopacity-0\b/.test(isl || ""), "острівець не має бути прихованим");
 
       // …і кожна з них справді жива за дверима, а не просто видалена.
       await openMore(h);
-      for (const [sel, what] of [["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"]]) {
+      for (const [sel, what] of [["[data-clean]", "чистий екран"], ["[data-subscribe]", "підписка"], ["[data-open-page]", "сторінка в браузері"]]) {
         h.expect((await h.count(sel)) === 1, `функція зникла разом з переїздом у шторку: ${what} (${sel})`);
       }
-      // …і плеєр у шторці НЕ дублюється: він виїхав назовні, а не розмножився на двоє дверей.
-      h.expect((await h.count("[data-watch-here]")) === 1, "«дивитись у застосунку» тепер у двох місцях одночасно — в острівці і в шторці");
       // Експорт: зберегти і поділитися, для обох форматів — чотири контроли, жодного менше.
       for (const key of ["gif-save", "gif-share", "mp4-save", "mp4-share"]) {
         h.expect((await h.count(`[data-exp="${key}"]`)) === 1, `у шторці немає кнопки експорту: ${key}`);
@@ -220,24 +222,27 @@ export default [
       await settles(h, 3);
       h.expect((await h.count("[data-channel]")) >= 1, "в острівці немає цілі провалювання (data-channel)");
       h.expect((await h.count("[data-feed-back]")) === 0, "на нульовому рівні не має бути кнопки «назад»");
-      const root = await h.text("[data-island-label]");
+      const root = await h.attr("[data-island-label]", "data-island-src");
       const chip = await h.attr("[data-channel]", "aria-label");
       h.expect(/Nine Lives Studio/.test(chip), `кружечок акаунта підписаний «${chip}» — має нести ім'я акаунта, а не форму URL`);
       await h.tap("[data-channel]"); await h.wait(600);
       // the dived page seeds a DIFFERENT batch (2 slides) — the source label and the list both had to change
       h.expect(await settles(h, 2), "провалювання не завантажило стрічку сторінки, на якій лежить рілз");
-      h.expect((await h.text("[data-island-label]")) !== root, `острівець лишився на «${root}» — джерело не змінилось`);
+      h.expect((await h.attr("[data-island-label]", "data-island-src")) !== root, `острівець лишився на «${root}» — джерело не змінилось`);
       // …and it is named by the PAGE, not by the shape of its URL. `/profiles/user10241/` is a handle that
       // names nothing; the mock's page title is "Nine%20Lives Studio &amp; Friends — Mixkit", so the chrome must
       // come off AND the machine text has to be decoded — a percent-escape and an entity, both of which
       // reached the screen raw before humanText existed.
-      const lvl = await h.text("[data-island-label]");
+      /* Назва САМОГО ДЖЕРЕЛА живе в атрибуті: видимий рядок тепер називає кліп, на якому ти стоїш (свайп
+         міняв картинку й акаунт, а текст стояв — власник, 2026-09-20), а ім'я сторінки нікуди не поділось і
+         досі мусить бути розкодованим. */
+      const lvl = await h.attr("[data-island-label]", "data-island-src");
       h.expect(lvl === "Nine Lives Studio & Friends", `острівець показує «${lvl}» замість справжньої назви сторінки «Nine Lives Studio & Friends»`);
       h.expect(!/%[0-9A-Fa-f]{2}|&[a-z]+;|&#/.test(lvl), `в назві джерела лишились нерозкодовані символи: «${lvl}»`);
       h.expect((await h.count("[data-feed-back]")) === 1, "після провалювання немає кнопки повернення");
       // …and back restores the ORIGINAL list (a restore, not a refetch)
       await h.tap("[data-feed-back]"); await h.wait(500);
-      h.expect((await h.text("[data-island-label]")) === root, "повернення не відновило попереднє джерело");
+      h.expect((await h.attr("[data-island-label]", "data-island-src")) === root, "повернення не відновило попереднє джерело");
       h.expect(await settles(h, 3), "повернувся не той самий список із 3 слайдів");
       h.expect((await h.count("[data-feed-back]")) === 0, "кнопка повернення лишилась на нульовому рівні");
     },
@@ -245,17 +250,20 @@ export default [
   {
     name: "провалювання: системний Back відкручує рівень (а не виходить з апки)", run: async (h) => {
       await ready(h);
-      const root = await h.text("[data-island-label]");
+      /* Рівні звіряються по ДЖЕРЕЛУ (атрибут): обидва акаунти під гейтом відкривають ту саму пару кліпів,
+         тож видимий рядок — назва кліпа — на обох рівнях однаковий, і ним рівні не розрізниш. */
+      const src = () => h.attr("[data-island-label]", "data-island-src");
+      const root = await src();
       await h.tap("[data-channel]"); await h.wait(600);
-      const lvl1 = await h.text("[data-island-label]");
+      const lvl1 = await src();
       h.expect(lvl1 !== root, "провалювання не спрацювало");
       await h.tap("[data-channel]"); await h.wait(600);                // другий рівень — стек, а не один прапорець
-      const lvl2 = await h.text("[data-island-label]");
+      const lvl2 = await src();
       h.expect(lvl2 && lvl2 !== lvl1, `другий рівень не відкрився (острівець лишився на «${lvl1}»)`);
       await h.back(); await h.wait(500);
-      h.expect((await h.text("[data-island-label]")) === lvl1, "перший системний Back мав відкрутити рівно один рівень, а не впасти в корінь");
+      h.expect((await src()) === lvl1, "перший системний Back мав відкрутити рівно один рівень, а не впасти в корінь");
       await h.back(); await h.wait(500);
-      h.expect((await h.text("[data-island-label]")) === root, "другий системний Back не повернув у корінь стрічки");
+      h.expect((await src()) === root, "другий системний Back не повернув у корінь стрічки");
       h.expect((await h.count("[data-reel]")) >= 1, "апка зникла — Back вийшов далі, ніж мав");
     },
   },
@@ -265,7 +273,7 @@ export default [
       await h.tap("[data-channel]"); await h.wait(600);
       // Назву читаємо ДО відкриття шторки: острівець лишається під нею, але міряти видиме крізь оверлей —
       // це вимірювати не те, що бачить власник.
-      const island = await h.text("[data-island-label]");
+      const island = await h.attr("[data-island-label]", "data-island-src");
       await openMore(h);
       h.expect((await h.count("[data-subscribe]")) === 1, "на непідписаному джерелі немає кнопки підписки");
       await h.tap("[data-subscribe]"); await h.wait(400);
@@ -313,6 +321,24 @@ export default [
       h.expect((await h.count("[data-open-site]")) >= 1, "кнопки «відкрити сайт» немає");
       await h.tap("[data-open-site]"); await h.wait(400);               // opens the external browser (window.open)
       h.expect((await h.count("[data-frame]")) === 0, "iframe-оверлей більше не має існувати в апці");
+    },
+  },
+  {
+    /* Голий домен — теж джерело. `type="url"` змушував браузер валідувати поле ПЕРЕД сабмітом, тож
+       «site.com» мовчки не завантажувалось: наш `norm()`, який дописує https://, навіть не викликався. */
+    name: "додати-URL: голий домен без схеми вантажиться як джерело", run: async (h) => {
+      await ready(h);
+      const root = await h.attr("[data-island-label]", "data-island-src");
+      await h.tap('[data-tab="sources"]'); await h.wait(300);
+      await h.tap("#add-url"); await h.wait(300);
+      /* Домен БЕРЕТЬСЯ той, що вже є в підписках (mixkit): інакше цей кейс додав би нову картку сайту, а
+         наступні кейси рахують картки й ключі сесій — тест не має лишати по собі новий стан. */
+      await h.type("#src-input", "mixkit.co"); await h.wait(200);
+      await h.tap("#src-load"); await h.wait(800);
+      h.expect((await h.count("#src-input")) === 0, "шит не закрився — сабміт не пройшов (поле валідується як url?)");
+      const now = await h.attr("[data-island-label]", "data-island-src");
+      h.expect(now !== root, `джерело лишилось «${root}» — голий домен не підхопився`);
+      h.expect(/Mixkit/i.test(now || ""), `джерело зветься «${now}» — мало вийти з домену, який набрали`);
     },
   },
   {
