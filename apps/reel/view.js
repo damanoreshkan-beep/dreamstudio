@@ -164,6 +164,8 @@ const subsDB = collection("reelSubs");
 // name (a `/watch/<id>/` URL names nothing, so the saved title IS the row) had no populated screen at all.
 // These two are what a subscription actually looks like: a long one, because that is the case the row has to
 // survive, and a short one beside it. Their pages are never opened by the mock feed, so nothing renames them.
+// What the edge reads off a real page's own links (`search`), stood in for offline — see searchHere.
+const GATE_SEARCH = "https://mixkit.co/free-stock-video/?q=nature";
 const GATE_SUBS = [
   { id: "https://mixkit.co/watch/70001/", url: "https://mixkit.co/watch/70001/", name: "Fog over the Carpathians at first light, in one long slow take" },
   { id: "https://mixkit.co/watch/70002/", url: "https://mixkit.co/watch/70002/", name: "Night city" },
@@ -174,7 +176,13 @@ async function subscribe(s) {
   if (!s?.url || $subs.get().some((x) => x.url === s.url)) return;
   // The name is FROZEN here — a subscription keeps the title the page had when you saved it, which is the
   // only thing a list of N pages can show without N round-trips (see sitelabel's own note on deriving).
-  const rec = { name: s.name || sourceTitle(s.url), url: s.url };
+  /* …and so is the FACE, when one is already known. The sources tab asks the network for nothing: it shows
+     the picture the island resolved for this account while you were watching it (avatarSeen), or the one
+     the feed itself carried when the page you subscribed to IS an account. A source saved before any of
+     that simply keeps its favicon, and gains a face the next time you watch it. */
+  const feed = $feedChannel.get();
+  const avatar = s.avatar || avatarSeen.get(s.url) || (feed && feed.url === s.url ? feed.avatar : null) || null;
+  const rec = { name: s.name || sourceTitle(s.url), url: s.url, ...(avatar ? { avatar } : {}) };
   $subs.set([{ id: s.url, ...rec }, ...$subs.get()]);
   try { await subsDB.put(s.url, rec); } catch { /* no idb (headless) — the atom still holds it this session */ }
 }
@@ -366,8 +374,11 @@ function sharedUrl(p) {
 
 // Play a URL as the source: subscribe to it, drop the dive stack, and land on the reel tab. The add-URL
 // sheet and both share doors are the same act — this is the one place it happens.
-function openAsSource(S, url, hint) {
-  subscribe({ name: sourceTitle(url), url });
+function openAsSource(S, url, hint, keep = true) {
+  // `keep` is false for a search from the island: that is a filter on the feed you are watching, and every
+  // term you try would otherwise become a permanent row in the sources tab. It stays one tap from being
+  // kept — the More sheet offers "subscribe" for whatever is playing, search results included.
+  if (keep) subscribe({ name: sourceTitle(url), url });
   resetNav(S);
   $owner.set("reel");
   openSource(url, hint);
@@ -493,6 +504,9 @@ async function loadSource(url, append = false, hint = "") {
   }
   const g = append ? gen : ++gen;                            // a dive/back mid-flight makes this response stale
   if (gate) {                                                // the gate never fetches: a deterministic batch per source
+    // …including what the edge would have said about where this SITE searches: the island's search button
+    // exists only where there is somewhere to send it, so without this the gate could never press it.
+    rememberSearch(url, GATE_SEARCH);
     if (!append) {
       $items.set(clean(url === DEFAULT_SRC ? MOCK : MOCK_DEEP)); $ephemeral.set(false); $loading.set(false);
       setSrcTitle(url, { pageTitle: GATE_TITLES[url] || "", hint });
@@ -518,6 +532,7 @@ async function loadSource(url, append = false, hint = "") {
     $items.set(append ? dedupeVideos([...$items.get(), ...got]) : got);                   // re-dedupe across the page boundary too
     $next.set(d.next || null);
     if (!append) $feedChannel.set(d.channel || null);        // the page IS an account → it names itself, avatar and all
+    rememberSearch(url, d.search);                           // where this SITE searches, learned from a page it published
     if (!append) setSrcTitle(url, { pageTitle: d.title || "", hint });                     // the page has now told us its own name
     if (!append) $ephemeral.set(eph);                  // signed/expiring source → show poster + "watch" link, don't try to play
   } catch { if (g === gen && !append) $err.set(true); }
@@ -1107,43 +1122,175 @@ function ChannelAvatar({ channel, onClick, label, current }) {
   </button>`;
 }
 
-function SourceIsland({ S, t, src, title, clip, depth, channel }) {
+/* ── the island's two drawers ────────────────────────────────────────────────────────────────────────────
+   The island is the app's whole control surface (owner, 2026-09-21: "все зміни роби в островку"), and it is
+   384px wide, so a new function cannot simply be a new circle in the row — two more would make seven. Each
+   of these is a DRAWER instead: one button in the row, and the pill grows to hold what it opened. Search
+   REPLACES the row, because an input needs the width the row is using; the cast opens ABOVE it, because you
+   are choosing between faces and the row you came from should stay where it is. One at a time, and the
+   system Back closes either (S.screen is not involved: neither is a screen, and both must survive a swipe
+   between slides without the runtime unwinding a history entry). */
+const $drawer = atom("");                                            // "" | "search" | "cast"
+
+/* WHERE THIS SITE SEARCHES. Two answers, in order: the source itself, when it is already a results page (the
+   runtime resolves which key carries the term), and otherwise the pattern the SITE published, which the edge
+   reads out of the links on whatever page we just loaded (`search` on the feed). The second is remembered
+   per host — a front page states it, an account page may not, and having once been told where a site's
+   results live is not something to forget when you dive. */
+const $searchBases = persistentAtom("reel:searchbase", {}, { encode: JSON.stringify, decode: JSON.parse });
+function rememberSearch(url, example) {
+  if (!example) return;
+  const host = hostOf(url); if (!host) return;
+  const cur = $searchBases.get();
+  if (cur[host] === example) return;
+  $searchBases.set({ ...cur, [host]: example });
+}
+const searchBaseFor = (url, bases) => {
+  if (!url) return "";
+  if (resolveSearch(url).searchable) return url;                     // the source IS a search — swap its term
+  return (bases || $searchBases.get())[hostOf(url)] || "";
+};
+
+/* WHO IS IN IT. A second request, made only when the button is pressed: a listing tile never carries a cast,
+   so this is the clip's own page being read, and thirty of those per feed is not a thing to do speculatively
+   (the edge caches the answer for six hours, misses included). Keyed by the page, so swiping and coming back
+   costs nothing, and a response that arrives after you have swiped on is dropped rather than shown. */
+const GATE_CAST = [
+  { name: "Nine Lives Studio", url: "https://mixkit.co/profiles/user10241/", avatar: null },
+  { name: "Proog", url: "https://mixkit.co/profiles/proog/", avatar: null },
+];
+const $cast = atom({ page: "", loading: false, people: [], err: false });
+async function pullCast(page) {
+  if (!page) return;
+  const cur = $cast.get();
+  if (cur.page === page && !cur.err) return;                         // already answered for this clip
+  $cast.set({ page, loading: true, people: [], err: false });
+  if (gate) { $cast.set({ page, loading: false, people: GATE_CAST, err: false }); return; }
+  try {
+    const r = await fetch(`${VPS_PROXY}/cast?url=${encodeURIComponent(page)}`, { headers: { "x-ms-egress": "reel" } });
+    const d = await r.json();
+    if ($cast.get().page !== page) return;
+    $cast.set({ page, loading: false, people: Array.isArray(d.people) ? d.people : [], err: !!d.error });
+  } catch {
+    if ($cast.get().page === page) $cast.set({ page, loading: false, people: [], err: true });
+  }
+}
+
+// One face: the picture where the page had one, the monogram where it did not — the island's own circle,
+// reused, so a person reads the same here as the account does beside the title. A tap is the dive.
+function CastFace({ person, onGo }) {
+  const initial = (person.name || "?").trim().charAt(0).toUpperCase();
+  const [pic, setPic] = useState(person.avatar || null);
+  return html`<button type="button" data-cast-person class="btn btn-ghost btn-sm h-auto py-1 pl-1 pr-2 rounded-full gap-1.5 shrink-0 border border-white/20 bg-white/10 text-white font-normal"
+      onClick=${() => onGo(person)} title=${person.name}>
+    ${pic
+      ? html`<img src=${pic} alt="" loading="lazy" class="w-6 h-6 rounded-full object-cover" onError=${() => setPic(null)} />`
+      : html`<span class="w-6 h-6 rounded-full grid place-items-center text-[0.7rem] font-semibold bg-white/20">${initial}</span>`}
+    <span class="text-xs max-w-[7rem] truncate">${person.name}</span>
+  </button>`;
+}
+
+function CastDrawer({ t, onGo }) {
+  const { loading, people, err } = useStore($cast);
+  if (loading) return html`<div data-cast-row class="flex items-center gap-1.5 px-1 py-0.5 overflow-hidden">
+    ${[0, 1, 2].map((i) => html`<span key=${i} class="h-8 w-24 rounded-full bg-white/10 animate-pulse shrink-0"></span>`)}
+  </div>`;
+  if (err || !people.length) return html`<div data-cast-row class="px-2.5 py-1.5 text-xs text-white/60">${T(t, err ? "loadErr" : "castNone")}</div>`;
+  /* Scrolls sideways, and says so with a fade rather than a scrollbar: a cast can be twelve people on a
+     384px pill, and the alternative — wrapping — grows the island to half the screen. */
+  return html`<div data-cast-row data-scroller class="flex items-center gap-1.5 px-0.5 overflow-x-auto max-w-full"
+      style="-webkit-mask-image:linear-gradient(to right,transparent,#000 12px,#000 calc(100% - 12px),transparent);mask-image:linear-gradient(to right,transparent,#000 12px,#000 calc(100% - 12px),transparent)">
+    ${people.map((p) => html`<${CastFace} key=${p.url} person=${p} onGo=${onGo} />`)}
+  </div>`;
+}
+
+// The search drawer: one field and one verb. It takes the island's whole row, because a 384px pill cannot
+// hold an input AND the identity row, and what you are doing while it is open is typing.
+function SearchDrawer({ t, base, onFind, onClose }) {
+  const [q, setQ] = useState(resolveSearch(base).term || "");
+  const ref = useRef();
+  useEffect(() => { ref.current?.focus?.(); }, []);
+  const go = (e) => { e?.preventDefault?.(); const term = q.trim(); if (term) onFind(term); };
+  return html`<form class="flex items-center gap-1 min-w-0 w-full" onSubmit=${go}>
+    <button type="button" class="btn btn-ghost btn-sm btn-circle text-white shrink-0" aria-label=${T(t, "close")} onClick=${onClose}>
+      ${Icon("lucide:x", "text-lg")}
+    </button>
+    ${/* type=text, not search: the browser's own clear button lands on a dark pill as a grey smudge, and the
+          field is 200px wide — every pixel of it is the term. inputmode=search still gives the right key. */""}
+    <input id="island-q" ref=${ref} type="text" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+      class="grow min-w-0 bg-transparent text-sm text-white placeholder:text-white/40 outline-none px-1"
+      placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
+    <button id="island-find" type="submit" class="btn btn-sm rounded-full gap-1 shrink-0 border border-white/20 bg-white/15 text-white hover:bg-white/25">
+      ${Icon("lucide:search", "text-sm")}<span class="text-xs">${T(t, "find")}</span>
+    </button>
+  </form>`;
+}
+
+function SourceIsland({ S, t, src, title, clip, depth, channel, page }) {
   /* btn-GHOST on every control in here, for the island's own reason: `.btn:not(.btn-ghost)` carries
      --sf-drop, the extrusion pair, and the pair's light half has nothing to shade against on a black media
      surface — it draws a white ring instead. In the light theme (--nm-light is bright) each of these
      circles came out haloed inside an island that was itself hard-outlined in white. Same fix as the island
      box and the clean-screen door; a utility cannot reach it, the DaisyUI rule is (0,4,0). */
   const act = "btn btn-ghost btn-sm btn-circle shrink-0 border border-white/20 bg-white/10 text-white";
-  return html`<${Island} pinned at="bottom" tone="dark" className="flex items-center gap-1 min-w-0 max-w-full rounded-full">
+  const drawer = useStore($drawer), bases = useStore($searchBases);
+  const base = searchBaseFor(src, bases);
+  // A drawer belongs to the clip it was opened on: swipe, and the faces under the row are somebody else's.
+  useEffect(() => { if ($drawer.get() === "cast") $drawer.set(""); }, [page]);
+  // …and to the source: a search box still open on a site you have left searches the wrong place.
+  useEffect(() => { $drawer.set(""); }, [src]);
+  const toggle = (which) => { const next = drawer === which ? "" : which; $drawer.set(next); if (next === "cast") pullCast(page); };
+  const row = html`<div class="flex items-center gap-1 min-w-0 max-w-full">
       ${depth ? html`<button data-feed-back class="btn btn-ghost btn-sm btn-circle text-white shrink-0" aria-label=${T(t, "back")} onClick=${() => popFrame(S)}>${Icon("lucide:chevron-left", "text-xl")}</button>` : null}
       <${Favicon} url=${src} size="w-6 h-6" />
       ${/* Beside the favicon, which says which SITE this is, so the pair reads "site · who". It sits before
             the label because it is an identity, not an action, and the label may be their name already. */""}
-      ${/* diveTo directly. The first version of this called the island's old `dive` prop instead, which was
-            an object ({label, go}) and null on most slides — so the circle did nothing at all, silently. */""}
       <${ChannelAvatar} channel=${channel} current=${src} label=${channel?.name || ""}
         onClick=${() => diveTo(S, channel.url, channel.name)} />
-      ${/* The title gets the whole middle. The host used to sit beside it and, at 384px, the two of them
-            truncated EACH OTHER — "Free stoc…" next to "mixk…", which is two half-words and no name. The
-            favicon already says which site this is; the host stays where it is precision, the sources list. */""}
       ${/* WHAT IT NAMES: the clip you are watching, and the feed only when the clip has no name of its own.
             It said the feed's name on every slide, so swiping changed the picture, the account and nothing
             else — the one line of text on the screen sat still while everything under it moved (the owner,
             on the reel). The feed's name is still HERE, in an attribute: it is what the sources list has to
             agree with, and a name nobody can read is not a name the gate can check. */""}
       <span data-island-label data-island-src=${title} class="text-sm text-white truncate min-w-0 pl-0.5 pr-1">${clip || title}</span>
+      ${/* Search is shown only where there is somewhere to send it: this source is already a results page,
+            or the site published where its results live (the edge reads that off the links on the page we
+            just loaded). A button that cannot work is worse than no button. */""}
+      ${base ? html`<button data-island-search class=${`${act} ${drawer === "search" ? "bg-white/25" : ""}`} aria-pressed=${drawer === "search"}
+        aria-label=${T(t, "search")} onClick=${() => toggle("search")}>${Icon("lucide:search", "text-base")}</button>` : null}
+      ${page ? html`<button data-island-cast class=${`${act} ${drawer === "cast" ? "bg-white/25" : ""}`} aria-pressed=${drawer === "cast"}
+        aria-label=${T(t, "cast")} onClick=${() => toggle("cast")}>${Icon("lucide:users", "text-base")}</button>` : null}
       ${/* One door instead of three. Clean screen, subscribe and the trip to the site all used to sit out
             here as their own circles; with the export actions added that would have been eight controls in a
             pill 384px wide, which is a control panel laid over the thing it is supposed to keep out of the
-            way of. What stays outside is what NO gesture already does — the way back, and play. Everything
-            else is one tap deeper, in a sheet the system Back closes. */""}
+            way of. What stays outside is what NO gesture already does, and what a gesture could never do:
+            the way back, who posted it, this site's search, who is in this clip, and one door. */""}
       <button data-more class=${act} aria-label=${T(t, "more")} onClick=${() => S.screen.set("more")}>${Icon("lucide:ellipsis", "text-base")}</button>
-      ${/* And that is the whole island: the way back, who posted it, what it is called, and one door. The
-            player used to sit out here as a filled circle; it moved to the TAP on the reel (2026-09-20),
-            which is the shortest path there is, so keeping a button for the same thing was a control that
-            duplicated a gesture — exactly what the dive and the page button were removed for. */""}
-    <//>
-  `;
+    </div>`;
+  return html`<${Island} pinned at="bottom" tone="dark"
+      className=${`flex flex-col gap-1 min-w-0 max-w-full ${drawer ? "rounded-[1.6rem] w-[min(30rem,100%)]" : "rounded-full"}`}>
+    ${drawer === "cast" ? html`<${CastDrawer} t=${t} onGo=${(p) => { $drawer.set(""); diveTo(S, p.url, p.name); }} />` : null}
+    ${drawer === "search"
+      ? html`<${SearchDrawer} t=${t} base=${base} onClose=${() => $drawer.set("")}
+          onFind=${(term) => { $drawer.set(""); openAsSource(S, buildSearchUrl(base, term), term, false); }} />`
+      : row}
+  <//>`;
+}
+
+/* Noir is a document-level flag, not a class on the slides: the full-clip player is the runtime's element
+   and lives outside this tree, so the only place both surfaces can be reached from is <html>.
+   It does NOT come off on unmount any more, and that is the fix the owner asked for: the liked grid is
+   three columns of frames from the same clips, and it lives in another tab, so a flag that died with the
+   feed left the one screen that is nothing BUT posters in full colour. Both screens raise it now, and
+   nothing has to hand it over between them. Letting it linger costs nothing: every rule behind it names
+   the surface it drains (`[data-reel]`, a dialog's video, `[data-liked] img` — see index.html), so on a
+   screen with no picture on it the flag selects nothing at all. */
+function useMonoFlag() {
+  const mono = useStore($mono);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (mono === "1") root.setAttribute("data-mono", "1"); else root.removeAttribute("data-mono");
+  }, [mono]);
 }
 
 // What the drag reveals underneath the feed: the destination, on the side the finger is uncovering. Painted
@@ -1219,14 +1366,7 @@ function FeedSurface({ S, t, toast }) {
        consumes clean's own entry with the same go(-1) a tap on the door would. */
     return () => { root.removeAttribute("data-feed"); S.clean.set(false); };
   }, [S]);
-  /* Noir is a document-level flag, not a class on the slides: the full-clip player is the runtime's element
-     and lives outside this tree, so the only place both surfaces can be reached from is <html>. It comes off
-     with the surface, like data-feed — nothing outside the feed shows a frame of video. */
-  useEffect(() => {
-    const root = document.documentElement;
-    if (mono === "1") root.setAttribute("data-mono", "1"); else root.removeAttribute("data-mono");
-    return () => root.removeAttribute("data-mono");
-  }, [mono]);
+  useMonoFlag();
   useEffect(() => { void checkBlankPosters(); }, [items]);            // sample new posters → drop black/flat/broken slides (gate: inline data: posters too)
   useEffect(() => { if (next && active >= items.length - 3) loadSource(next, true); }, [active, items.length, next]);
   useEffect(() => { const it = items[active]; if (!it || gate) return; const id = setTimeout(() => markWatched(it.orig || it.video), 2500); return () => clearTimeout(id); }, [active, items]);   // dwell → watched
@@ -1272,7 +1412,7 @@ function FeedSurface({ S, t, toast }) {
           off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
           transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} clip=${cur?.title || ""} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
-      channel=${channel} />`}
+      channel=${channel} page=${cur?.page || ""} />`}
     ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
           tab plays through too — hanging it off the tab would give the same feed two different sets of
           actions depending on which way you arrived at it. */""}
@@ -1298,101 +1438,136 @@ export function reel({ S, toast }) {
 // another channel. Rows carry the page's TITLE (sitelabel.sourceTitle: derived from the URL where the URL
 // names the page, else the real title saved when you subscribed — no round-trip either way), because a
 // truncated raw URL told you nothing and cost a whole line doing it.
-// How much name a ROW may show. Not a layout number — the row wraps, so it fits whatever it is given — but a
-// ceiling on how much of the screen ONE source may take before it stops being a list. ~2½ lines at 384 px.
+//
+// REWORKED 2026-09-21 (owner: "список джерел застарів, не продуманий ui/ux"). What was wrong was not the
+// grouping, which is right — it was that every line was a control panel. A page row carried up to four
+// icon buttons (search, open site, session key, keep) beside the one thing you came to do, which is play it;
+// the search among them has since moved to the island, where it searches whatever you are watching. So:
+//   · the SITE owns the site's actions — opening it in the browser, and the cookie you pasted for it — and
+//     they live once, in the card's header, instead of once per page;
+//   · a PAGE row owns the one action that is about that page: keep it, or drop it;
+//   · a site with one page is ONE tap target, not a header above a row that says the same thing again;
+//   · identity is a face where we know one. Nothing is fetched for this screen: the picture is the one the
+//     island already resolved for that account (or the one saved when you subscribed from it), so the list
+//     fills in as you watch and costs not a single request when you open the tab;
+//   · a filter appears once the list is long enough to need one, and searches names AND hosts.
 const ROW_MAX = 120;
-function PageRow({ s, active, subbed, onPlay, onToggle, onOpen, onSession, hasSession, lead, sub, t }) {
-  const sr = resolveSearch(s.url);
-  const [searching, setSearching] = useState(false);
-  const [q, setQ] = useState(sr.term || "");
-  const submit = (e) => { e?.preventDefault?.(); const term = q.trim(); if (term) onPlay({ ...s, url: buildSearchUrl(s.url, term) }); };
+
+// The face of a source, where one is known, and the site's favicon where it is not. `avatarSeen` is the
+// island's own cache — see accountAvatar — so this screen shows what the app has already learned and asks
+// the network for nothing.
+function SourceFace({ s, size = "w-10 h-10" }) {
+  const pic = s.avatar || avatarSeen.get(s.url) || null;
+  const [src, setSrc] = useState(pic);
+  if (!src) return html`<${Favicon} url=${s.url} size=${size} />`;
+  return html`<img src=${src} alt="" loading="lazy" class=${`${size} rounded-full object-cover shrink-0 bg-base-300`} onError=${() => setSrc(null)} />`;
+}
+
+// One page of a site. The row IS the play button; the only control beside it is whether you keep the page.
+function PageRow({ s, active, subbed, onPlay, onToggle, lead, sub, t }) {
   // The playing row is marked by DEPTH, never by a luminance step: this theme's primary and base-content
   // are the same ink, so "active = text-primary" would be 100% vs 100% — the exact trap that hid the dock's
   // active tab for the life of the project. The row it plays from is pressed INTO the card (`sf-inset`) —
   // the material says "selected" without a tint — and the rail stays, readable from across the room.
-  return html`<li class=${`flex flex-col ${active ? "sf-inset rounded-2xl" : ""}`}>
-    <div class="flex items-center gap-0.5 pr-1">
-      <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-xl sf-press" onClick=${() => onPlay(s)}>
-        ${lead}
-        <span class="min-w-0 flex-1">
-          ${/* the saved name is the page's real title — the string the island resolved and renameSub wrote
-                back — and it only wins where the URL itself names nothing, so a category page stays "Space",
-                not "Mixkit". Fed in as the page's OWN title (which is what it is), the row runs the identical
-                priority chain the island ran, on the identical inputs: two surfaces, one answer.
-                And it WRAPS. A row is the one place with room for the whole name — the island is a chip
-                beside four controls and has to cut, this has a full-width line and can spend two of them —
-                so the cap is the row's own (ROW_MAX), not the island's, and there is no `truncate` to cut
-                what the cap let through. `break-words` is for the pathological case: a title that is one
-                unbroken 60-character token has to break somewhere, and the alternative is a horizontal
-                overflow the gates would (rightly) fail. */""}
-          <span data-src-title class=${`block break-words leading-snug ${active ? "font-semibold" : ""}`}>${sourceTitle(s.url, { pageTitle: s.name, max: ROW_MAX })}</span>
-          ${sub ? html`<span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${sub}</span>` : null}
-        </span>
-      </button>
-      ${sr.searchable ? html`<button data-search-toggle class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${searching ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "search")} aria-pressed=${searching} onClick=${() => setSearching((v) => !v)}>${Icon("lucide:search", "text-lg")}</button>` : null}
-      ${onOpen ? html`<button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(s)}>${Icon("lucide:external-link", "text-lg")}</button>` : null}
-      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(s)}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
-      <button class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbed ? "text-primary" : "opacity-50"}`} aria-label=${T(t, subbed ? "unsub" : "sub")} data-haptic=${subbed ? "bump" : "off"} onClick=${onToggle}>${Icon(subbed ? "lucide:check" : "lucide:plus", "text-lg")}</button>
-    </div>
-    ${searching ? html`<form onSubmit=${submit} class="flex items-center gap-2 px-2.5 pb-2.5">
-      <label class="input input-sm flex items-center gap-2 rounded-xl flex-1">
-        ${Icon("lucide:search", "opacity-50 shrink-0 text-sm")}
-        <input data-search-input type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
-      </label>
-      <button type="submit" class="btn btn-primary btn-sm btn-circle" aria-label=${T(t, "search")}>${Icon("lucide:play")}</button>
-    </form>` : null}
+  return html`<li class=${`flex items-center gap-0.5 pr-1 ${active ? "sf-inset rounded-2xl" : ""}`}>
+    <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-xl sf-press" onClick=${() => onPlay(s)}>
+      ${lead}
+      <span class="min-w-0 flex-1">
+        ${/* the saved name is the page's real title — the string the island resolved and renameSub wrote
+              back — and it only wins where the URL itself names nothing, so a category page stays "Space",
+              not "Mixkit". Fed in as the page's OWN title (which is what it is), the row runs the identical
+              priority chain the island ran, on the identical inputs: two surfaces, one answer.
+              And it WRAPS. A row is the one place with room for the whole name — the island is a chip
+              beside four controls and has to cut, this has a full-width line and can spend two of them —
+              so the cap is the row's own (ROW_MAX), not the island's, and there is no `truncate` to cut
+              what the cap let through. `break-words` is for the pathological case: a title that is one
+              unbroken 60-character token has to break somewhere, and the alternative is a horizontal
+              overflow the gates would (rightly) fail. */""}
+        <span data-src-title class=${`block break-words leading-snug ${active ? "font-semibold" : ""}`}>${sourceTitle(s.url, { pageTitle: s.name, max: ROW_MAX })}</span>
+        ${sub ? html`<span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${sub}</span>` : null}
+      </span>
+    </button>
+    <button data-src-keep class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbed ? "text-primary" : "opacity-50"}`} aria-label=${T(t, subbed ? "unsub" : "sub")} data-haptic=${subbed ? "bump" : "off"} onClick=${onToggle}>${Icon(subbed ? "lucide:check" : "lucide:plus", "text-lg")}</button>
   </li>`;
 }
 
-// One site. A single page renders as one self-contained row (a header above its only child would be the same
-// line twice); two or more get a site header with the page count over hairline-separated page rows.
+// One site. The header is the site — its face, its name, its host, how many of its pages you keep, and the
+// two things that belong to a SITE rather than to a page: opening it in the browser, and the session you
+// pasted for it. A site with a single page whose name is the site's own name is that header and nothing
+// else: a row underneath would be the same line twice, which is what the old card did.
 // The card is the page extruded, on the shallow rung a long scrolling list can afford (`sf-e2`); the site
-// you are watching right now stands one rung higher (`sf-e3`) and keeps the primary tint as its FILL. The
-// `border-base-300 bg-base-100` / `border-primary/50` hairlines it replaces drew the edge the pair now owns.
+// you are watching right now stands one rung higher (`sf-e3`) and keeps the primary tint as its FILL.
 function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession, sessions, t }) {
   const hot = g.items.some((s) => s.url === curSrc);
   const hasSession = !!(sessions && sessions[g.domain]);
   const shell = `rounded-2xl ${hot ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`;
-  if (g.items.length === 1) {
-    const s = g.items[0];
-    return html`<ul class=${shell}><${PageRow} s=${s} active=${s.url === curSrc} subbed=${subbedUrls.has(s.url)} onPlay=${onPlay} onOpen=${onOpen} onToggle=${() => onToggle(s)} onSession=${onSession} hasSession=${hasSession} lead=${html`<${Favicon} url=${s.url} size="w-10 h-10" />`} sub=${g.domain} t=${t} /></ul>`;
+  const one = g.items.length === 1 ? g.items[0] : null;
+  const oneName = one ? sourceTitle(one.url, { pageTitle: one.name, max: ROW_MAX }) : "";
+  const solo = one && oneName.toLowerCase() === String(g.name || "").toLowerCase();   // the page IS the site
+  const head = html`<div class="flex items-center gap-2.5 min-w-0 flex-1 text-left px-2.5 py-2.5 rounded-xl">
+    <${SourceFace} s=${one || g.items[0]} />
+    <span class="min-w-0 flex-1">
+      <span data-src-title class="block font-semibold truncate leading-tight">${solo ? oneName : g.name}</span>
+      <span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${g.domain}${g.items.length > 1 ? ` · ${g.items.length}` : ""}</span>
+    </span>
+  </div>`;
+  const siteActs = html`<${Fragment}>
+    <button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(g.items[0])}>${Icon("lucide:external-link", "text-lg")}</button>
+    ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(g.items[0])}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
+  <//>`;
+
+  if (solo) {
+    return html`<section class=${`${shell} flex items-center gap-0.5 pr-1 ${one.url === curSrc ? "sf-inset" : ""}`}>
+      <button data-src-row class="flex min-w-0 flex-1 sf-press rounded-2xl text-left" onClick=${() => onPlay(one)}>
+        ${head}
+      </button>
+      ${siteActs}
+      <button data-src-keep class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${subbedUrls.has(one.url) ? "text-primary" : "opacity-50"}`} aria-label=${T(t, subbedUrls.has(one.url) ? "unsub" : "sub")} data-haptic=${subbedUrls.has(one.url) ? "bump" : "off"} onClick=${() => onToggle(one)}>${Icon(subbedUrls.has(one.url) ? "lucide:check" : "lucide:plus", "text-lg")}</button>
+    </section>`;
   }
   return html`<section class=${`${shell} overflow-hidden`}>
-    <header class="flex items-center gap-2.5 px-2.5 py-2.5 border-b border-base-300">
-      <${Favicon} url=${g.items[0].url} size="w-10 h-10" />
-      <div class="min-w-0 flex-1">
-        <div class="font-semibold truncate leading-tight">${g.name}</div>
-        <div class="text-[0.7rem] font-mono text-base-content/70 truncate">${g.domain}</div>
-      </div>
-      <span class="text-xs font-mono text-base-content/70 tabular-nums px-1">${g.items.length}</span>
-      <button data-open-site class="btn btn-ghost btn-sm btn-circle shrink-0 opacity-70" aria-label=${T(t, "openSite")} onClick=${() => onOpen(g.items[0])}>${Icon("lucide:external-link", "text-lg")}</button>
-      ${onSession ? html`<button data-session class=${`btn btn-ghost btn-sm btn-circle shrink-0 ${hasSession ? "text-primary" : "opacity-70"}`} aria-label=${T(t, "sessTitle")} aria-pressed=${hasSession} onClick=${() => onSession(g.items[0])}>${Icon("lucide:key-round", "text-lg")}</button>` : null}
-    </header>
+    <header class="flex items-center gap-0.5 pr-1 border-b border-base-300">${head}${siteActs}</header>
     <ul class="divide-y divide-base-300/60">
       ${g.items.map((s) => html`<${PageRow} s=${s} active=${s.url === curSrc} subbed=${subbedUrls.has(s.url)} onPlay=${onPlay} onToggle=${() => onToggle(s)} lead=${html`<span class=${`shrink-0 rounded-full ${s.url === curSrc ? "w-1.5 h-5 bg-primary" : "w-1.5 h-1.5 bg-base-content/30"}`}></span>`} t=${t} key=${s.url} />`)}
     </ul>
   </section>`;
 }
 
+// Below this many kept sites the filter is noise: it would sit above a list you can already see all of.
+const FILTER_FROM = 6;
+
 export function sources({ S, undo, toast }) {
   const t = useStore(S.t), screen = useStore(S.screen);
   useShareIntake(S, toast);
   const subs = useStore($subs), curSrc = useStore($src), watchedN = useStore($watched).size, sessions = useStore($sessions);
+  const [q, setQ] = useState("");
   const editSession = (s) => { $sessSite.set(s.url); S.screen.set("session"); };
   const play = (s) => { resetNav(S); $owner.set("reel"); openSource(s.url, s.name); S.tab.set("reel"); };   // the saved title carries into the island
   const subbedUrls = new Set(subs.map((x) => x.url));
-  const mine = groupByDomain(subs);
-  const discover = groupByDomain(PRESETS.filter((p) => !subbedUrls.has(p.url)));
+  // The filter reads what the row SHOWS plus the host, because "mixkit" is how you look for a page whose
+  // saved title never mentions it.
+  const needle = q.trim().toLowerCase();
+  const hit = (s) => !needle || `${sourceTitle(s.url, { pageTitle: s.name })} ${hostOf(s.url)}`.toLowerCase().includes(needle);
+  const mine = groupByDomain(subs.filter(hit));
+  const discover = groupByDomain(PRESETS.filter((p) => !subbedUrls.has(p.url) && hit(p)));
 
   return html`<${Fragment}>
     <div class="flex flex-col gap-4 @container">
-      <button id="add-url" class="btn btn-primary rounded-2xl gap-2" onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
+      ${/* One line, two jobs: narrow the list you have, or add one it does not. The add button keeps its id
+            — it is the door the source sheet opens through, and three e2e cases knock on it. */""}
+      <div class="flex items-center gap-2">
+        ${subs.length >= FILTER_FROM ? html`<label class="input input-sm flex items-center gap-2 rounded-2xl flex-1 min-w-0">
+          ${Icon("lucide:filter", "opacity-50 shrink-0 text-sm")}
+          <input id="src-filter" type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "filterPh")} aria-label=${T(t, "filterPh")} value=${q} onInput=${(e) => setQ(e.target.value)} />
+        </label>` : null}
+        <button id="add-url" class=${`btn btn-primary rounded-2xl gap-2 ${subs.length >= FILTER_FROM ? "btn-sm shrink-0" : "flex-1"}`} onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
+      </div>
 
       <div class="flex flex-col gap-2.5">
         <div class="text-sm font-semibold px-1 flex items-center gap-1.5">${Icon("lucide:bookmark", "text-primary")} ${T(t, "subs")}</div>
         ${mine.length
           ? mine.map((g) => html`<${DomainCard} g=${g} curSrc=${curSrc} subbedUrls=${subbedUrls} onPlay=${play} onOpen=${openSite} onToggle=${(s) => unsubscribe(s.url)} onSession=${editSession} sessions=${sessions} t=${t} key=${g.domain} />`)
-          : html`<div class="text-sm text-base-content/70 px-1 py-3">${T(t, "noSubs")}</div>`}
+          : html`<div class="text-sm text-base-content/70 px-1 py-3">${T(t, needle ? "noHits" : "noSubs")}</div>`}
       </div>
 
       ${discover.length ? html`<div class="flex flex-col gap-2.5">
@@ -1414,6 +1589,7 @@ export function sources({ S, undo, toast }) {
 export function liked({ S, toast }) {
   const t = useStore(S.t), likes = useStore($likes), owner = useStore($owner);
   useShareIntake(S, toast);   // before the early return below — a hook is not allowed to be conditional
+  useMonoFlag();              // the grid is posters: noir has to reach it, not just the feed
   const sorted = [...likes].sort((a, b) => (b.ts || 0) - (a.ts || 0));
   if (owner === "liked") return html`<${FeedSurface} S=${S} t=${t} toast=${toast} />`;
   const playAt = (i) => {

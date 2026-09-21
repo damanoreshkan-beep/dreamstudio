@@ -84,7 +84,10 @@
        drains video, poster and backdrop while their own filters stay intact. The island is a SIBLING of
        [data-reel], so its favicon and play button keep their colour, where colour means source and action. */
     :root[data-mono] [data-reel],
-    :root[data-mono] [role="dialog"] video{filter:grayscale(1)}
+    :root[data-mono] [role="dialog"] video,
+    /* …and the liked grid, which is nothing but frames of the same clips (owner, 2026-09-21). The IMG only:
+       the heart on each tile is an action and the caption is text, and colour is what makes an action one. */
+    :root[data-mono] [data-liked] img{filter:grayscale(1)}
   </style>
 </head>
 <body class="bg-base-200 min-h-dvh">

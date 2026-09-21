@@ -120,7 +120,8 @@ export default [
       h.expect((await h.count("[data-reel] a")) === 0, "на слайді лишилось посилання (відкрити оригінал)");
       h.expect((await h.count("[data-reel] button")) === 0, "на слайді лишилась кнопка");
       // В ОСТРІВЦІ лишається тільки те, чого НЕ робить жест: назва, акаунт, «дивитись тут» — і двері «Ще».
-      for (const [sel, what] of [["[data-island-label]", "назва"], ["[data-channel]", "акаунт"], ["[data-more]", "двері «Ще»"]]) {
+      for (const [sel, what] of [["[data-island-label]", "назва"], ["[data-channel]", "акаунт"], ["[data-more]", "двері «Ще»"],
+        ["[data-island-search]", "пошук по джерелу"], ["[data-island-cast]", "актори"]]) {
         h.expect((await h.count(sel)) === 1, `в острівці немає контролу: ${what} (${sel})`);
       }
       /* І ця назва — САМОГО КЛІПА, а не стрічки. Свайп міняв картинку й аватарку, а рядок стояв на місці
@@ -301,6 +302,45 @@ export default [
     },
   },
   {
+    /* Пошук по ДЖЕРЕЛУ, з острівця. У кожного сайту свій патерн, і ми його не вгадуємо: едж читає його з
+       посилань, які сайт сам публікує, і віддає приклад результатної URL разом зі стрічкою (`search`).
+       Під гейтом цей приклад підставлений (GATE_SEARCH) — інакше кнопки просто не було б, бо вона є лише
+       там, куди є куди слати. Кейс міряє весь ланцюг: кнопка → інпут → «Знайти» → джерело стало пошуковим. */
+    name: "острівець: пошук по джерелу підставляє термін у патерн сайту", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-island-search]")) === 1, "в острівці нема кнопки пошуку");
+      h.expect((await h.count("#island-q")) === 0, "інпут пошуку стоїть розгорнутим — він має бути за кнопкою");
+      await h.tap("[data-island-search]"); await h.wait(400);
+      h.expect((await h.count("#island-q")) === 1, "кнопка не розгорнула інпут");
+      h.expect((await h.count("[data-island-label]")) === 0, "шухляда пошуку мусить ЗАЙНЯТИ рядок острівця — на 384px інакше нема місця");
+      await h.type("#island-q", "sintel"); await h.wait(150);
+      await h.tap("#island-find"); await h.wait(800);
+      const src = await h.storage("reel:src");
+      h.expect(/[?&]q=sintel\b/.test(src || ""), `джерелом стало «${src}» — термін не підставився в патерн сайту`);
+      h.expect((await h.count("#island-q")) === 0, "шухляда лишилась відкритою після пошуку");
+      h.expect((await h.count("[data-island-label]")) === 1, "острівець не повернувся у звичайний рядок");
+    },
+  },
+  {
+    /* Актори. Їх нема в лістингу — вони на сторінці самого кліпа, тож це ОКРЕМИЙ запит, і саме тому він за
+       кнопкою: тридцять плиток означали б тридцять завантажень сторінок заради рядка, який більшість не
+       відкриє. Тап по обличчю — те саме провалювання, що й по аватарці автора. */
+    name: "острівець: кнопка тягне акторів кліпа, тап по обличчю провалює у його стрічку", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-cast-row]")) === 0, "список акторів показано до того, як його попросили");
+      h.expect((await h.count("[data-island-cast]")) === 1, "в острівці нема кнопки акторів");
+      await h.tap("[data-island-cast]"); await h.wait(600);
+      h.expect((await h.count("[data-cast-row]")) === 1, "кнопка не розгорнула рядок акторів");
+      h.expect((await h.count("[data-cast-person]")) >= 1, "рядок акторів порожній");
+      h.expect((await h.count("[data-island-label]")) === 1, "актори мусять відкритись НАД рядком, а не замість нього");
+      const root = await h.attr("[data-island-label]", "data-island-src");
+      await h.tap("[data-cast-person]"); await h.wait(700);
+      h.expect((await h.count("[data-cast-row]")) === 0, "шухляда не закрилась після переходу");
+      h.expect((await h.attr("[data-island-label]", "data-island-src")) !== root, `острівець лишився на «${root}» — тап по актору нікуди не провалив`);
+      await h.tap("[data-feed-back]"); await h.wait(600);                 // прибрати за собою: назад на корінь
+    },
+  },
+  {
     name: "джерела: канали згруповані по сайтах з людськими назвами сторінок (Back закриває шит)", run: async (h) => {
       await ready(h);
       await h.tap('[data-tab="sources"]'); await h.wait(300);           // reel → sources tab (dock)
@@ -403,6 +443,28 @@ export default [
       await h.tap("[data-sess-forget]"); await h.wait(400);
       h.expect((await h.count("#sess-input")) === 0, "«Забути» не закрило шит");
       h.expect((await h.count('[data-session][aria-pressed="true"]')) === 0, "«Забути» не зняло позначку з ключа");
+    },
+  },
+  {
+    /* Нуар — це спосіб дивитись, а не властивість однієї вкладки. Сітка лайків — це ті самі кадри, три в
+       ряд, і вона лишалась кольоровою, бо прапорець на <html> знімався разом зі стрічкою (власник,
+       2026-09-21). Міряється обчислений filter на ПОСТЕРІ й на серденьку поруч: колір — це дія. */
+    name: "нуар: сітка лайків теж знебарвлюється, а її контроли лишаються кольоровими", run: async (h) => {
+      await ready(h);
+      await openMore(h);
+      await h.tap("[data-noir]"); await h.wait(400);
+      await h.back(); await h.wait(400);
+      await h.tap('[data-tab="liked"]'); await h.wait(600);
+      h.expect((await h.count("[data-liked] img")) >= 1, "у сітці лайків нема жодного постера");
+      h.expect(/grayscale\(1\)/.test(await h.css("[data-liked] img", "filter")),
+        `нуар увімкнено, а постер у лайках лишився кольоровим (filter: ${await h.css("[data-liked] img", "filter")})`);
+      h.expect((await h.css("[data-liked] button", "filter")) === "none", "фільтр дістав і контроли плитки — правило зачепило забагато");
+      // Прибрати за собою: режим persistent, і наступні кейси міряють кадр.
+      await h.tap('[data-tab="reel"]'); await h.wait(500);
+      await openMore(h);
+      await h.tap("[data-noir]"); await h.wait(400);
+      await h.back(); await h.wait(400);
+      h.expect((await h.count("[data-noir]")) === 0, "шторка лишилась відкритою — наступний Back дістанеться їй");
     },
   },
   {
