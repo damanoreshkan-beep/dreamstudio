@@ -14,6 +14,7 @@
     "imageFit": "cover",
     "title": "title",
     "subtitle": "provider",
+    "view": "launch",
     "rows": [
       {
         "field": "rocket",
@@ -24,12 +25,23 @@
         "field": "net",
         "label": "dWhen",
         "icon": "lucide:clock",
-        "format": "when"
+        "format": "when",
+        "precision": "precision"
       },
       {
         "field": "pad",
         "label": "dPad",
         "icon": "lucide:map-pin"
+      },
+      {
+        "field": "place",
+        "label": "dPlace",
+        "icon": "lucide:globe"
+      },
+      {
+        "field": "orbit",
+        "label": "dOrbit",
+        "icon": "lucide:orbit"
       },
       {
         "field": "mission",
@@ -42,6 +54,11 @@
         "href": "url",
         "label": "dWatch",
         "icon": "lucide:play"
+      },
+      {
+        "href": "map",
+        "label": "dSite",
+        "icon": "lucide:map"
       }
     ]
   },
@@ -55,6 +72,26 @@
       "searchKey": "search",
       "statusKey": "status",
       "paginate": true,
+      "sections": [
+        {
+          "filter": "soon",
+          "label": "secSoon",
+          "icon": "lucide:flame",
+          "accent": true
+        },
+        {
+          "filter": "later",
+          "label": "secLater",
+          "icon": "lucide:calendar-days"
+        },
+        {
+          "filter": "fuzzy",
+          "label": "secFuzzy",
+          "icon": "lucide:circle-dashed",
+          "collapsible": true,
+          "open": false
+        }
+      ],
       "empty": {
         "icon": "lucide:rocket",
         "text": "noResults",
@@ -69,14 +106,51 @@
         "more": "more",
         "meta": {
           "field": "net",
-          "format": "when"
+          "format": "when",
+          "precision": "precision"
         },
         "badges": [
           {
-            "field": "status"
+            "key": "go",
+            "when": "go",
+            "label": "bGo",
+            "icon": "lucide:circle-check",
+            "variant": "success"
+          },
+          {
+            "key": "hold",
+            "when": "hold",
+            "label": "bHold",
+            "icon": "lucide:pause"
+          },
+          {
+            "key": "tbc",
+            "when": "tbc",
+            "label": "bTbc",
+            "icon": "lucide:circle-help"
+          },
+          {
+            "field": "orbit",
+            "icon": "lucide:orbit"
           }
         ]
       }
+    },
+    {
+      "id": "map",
+      "type": "tool",
+      "icon": "lucide:globe",
+      "label": "tabMap",
+      "titleKey": "tabMap",
+      "view": "pads"
+    },
+    {
+      "id": "cal",
+      "type": "tool",
+      "icon": "lucide:calendar-days",
+      "label": "tabCal",
+      "titleKey": "tabCal",
+      "view": "agenda"
     },
     {
       "id": "saved",
@@ -101,11 +175,20 @@
         "more": "more",
         "meta": {
           "field": "net",
-          "format": "when"
+          "format": "when",
+          "precision": "precision"
         },
         "badges": [
           {
-            "field": "status"
+            "key": "go",
+            "when": "go",
+            "label": "bGo",
+            "icon": "lucide:circle-check",
+            "variant": "success"
+          },
+          {
+            "field": "orbit",
+            "icon": "lucide:orbit"
           }
         ]
       }
