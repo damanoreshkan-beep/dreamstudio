@@ -355,3 +355,48 @@ module its `S` — safe only because `createApp` builds it once per app and neve
 **And it comes off the address.** `replaceState` removes the three `sh_*` keys and nothing else, so a reload
 or a restored tab cannot add the same source twice, and the address bar of an installed app does not carry
 somebody's caption. The e2e asserts both halves: the source changed, and `sh_` is gone from `baseURI`.
+
+## 9. The island grew two drawers, and the sources tab stopped being a control panel (2026-09-21)
+
+Four asks in one morning, all of them the same complaint from different sides: the app knows things it does
+not show, and the screens that should show them are busy with buttons.
+
+**Avatars on every list.** Two defects in the edge, both measured against the live pages and both fixed
+there (`microspec-edge`, extract.js): a lazy image states its picture in `data-src` and a 1×1 spacer in
+`src`, and the reader stopped at the first attribute that had a value; and an uploader is not always two
+path segments deep — the second-biggest source here parks every account at the site root (`/sarablonde`),
+which is why 18 of 27 tiles on a search page had no account at all and therefore nothing to fetch a face
+for. The app side did not change: it already asked `/feed/avatar` for the accounts a tile names.
+
+**The cast, behind a button.** A listing tile never carries a cast; the clip's own page does. So
+`/feed/cast` is a second request, made on tap, cached six hours on the edge — thirty tiles would otherwise
+be thirty page fetches for a row most people never open. A face in the row is the same dive as the account
+circle beside the title. Two page shapes are read (a labelled row, a marked link) and where a label exists
+it wins, because the same page marks every performer of every related clip in the rail beside it.
+
+**Search inside the source.** The runtime could already swap the term in a results URL; what was missing was
+a results URL for a source that is a front page or an account. The site's own `<form>` is not the answer —
+the biggest source names its field `search_text` while its results live at `/video/search?search=…`, and
+the form's name 404s — so the edge reads the pattern out of the links the site PUBLISHES (trending
+searches, tag rails, the pager) and hands up one example URL with the feed. The app remembers it per host,
+and `buildSearchUrl` does the rest. The island's search button appears only where there is somewhere to
+send it.
+
+**Where all of this lives: the island** (owner: "все зміни роби в островку"). It is 384px wide and already
+held five things, so neither of the two new functions is a new circle. Each is a DRAWER: search REPLACES the
+row, because an input needs the width the row is using; the cast opens ABOVE it, because you are choosing
+between faces and the row you came from should stay put. One at a time, both closed by a swipe to the next
+clip — a cast belongs to the clip it was opened on.
+
+**And the sources tab** (owner: "застарів, не продуманий ui/ux"). The grouping was right; the problem was
+that every line was a control panel — up to four icon buttons beside the one thing you came to do. So the
+SITE owns the site's actions (open in browser, the session cookie) once in its card header, a PAGE row owns
+the one action about that page (keep it or drop it), a site with a single page whose name is the site's own
+name is one tap target instead of a header repeating itself, and identity is a face wherever the app has
+already learned one — nothing is fetched for this screen. A filter appears at six kept sites and searches
+names and hosts. The per-row search came out: the island searches whatever you are watching.
+
+**Noir covers the liked grid.** The flag was raised by the feed and taken off when the feed unmounted, so
+the one screen that is nothing but frames — three columns of them, in another tab — stayed in colour. Both
+screens raise it now and nothing has to hand it over; it selects only the surfaces that name it
+(`[data-reel]`, a dialog's video, `[data-liked] img`), so letting it linger costs nothing.

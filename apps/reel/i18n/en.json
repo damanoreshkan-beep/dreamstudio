@@ -53,5 +53,10 @@
   "expBusy": "Preparing",
   "expSaved": "Saved",
   "expFail": "Could not export",
-  "shareNoLink": "No link in what was shared"
+  "shareNoLink": "No link in what was shared",
+  "find": "Find",
+  "cast": "Cast",
+  "castNone": "Nobody is credited here",
+  "filterPh": "Filter by name…",
+  "noHits": "Nothing matches"
 }
