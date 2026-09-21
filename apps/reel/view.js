@@ -250,7 +250,10 @@ const unseen = (arr) => arr.filter((i) => !$watched.get().has(i.orig || i.video)
 // double-tap (the e2e surface can't dispatch two taps inside useTap's 260 ms window).
 const likesDB = collection("reelLikes");
 const likeId = (i) => i.orig || i.video;
-const GATE_LIKES = MOCK.slice(0, 3).map((i, n) => ({ id: likeId(i), video: i.video, orig: null, poster: null, page: i.page, title: i.title, host: hostOf(i.page), eph: false, ts: 1000 - n }));
+/* The first one keeps a PICTURE — a data: URI, so it decodes with no network and the same way every run.
+   The grid is posters, and "noir reaches the liked grid" is a claim about a poster; with every seeded like
+   poster-less the tile renders a play glyph and there is nothing on the screen to measure. */
+const GATE_LIKES = MOCK.slice(0, 3).map((i, n) => ({ id: likeId(i), video: i.video, orig: null, poster: n === 0 ? GREY_PX : null, page: i.page, title: i.title, host: hostOf(i.page), eph: false, ts: 1000 - n }));
 const $likes = atom(gate ? GATE_LIKES : []);
 if (idbSupported && !gate) likesDB.all().then((rows) => $likes.set(rows)).catch(() => {});
 function addLike(i) {                                                                       // double-tap → save; dedupe (never store twice)
@@ -1138,6 +1141,9 @@ const $drawer = atom("");                                            // "" | "se
    per host — a front page states it, an account page may not, and having once been told where a site's
    results live is not something to forget when you dive. */
 const $searchBases = persistentAtom("reel:searchbase", {}, { encode: JSON.stringify, decode: JSON.parse });
+// The gate's feed is SEEDED, so loadSource never runs at boot and nothing would ever learn this — and a
+// button that exists only where there is somewhere to send it would then never exist under the gate.
+if (gate) $searchBases.set({ ...$searchBases.get(), [hostOf(DEFAULT_SRC)]: GATE_SEARCH });
 function rememberSearch(url, example) {
   if (!example) return;
   const host = hostOf(url); if (!host) return;
@@ -1507,7 +1513,11 @@ function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession
   const head = html`<div class="flex items-center gap-2.5 min-w-0 flex-1 text-left px-2.5 py-2.5 rounded-xl">
     <${SourceFace} s=${one || g.items[0]} />
     <span class="min-w-0 flex-1">
-      <span data-src-title class="block font-semibold truncate leading-tight">${solo ? oneName : g.name}</span>
+      ${/* The hook names the SOURCE, and a multi-page card's header names the SITE — two different things.
+            Putting it on both made `[data-src-title]` resolve to "Mixkit" where the test (and the reader)
+            wanted the page: "Nine Lives Studio & Friends". It is the row's, except where the header is
+            the row. */""}
+      <span data-src-title=${solo ? "" : null} class="block font-semibold truncate leading-tight">${solo ? oneName : g.name}</span>
       <span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${g.domain}${g.items.length > 1 ? ` · ${g.items.length}` : ""}</span>
     </span>
   </div>`;
