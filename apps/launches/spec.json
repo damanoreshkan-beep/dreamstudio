@@ -210,6 +210,7 @@
       "label": "profSource",
       "url": "https://thespacedevs.com/",
       "icon": "lucide:database"
-    }
+    },
+    "watch": { "source": "launch" }
   }
 }

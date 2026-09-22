@@ -6,6 +6,18 @@ export default [
       await load(h);
       h.expect((await h.count(".card")) > 3, "немає карток курсів");
       h.expect(/EUR|GBP|JPY/.test(await h.bodyText()), "немає кодів валют");
+      // The hryvnia is a SECOND call (the ECB list has no UAH) and it is the rate most readers open this
+      // app for, so its absence must red the gate rather than pass as "one currency fewer".
+      h.expect(/UAH/.test(await h.bodyText()), "немає гривні");
+    },
+  },
+  {
+    name: "дзвінок: сповіщення про курс у профілі", run: async (h) => {
+      await load(h);
+      await h.click('[data-tab="me"]'); await h.wait(400);
+      h.expect((await h.count('[data-watch="uah"]')) === 1, "немає картки сповіщень");
+      h.expect((await h.count("[data-watch-value]")) === 1, "немає поля порогу");
+      await h.click('[data-tab="rates"]'); await h.wait(120);
     },
   },
   {
