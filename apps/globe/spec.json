@@ -12,6 +12,7 @@
     },
     {
       "id": "track",
+      "watch": { "source": "iss" },
       "type": "tool",
       "icon": "lucide:satellite",
       "label": "tabTrack",
@@ -19,6 +20,7 @@
     },
     {
       "id": "map",
+      "watch": { "source": "quake" },
       "type": "tool",
       "icon": "lucide:activity",
       "label": "tabMap",
@@ -41,7 +43,6 @@
       "label": "profSource",
       "url": "https://github.com/topojson/world-atlas",
       "icon": "lucide:database"
-    },
-    "watch": { "source": "quake" }
+    }
   }
 }

@@ -8,6 +8,7 @@
   "tabs": [
     {
       "id": "rates",
+      "watch": { "source": "uah", "params": { "code": "USD" } },
       "type": "list",
       "icon": "lucide:coins",
       "label": "tabRates",
@@ -55,7 +56,6 @@
       "label": "profSource",
       "url": "https://frankfurter.dev/",
       "icon": "lucide:database"
-    },
-    "watch": { "source": "uah", "params": { "code": "USD" } }
+    }
   }
 }

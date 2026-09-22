@@ -12,12 +12,12 @@ export default [
     },
   },
   {
-    name: "дзвінок: сповіщення про курс у профілі", run: async (h) => {
+    name: "дзвінок: з панелі курсів", run: async (h) => {
       await load(h);
-      await h.click('[data-tab="me"]'); await h.wait(400);
+      await h.click("#watch-btn"); await h.wait(400);
       h.expect((await h.count('[data-watch="uah"]')) === 1, "немає картки сповіщень");
       h.expect((await h.count("[data-watch-value]")) === 1, "немає поля порогу");
-      await h.click('[data-tab="rates"]'); await h.wait(120);
+      await h.back(); await h.wait(250);
     },
   },
   {

@@ -6,6 +6,7 @@
   "tabs": [
     {
       "id": "now",
+      "watch": { "source": "weather" },
       "type": "dashboard",
       "icon": "lucide:sun",
       "label": "tabNow",
@@ -67,7 +68,6 @@
       "label": "profSource",
       "url": "https://open-meteo.com/",
       "icon": "lucide:database"
-    },
-    "watch": { "source": "weather" }
+    }
   }
 }
