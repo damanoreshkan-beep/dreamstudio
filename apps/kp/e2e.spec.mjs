@@ -25,13 +25,18 @@ export default [
   {
     // The bell is systemic, so this is the farm's proof that an app gets it from one spec key — and the
     // case that would have stayed green while the card rendered nothing at all.
-    name: "дзвінок: сповіщення про Kp у профілі", run: async (h) => {
-      await h.click('[data-tab="me"]'); await h.wait(400);
+    name: "дзвінок: з панелі, одним тапом від числа", run: async (h) => {
+      await ready(h);
+      // The point of the case is the DOOR, not the card: the bell lives in the bar of every tab, because a
+      // reader who came to look at Kp never opens the settings page.
+      h.expect((await h.count("#watch-btn")) === 1, "немає дзвінка в панелі");
+      await h.click("#watch-btn"); await h.wait(400);
       h.expect((await h.count('[data-watch="kp"]')) === 1, "немає картки сповіщень");
       h.expect((await h.count("[data-watch-add]")) === 1, "немає кнопки додати");
       h.expect((await h.count('[data-watch-op="above"]')) === 1, "немає порогу вище");
       h.expect((await h.count("[data-watch-rules] li")) >= 1, "немає списку правил");
-      await h.click('[data-tab="now"]'); await h.wait(120);
+      await h.back(); await h.wait(250);
+      h.expect((await h.count('[data-watch="kp"]')) === 0, "Back не закрив екран");
     },
   },
   {
