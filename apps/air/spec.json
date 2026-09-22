@@ -5,6 +5,7 @@
   "tabs": [
     {
       "id": "now",
+      "watch": { "source": "air" },
       "type": "tool",
       "icon": "lucide:wind",
       "label": "tabNow",
@@ -31,7 +32,6 @@
       "url": "https://open-meteo.com/",
       "icon": "lucide:database"
     },
-    "account": "any",
-    "watch": { "source": "air" }
+    "account": "any"
   }
 }

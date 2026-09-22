@@ -5,6 +5,7 @@
   "tabs": [
     {
       "id": "now",
+      "watch": { "source": "kp" },
       "type": "tool",
       "icon": "lucide:activity",
       "label": "tabNow",
@@ -27,7 +28,6 @@
       "label": "profSource",
       "url": "https://www.swpc.noaa.gov",
       "icon": "lucide:database"
-    },
-    "watch": { "source": "kp" }
+    }
   }
 }

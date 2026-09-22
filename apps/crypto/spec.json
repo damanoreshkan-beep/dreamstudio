@@ -5,6 +5,7 @@
   "tabs": [
     {
       "id": "market",
+      "watch": { "source": "coin", "params": { "id": "btc-bitcoin" } },
       "type": "list",
       "icon": "lucide:candlestick-chart",
       "label": "tabMarket",
@@ -61,7 +62,6 @@
       "label": "profSource",
       "url": "https://www.binance.com/",
       "icon": "lucide:database"
-    },
-    "watch": { "source": "coin", "params": { "id": "btc-bitcoin" } }
+    }
   }
 }

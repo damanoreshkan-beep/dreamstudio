@@ -4,6 +4,25 @@ const seed = async (h) => { for (let i = 0; i < 26; i++) { if ((await h.count("c
 
 export default [
   {
+    // The bell is per-TAB, and this app is the reason it is: Земля has nothing to watch, МКС has the station
+    // passing overhead and Землетруси has the ground moving. A bell that offered one rule for the whole app
+    // could only ever offer the wrong one on two screens out of three.
+    name: "дзвінок іде за вкладкою: МКС і землетруси — різні правила", run: async (h) => {
+      await seed(h);
+      h.expect((await h.count("#watch-btn")) === 0, "на Землі нема чого сповіщати, а дзвінок є");
+      await h.click('[data-tab="track"]'); await h.wait(400);
+      h.expect((await h.count("#watch-btn")) === 1, "немає дзвінка на МКС");
+      await h.click("#watch-btn"); await h.wait(400);
+      h.expect((await h.count('[data-watch="iss"]')) === 1, "дзвінок на МКС відкрив не те правило");
+      await h.back(); await h.wait(250);
+      await h.click('[data-tab="map"]'); await h.wait(400);
+      await h.click("#watch-btn"); await h.wait(400);
+      h.expect((await h.count('[data-watch="quake"]')) === 1, "дзвінок на землетрусах відкрив не те правило");
+      await h.back(); await h.wait(250);
+      await h.click('[data-tab="earth"]'); await h.wait(200);
+    },
+  },
+  {
     name: "глобус рендериться (canvas)", run: async (h) => {
       await seed(h);
       h.expect((await h.count("canvas")) === 1, "немає глобуса");
