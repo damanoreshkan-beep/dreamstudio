@@ -27,6 +27,7 @@
       "label": "profSource",
       "url": "https://www.swpc.noaa.gov",
       "icon": "lucide:database"
-    }
+    },
+    "watch": { "source": "kp" }
   }
 }

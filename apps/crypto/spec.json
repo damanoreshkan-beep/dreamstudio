@@ -61,6 +61,7 @@
       "label": "profSource",
       "url": "https://www.binance.com/",
       "icon": "lucide:database"
-    }
+    },
+    "watch": { "source": "coin", "params": { "id": "btc-bitcoin" } }
   }
 }

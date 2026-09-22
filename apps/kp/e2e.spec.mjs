@@ -23,6 +23,18 @@ export default [
     },
   },
   {
+    // The bell is systemic, so this is the farm's proof that an app gets it from one spec key — and the
+    // case that would have stayed green while the card rendered nothing at all.
+    name: "дзвінок: сповіщення про Kp у профілі", run: async (h) => {
+      await h.click('[data-tab="me"]'); await h.wait(400);
+      h.expect((await h.count('[data-watch="kp"]')) === 1, "немає картки сповіщень");
+      h.expect((await h.count("[data-watch-add]")) === 1, "немає кнопки додати");
+      h.expect((await h.count('[data-watch-op="above"]')) === 1, "немає порогу вище");
+      h.expect((await h.count("[data-watch-rules] li")) >= 1, "немає списку правил");
+      await h.click('[data-tab="now"]'); await h.wait(120);
+    },
+  },
+  {
     name: "PWA: профіль → модалка, Back закриває", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click("#p-install"); await h.wait(150);
