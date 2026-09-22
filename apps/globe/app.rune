@@ -1,0 +1,11 @@
+# app.rune — what the spec cannot hold: why this app exists, what would prove it works, what it owes.
+# Grammar and verbs: microspec-edge docs/relay/RUNE.md. The README keeps the prose, the spec keeps the form.
+
+⌁ 2026-09-22T22:41Z · globe
+
+bind · app.globe.why = "where a thing is, right now" ‹apps/globe/README.md, apps/globe/spec.json tabs› ! — all four screens answer it: Земля is where a country is, МКС where the station is, Землетруси where the ground moved, Я where the reader is. A screen that cannot be phrased that way does not belong here
+fact · app.globe.proves = the-dot-moves-offline ‹$ grep -c "subpoint(recRef.current, new Date())" apps/globe/track.js› ! — the claim worth shipping: the station's position is propagated locally from a cached TLE (SGP4, /_rt/orbit.js), so the tracker keeps working with no network and no live-position API to break on a cert
+fact · app.globe.bands = drawn-not-printed ‹$ grep -c ringAround apps/globe/track.js› ! — the rule's threshold is never a number on this screen; the band the edge resolved is drawn as a ring around the reader's own point, and the track is solid behind and dashed ahead so the ring and the line together say WHEN it will be close
+fact · app.globe.gate = green ‹PR #19, 89 check-runs, merged 2026-09-22T22:35:35Z› ! — axe, overflow at seven sizes, the e2e and a screenshot, per app
+wait · app.globe.delivery = owner ‹one rule on the bell at «близько»; crossing → debit → Telegram has never run end to end› ? — the last unproven leg of the thing being sold, and it needs a signed-in account rather than either session
+doubt · rune.app_face.laws ‹RUNE.md "An app's rune" cites LAW.rune; no such file exists in either repo› ! — the shape asks each app to name the standing laws that bind it, and there is nothing to name them from. Either the laws get written down or that line should leave the shape; an app.rune citing a file nobody has is prose with a new syntax
