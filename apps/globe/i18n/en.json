@@ -38,5 +38,9 @@
   "statusError": "Couldn't fetch position",
   "tabMap": "Quakes",
   "count24": "quakes in 24 h",
-  "qStatusError": "Couldn't fetch data"
+  "qStatusError": "Couldn't fetch data",
+  "meHere": "I am here",
+  "meShow": "Show me",
+  "meDenied": "Location unavailable",
+  "trackAhead": "Where it is heading"
 }

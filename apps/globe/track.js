@@ -9,13 +9,34 @@ import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Scramble, useReveal } from "/_rt/skeleton.js";
-import { Globe, countryAt, worldReady } from "/_rt/globe.js";
+import { Globe, countryAt, worldReady, ringAround } from "/_rt/globe.js";
+import { watchList, place } from "/_rt/watch.js";
 import { isGate, MOCK } from "/_rt/gate.js";
 import { subpoint, makeSat, FALLBACK_TLE } from "/_rt/orbit.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const TLE_URL = "https://tle.ivanstanojevic.me/api/tle/25544";
 const CACHE_KEY = "iss.tle.v1";
+const ME_KEY = "iss.me.v1";        // the reader's own point, kept so the prompt is asked once and not per visit
+const GATE_ME = { lat: 50.45, lon: 30.52 };   // Kyiv, for the deterministic shot
+// One orbit is about 92 minutes. The track is drawn 25 minutes behind and 92 ahead at one point a minute:
+// solid for where the station HAS been, dashed for where it is GOING, so the two halves of the line answer
+// the only question a rule about distance asks — WHEN will it be close.
+const BACK_MIN = 25, AHEAD_MIN = 92, STEP_MS = 60e3;
+const ISS_COLOR = "#F5B94D", ME_COLOR = "#4ADE80";
+
+/** The sub-satellite points either side of `at`, as two GeoJSON LineStrings: [been, going]. */
+function groundTrack(rec, at) {
+  const arc = (from, to) => {
+    const pts = [];
+    for (let m = from; m <= to; m++) {
+      const p = subpoint(rec, new Date(at.getTime() + m * STEP_MS));
+      if (p) pts.push([p.lon, p.lat]);
+    }
+    return pts.length > 1 ? { type: "LineString", coordinates: pts } : null;
+  };
+  return [arc(-BACK_MIN, 0), arc(0, AHEAD_MIN)];
+}
 const GATE_DATE = new Date("2026-07-20T02:10:00Z");   // deterministic fix (mid-Pacific) for the gate shot & e2e
 const fmt = (n) => n == null ? "—" : Math.round(Number(n)).toLocaleString("en-US").replace(/,/g, " ");
 
@@ -30,6 +51,44 @@ export function iss({ S }) {
   const recRef = useRef(null);
   const [pos, setPos] = useState(() => { recRef.current = initialSat(); return subpoint(recRef.current, isGate || MOCK ? GATE_DATE : new Date()); });
   const [, tick] = useState(0);
+  const [me, setMe] = useState(() => {
+    if (isGate || MOCK) return GATE_ME;
+    try { const v = JSON.parse(localStorage.getItem(ME_KEY) || "null"); return v && v.lat != null ? v : null; } catch { return null; }
+  });
+  const [rings, setRings] = useState([]);      // the bands this reader actually asked for, in km
+  const [track, setTrack] = useState(null);
+  const [meErr, setMeErr] = useState(false);
+
+  // THE BANDS, DRAWN. The rule row never shows a kilometre — the reader chose a word — but the edge stored
+  // the number that word resolved to, and a circle of that radius around his own point is the same fact in
+  // the only language a globe speaks. A rule about distance from me is unreadable on a globe that does not
+  // say where me is, which is the whole reason these two arrived together.
+  useEffect(() => {
+    let live = true;
+    watchList("iss").then((j) => {
+      if (!live) return;
+      setRings((j.rules || []).filter((r) => r.source === "iss" && r.value > 0).map((r) => r.value));
+    }).catch(() => {});
+    return () => { live = false; };
+  }, []);
+
+  // The track is arithmetic on elements we already hold, so it costs no network — but 117 propagations a
+  // second would be silly, and the line only moves a pixel a second anyway. Once every half minute.
+  useEffect(() => {
+    const redraw = () => { const r = recRef.current; if (r) setTrack(groundTrack(r, isGate || MOCK ? GATE_DATE : new Date())); };
+    redraw();
+    if (isGate || MOCK) return;
+    const id = setInterval(redraw, 30e3);
+    return () => clearInterval(id);
+  }, []);
+
+  const findMe = async () => {
+    setMeErr(false);
+    const p = await place();
+    if (!p) { setMeErr(true); return; }
+    setMe(p);
+    try { localStorage.setItem(ME_KEY, JSON.stringify(p)); } catch { /* private mode — the dot lasts this visit */ }
+  };
 
   // propagate the current TLE locally every second — the dot moves with zero network per frame
   useEffect(() => {
@@ -81,7 +140,21 @@ export function iss({ S }) {
   </div></div>`;
 
   return html`<div class="flex flex-col gap-4 items-center">
-    <${Globe} points=${[{ lat, lon, r: 16, color: "rgba(245,185,77,.16)" }, { lat, lon, r: 5, color: "#F5B94D" }]} focus=${{ lat, lon }} spin=${false} height=${320} />
+    <${Globe}
+      points=${[
+        { lat, lon, r: 16, color: "rgba(245,185,77,.16)" }, { lat, lon, r: 5, color: ISS_COLOR },
+        ...(me ? [{ lat: me.lat, lon: me.lon, r: 4, color: ME_COLOR, pulse: true }] : []),
+      ]}
+      paths=${[
+        ...(track?.[0] ? [{ geo: track[0], color: ISS_COLOR, width: 1.4, alpha: 0.55 }] : []),
+        ...(track?.[1] ? [{ geo: track[1], color: ISS_COLOR, width: 1.4, dash: [4, 5] }] : []),
+        ...(me ? rings.map((km) => ({ geo: ringAround(me.lat, me.lon, km), color: ME_COLOR, width: 1, alpha: 0.7, dash: [2, 4] })) : []),
+      ]}
+      focus=${{ lat, lon }} spin=${false} height=${320} />
+
+    ${me
+      ? html`<div data-me class="flex items-center gap-2 text-xs text-muted"><span class="inline-block size-2 rounded-full" style=${`background:${ME_COLOR}`}></span>${T(t, "meHere")} · ${T(t, "trackAhead")}</div>`
+      : html`<button type="button" data-me-ask class="btn btn-sm btn-ghost rounded-full gap-1.5" onClick=${findMe}>${Icon("lucide:locate-fixed", "text-base")}${T(t, meErr ? "meDenied" : "meShow")}</button>`}
 
     <div data-over class="flex items-center gap-2 text-sm">
       <span class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-70"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-success"></span></span>
