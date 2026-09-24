@@ -16,6 +16,7 @@ import { Sheet } from "/_rt/ui.js";
 import { collection } from "/_rt/db.js";
 import apps from "./apps.json" with { type: "json" };
 import spec from "./spec.json" with { type: "json" };
+import { Sky } from "./sky.js";
 
 const Icon = (icon, cls, style) => html`<iconify-icon icon=${icon} class=${cls || ""} style=${style || ""}></iconify-icon>`;
 // The ONE micro-label size (the density ladder's --ms-label; `length:` because a bare var() in text-[…] is a
@@ -323,22 +324,16 @@ export function store({ S, openScreen, closeScreen }) {
     </div>`;
   }
 
-  // TODAY — the whole store on one scroll: the featured stack, then every category with ALL its apps.
-  // data-store-* are the state hooks the driver reads: the mode, the search fold, how many lead Today and
-  // how many are newborn, the open page.
-  return html`<div class="flex flex-col gap-7" data-store-mode="today" data-store-search=${searchOpen ? "open" : "folded"} data-store-featured=${FEATURED.length} data-store-newborn=${NEWBORN.length} data-store-page=${sel ? sel.id : null}>
+  // THE SKY (owner, 2026-09-24: "небо з апок … роби на проді прямо") — the browse view is a night sky of
+  // every app instead of the featured stack + category rows. The sky (sky.js) is a fixed canvas overlay; the
+  // hidden list below it is the accessible, tab-order, screen-reader mirror of the same stars, and it is what
+  // search filters and what keeps the farm's `[data-app]` contract meaningful over a canvas. Featured burn
+  // amber, newborns breathe an amber ring, categories are clusters with a label — the grid's Featured/Fresh
+  // helpers above now serve the SEARCH results and the app page only. data-store-* stay the driver's hooks.
+  return html`<div class="flex flex-col gap-4" data-store-mode="sky" data-store-search=${searchOpen ? "open" : "folded"} data-store-count=${apps.length} data-store-newborn=${NEWBORN.length} data-store-page=${sel ? sel.id : null}>
     ${headRow}
-    ${FEATURED.length ? html`<div class="ms-stagger grid grid-cols-2 md:grid-cols-3 gap-3">${FEATURED.map((a, i) => html`<div style=${`--i:${i}`} key=${a.id} class=${i === 0 ? "col-span-2 md:col-span-3" : "min-h-0"}>${i === 0 ? Featured(a) : FeaturedTall(a)}</div>`)}</div>` : null}
-    ${freshSection}
-    ${CATS.map((c) => {
-      const items = apps.filter((a) => a.category === c).sort(byName);
-      if (!items.length) return null;
-      return html`<div class="flex flex-col gap-2" key=${c}>
-        ${sectionHead(T(t, catKey(c)), items.length)}
-        ${items.every(needsUsb) ? html`<div class="flex items-center gap-1.5 text-sm text-muted px-0.5">${Icon("lucide:usb", "shrink-0", "color:var(--app-accent)")}<span>${T(t, "needsDevice")}</span></div>` : null}
-        ${rows(items)}
-      </div>`;
-    })}
+    <${Sky} apps=${apps} cats=${CATS} catLabel=${(c) => T(t, catKey(c))} nameOf=${nameOf} isNewborn=${isNewborn} isFeatured=${isFeatured} onOpen=${tap} />
+    <ul class="sr-only">${[...apps].sort(byName).map((a) => html`<li key=${a.id}><button data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)}>${nameOf(a)}${badgeOf(a) ? " · " + T(t, badgeOf(a) === "new" ? "newBadge" : "updBadge") : ""}</button></li>`)}</ul>
     ${page}
   </div>`;
 }

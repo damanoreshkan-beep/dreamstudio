@@ -28,4 +28,11 @@
     /* The life light: a 2px filament down the card's left edge whose HEIGHT is the app's freshness (--life,
        1 = born today, .12 = the window's last day), lit in the accent. Colour as meaning, no badge. */
     .st-fresh-life{position:absolute;left:0;top:50%;width:2px;height:calc(var(--life,1) * 72%);transform:translateY(-50%);border-radius:1px;background:var(--app-accent);box-shadow:0 0 6px var(--app-accent)}
+    /* THE SKY (sky.js): a fixed canvas overlay for the browse view. Insets clear the shell's header and tab
+       bar generously — the exact heights are tuned by the eye on a phone, and being a touch too clear beats
+       covering a control. The canvas paints its own true-black ground, so it never borrows the host theme. */
+    .ms-sky{position:fixed;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 3.5rem);bottom:calc(env(safe-area-inset-bottom,0px) + 4.5rem);z-index:0;touch-action:none;overscroll-behavior:contain}
+    .ms-sky-canvas{display:block;width:100%;height:100%;background:var(--color-base-100,#000)}
+    /* the accessible mirror of the sky — present for tab order, screen readers, search and the gate, unseen */
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
   </style>
