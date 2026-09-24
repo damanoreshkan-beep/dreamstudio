@@ -19,7 +19,7 @@ import { useRef, useEffect } from "preact/hooks";
 // stable per-id placement, so a star sits in the same corner of the sky every visit
 const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const rng = (seed) => { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
-const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const REDUCE = !!globalThis.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
 
 /**
  * The sky component. Props:
@@ -37,8 +37,15 @@ export function Sky({ apps, cats, catLabel, nameOf, isNewborn, isFeatured, onOpe
 
   useEffect(() => {
     const cv = cvRef.current, box = wrap.current;
-    if (!cv || !box) return;
+    // Headless (the browser-free preflight gate) has no canvas 2D context, no rAF, no devicePixelRatio: the
+    // sky is a live-only affordance, so it simply does not run there. The accessible [data-app] mirror beside
+    // it is what preflight actually sees, which is the point of having it.
+    if (!cv || !box || typeof cv.getContext !== "function" || !globalThis.requestAnimationFrame) return;
     const ctx = cv.getContext("2d", { alpha: false });
+    // The browser-free preflight gate hands back a stub 2D context that has no real gradient/measure API, so
+    // probe one call: a stub returns undefined and the sky simply does not run there. A real canvas returns a
+    // CanvasGradient. This is the check that matters — rAF and getContext both exist in that headless.
+    if (!ctx || !ctx.createRadialGradient || !ctx.createRadialGradient(0, 0, 0, 0, 0, 1)) return;
     let VW = 0, VH = 0, DPR = 1, raf = 0;
     const cam = camRef.current;
     const SMIN = 0.34, SMAX = 2.6;
@@ -68,7 +75,7 @@ export function Sky({ apps, cats, catLabel, nameOf, isNewborn, isFeatured, onOpe
     });
 
     const resize = () => {
-      DPR = Math.min(devicePixelRatio || 1, 2);
+      DPR = Math.min(globalThis.devicePixelRatio || 1, 2);
       VW = box.clientWidth; VH = box.clientHeight;
       cv.width = VW * DPR; cv.height = VH * DPR; cv.style.width = VW + "px"; cv.style.height = VH + "px";
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
