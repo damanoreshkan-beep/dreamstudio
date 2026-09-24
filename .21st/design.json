@@ -2,42 +2,71 @@
   "version": 1,
   "project": {
     "name": "dreamstudio",
-    "productType": null,
-    "stack": []
+    "productType": "farm of installable micro-PWAs (85 apps) with a store as the launcher",
+    "stack": ["preact", "htm", "nanostores", "tailwind v4 (runtime)", "daisyui", "deno", "no build step"]
   },
   "sources": {
-    "tokens": [],
-    "components": [],
-    "assets": [],
-    "instructions": [
-      "CLAUDE.md"
-    ]
+    "tokens": ["/_rt/theme-lum.css (runtime, served — not a Tailwind config)", "rt/themes.json"],
+    "components": ["/_rt/ui.js (the kit: Sheet, Island, AppBar, SearchField)", "rt/*.js domain modules"],
+    "assets": ["apps/<id>/icon.svg — 256² luminous light-on-black art, the app's identity"],
+    "instructions": ["CLAUDE.md", "~/.claude/skills/microspec/rules/design*.md"]
   },
   "design": {
-    "colorMode": "unknown",
-    "colors": {},
-    "typography": {},
-    "spacing": {},
-    "radius": {},
-    "shadows": {},
-    "motion": {},
-    "density": "unknown"
+    "colorMode": "dark-first, both themes required (html[data-theme]=signal | signal-light)",
+    "colors": {
+      "ground.night": "#000000 (--color-base-100, TRUE black)",
+      "ground.paper": "#F6F4EE (--color-base-100 in signal-light)",
+      "ink.night": "#FFFFFF (--color-base-content)",
+      "ink.paper": "#141210",
+      "accent.amber": "#F2B84B (--app-accent) — the mark, never text",
+      "accent.cyan": "--app-accent-2 — secondary mark"
+    },
+    "typography": {
+      "body": "Geist, ui-sans-serif, system-ui",
+      "label": "mono, uppercase, tracking .18em, --ms-label — the ONE micro size",
+      "rule": "no numbers or units in reader-facing copy; imagery, not spec"
+    },
+    "spacing": { "gutter": "1rem (main px-4)", "column": "max-w-xl", "gap": "--ms-gap" },
+    "radius": { "tile": "22% (rounded-[22%])", "surface": "--ms-r", "inset": "--ms-r-in" },
+    "shadows": { "raised": "sf-raised sf-e2 (the lit rim on black)", "inset": "sf-inset" },
+    "motion": { "rule": "respect prefers-reduced-motion; one orchestrated moment beats scattered effects", "spring": "Hooke K≈14, damping .86, dt-normalised" },
+    "density": "phone-first 384×832; a single scroll with islands, no horizontal page scroll"
   },
   "components": {
     "installed": [],
-    "preferredPrimitives": [],
-    "patterns": []
+    "preferredPrimitives": ["Sheet (history-backed app page)", "SearchField folded behind #search-btn", "Tile (icon on black with the lit rim)"],
+    "patterns": ["light on true black", "colour = meaning (amber for featured/newborn, cyan for links)", "labels outside clusters with a ground-colour knockout"]
   },
   "constraints": {
-    "must": [],
-    "avoid": []
+    "must": [
+      "read colours from theme tokens at runtime (getComputedStyle), never hardcode #fff",
+      "design both themes; the eye reads both before push",
+      "keep an accessible DOM mirror ([data-app] buttons) behind any canvas",
+      "no-op in the browser-free preflight (stub 2D context)",
+      "Preact + htm, no build; head.html is baked into index.html by scaffold --force"
+    ],
+    "avoid": [
+      "a tenth colour for categories — cluster + label instead",
+      "decorative gradients, glass, emoji, spinners, hint text",
+      "world-unit padding for labels — reserve screen pixels",
+      "fixed positioning inside the shell's flow (measure the page instead)"
+    ]
   },
-  "decisions": [],
-  "evidence": [
+  "decisions": [
     {
-      "fact": "project.instructions",
-      "source": "CLAUDE.md"
+      "date": "2026-09-24",
+      "area": "store browse view",
+      "decision": "The launcher is a night sky made of the apps' own luminous icons, clustered into constellations by category with outward labels; featured burn amber and larger, newborns breathe an amber ring; pan/pinch/wheel, tap opens the app Sheet. Search still flattens to the proven row list.",
+      "from21st": ["Constellation Grid (id 23960): spring-mass physics, dt normalisation, touch shockwave", "Constellation Field (id 25569): pointer-reactive drift, distance-faded links"],
+      "rejected": ["their anonymous decorative nodes — every node here is a real app", "Interactive Globe (10073) — the globe app already owns that", "a fixed-overlay canvas — the page is flow; measured 384×832"],
+      "verified": "vps/eye.sh check store: both themes, 85 apps, 0 overflow, 0 errors; tap→Sheet proven"
     }
   ],
-  "generatedAt": "2026-09-24T21:09:05.866Z"
+  "evidence": [
+    { "fact": "project.instructions", "source": "CLAUDE.md" },
+    { "fact": "tokens measured on the live page", "source": "eye snip: --app-accent #F2B84B, base-100 #000000 / #F6F4EE, base-content #141210" },
+    { "fact": "layout measured on the live page", "source": "eye snip: header 44px, head row y60 h50, tab bar y765 h55, main px-4 max-w-xl" }
+  ],
+  "generatedAt": "2026-09-24T21:09:05.866Z",
+  "curatedAt": "2026-09-24T21:40:00Z"
 }
