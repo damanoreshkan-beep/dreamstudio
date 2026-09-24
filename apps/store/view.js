@@ -246,8 +246,12 @@ export function store({ S, openScreen, closeScreen }) {
   // A plain column with a full-width hairline between rows — the first cut indented every row after the
   // first with a margin meant for the divider alone, and the whole list stepped sideways.
   const rows = (items) => html`<div class="flex flex-col [&>div+div]:border-t [&>div+div]:border-base-300/40">${items.map(Row)}</div>`;
-  const sectionHead = (label, count) => html`<div class="flex items-baseline justify-between gap-3 px-0.5">
-    <span class="font-bold text-[1.15rem] leading-tight tracking-tight">${label}</span>
+  // Each category carries its own glyph in the accent — the section's mark, the way a newborn's dot is a
+  // mark: colour as meaning, never as decoration. The glyph names the category's world (an orbit for the
+  // sky, a radio for HackRF, a moon-star for esoterica), which is what a person scans for before a word.
+  const CAT_GLYPH = { science: "lucide:orbit", feeds: "lucide:rss", tools: "lucide:wrench", sound: "lucide:music-4", hackrf: "lucide:radio", creative: "lucide:sparkles", money: "lucide:coins", wellness: "lucide:leaf", play: "lucide:gamepad-2", esoterica: "lucide:moon-star" };
+  const sectionHead = (label, count, cat) => html`<div class="flex items-baseline justify-between gap-3 px-0.5">
+    <span class="font-bold text-[1.15rem] leading-tight tracking-tight inline-flex items-center gap-2">${cat && CAT_GLYPH[cat] ? Icon(CAT_GLYPH[cat], "st-cat-glyph") : null}${label}</span>
     <span class=${`${LABEL} tabular-nums shrink-0`}>${count}</span>
   </div>`;
   const noResults = html`<div class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6">${Icon("lucide:search-x", "text-4xl")}<span>${T(t, "noResults")}</span></div>`;
@@ -334,7 +338,7 @@ export function store({ S, openScreen, closeScreen }) {
       const items = apps.filter((a) => a.category === c).sort(byName);
       if (!items.length) return null;
       return html`<div class="flex flex-col gap-2" key=${c}>
-        ${sectionHead(T(t, catKey(c)), items.length)}
+        ${sectionHead(T(t, catKey(c)), items.length, c)}
         ${items.every(needsUsb) ? html`<div class="flex items-center gap-1.5 text-sm text-muted px-0.5">${Icon("lucide:usb", "shrink-0", "color:var(--app-accent)")}<span>${T(t, "needsDevice")}</span></div>` : null}
         ${rows(items)}
       </div>`;

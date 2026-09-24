@@ -43,6 +43,9 @@
       "motion": "https://esm.sh/motion@11.18.2",
       "lodash-es": "https://esm.sh/lodash-es@4.17.21",
       "three": "https://esm.sh/three@0.171.0",
+      "three/addons/": "https://esm.sh/three@0.171.0/examples/jsm/",
+      "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8.20.1/dist/pixi.min.mjs",
+      "pixi-filters": "https://cdn.jsdelivr.net/npm/pixi-filters@6.1.5/dist/pixi-filters.min.mjs",
       "d3-geo": "https://esm.sh/d3-geo@3",
       "topojson-client": "https://esm.sh/topojson-client@3",
       "@microspec/core/runtime/": "/_rt/"
@@ -79,6 +82,22 @@
     /* The life light: a 2px filament down the card's left edge whose HEIGHT is the app's freshness (--life,
        1 = born today, .12 = the window's last day), lit in the accent. Colour as meaning, no badge. */
     .st-fresh-life{position:absolute;left:0;top:50%;width:2px;height:calc(var(--life,1) * 72%);transform:translateY(-50%);border-radius:1px;background:var(--app-accent);box-shadow:0 0 6px var(--app-accent)}
+    /* THE STORE BREATHES LIGHT (2026-09-24, owner: "прикольно" on top of a usable launcher, never instead).
+       One orchestrated moment: the Today hero is alive — its capture floats a hair on a slow six-second
+       swell and the icon tile's lit rim pulses amber; nothing else on the page moves by itself. Details
+       that compound: a category's own glyph, in the accent, marks each section (colour = meaning); every
+       Open pill and row answers a touch with the rim and a breath of scale. All of it is CSS on the kit's
+       own surfaces, off under reduced motion, and none of it changes where anything is. */
+    @keyframes st-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+    @keyframes st-rim{0%,100%{box-shadow:0 0 0 0 rgba(242,184,75,0)}50%{box-shadow:0 0 14px 2px color-mix(in oklab, var(--app-accent) 55%, transparent)}}
+    .st-hero .st-hero-shot{animation:st-float 6s ease-in-out infinite}
+    .st-hero .st-hero-shot2{animation-delay:-3s}
+    .st-hero-text > .flex > .rounded-\[22\%\]{animation:st-rim 4s ease-in-out infinite}
+    .st-cat-glyph{color:var(--app-accent);font-size:1.05em;line-height:1;filter:drop-shadow(0 0 5px color-mix(in oklab, var(--app-accent) 60%, transparent))}
+    [data-app] .btn, [data-featured] ~ * .btn, .st-fresh{transition:transform .18s cubic-bezier(.2,.9,.2,1), box-shadow .18s ease}
+    [data-app] .btn:active, .st-fresh:active{transform:scale(.96);box-shadow:0 0 12px 1px color-mix(in oklab, var(--app-accent) 45%, transparent)}
+    [data-app]:has(> button:active) .rounded-\[22\%\]{box-shadow:0 0 12px 1px color-mix(in oklab, var(--app-accent) 45%, transparent)}
+    @media (prefers-reduced-motion: reduce){.st-hero .st-hero-shot, .st-hero-text > .flex > .rounded-\[22\%\]{animation:none}}
   </style>
 </head>
 <body class="bg-base-200 min-h-dvh">
