@@ -46,11 +46,10 @@ export default [
     },
   },
   {
-    name: "сторінка апки: Install + скрін + версія (через пошук)", run: async (h) => {
+    name: "сторінка апки: Install + скрін + версія", run: async (h) => {
       await ready(h);
-      await h.type("#store-filter", "tide"); await h.wait(250);
       await h.click('[data-app="tide"]'); await h.wait(300);
-      h.expect((await h.prop("#appsheet", "open")) === true, "рядок не відкрив сторінку апки");
+      h.expect((await h.prop("#appsheet", "open")) === true, "тап по зірці не відкрив сторінку апки");
       h.expect((await h.count("#install-app")) === 1, "немає кнопки Встановити на сторінці апки");
       h.expect((await h.count("#appsheet img[src*='shot-tide']")) === 1, "немає скріншота на сторінці апки");
       h.expect(/v\d/.test(await h.text("#appsheet")), "немає версії на сторінці апки");
