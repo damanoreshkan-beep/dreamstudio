@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "store",
-  version: "e1aa3b1e68",
+  version: "cd7c96f89f",
   precache: [
     "./",
     "./apps.json",
@@ -13,7 +13,6 @@ self.MS = {
     "./icons/apple-touch-icon.png",
     "./index.html",
     "./manifest.json",
-    "./sky.js",
     "./spec.json",
     "./view.js",
     "/_rt/account.js",

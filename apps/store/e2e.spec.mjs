@@ -1,36 +1,46 @@
-// The store is a custom tool app: a night SKY of every app (a fixed canvas with a screen-reader-visible list
-// of real [data-app] buttons mirroring it), a search that flattens the farm into rows, a history-backed
-// per-app description Sheet, and NEW badges (IndexedDB). apps.json imports locally. The canvas itself a
-// headless browser cannot tap, so every assertion runs against the DOM mirror and the search rows — which is
-// exactly what the sky's accessible layer exists to guarantee.
+// The store is a custom tool app: category chips + sectioned icon grid, a search that flattens across the
+// farm, a history-backed per-app description Sheet, and NEW badges (IndexedDB). apps.json imports locally.
 const ready = async (h) => { for (let i = 0; i < 12; i++) { if ((await h.count("[data-app]")) > 0) break; await h.wait(200); } };
 
 export default [
   {
-    name: "стор: небо з усіма апками; перший візит не позначає нічого як нове", run: async (h) => {
+    // Цей тест раніше вимагав ПРОТИЛЕЖНОГО — «є NEW-бейджі на невідкритих» — і саме тому дефект прожив
+    // так довго: у свіжому браузері невідкриті всі 68, тож бейдж стояв на кожній плитці. Знімок показав
+    // стіну однакових ярликів, більших за іконки під ними. Бейдж на всьому не означає нічого, тому
+    // контракт тепер зворотний: перший візит задає базову лінію і не позначає нічого.
+    name: "стор: сітка + пошук; перший візит не позначає нічого як нове", run: async (h) => {
       await ready(h); await h.wait(200);
-      h.expect((await h.count(".ms-sky canvas")) === 1, "немає полотна неба");
-      h.expect((await h.count("[data-store-mode='sky']")) === 1, "браузерний режим не «небо»");
-      // every app is a star, mirrored as a real button for a11y / search / this test
-      h.expect((await h.count("[data-app]")) >= 70, "небо не покриває всю ферму");
+      h.expect((await h.count("[data-app]")) >= 10, "замало плиток застосунків");
+      h.expect((await h.count(".input")) === 1, "немає поля пошуку");
       const badges = await h.count(".badge-primary");
       h.expect(badges === 0, `перший візит позначив ${badges} застосунків як нові — базова лінія не записалась`);
+      h.expect(!/НОВЕ|NEW/.test(await h.text('[data-app="rave"]')), "бейдж НОВЕ на першому візиті");
     },
   },
   {
-    name: "пошук згортає небо у рядки; фільтрує; × повертає", run: async (h) => {
+    name: "пошук фільтрує сітку", run: async (h) => {
       await ready(h);
       const base = await h.count("[data-app]");
+      // folded behind #search-btn (rules/invariants.md); the hidden twin #store-filter takes a typed query
       h.expect((await h.count("#search-btn")) === 1, "немає іконки пошуку в рядку «Сьогодні»");
       h.expect((await h.count("[data-search-open]")) === 0, "поле пошуку розгорнуте до дотику");
       await h.type("#store-filter", "рейв"); await h.wait(250);
-      h.expect((await h.count("[data-store-mode='search']")) === 1, "пошук не перемкнув режим у список");
       const now = await h.count("[data-app]");
-      h.expect(now >= 1 && now < base, "пошук не звузив список");
+      h.expect(now >= 1 && now < base, "пошук не звузив сітку");
       h.expect((await h.count("[data-search-open]")) === 1, "запит є, а поле згорнуте — нема як його стерти");
       await h.type("#store-filter", ""); await h.wait(250);
+      h.expect((await h.count("[data-app]")) === base, "не відновилось після очищення");
       await h.click("#search-close"); await h.wait(250);
-      h.expect((await h.count("[data-store-mode='sky']")) === 1, "× не повернув небо");
+      h.expect((await h.count("[data-search-open]")) === 0, "× не згорнув поле");
+    },
+  },
+  {
+    // Немає внутрішньої навігації БЕЗ history (2026-08-31): перемикач категорій жив у локальному стані і
+    // Back з нього не повертав. Уся ферма — на одній сторінці; кожна категорія показує ВСІ свої застосунки.
+    name: "одна сторінка: кожна категорія показує всі свої застосунки", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-app]")) >= 70, "головна не показує всю ферму");
+      h.expect((await h.count("[data-cat]")) === 0, "перемикач категорій повернувся — Back із нього не працює");
     },
   },
   {
@@ -46,18 +56,6 @@ export default [
     },
   },
   {
-    name: "сторінка апки: Install + скрін + версія", run: async (h) => {
-      await ready(h);
-      await h.click('[data-app="tide"]'); await h.wait(300);
-      h.expect((await h.prop("#appsheet", "open")) === true, "тап по зірці не відкрив сторінку апки");
-      h.expect((await h.count("#install-app")) === 1, "немає кнопки Встановити на сторінці апки");
-      h.expect((await h.count("#appsheet img[src*='shot-tide']")) === 1, "немає скріншота на сторінці апки");
-      h.expect(/v\d/.test(await h.text("#appsheet")), "немає версії на сторінці апки");
-      await h.back(); await h.wait(250);
-      h.expect((await h.prop("#appsheet", "open")) !== true, "Back не закрив сторінку апки");
-    },
-  },
-  {
     name: "i18n EN/UA міняє chrome", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);
@@ -65,6 +63,46 @@ export default [
       await h.click('[data-loc="uk"]'); await h.wait(250);
       h.expect(/Застосунки|Мова|Я/.test(await h.bodyText()), "не UA");
       await h.click('[data-tab="apps"]'); await h.wait(120);
+    },
+  },
+  {
+    // App Store, не сітка (2026-08-31): добірка великих карток зверху, сторінка апки з Open + Install,
+    // скріншотом та екранами; категорія → рядки-список.
+    name: "стор: добірка карток, сторінка апки з Install і скріном, категорія → рядки", run: async (h) => {
+      await ready(h);
+      h.expect((await h.count("[data-featured]")) >= 2, "немає карток добірки");
+      h.expect((await h.count('[data-featured][data-app="spirit"]')) === 1, "Дух карти не в добірці");
+      // «Сьогодні» (2026-09-03): народжені за 48 годин (`added`) ведуть стек САМІ, курована добірка — слідом.
+      // Рубрика залежить від календаря: коли новонароджених немає, герой — редакторський і несе гасло;
+      // коли є — герой саме новонароджений (без гасла це не дефект) і його брова каже КОЛИ, не «преміум».
+      const newborn = await h.count("[data-featured][data-newborn]");
+      if (newborn) {
+        h.expect((await h.attr("[data-featured]", "data-newborn")) === "1", "новонароджений не веде стек «Сьогодні»");
+        // ICU (Intl.RelativeTimeFormat, uk) says «учора», not «вчора» — the first run of this test learned it.
+        h.expect(/сьогодні|учора|today|yesterday/i.test(await h.text(".st-hero")), "брова героя-новинки не каже «коли»");
+      } else h.expect((await h.text("[data-slogan]")).trim().length > 5, "герой без гасла");
+      await h.click('[data-featured][data-app="tide"]'); await h.wait(300);
+      h.expect((await h.prop("#appsheet", "open")) === true, "картка добірки не відкрила сторінку апки");
+      h.expect((await h.count("#install-app")) === 1, "немає кнопки Встановити на сторінці апки");
+      h.expect((await h.count("#appsheet img[src*='shot-tide']")) === 1, "немає скріншота на сторінці апки");
+      h.expect(/v\d/.test(await h.text("#appsheet")), "немає версії на сторінці апки");
+      await h.back(); await h.wait(250);
+      h.expect((await h.prop("#appsheet", "open")) !== true, "Back не закрив сторінку апки");
+      h.expect((await h.count("[data-app] .btn")) >= 10, "рядки без кнопки Відкрити");
+    },
+  },
+  {
+    // «Свіжі новинки» (2026-09-02): рубрика без куратора — apps.json несе `added` (scaffold штампує його при
+    // першому scaffold), стор бере вікно у 21 день і ріже слайдами по 3. Рубрика МОЖЕ бути порожньою (нічого
+    // нового за вікно) — тоді її просто немає; коли є, кожен слайд ≤ 3 карток і кожна картка несе опис.
+    name: "свіжі новинки: слайди по 3 дрібні картки з описом, лічильник сторінок", run: async (h) => {
+      await ready(h);
+      const slides = await h.count("[data-fresh-slide]");
+      if (!slides) return;
+      const cards = await h.count("[data-fresh-card]");
+      h.expect(cards <= slides * 3 && cards > (slides - 1) * 3, `${cards} карток на ${slides} слайдах — не по 3`);
+      h.expect((await h.text("[data-fresh-card]")).trim().length >= 30, "картка новинки без опису");
+      if (slides > 1) h.expect(new RegExp(`1\\s*/\\s*${slides}`).test(await h.text("[data-fresh-page]")), "немає лічильника сторінок");
     },
   },
   {
@@ -78,12 +116,17 @@ export default [
     },
   },
   {
+    // the theme widget (core material.js + rt/themes.json): a real browser proves the link swap — a tap on
+    // a micro-picture rewrites the page's one theme <link> and stamps the root; the day/night radio flips
+    // html[data-theme] in the same card
     name: "тема: профіль → віджет → «Просто» перемикає лист стилів, «Сяйво» повертає, день/ніч у тій же картці", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(300);
       h.expect((await h.count("#p-material")) === 1, "немає віджета «Тема»");
       h.expect((await h.count('#p-material [data-material-id="plain"]')) === 1, "у стрічці немає картинки «Просто»");
       await h.click('[data-material-id="plain"]'); await h.wait(300);
       h.expect((await h.attr("html", "data-material")) === "plain", "html[data-material] не став plain");
+      // the FARM's theme link, by its file name — `[href*="theme"]` picked daisyui's `themes.css` (linked first), which
+      // the old material.js wrongly rewrote, so this test was green on the bug itself (core 1.2.38, 2026-09-05)
       h.expect((await h.count('link[rel="stylesheet"][href$="/_rt/theme-plain.css"]')) === 1, "лінк теми не переключився на theme-plain.css");
       h.expect((await h.count('link[rel="stylesheet"][href*="daisyui"][href$="themes.css"]')) === 1, "daisyui-ний themes.css мав лишитись незайманим");
       await h.click('[data-material-id="lum"]'); await h.wait(300);
