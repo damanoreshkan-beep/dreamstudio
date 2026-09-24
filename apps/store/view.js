@@ -332,7 +332,7 @@ export function store({ S, openScreen, closeScreen }) {
   // helpers above now serve the SEARCH results and the app page only. data-store-* stay the driver's hooks.
   return html`<div class="flex flex-col gap-4" data-store-mode="sky" data-store-search=${searchOpen ? "open" : "folded"} data-store-count=${apps.length} data-store-newborn=${NEWBORN.length} data-store-page=${sel ? sel.id : null}>
     ${headRow}
-    <${Sky} apps=${apps} cats=${CATS} catLabel=${(c) => T(t, catKey(c))} nameOf=${nameOf} isNewborn=${isNewborn} isFeatured=${isFeatured} onOpen=${tap} />
+    <${Sky} apps=${apps} cats=${CATS} catLabel=${(c) => T(t, catKey(c))} nameOf=${nameOf} isNewborn=${isNewborn} isFeatured=${isFeatured} iconUrl=${(a) => `../${a.id}/icon.svg`} onOpen=${tap} />
     <ul class="sr-only">${[...apps].sort(byName).map((a) => html`<li key=${a.id}><button data-app=${a.id} aria-label=${nameOf(a)} onClick=${() => tap(a)}>${nameOf(a)}${badgeOf(a) ? " · " + T(t, badgeOf(a) === "new" ? "newBadge" : "updBadge") : ""}</button></li>`)}</ul>
     ${page}
   </div>`;
