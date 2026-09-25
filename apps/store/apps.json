@@ -28,7 +28,7 @@
     "bg": "#07070C",
     "fg": "#9F8CF6",
     "href": "./outpost/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "sound",
     "needs": []
   },
@@ -61,7 +61,7 @@
     "bg": "#000000",
     "fg": "#B9C8F2",
     "href": "./vydyvo/",
-    "version": "1.33",
+    "version": "1.34",
     "category": "creative",
     "needs": [
       "auth",
@@ -101,7 +101,7 @@
     "bg": "#0d1117",
     "fg": "#7c9cf7",
     "href": "./openapps/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -134,7 +134,7 @@
     "bg": "#000000",
     "fg": "#F0B27A",
     "href": "./vidlunnia/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "creative",
     "needs": [
       "microphone"
@@ -173,7 +173,7 @@
     "bg": "#202122",
     "fg": "#ffffff",
     "href": "./wiki/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -212,7 +212,7 @@
     "bg": "#0A0A0B",
     "fg": "#5BA6E8",
     "href": "./globe/",
-    "version": "1.14",
+    "version": "1.18",
     "category": "science",
     "needs": []
   },
@@ -245,7 +245,7 @@
     "bg": "#0A0A0C",
     "fg": "#E0A458",
     "href": "./tgvoice/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "tools",
     "needs": [],
     "added": "2026-08-21"
@@ -285,7 +285,7 @@
     "bg": "#1c1a17",
     "fg": "#E9A23B",
     "href": "./homin/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "hackrf",
     "needs": [
       "compass",
@@ -323,7 +323,7 @@
     "bg": "#0A0A0F",
     "fg": "#A78BFA",
     "href": "./horoscope/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "esoterica",
     "needs": []
   },
@@ -356,7 +356,7 @@
     "bg": "#0A1413",
     "fg": "#4FC2B3",
     "href": "./breathe/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "wellness",
     "needs": []
   },
@@ -392,7 +392,7 @@
     "bg": "#1A1614",
     "fg": "#C2703A",
     "href": "./arc/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "feeds",
     "needs": []
   },
@@ -425,7 +425,7 @@
     "bg": "#000000",
     "fg": "#F2B84B",
     "href": "./spirit/",
-    "version": "1.12",
+    "version": "1.13",
     "category": "esoterica",
     "needs": [],
     "added": "2026-09-02"
@@ -462,7 +462,7 @@
     "bg": "#0A0A0B",
     "fg": "#38bdf8",
     "href": "./ether/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "hackrf",
     "needs": [
       "usb",
@@ -498,7 +498,7 @@
     "bg": "#0d1512",
     "fg": "#10b981",
     "href": "./habits/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "wellness",
     "needs": []
   },
@@ -531,7 +531,7 @@
     "bg": "#0E1120",
     "fg": "#A5B4FC",
     "href": "./ambient/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "sound",
     "needs": []
   },
@@ -570,7 +570,7 @@
     "bg": "#0E1416",
     "fg": "#57C4C0",
     "href": "./grain/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "sound",
     "needs": [
       "microphone",
@@ -607,7 +607,7 @@
     "bg": "#17262A",
     "fg": "#8FE3D8",
     "href": "./zir/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "creative",
     "needs": [
       "camera"
@@ -643,7 +643,7 @@
     "bg": "#0A0A0B",
     "fg": "#4ADE80",
     "href": "./pwned/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "tools",
     "needs": []
   },
@@ -674,7 +674,7 @@
     "bg": "#0A0A0B",
     "fg": "#F2B84B",
     "href": "./iskra/",
-    "version": "1.0",
+    "version": "1.18",
     "category": "tools",
     "needs": [],
     "added": "2026-09-15"
@@ -708,7 +708,7 @@
     "bg": "#1A1410",
     "fg": "#E0A94B",
     "href": "./kalimba/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "sound",
     "needs": []
   },
@@ -741,7 +741,7 @@
     "bg": "#0B0B10",
     "fg": "#E7E7EA",
     "href": "./cam/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "creative",
     "needs": [
       "camera",
@@ -780,7 +780,7 @@
     "bg": "#0f0f12",
     "fg": "#f4b942",
     "href": "./cinema/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -813,7 +813,7 @@
     "bg": "#0A0A0B",
     "fg": "#F0A868",
     "href": "./subclone/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "hackrf",
     "needs": [
       "usb"
@@ -851,7 +851,7 @@
     "bg": "#0F0D08",
     "fg": "#C9A227",
     "href": "./iching/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "esoterica",
     "needs": []
   },
@@ -887,7 +887,7 @@
     "bg": "#1c1917",
     "fg": "#d6b370",
     "href": "./books/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -920,7 +920,7 @@
     "bg": "#0B0A12",
     "fg": "#B98BEA",
     "href": "./code/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "play",
     "needs": []
   },
@@ -953,7 +953,7 @@
     "bg": "#0B1220",
     "fg": "#7DD3FC",
     "href": "./compass/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "tools",
     "needs": [
       "compass",
@@ -968,10 +968,10 @@
       "en": "Space Launches",
       "uk": "Космічні запуски"
     },
-    "tagline": "Зворотний відлік до найближчих космічних запусків",
+    "tagline": "Зворотний відлік, стартові майданчики на глобусі й календар запусків",
     "taglines": {
-      "en": "Countdown to the next rocket launches",
-      "uk": "Зворотний відлік до найближчих космічних запусків"
+      "en": "Countdown, launch pads on the globe and a calendar of launches",
+      "uk": "Зворотний відлік, стартові майданчики на глобусі й календар запусків"
     },
     "glyph": "lucide:rocket",
     "art": "<path d=\"M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z\"/><path d=\"m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z\"/><path d=\"M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0\"/><path d=\"M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5\"/>",
@@ -979,10 +979,14 @@
     "screens": {
       "en": [
         "Upcoming",
+        "Earth",
+        "Calendar",
         "Watching"
       ],
       "uk": [
         "Найближчі",
+        "Земля",
+        "Календар",
         "Стежу"
       ]
     },
@@ -993,7 +997,7 @@
     "bg": "#0A0A0B",
     "fg": "#9F8CF6",
     "href": "./launches/",
-    "version": "1.13",
+    "version": "1.16",
     "category": "science",
     "needs": []
   },
@@ -1026,7 +1030,7 @@
     "bg": "#0A0A0B",
     "fg": "#F0A93B",
     "href": "./crypto/",
-    "version": "1.13",
+    "version": "1.15",
     "category": "money",
     "needs": []
   },
@@ -1062,7 +1066,7 @@
     "bg": "#1f2430",
     "fg": "#f0b429",
     "href": "./rates/",
-    "version": "1.13",
+    "version": "1.15",
     "category": "money",
     "needs": []
   },
@@ -1095,7 +1099,7 @@
     "bg": "#1b2430",
     "fg": "#6d9150",
     "href": "./hunt/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "play",
     "needs": []
   },
@@ -1128,7 +1132,7 @@
     "bg": "#120A08",
     "fg": "#E2932F",
     "href": "./kp/",
-    "version": "1.14",
+    "version": "1.17",
     "category": "science",
     "needs": []
   },
@@ -1161,7 +1165,7 @@
     "bg": "#0A0A0F",
     "fg": "#9F8CF6",
     "href": "./pendulum/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "esoterica",
     "needs": []
   },
@@ -1197,7 +1201,7 @@
     "bg": "#1a1a1a",
     "fg": "#FFD21E",
     "href": "./hf/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -1230,7 +1234,7 @@
     "bg": "#1B1114",
     "fg": "#C4687A",
     "href": "./persona/",
-    "version": "1.17",
+    "version": "1.18",
     "category": "creative",
     "needs": [
       "auth"
@@ -1269,7 +1273,7 @@
     "bg": "#0A0A0B",
     "fg": "#E8574B",
     "href": "./pins/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "tools",
     "needs": []
   },
@@ -1302,7 +1306,7 @@
     "bg": "#0A0A0B",
     "fg": "#3FC7C0",
     "href": "./pipette/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "tools",
     "needs": [
       "camera",
@@ -1338,7 +1342,7 @@
     "bg": "#1f2430",
     "fg": "#38bdf8",
     "href": "./weather/",
-    "version": "1.13",
+    "version": "1.15",
     "category": "science",
     "needs": [
       "geo"
@@ -1379,7 +1383,7 @@
     "bg": "#000000",
     "fg": "#4FD6E0",
     "href": "./poholos/",
-    "version": "1.20",
+    "version": "1.21",
     "category": "tools",
     "needs": [],
     "added": "2026-09-07"
@@ -1413,7 +1417,7 @@
     "bg": "#000000",
     "fg": "#E6C98A",
     "href": "./podoba/",
-    "version": "1.8",
+    "version": "1.9",
     "category": "creative",
     "needs": [
       "camera",
@@ -1450,7 +1454,7 @@
     "bg": "#000000",
     "fg": "#F2B84B",
     "href": "./portal/",
-    "version": "1.24",
+    "version": "1.25",
     "category": "creative",
     "needs": [
       "camera",
@@ -1487,7 +1491,7 @@
     "bg": "#0A0A0F",
     "fg": "#5FD0F0",
     "href": "./flux/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "creative",
     "needs": [
       "camera",
@@ -1523,7 +1527,7 @@
     "bg": "#0A0A0B",
     "fg": "#F7931A",
     "href": "./btcflow/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "money",
     "needs": []
   },
@@ -1556,7 +1560,7 @@
     "bg": "#0A0A0B",
     "fg": "#40C173",
     "href": "./pulse/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "feeds",
     "needs": []
   },
@@ -1595,7 +1599,7 @@
     "bg": "#0A0A0F",
     "fg": "#E9458B",
     "href": "./rave/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "sound",
     "needs": [
       "compass",
@@ -1632,7 +1636,7 @@
     "bg": "#101014",
     "fg": "#FACC15",
     "href": "./swarm/",
-    "version": "1.17",
+    "version": "1.18",
     "category": "play",
     "needs": [
       "camera",
@@ -1671,7 +1675,7 @@
     "bg": "#1F120C",
     "fg": "#F2784B",
     "href": "./rukh/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "creative",
     "needs": [
       "camera"
@@ -1710,7 +1714,7 @@
     "bg": "#0A0A0B",
     "fg": "#C6B6FF",
     "href": "./sigil/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "esoterica",
     "needs": [
       "orientation"
@@ -1745,7 +1749,7 @@
     "bg": "#0A0A0F",
     "fg": "#9F8CF6",
     "href": "./synesth/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "sound",
     "needs": [
       "camera",
@@ -1784,7 +1788,7 @@
     "bg": "#12100A",
     "fg": "#D8A43A",
     "href": "./hoard/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "money",
     "needs": []
   },
@@ -1823,7 +1827,7 @@
     "bg": "#0D1018",
     "fg": "#5B8DEF",
     "href": "./sonar/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "science",
     "needs": [
       "microphone",
@@ -1859,7 +1863,7 @@
     "bg": "#0A0A0B",
     "fg": "#F5B94D",
     "href": "./sun/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "science",
     "needs": [
       "compass",
@@ -1896,7 +1900,7 @@
     "bg": "#231708",
     "fg": "#e8c874",
     "href": "./sopilka/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "sound",
     "needs": []
   },
@@ -1938,7 +1942,7 @@
     "bg": "#141416",
     "fg": "#D9548E",
     "href": "./hive/",
-    "version": "1.22",
+    "version": "1.23",
     "category": "tools",
     "needs": [
       "compass",
@@ -1976,7 +1980,7 @@
     "bg": "#17111a",
     "fg": "#fb7185",
     "href": "./wish/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "tools",
     "needs": []
   },
@@ -2009,7 +2013,7 @@
     "bg": "#0A0A0B",
     "fg": "#6EE7A0",
     "href": "./wall/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "tools",
     "needs": [
       "wakeLock"
@@ -2045,7 +2049,7 @@
     "bg": "#0A0A0F",
     "fg": "#C084FC",
     "href": "./tarot/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "esoterica",
     "needs": [
       "orientation"
@@ -2089,7 +2093,7 @@
     "bg": "#0E0B1A",
     "fg": "#C0A9F5",
     "href": "./transit/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "science",
     "needs": []
   },
@@ -2125,7 +2129,7 @@
     "bg": "#07060C",
     "fg": "#F5B942",
     "href": "./blackout/",
-    "version": "1.23",
+    "version": "1.24",
     "category": "play",
     "needs": [
       "auth",
@@ -2169,7 +2173,7 @@
     "bg": "#0A0A0F",
     "fg": "#C084FC",
     "href": "./imagine/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "creative",
     "needs": [
       "camera"
@@ -2207,7 +2211,7 @@
     "bg": "#0d1117",
     "fg": "#3fb950",
     "href": "./frontier/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -2246,7 +2250,7 @@
     "bg": "#0C1014",
     "fg": "#E0B24E",
     "href": "./handpan/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "sound",
     "needs": [
       "compass",
@@ -2283,7 +2287,7 @@
     "bg": "#14100A",
     "fg": "#D4A84B",
     "href": "./onthisday/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "feeds",
     "needs": []
   },
@@ -2316,7 +2320,7 @@
     "bg": "#141416",
     "fg": "#5BC0BE",
     "href": "./earshot/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "tools",
     "needs": []
   },
@@ -2349,7 +2353,7 @@
     "bg": "#08120F",
     "fg": "#41C06F",
     "href": "./air/",
-    "version": "1.15",
+    "version": "1.17",
     "category": "science",
     "needs": [
       "geo"
@@ -2386,7 +2390,7 @@
     "bg": "#0A0510",
     "fg": "#FF3EB5",
     "href": "./afterdark/",
-    "version": "1.39",
+    "version": "1.40",
     "category": "creative",
     "needs": [
       "auth",
@@ -2424,7 +2428,7 @@
     "bg": "#0A0A0F",
     "fg": "#7C3AED",
     "href": "./apkforge/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "tools",
     "needs": []
   },
@@ -2460,7 +2464,7 @@
     "bg": "#1f2430",
     "fg": "#7ee0a6",
     "href": "./dou/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -2496,7 +2500,7 @@
     "bg": "#0E1022",
     "fg": "#8B7CF6",
     "href": "./drift/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "sound",
     "needs": [
       "wakeLock"
@@ -2534,7 +2538,7 @@
     "bg": "#0A0A0B",
     "fg": "#B7ADEB",
     "href": "./fmradio/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "hackrf",
     "needs": [
       "usb",
@@ -2570,7 +2574,7 @@
     "bg": "#1f2430",
     "fg": "#34d399",
     "href": "./ruler/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "tools",
     "needs": [
       "geo"
@@ -2605,7 +2609,7 @@
     "bg": "#0A0A0B",
     "fg": "#93C5FD",
     "href": "./gsmscan/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "hackrf",
     "needs": [
       "usb"
@@ -2643,7 +2647,7 @@
     "bg": "#1f2430",
     "fg": "#ff6600",
     "href": "./hn/",
-    "version": "1.14",
+    "version": "1.15",
     "category": "feeds",
     "needs": []
   },
@@ -2676,7 +2680,7 @@
     "bg": "#141414",
     "fg": "#ef4444",
     "href": "./iptv/",
-    "version": "1.13",
+    "version": "1.14",
     "category": "feeds",
     "needs": []
   },
@@ -2712,7 +2716,7 @@
     "bg": "#0A0A0B",
     "fg": "#00E5FF",
     "href": "./jobx/",
-    "version": "1.26",
+    "version": "1.28",
     "category": "tools",
     "needs": [
       "auth",
@@ -2749,7 +2753,7 @@
     "bg": "#0A0A0B",
     "fg": "#7FD6A8",
     "href": "./lorawatch/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "hackrf",
     "needs": [
       "usb"
@@ -2793,7 +2797,7 @@
     "bg": "#0A0A0F",
     "fg": "#5EC8A8",
     "href": "./os/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "tools",
     "needs": []
   },
@@ -2826,7 +2830,7 @@
     "bg": "#221C29",
     "fg": "#C9A7E0",
     "href": "./mirage/",
-    "version": "1.24",
+    "version": "1.25",
     "category": "creative",
     "needs": [
       "camera"
@@ -2865,7 +2869,7 @@
     "bg": "#0A0A0B",
     "fg": "#9F8CF6",
     "href": "./nova/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "feeds",
     "needs": [
       "auth"
@@ -2903,7 +2907,7 @@
     "bg": "#16161C",
     "fg": "#9D8CFF",
     "href": "./prox/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "tools",
     "needs": []
   },
@@ -2936,7 +2940,7 @@
     "bg": "#0A0A0F",
     "fg": "#34D399",
     "href": "./qr/",
-    "version": "1.17",
+    "version": "1.18",
     "category": "tools",
     "needs": [
       "camera",
@@ -2978,7 +2982,7 @@
     "bg": "#0B0B0D",
     "fg": "#ECECEE",
     "href": "./reel/",
-    "version": "1.17",
+    "version": "1.27",
     "category": "feeds",
     "needs": []
   },
@@ -3011,7 +3015,7 @@
     "bg": "#0B1424",
     "fg": "#5B8DEF",
     "href": "./tide/",
-    "version": "1.16",
+    "version": "1.17",
     "category": "sound",
     "needs": [
       "auth",
@@ -3051,7 +3055,7 @@
     "bg": "#111619",
     "fg": "#5E8CA8",
     "href": "./trail/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "creative",
     "needs": []
   },
@@ -3090,7 +3094,7 @@
     "bg": "#0B0B10",
     "fg": "#C4B5FD",
     "href": "./v2m/",
-    "version": "1.15",
+    "version": "1.16",
     "category": "sound",
     "needs": [
       "wakeLock"
