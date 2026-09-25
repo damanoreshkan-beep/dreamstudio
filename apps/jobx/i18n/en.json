@@ -53,5 +53,11 @@
   "installIosHint": "In Safari: tap Share, then Add to Home Screen.",
   "installGenericHint": "In the browser menu choose Install or Add to Home Screen.",
   "jobsHere": "jobs here",
-  "locate": "Locate me"
+  "locate": "Locate me",
+  "empAll": "All",
+  "search": "Search",
+  "agoToday": "today",
+  "agoYesterday": "yesterday",
+  "agoDays": "{n}d ago",
+  "agoWeeks": "{n}w ago"
 }

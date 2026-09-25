@@ -105,3 +105,33 @@ commit, i.e. a deploy — the owner's call.
 | Post · form | bar «Нова вакансія» ← ; fields | «Надіслати» | scrolls |
 | Post · not signed in | error line «Увійди у вкладці «Я»…» under the form | — | — |
 | Post · sent | check mark, «Дякуємо!», «Закрити» | — | — |
+
+## The eye on the LIVE app (2026-09-25) — theme, list, detail, luma
+
+Measured at 384×832 in both themes on the live URL (313 real rows) and in the client logs:
+
+| Where | Defect (measured) | Fix |
+|---|---|---|
+| Whole app | `spec.theme: "ink"` names no `[data-theme]` rule in the farm (theme.css defines `signal` / `signal-light`), so a fresh visitor got stock daisyUI: violet primary `oklch(45% 0.24 277)`, base-200 `oklch(98% 0 0)`, no garland, and the map's palette fell back to amber because `--app-accent` was unset | `spec.theme` → `signal` (as the other 84 apps) and `data-theme="signal"` on the html tag; a stored `jobx:theme` of `ink` is rewritten to `signal` at view.js module scope, which runs before `start()` builds the persistent atom (index.html imports view.js first) |
+| List | rows in feed order, no time | sorted newest first by `ms`; a mono micro-label with `ago()` under the pay, and an accent DOT (mark only) on a job under 24 h old |
+| List | a permanent full-width search input over the content | folded behind a `lucide:search` icon beside the city pill; it unfolds in place as `S.screen === "search"` (focused), so system Back folds it and clears the query; a job page opened from the results keeps the query |
+| List | no way to narrow by employment | a `Segmented` strip (scroll, sm): all · remote · full · part, client-side over the city's rows |
+| List | 313 rows rendered at once — a 36 319 px document | chunks of 40 behind an `IntersectionObserver` sentinel held in state (armed only once the node exists, re-armed per chunk) |
+| List row | the address said twice: "Кухар-універсал (ст. м. Арсенальна)" | a trailing parenthetical is stripped in the ROW only when it looks like a place (м., ст., ТРЦ, вул, р-н, метро, a city name); "(нічні зміни)" stays; the detail keeps the full title |
+| List row | a text-only salary ("Вища за середню", "За результатами співбесіди") left the pay slot blank — 298 of 641 rows | shown muted and truncated at ~22 ch in the pay slot |
+| Detail | address + distance as UPPERCASE MONO badges ("КИЇВ, БУЛЬВАР ЛЕСІ УКРАЇНКИ, 34") | a plain sentence-case meta line: pin icon + address · distance, `text-muted` |
+| Detail | the salary twice: "50k–60k ₴" then the raw "50 000 – 60 000 грн ·Після всіх відрахувань" | the compact form once; under it only the note after "·", trimmed, when present |
+| Detail | the apply action under a ~1400-char description | pinned in a bottom `Island` (glass) inside the page; the column pads its bottom so the last line clears it |
+| Map, client log 09-12 | `luma.gl: Found luma.gl 9.4.0 while initialzing 9.4.1` | every `@deck.gl/*` package on esm.sh imports luma as a RANGE (`^9.4.0` / `~9.4.0`), each resolved at its own cache moment; `?deps=` on the deck.gl URL pins `@luma.gl/{core,engine,shadertools,webgl,gpgpu,gltf}@9.4.2` and the whole subgraph rewrites to that one version (verified with curl: the pinned core module references 9.4.2 only) |
+
+**Not touched:** company "Українська" (the sync's selector, an edge fix in flight). Descriptions keep
+`whitespace-pre-line`, so the "\n\n" paragraphs the backend will start sending read as gaps.
+
+**Fixture:** `ms` is now spread from 2 h to 40 d so the age labels, the order and the "new" dot render in the
+gate's shot; row 4 carries a parenthetical place and row 10 a "·" pay note.
+
+**Two corrections from the overlay eye, same day:** (1) the chunk observer was rooted on the list box, which
+is not a scroll container on a non-`fit` tab — the sentinel was always intersecting and all 320 rows rendered
+(37 974 px); the root is the viewport now and the first paint is 40 rows. (2) The pinned apply island cleared
+`--dock-h` although the page covers the dock, so it floated 87 px above the edge over the text; it is a plain
+fixed wrapper at the safe-area edge now.

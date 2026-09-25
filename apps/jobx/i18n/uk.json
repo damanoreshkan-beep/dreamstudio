@@ -53,5 +53,11 @@
   "installIosHint": "У Safari: натисни «Поділитися», далі «На екран Початок».",
   "installGenericHint": "У меню браузера обери «Встановити» або «Додати на головний екран».",
   "jobsHere": "вакансій тут",
-  "locate": "Де я"
+  "locate": "Де я",
+  "empAll": "Усі",
+  "search": "Пошук",
+  "agoToday": "сьогодні",
+  "agoYesterday": "вчора",
+  "agoDays": "{n} дн. тому",
+  "agoWeeks": "{n} тиж. тому"
 }
