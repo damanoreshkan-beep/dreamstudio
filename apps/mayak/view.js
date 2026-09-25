@@ -10,7 +10,7 @@ import { T } from "/_rt/i18n.js";
 import { Globe } from "/_rt/globe.js";
 import { Panel, Island, Segmented } from "/_rt/ui.js";
 import { VPS_PROXY } from "/_rt/feed.js";
-import { session } from "/_rt/auth.js";
+import { session, restore } from "/_rt/auth.js";
 import fixture from "./fixture.json" with { type: "json" };
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -46,7 +46,7 @@ export function map({ S }) {
     const query = q.trim(); if (!query || busy) return;
     setBusy(true); setReason("");
     try {
-      const r = await fetch(VPS_PROXY + "/feed/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: country === "all" ? "" : country }) });
+      const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: country === "all" ? "" : country }) });
       const j = await r.json().catch(() => null);
       if (r.ok && j && Array.isArray(j.matches)) { setHosts(j.matches); setLive(true); setSel(null); setQ(""); }
       else setReason((j && REASON[j.error]) || (r.status === 401 ? "" : "creditsWarn"));
@@ -101,12 +101,15 @@ export function state({ S }) {
   const [acc, setAcc] = useState(fixture.account);
   const [live, setLive] = useState(false);
 
+  // The runtime restores a stored session only when its sign-in wall mounts, so a tab that reads the session
+  // restores it itself; restore() answers null at once when nothing is stored — no wall, no network.
   useEffect(() => {
-    if (!me) return;
     let alive = true;
     (async () => {
+      const s = me || await restore().catch(() => null);
+      if (!s || !alive) return;
       try {
-        const r = await fetch(VPS_PROXY + "/feed/shodan/info");
+        const r = await fetch(VPS_PROXY + "/shodan/info");
         if (!r.ok) return;
         const j = await r.json();
         if (alive && j && typeof j.scan_credits === "number") { setAcc(j); setLive(true); }
@@ -165,8 +168,8 @@ export function trace({ S }) {
     try {
       const q = encodeURIComponent(to);
       const [tr, dn] = await Promise.all([
-        fetch(VPS_PROXY + "/feed/net/trace?target=" + q).then((r) => r.ok ? r.json() : null).catch(() => null),
-        fetch(VPS_PROXY + "/feed/net/dns?name=" + q).then((r) => r.ok ? r.json() : null).catch(() => null),
+        fetch(VPS_PROXY + "/net/trace?target=" + q).then((r) => r.ok ? r.json() : null).catch(() => null),
+        fetch(VPS_PROXY + "/net/dns?name=" + q).then((r) => r.ok ? r.json() : null).catch(() => null),
       ]);
       if (tr && Array.isArray(tr.hops) && tr.hops.length) { setHops(tr.hops); setLive(true); } else setFailed(true);
       if (dn && dn.records) setDns(dn);
