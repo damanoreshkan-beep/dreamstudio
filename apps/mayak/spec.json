@@ -1,0 +1,50 @@
+{
+  "id": "mayak",
+  "theme": "signal",
+  "accent": "#F5B94D",
+  "category": "tools",
+  "tabs": [
+    {
+      "id": "map",
+      "type": "tool",
+      "icon": "lucide:radio-tower",
+      "label": "tabMap",
+      "view": "map"
+    },
+    {
+      "id": "state",
+      "type": "tool",
+      "icon": "lucide:gauge",
+      "label": "tabState",
+      "view": "state",
+      "needs": ["auth"]
+    },
+    {
+      "id": "path",
+      "type": "tool",
+      "icon": "lucide:route",
+      "label": "tabPath",
+      "view": "trace"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:radio-tower",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any",
+    "source": {
+      "label": "profSource",
+      "url": "https://www.shodan.io",
+      "icon": "lucide:database"
+    }
+  },
+  "added": "2026-09-25"
+}
