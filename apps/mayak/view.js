@@ -13,6 +13,7 @@ import { Globe } from "/_rt/globe.js";
 import { Panel, Island, Segmented, Sheet } from "/_rt/ui.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session, restore } from "/_rt/auth.js";
+import { gate } from "/_rt/gate.js";
 import { CATEGORIES, KIND_OF, presetQuery } from "./categories.js";
 import fixture from "./fixture.json" with { type: "json" };
 
@@ -60,7 +61,7 @@ export function map({ S }) {
   // throw the systemic sign-in wall over someone who is only browsing. Live search augments once signed in
   // (with 0 credits the edge answers no_query_credits, a 200, so no wall).
   const runLive = async (query) => {
-    if (!query || !session.get()) return;
+    if (!query || gate || !session.get()) return;   // the gate's session is a mock; never spend a real call under it
     setReason("");
     try {
       const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: country === "all" ? "" : country }) });
@@ -128,7 +129,7 @@ export function map({ S }) {
 
       <div class="mt-2 flex items-center justify-between gap-2 min-h-6" data-status=${reason || (shown.length ? "ok" : "empty")}>
         <span class=${LABEL}>${shown.length ? html`${T(t, "found")} · ${shown.length}` : T(t, "noHosts")}</span>
-        ${reason ? html`<span class="text-xs text-warning text-right">${T(t, reason)}</span>` : live ? null : html`<span class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span>`}
+        ${reason ? html`<span class="text-xs text-warning text-right">${T(t, reason)}</span>` : live ? null : html`<span data-sample class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span>`}
       </div>
     <//>
 
@@ -151,6 +152,7 @@ export function state({ S }) {
   useEffect(() => {
     let alive = true;
     (async () => {
+      if (gate) return;   // the gate's session is a mock; the fixture card is what it renders
       const s = me || await restore().catch(() => null);
       if (!s || !alive) return;
       try {
@@ -182,7 +184,7 @@ export function state({ S }) {
         ${row("lucide:lock", T(t, "sHttps"), acc.https ? T(t, "yes") : T(t, "no"))}
         ${row("lucide:unlock", T(t, "sUnlocked"), acc.unlocked ? T(t, "yes") : T(t, "no"))}
       </div>
-      ${live ? null : html`<div class="flex justify-end"><span class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span></div>`}
+      ${live ? null : html`<div class="flex justify-end"><span data-sample class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span></div>`}
     <//>
     <${Panel} title=${T(t, "sLimits")}>
       <div class="divide-y divide-base-300/40">
@@ -287,7 +289,7 @@ export function trace({ S }) {
     <${Panel}>
       <div class="flex items-center justify-between gap-2">
         <span class=${LABEL}>${T(t, "hops")} · ${hops.length}${live ? " · " + T(t, "fromNode") : ""}</span>
-        ${live ? null : html`<span class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span>`}
+        ${live ? null : html`<span data-sample class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span>`}
       </div>
       <ol ref=${hopsRef} class="flex flex-col">
         ${hops.map((h, i) => html`<li class="flex items-stretch gap-3 py-1" data-hop=${h.n}>

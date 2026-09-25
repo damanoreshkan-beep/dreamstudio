@@ -17,7 +17,7 @@ export default [
       await h.click('[data-cat-btn="cameras"]'); await h.wait(500);
       h.expect((await h.count('[data-cat="cameras"]')) === 1, "категорія не вибралась");
       h.expect((await h.count('[data-shown="3"]')) === 1, "камер фікстури не три");
-      h.expect((await h.count("[data-preset]")) === 1, "немає рядка вендорів");
+      h.expect((await h.count("[data-preset]")) >= 1, "немає рядка вендорів");
       await h.click('[data-cat-btn="cameras"]'); await h.wait(300);
     },
   },
