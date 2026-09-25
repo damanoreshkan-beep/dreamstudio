@@ -1,0 +1,45 @@
+{
+  "account": {
+    "plan": "edu",
+    "query_credits": 0,
+    "scan_credits": 62648,
+    "monitored_ips": 0,
+    "https": false,
+    "unlocked": true,
+    "usage_limits": { "query_credits": 200000, "scan_credits": 65536, "monitored_ips": 131072 }
+  },
+  "total": 10,
+  "matches": [
+    { "ip": "1.1.1.1", "port": 443, "org": "Cloudflare", "lat": -33.494, "lon": 143.2104, "country": "Australia", "cc": "AU", "city": "", "product": "" },
+    { "ip": "8.8.8.8", "port": 443, "org": "Google", "lat": 37.751, "lon": -97.822, "country": "United States", "cc": "US", "city": "", "product": "" },
+    { "ip": "9.9.9.9", "port": 443, "org": "Quad9", "lat": 47.3667, "lon": 8.55, "country": "Switzerland", "cc": "CH", "city": "Zurich", "product": "" },
+    { "ip": "193.0.14.129", "port": 53, "org": "RIPE NCC", "lat": 52.3702, "lon": 4.8952, "country": "Netherlands", "cc": "NL", "city": "Amsterdam", "product": "" },
+    { "ip": "208.67.222.222", "port": 443, "org": "Cisco OpenDNS", "lat": 37.7749, "lon": -122.4194, "country": "United States", "cc": "US", "city": "San Francisco", "product": "" },
+    { "ip": "94.140.14.14", "port": 853, "org": "AdGuard", "lat": 34.6841, "lon": 33.0379, "country": "Cyprus", "cc": "CY", "city": "Limassol", "product": "" },
+    { "ip": "74.82.42.42", "port": 53, "org": "Hurricane Electric", "lat": 37.5483, "lon": -121.9886, "country": "United States", "cc": "US", "city": "Fremont", "product": "" },
+    { "ip": "185.228.168.9", "port": 53, "org": "CleanBrowsing", "lat": 42.6977, "lon": 23.3219, "country": "Bulgaria", "cc": "BG", "city": "Sofia", "product": "" },
+    { "ip": "77.88.8.8", "port": 443, "org": "Yandex", "lat": 55.7558, "lon": 37.6173, "country": "Russia", "cc": "RU", "city": "Moscow", "product": "" },
+    { "ip": "194.44.30.13", "port": 53, "org": "Hostmaster", "lat": 50.4501, "lon": 30.5234, "country": "Ukraine", "cc": "UA", "city": "Kyiv", "product": "" }
+  ],
+  "dns": {
+    "ip": "203.0.113.7",
+    "ptr": "host.example.net",
+    "records": {
+      "A": ["93.184.216.34"],
+      "AAAA": ["2606:2800:220:1:248:1893:25c8:1946"],
+      "NS": ["a.iana-servers.net", "b.iana-servers.net"]
+    }
+  },
+  "trace": {
+    "target": "example.com",
+    "hops": [
+      { "n": 1, "host": "gateway", "ip": "192.168.0.1", "rtt": 1.2 },
+      { "n": 2, "host": "isp-core", "ip": "10.64.0.1", "rtt": 8.5 },
+      { "n": 3, "host": "kyiv-bng", "ip": "100.72.4.9", "rtt": 12.3 },
+      { "n": 4, "host": "", "ip": "", "rtt": null },
+      { "n": 5, "host": "de-cix.fra", "ip": "80.81.192.15", "rtt": 34.1 },
+      { "n": 6, "host": "edge.example.net", "ip": "93.184.216.1", "rtt": 41.8 },
+      { "n": 7, "host": "example.com", "ip": "93.184.216.34", "rtt": 42.0 }
+    ]
+  }
+}
