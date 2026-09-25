@@ -1137,6 +1137,48 @@
     "needs": []
   },
   {
+    "id": "mayak",
+    "title": "Маяк",
+    "titles": {
+      "en": "Mayak",
+      "uk": "Маяк"
+    },
+    "tagline": "Промінь по мережі: хости на глобусі, стан ключа, шлях до будь-якого вузла",
+    "taglines": {
+      "en": "A beam across the network: hosts on a globe, the key's state, the path to any node",
+      "uk": "Промінь по мережі: хости на глобусі, стан ключа, шлях до будь-якого вузла"
+    },
+    "glyph": "lucide:radio-tower",
+    "art": "<svg viewBox=\"0 0 24 24\"><path d=\"M4.9 16.1C1 12.2 1 5.8 4.9 1.9\"/><path d=\"M7.8 4.7a6.14 6.14 0 0 0-.8 7.5\"/><circle cx=\"12\" cy=\"9\" r=\"2\"/><path d=\"M16.2 4.8c2 2 2.26 5.11.8 7.47\"/><path d=\"M19.1 1.9a9.96 9.96 0 0 1 0 14.1\"/><path d=\"M9.5 18h5\"/><path d=\"m8 22 4-11 4 11\"/></svg>",
+    "icon": true,
+    "screens": {
+      "en": [
+        "Map",
+        "State",
+        "Path"
+      ],
+      "uk": [
+        "Карта",
+        "Стан",
+        "Шлях"
+      ]
+    },
+    "shots": [
+      "map",
+      "state",
+      "path"
+    ],
+    "bg": "#000000",
+    "fg": "#F5B94D",
+    "href": "./mayak/",
+    "version": "1.1",
+    "category": "tools",
+    "needs": [
+      "auth"
+    ],
+    "added": "2026-09-25"
+  },
+  {
     "id": "pendulum",
     "title": "Маятник",
     "titles": {
