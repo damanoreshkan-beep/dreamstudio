@@ -14,7 +14,7 @@ import { Panel, Island, Segmented, Sheet } from "/_rt/ui.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session, restore } from "/_rt/auth.js";
 import { gate } from "/_rt/gate.js";
-import { CATEGORIES, KIND_OF, presetQuery, parseQuery } from "./categories.js";
+import { CATEGORIES, KIND_OF, presetQuery, parseQuery, freeTerm } from "./categories.js";
 import fixture from "./fixture.json" with { type: "json" };
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -54,24 +54,30 @@ export function map({ S }) {
 
   // One live query. Under the gate we never fetch — the fixture IS the screen, deterministically. Signed out,
   // the call 401s and the runtime's sealed transport raises the systemic sign-in wall; when the user signs in
-  // `session` updates, the mount effect re-runs and the same query loads for real. On the edu plan the free
-  // first page is a 200 with real hosts (no query credit spent), so a signed-in user always gets live data.
+  // `session` updates, the mount effect re-runs and the same query loads for real. On the edu plan an
+  // UNFILTERED text query is a 200 with ~100 real hosts and no query credit spent (measured), so a category
+  // searches by its plain word (freeTerm) and country / vulnerable filtering happens client-side on the loaded
+  // set — instant and free. A filtered query (the precise presets, or the advanced box) needs credits; with
+  // none it answers no_query_credits and we say so honestly rather than showing demo data.
   const seq = useRef(0);
   const runLive = async (query, kind) => {
     if (!query || gate) return;
     const my = ++seq.current;
     setReason(""); setLoading(true);
     try {
-      const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: country === "all" ? "" : country }) });
+      const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: "" }) });
       const j = await r.json().catch(() => null);
       if (my !== seq.current) return;
       if (r.ok && j && Array.isArray(j.matches)) {
-        setHosts(j.matches.map((m) => ({ ...m, kind: kind || m.kind || "access" }))); setLive(true); setSel(null);
+        setHosts(j.matches.map((m) => ({ ...m, kind: kind || m.kind || "access" }))); setLive(true); setSel(null); setCountry("all");
         if (!j.matches.length) setReason("noHosts");
-      } else setReason(j && j.error === "no_key" ? "noKey" : j && j.error === "no_query_credits" ? "creditsWarn" : "updFail");
+      } else { setHosts([]); setLive(false); setReason(j && j.error === "no_key" ? "noKey" : j && j.error === "no_query_credits" ? "creditsWarn" : "updFail"); }
     } catch { if (my === seq.current) setReason("updFail"); }
     finally { if (my === seq.current) setLoading(false); }
   };
+  // The query a preset runs live: its plain-text term (free on the edu plan) when it has one, else the precise
+  // filter (needs credits). The advanced box parses free text; we drop any country so the free page is served.
+  const liveOf = (p) => freeTerm(p) || presetQuery(p, "");
 
   // Live-first: on mount (and whenever the session changes), load the open category for real. restore()
   // rehydrates a stored session first so a signed-in user does not hit the wall on a cold open.
@@ -81,8 +87,9 @@ export function map({ S }) {
     (async () => {
       if (!me) await restore().catch(() => null);
       if (!alive) return;
-      const q = free ? parseQuery(free, country).query : cat ? presetQuery(activeCat.presets[0], country) : "";
-      if (q) runLive(q, kindOfSel);
+      const p = cat ? activeCat.presets[0] : null;
+      if (free) runLive(parseQuery(free, "").query, null);
+      else if (p) runLive(liveOf(p), KIND_OF[p]);
     })();
     return () => { alive = false; };
   }, [me]);   // eslint-disable-line
@@ -90,16 +97,13 @@ export function map({ S }) {
   const pickCat = (id) => {
     const next = id === cat ? null : id;
     setCat(next); setPreset(null); setSel(null); setFree(null); setOnlyVuln(false);
-    if (next) { const p = CATEGORIES.find((c) => c.id === next).presets[0]; runLive(presetQuery(p, country), KIND_OF[p]); }
+    if (next) { const p = CATEGORIES.find((c) => c.id === next).presets[0]; runLive(liveOf(p), KIND_OF[p]); }
   };
-  const pickPreset = (p) => { setPreset(p); setSel(null); setFree(null); runLive(presetQuery(p, country), KIND_OF[p]); };
-  const pickCountry = (cc) => {
-    setCountry(cc); setSel(null);
-    const q = free ? parseQuery(free, cc).query : preset ? presetQuery(preset, cc) : cat ? presetQuery(activeCat.presets[0], cc) : "";
-    if (q) runLive(q, kindOfSel);
-  };
+  const pickPreset = (p) => { setPreset(p); setSel(null); setFree(null); runLive(liveOf(p), KIND_OF[p]); };
+  // Country and the vulnerable toggle filter the loaded set client-side — no re-query, so they stay free and instant.
+  const pickCountry = (cc) => { setCountry(cc); setSel(null); };
   const runFree = () => {
-    const parsed = parseQuery(adv.trim(), country);
+    const parsed = parseQuery(adv.trim(), "");
     if (!parsed.query) return;
     setCat(null); setPreset(null); setFree(adv.trim()); setSel(null); setOnlyVuln(false); setAdvOpen(false);
     runLive(parsed.query, null);

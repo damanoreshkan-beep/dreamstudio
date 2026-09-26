@@ -52,6 +52,24 @@ export function presetQuery(preset, cc) {
   return cc && cc !== "all" ? `${base} country:${cc}` : base;
 }
 
+// FREE — a plain-text term per preset, for the LIVE map on the edu plan. Measured 2026-09-26 against the
+// deployed route with a signed-in session: Shodan serves the first ~100 hosts of an UNFILTERED text query
+// for zero query credits, but ANY filter (port:, product:, country:, vuln:) returns no_query_credits. So the
+// live map searches by the plain word a banner carries; country and the vulnerable toggle then filter that
+// loaded set CLIENT-SIDE (instant, free). The precise filter queries above stay for a credit-holding user
+// and the advanced box. The vulnerable category has no honest free term (a CVE needs the vuln: filter), so
+// it falls back to its filter and says so.
+export const FREE = {
+  camera: "webcam", cam_dahua: "dahua", cam_hik: "hikvision", cam_axis: "axis", cam_onvif: "onvif", cam_screenshot: "webcam",
+  databases: "mongodb", db_mongo: "mongodb", mongo_open: "mongodb", db_redis: "redis", db_mysql: "mysql", db_postgres: "postgresql", elastic: "elastic",
+  acc_rdp: "rdp", ssh: "openssh", vnc: "vnc", acc_telnet: "telnet", acc_winbox: "mikrotik",
+  indexof: "index of", ftp: "ftp", files_smb: "samba", files_rsync: "rsync",
+  printers: "printer", scada: "modbus", dev_s7: "siemens", dev_upnp: "upnp",
+};
+
+/** The plain-text term a preset searches by on the free tier, or "" when it has none (needs credits). Pure. */
+export function freeTerm(preset) { return FREE[preset] || ""; }
+
 // parseQuery — the "simple Shodan" brain, so the advanced box understands what a person types (mirrors
 // shodan-lite src/query.mjs). An IP → a host lookup, a domain → a hostname search, a raw Shodan filter
 // passes through, a bare word → a text search. Pure. Returns { query, mode }.
