@@ -10,6 +10,8 @@
   "pick": "What to show on the map",
   "found": "Found",
   "noHosts": "Nothing found",
+  "more": "Show more",
+  "back": "Back",
   "everywhere": "Everywhere",
   "advanced": "Your own query",
   "searchPlaceholder": "Your own Shodan query…",
