@@ -14,7 +14,7 @@ import { Panel, Island, Segmented, Sheet } from "/_rt/ui.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session, restore } from "/_rt/auth.js";
 import { gate } from "/_rt/gate.js";
-import { CATEGORIES, KIND_OF, presetQuery } from "./categories.js";
+import { CATEGORIES, KIND_OF, presetQuery, parseQuery } from "./categories.js";
 import fixture from "./fixture.json" with { type: "json" };
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -35,56 +35,94 @@ const nsOrg = (host) => {
 export function map({ S }) {
   const t = useStore(S.t);
   const me = useStore(session);
-  useEffect(() => { if (!me) restore().catch(() => {}); }, []);   // know if signed in without opening the wall
-  const [cat, setCat] = useState(null);        // selected category id, or null = everything
+  const [cat, setCat] = useState(gate ? null : "cameras");   // gate browses the fixture; live opens on cameras
   const [preset, setPreset] = useState(null);  // a refined kind within the category
   const [country, setCountry] = useState("all");
   const [sel, setSel] = useState(null);
-  const [hosts, setHosts] = useState(fixture.matches);
+  const [hosts, setHosts] = useState(gate ? fixture.matches : []);
   const [live, setLive] = useState(false);
+  const [loading, setLoading] = useState(!gate);
+  const [onlyVuln, setOnlyVuln] = useState(false);
   const [reason, setReason] = useState("");
+  const [free, setFree] = useState(null);      // a free-text search, when one is active (clears the category)
   const [adv, setAdv] = useState("");
   const [advOpen, setAdvOpen] = useState(false);
 
   const activeCat = CATEGORIES.find((c) => c.id === cat) || null;
   const catKind = activeCat ? KIND_OF[activeCat.presets[0]] : null;
+  const kindOfSel = free ? null : catKind;
 
-  const countries = useMemo(() => {
-    const seen = new Map();
-    for (const h of hosts) if (h.cc && !seen.has(h.cc)) seen.set(h.cc, h.country || h.cc);
-    return [{ id: "all", label: T(t, "everywhere") }, ...[...seen].sort((a, b) => a[1].localeCompare(b[1])).map(([id, label]) => ({ id, label }))];
-  }, [t, hosts]);
-
-  const shown = useMemo(() => {
-    const vend = preset && VENDOR[preset] ? VENDOR[preset].toLowerCase() : null;
-    return hosts.filter((h) =>
-      (!catKind || h.kind === catKind) &&
-      (!vend || (h.product || "").toLowerCase().includes(vend)) &&
-      (country === "all" || h.cc === country));
-  }, [hosts, catKind, preset, country]);
-
-  // Live search on the chosen preset (or the free query) — one query credit a page upstream. A refusal keeps
-  // the fixture and names why; on the edu plan (0 credits) that is the normal path and the island says so.
-  // Signed out, a category just filters the demo — it must NOT hit a signed-in-only route, or the 401 would
-  // throw the systemic sign-in wall over someone who is only browsing. Live search augments once signed in
-  // (with 0 credits the edge answers no_query_credits, a 200, so no wall).
-  const runLive = async (query) => {
-    if (!query || gate || !session.get()) return;   // the gate's session is a mock; never spend a real call under it
-    setReason("");
+  // One live query. Under the gate we never fetch — the fixture IS the screen, deterministically. Signed out,
+  // the call 401s and the runtime's sealed transport raises the systemic sign-in wall; when the user signs in
+  // `session` updates, the mount effect re-runs and the same query loads for real. On the edu plan the free
+  // first page is a 200 with real hosts (no query credit spent), so a signed-in user always gets live data.
+  const seq = useRef(0);
+  const runLive = async (query, kind) => {
+    if (!query || gate) return;
+    const my = ++seq.current;
+    setReason(""); setLoading(true);
     try {
       const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: country === "all" ? "" : country }) });
       const j = await r.json().catch(() => null);
-      if (r.ok && j && Array.isArray(j.matches) && j.matches.length) { setHosts(j.matches.map((m) => ({ ...m, kind: catKind || m.kind }))); setLive(true); setSel(null); }
-      else setReason(j && j.error === "no_key" ? "noKey" : j && j.error === "no_query_credits" ? "creditsWarn" : "updFail");
-    } catch { setReason("updFail"); }
+      if (my !== seq.current) return;
+      if (r.ok && j && Array.isArray(j.matches)) {
+        setHosts(j.matches.map((m) => ({ ...m, kind: kind || m.kind || "access" }))); setLive(true); setSel(null);
+        if (!j.matches.length) setReason("noHosts");
+      } else setReason(j && j.error === "no_key" ? "noKey" : j && j.error === "no_query_credits" ? "creditsWarn" : "updFail");
+    } catch { if (my === seq.current) setReason("updFail"); }
+    finally { if (my === seq.current) setLoading(false); }
   };
+
+  // Live-first: on mount (and whenever the session changes), load the open category for real. restore()
+  // rehydrates a stored session first so a signed-in user does not hit the wall on a cold open.
+  useEffect(() => {
+    if (gate) return;
+    let alive = true;
+    (async () => {
+      if (!me) await restore().catch(() => null);
+      if (!alive) return;
+      const q = free ? parseQuery(free, country).query : cat ? presetQuery(activeCat.presets[0], country) : "";
+      if (q) runLive(q, kindOfSel);
+    })();
+    return () => { alive = false; };
+  }, [me]);   // eslint-disable-line
 
   const pickCat = (id) => {
     const next = id === cat ? null : id;
-    setCat(next); setPreset(null); setSel(null);
-    if (next) runLive(presetQuery(CATEGORIES.find((c) => c.id === next).presets[0], country));
+    setCat(next); setPreset(null); setSel(null); setFree(null); setOnlyVuln(false);
+    if (next) { const p = CATEGORIES.find((c) => c.id === next).presets[0]; runLive(presetQuery(p, country), KIND_OF[p]); }
   };
-  const pickPreset = (p) => { setPreset(p); setSel(null); runLive(presetQuery(p, country)); };
+  const pickPreset = (p) => { setPreset(p); setSel(null); setFree(null); runLive(presetQuery(p, country), KIND_OF[p]); };
+  const pickCountry = (cc) => {
+    setCountry(cc); setSel(null);
+    const q = free ? parseQuery(free, cc).query : preset ? presetQuery(preset, cc) : cat ? presetQuery(activeCat.presets[0], cc) : "";
+    if (q) runLive(q, kindOfSel);
+  };
+  const runFree = () => {
+    const parsed = parseQuery(adv.trim(), country);
+    if (!parsed.query) return;
+    setCat(null); setPreset(null); setFree(adv.trim()); setSel(null); setOnlyVuln(false); setAdvOpen(false);
+    runLive(parsed.query, null);
+  };
+
+  // The set every facet summarises: live results as-is, or (under the gate) the fixture narrowed to the
+  // chosen category and vendor. Country and the vulnerable toggle then filter what is DISPLAYED on top of it.
+  const base = useMemo(() => {
+    if (!gate) return hosts;
+    const vend = preset && VENDOR[preset] ? VENDOR[preset].toLowerCase() : null;
+    return hosts.filter((h) => (!catKind || h.kind === catKind) && (!vend || (h.product || "").toLowerCase().includes(vend)));
+  }, [hosts, catKind, preset]);
+
+  const shown = useMemo(() =>
+    base.filter((h) => (country === "all" || h.cc === country) && (!onlyVuln || h.vulns > 0)),
+    [base, country, onlyVuln]);
+
+  const facets = useMemo(() => {
+    const m = new Map(), name = new Map();
+    for (const h of base) if (h.cc) { m.set(h.cc, (m.get(h.cc) || 0) + 1); if (!name.has(h.cc)) name.set(h.cc, h.country || h.cc); }
+    return [...m].map(([cc, n]) => ({ cc, n, label: name.get(cc) })).sort((a, b) => b.n - a.n).slice(0, 6);
+  }, [base]);
+  const vulnTotal = useMemo(() => base.filter((h) => h.vulns > 0).length, [base]);
 
   const color = (h) => h.vulns > 0 ? "#F2777A" : ACCENT;
   const points = shown.map((h) => ({ lat: h.lat, lon: h.lon, r: 5, color: color(h), pulse: !!sel && sel.ip === h.ip, host: h }));
@@ -93,6 +131,20 @@ export function map({ S }) {
 
   const kindWord = (h) => T(t, "kind." + (h.kind || "access"));
   const summary = (h) => [h.city ? T(t, "sumPlace", { city: h.city }) : "", T(t, "sumPorts", { n: h.ports || 1 }), h.vulns > 0 ? T(t, "sumVulns", { n: h.vulns }) : T(t, "sumSafe")].filter(Boolean).join(". ") + ".";
+  const skeleton = loading && !shown.length;
+
+  const row = (h) => html`<button key=${h.ip} data-result=${h.ip} aria-pressed=${!!sel && sel.ip === h.ip}
+    class=${"flex items-start gap-3 w-full text-left px-2 py-2 rounded-[var(--ms-r-in)] transition-colors " + (sel && sel.ip === h.ip ? "sf-pressed" : "hover:bg-base-content/5")}
+    onClick=${() => setSel(h)}>
+    <span class="w-9 h-9 shrink-0 rounded-[var(--ms-r-in)] grid place-items-center" style=${{ background: color(h) + "22", color: color(h) }}>${Icon(CAT_ICON[h.kind] || "lucide:radio-tower", "text-lg")}</span>
+    <span class="min-w-0 grow">
+      <span class="flex items-center gap-2">
+        <span class="font-semibold leading-tight truncate">${kindWord(h)}${h.product ? html` · <span class="font-normal text-base-content/80">${h.product}</span>` : null}</span>
+      </span>
+      <span class="block text-sm text-base-content/80 leading-snug">${summary(h)}</span>
+      <span class="block font-mono text-xs text-muted truncate">${h.ip}${h.org ? " · " + h.org : ""}</span>
+    </span>
+  </button>`;
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-shown=${shown.length} data-cat=${cat || ""} data-live=${live ? "1" : null}>
     <${Globe} points=${points} focus=${focus} spin=${!sel} onPick=${pick} />
@@ -128,26 +180,52 @@ export function map({ S }) {
           value=${preset || activeCat.presets[0]} onChange=${pickPreset} variant="outline" size="sm" scroll attr="data-preset" />
       </div>` : null}
 
-      <div class="mt-2 flex items-center gap-2">
-        <div class="grow min-w-0">
-          <${Segmented} items=${countries} value=${country} onChange=${setCountry} variant="outline" size="sm" scroll attr="data-country" />
-        </div>
-        <button class="btn btn-ghost btn-sm btn-circle shrink-0" onClick=${() => setAdvOpen(true)} data-adv aria-label=${T(t, "advanced")}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
-      </div>
+      ${free ? html`<div class="mt-2 flex items-center gap-2 text-sm">
+        <span class="text-base-content/70 shrink-0">${Icon("lucide:search", "text-base")}</span>
+        <span class="font-mono truncate grow">${free}</span>
+        <button class="btn btn-ghost btn-xs btn-circle shrink-0" onClick=${() => pickCat("cameras")} aria-label=${T(t, "close")}>${Icon("lucide:x", "text-base")}</button>
+      </div>` : null}
 
-      <div class="mt-2 flex items-center justify-between gap-2 min-h-6" data-status=${reason || (shown.length ? "ok" : "empty")}>
-        <span class=${LABEL}>${shown.length ? html`${T(t, "found")} · ${shown.length}` : T(t, "noHosts")}</span>
-        ${reason ? html`<span class="text-xs text-warning text-right">${T(t, reason)}</span>` : live ? null : html`<span data-sample class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span>`}
+      <div class="mt-2 flex items-center justify-between gap-2 min-h-6" data-status=${reason || (loading ? "loading" : shown.length ? "ok" : "empty")}>
+        <span class=${LABEL}>${loading ? T(t, "scanning") : shown.length ? html`${T(t, "found")} · ${shown.length}` : T(t, "noHosts")}</span>
+        ${reason ? html`<span class="text-xs text-warning text-right">${T(t, reason)}</span>`
+          : gate ? html`<span data-sample class="badge badge-ghost gap-1 font-mono text-xs uppercase tracking-wider">${Icon("lucide:flask-conical")} ${T(t, "sample")}</span>` : null}
       </div>
     <//>
 
-    <${Sheet} id="adv" open=${advOpen} onClose=${() => setAdvOpen(false)} title=${T(t, "advanced")} locale=${useStore(S.locale)}>
+    ${(facets.length > 1 || vulnTotal > 0) ? html`<${Island}>
+      <div class=${LABEL + " mb-2"}>${T(t, "atAGlance")}</div>
+      <div class="flex flex-wrap gap-1.5">
+        <button data-facet="all" aria-pressed=${country === "all"} onClick=${() => pickCountry("all")}
+          class=${"badge gap-1 " + (country === "all" ? "badge-primary" : "badge-ghost")}>${T(t, "everywhere")}</button>
+        ${facets.map((f) => html`<button key=${f.cc} data-facet=${f.cc} aria-pressed=${country === f.cc} onClick=${() => pickCountry(f.cc)}
+          class=${"badge gap-1.5 " + (country === f.cc ? "badge-primary" : "badge-ghost")}>${f.label} <span class="font-mono tabular-nums opacity-70">${f.n}</span></button>`)}
+        ${vulnTotal > 0 ? html`<button data-facet="vuln" aria-pressed=${onlyVuln} onClick=${() => setOnlyVuln((v) => !v)}
+          class=${"badge gap-1.5 " + (onlyVuln ? "badge-error" : "badge-ghost")} style=${onlyVuln ? null : { color: "#F2777A" }}>${Icon("lucide:shield-alert", "text-sm")} ${T(t, "onlyVulns")} <span class="font-mono tabular-nums opacity-70">${vulnTotal}</span></button>` : null}
+      </div>
+    <//>` : null}
+
+    <${Panel} title=${T(t, "results")} data-list=${shown.length}>
+      <button class="btn btn-ghost btn-sm w-full justify-start gap-2" onClick=${() => setAdvOpen(true)} data-adv>
+        ${Icon("lucide:search", "text-lg text-base-content/70")}<span class="text-base-content/70 font-normal">${T(t, "searchPlaceholder")}</span>
+      </button>
+      ${skeleton
+        ? html`<div class="flex flex-col gap-1">${[0, 1, 2, 3, 4].map((i) => html`<div key=${i} class="flex items-start gap-3 px-2 py-2">
+            <span class="w-9 h-9 shrink-0 rounded-[var(--ms-r-in)] bg-base-content/10 animate-pulse"></span>
+            <span class="grow flex flex-col gap-1.5 pt-0.5"><span class="h-3 w-1/2 rounded bg-base-content/10 animate-pulse"></span><span class="h-3 w-3/4 rounded bg-base-content/10 animate-pulse"></span></span>
+          </div>`)}</div>`
+        : shown.length
+          ? html`<div class="flex flex-col divide-y divide-base-300/40">${shown.map(row)}</div>`
+          : html`<div class="text-sm text-muted py-6 text-center">${T(t, "noHosts")}</div>`}
+    <//>
+
+    <${Sheet} id="adv" open=${advOpen} onClose=${() => setAdvOpen(false)} title=${T(t, "advanced")} subtitle=${T(t, "searchHint")} locale=${useStore(S.locale)}>
       <label class="input flex items-center gap-2 h-[var(--ms-ctl)] rounded-[var(--ms-r-in)]">
         ${Icon("lucide:terminal", "text-lg text-base-content/70")}
         <input id="adv-q" class="grow bg-transparent outline-none font-mono text-sm" value=${adv}
-          onInput=${(e) => setAdv(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter") { runLive(adv.trim()); setAdvOpen(false); } }} placeholder=${T(t, "searchPlaceholder")} />
+          onInput=${(e) => setAdv(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter") runFree(); }} placeholder=${T(t, "searchPlaceholder")} />
       </label>
-      <button class="btn btn-primary w-full mt-3" onClick=${() => { runLive(adv.trim()); setAdvOpen(false); }} disabled=${!adv.trim()}>${T(t, "traceBtn")}</button>
+      <button class="btn btn-primary w-full mt-3" onClick=${runFree} disabled=${!adv.trim()}>${T(t, "searchBtn")}</button>
     <//>
   </div>`;
 }

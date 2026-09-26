@@ -52,6 +52,24 @@ export function presetQuery(preset, cc) {
   return cc && cc !== "all" ? `${base} country:${cc}` : base;
 }
 
+// parseQuery — the "simple Shodan" brain, so the advanced box understands what a person types (mirrors
+// shodan-lite src/query.mjs). An IP → a host lookup, a domain → a hostname search, a raw Shodan filter
+// passes through, a bare word → a text search. Pure. Returns { query, mode }.
+const FILTER_TOKENS = ["port:", "product:", "http.title:", "http.html:", "hostname:", "net:", "org:", "asn:", "country:", "city:", "ssl:", "vuln:", "os:", "tag:", "has_screenshot:", "screenshot.label:"];
+const isIPv4 = (s) => { const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s); return !!m && m.slice(1).every((o) => Number(o) >= 0 && Number(o) <= 255 && String(Number(o)) === o.replace(/^0+(?=\d)/, "")); };
+const isIPv6 = (s) => s.indexOf(":") !== -1 && /^[0-9a-fA-F:]+$/.test(s) && (s.split(":").length >= 3 || s.includes("::"));
+
+export function parseQuery(input, cc) {
+  const raw = (input == null ? "" : String(input)).trim();
+  const country = (cc && cc !== "all" ? cc : "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return { query: "", mode: "empty" };
+  if (isIPv4(raw) || isIPv6(raw)) return { query: `ip:"${raw}"`, mode: "host" };
+  if (FILTER_TOKENS.some((tk) => lower.includes(tk))) return { query: country && !lower.includes("country:") ? `${raw} country:${country}` : raw, mode: "raw" };
+  if (raw.indexOf(".") !== -1 && !/\s/.test(raw)) return { query: `hostname:"${raw}"`, mode: "domain" };
+  return { query: country ? `${raw} country:${country}` : raw, mode: "text" };
+}
+
 // What a result IS, in a word — from the category a preset belongs to, so a match reads "Камера", "База",
 // "Пристрій", not a raw banner. A live search carries the preset that produced it.
 export const KIND_OF = (() => {

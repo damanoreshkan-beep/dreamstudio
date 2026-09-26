@@ -17,6 +17,12 @@
   "updFail": "Couldn't refresh the map",
   "noKey": "The Shodan key is not connected yet",
   "sample": "Sample data",
+  "scanning": "Scanning…",
+  "atAGlance": "At a glance",
+  "onlyVulns": "Only vulnerable",
+  "results": "Findings",
+  "searchBtn": "Search",
+  "searchHint": "An IP, a domain, or your own Shodan query",
 
   "cat.cameras": "Cameras",
   "cat.databases": "Databases",

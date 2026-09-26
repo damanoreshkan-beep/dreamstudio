@@ -17,6 +17,12 @@
   "updFail": "Не вдалося оновити карту",
   "noKey": "Ключ Shodan ще не підключено",
   "sample": "Демодані",
+  "scanning": "Сканую…",
+  "atAGlance": "Одним поглядом",
+  "onlyVulns": "Лише вразливі",
+  "results": "Знахідки",
+  "searchBtn": "Знайти",
+  "searchHint": "IP, домен або власний запит Shodan",
 
   "cat.cameras": "Камери",
   "cat.databases": "Бази",
