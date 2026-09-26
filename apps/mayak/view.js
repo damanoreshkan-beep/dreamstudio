@@ -317,7 +317,9 @@ export function trace({ S }) {
       <ol ref=${hopsRef} class="flex flex-col">
         ${hops.map((h, i) => html`<li class="flex items-stretch gap-3 py-1" data-hop=${h.n}>
           <div class="flex flex-col items-center">
-            <span class="w-6 h-6 shrink-0 rounded-full grid place-items-center font-mono text-xs font-semibold tabular-nums text-base-content" style=${{ background: ACCENT + "33" }}>${h.n}</span>
+            ${(h.host || h.ip)
+              ? html`<span class="w-6 h-6 shrink-0 rounded-full grid place-items-center font-mono text-xs font-semibold tabular-nums text-base-content" style=${{ background: ACCENT + "33" }}>${h.n}</span>`
+              : html`<span class="w-6 h-6 shrink-0 rounded-full grid place-items-center font-mono text-xs tabular-nums text-muted border border-dashed border-base-content/30">${h.n}</span>`}
             ${i < hops.length - 1 ? html`<span class="w-px grow" style=${{ background: ACCENT + "33" }}></span>` : null}
           </div>
           <div class="min-w-0 grow pb-1">
