@@ -23,6 +23,14 @@ const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider 
 const CAT_ICON = { camera: "lucide:cctv", database: "lucide:database", access: "lucide:monitor", files: "lucide:folder-open", device: "lucide:printer", vuln: "lucide:shield-alert" };
 // A vendor preset narrows the fixture by product; the "all" preset (first of a category) does not.
 const VENDOR = { cam_dahua: "Dahua", cam_hik: "Hikvision", cam_axis: "Axis", db_mongo: "Mongo", db_redis: "Redis", db_mysql: "MySQL", db_postgres: "PostgreSQL", elastic: "Elastic", acc_rdp: "RDP", ssh: "SSH", vnc: "VNC" };
+// A name server's hostname is jargon; a person recognises the company behind it. Map the well-known ones, else
+// fall back to the registrable label (ns-1567.awsdns-03.co.uk → AWS, sdns3.ultradns.org → UltraDNS).
+const NS_ORG = { ultradns: "UltraDNS", awsdns: "AWS", cloudflare: "Cloudflare", googledomains: "Google", google: "Google", azure: "Azure", dnsimple: "DNSimple", nsone: "NS1", akamai: "Akamai", domaincontrol: "GoDaddy", dnsmadeeasy: "DNS Made Easy" };
+const nsOrg = (host) => {
+  const parts = String(host || "").toLowerCase().split(".");
+  for (const seg of parts) for (const k in NS_ORG) if (seg.includes(k)) return NS_ORG[k];
+  return parts.length >= 2 ? parts[parts.length - 2].replace(/[-_]\d.*$/, "").replace(/^./, (c) => c.toUpperCase()) : String(host || "");
+};
 
 export function map({ S }) {
   const t = useStore(S.t);
@@ -67,8 +75,8 @@ export function map({ S }) {
       const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: country === "all" ? "" : country }) });
       const j = await r.json().catch(() => null);
       if (r.ok && j && Array.isArray(j.matches) && j.matches.length) { setHosts(j.matches.map((m) => ({ ...m, kind: catKind || m.kind }))); setLive(true); setSel(null); }
-      else setReason(j && j.error === "no_key" ? "noKey" : "creditsWarn");
-    } catch { setReason("creditsWarn"); }
+      else setReason(j && j.error === "no_key" ? "noKey" : j && j.error === "no_query_credits" ? "creditsWarn" : "updFail");
+    } catch { setReason("updFail"); }
   };
 
   const pickCat = (id) => {
@@ -174,7 +182,6 @@ export function state({ S }) {
   const lim = acc.usage_limits || {};
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-plan=${acc.plan || ""} data-live=${live ? "1" : null}>
-    ${acc.query_credits === 0 ? html`<${Panel}><div class="flex items-start gap-2.5 text-sm"><span class="shrink-0 mt-0.5 text-warning">${Icon("lucide:triangle-alert", "text-lg")}</span><span>${T(t, "creditsWarn")}</span></div><//>` : null}
     <${Panel} title=${T(t, "sPlan")}>
       <div class="divide-y divide-base-300/40">
         ${row("lucide:badge-check", T(t, "sPlan"), (acc.plan || "—").toUpperCase())}
@@ -253,6 +260,12 @@ export function trace({ S }) {
   </div>` : null;
 
   const maxRtt = Math.max(1, ...hops.map((h) => h.rtt || 0));
+  // The plain-language answer to "and what does this mean?" (owner, 2026-09-25, looking at raw hops).
+  const answered = hops.filter((h) => h.rtt != null).length;
+  const hidden = hops.filter((h) => !h.ip).length;
+  const reachMs = Math.round(Math.max(0, ...hops.map((h) => h.rtt || 0)));
+  const addr = (dns.records && dns.records.A && dns.records.A[0]) || dns.ip || "";
+  const nsLeaves = [...new Set((dns.records && dns.records.NS || []).map(nsOrg))];
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-hops=${hops.length} data-live=${live ? "1" : null} data-busy=${busy ? "1" : null}>
     <${Island}>
@@ -271,6 +284,16 @@ export function trace({ S }) {
       ${failed ? html`<div class="mt-2 text-xs text-warning" data-fail>${T(t, "traceFail")}</div>` : null}
     <//>
 
+    <${Panel} title=${T(t, "meaning")} data-meaning>
+      <div class="flex items-start gap-2.5 text-sm leading-snug">
+        <span class="shrink-0 mt-0.5" style=${{ color: ACCENT }}>${Icon("lucide:sparkles", "text-lg")}</span>
+        <div class="flex flex-col gap-1.5">
+          <p>${T(t, "routeLede", { n: answered, ms: reachMs })}${hidden ? " " + T(t, "routeHidden", { n: hidden }) : ""}</p>
+          ${addr ? html`<p>${T(t, "dnsAddr", { ip: addr })}${nsLeaves.length ? " " + T(t, "dnsNames", { orgs: nsLeaves.join(", ") }) : ""}</p>` : null}
+        </div>
+      </div>
+    <//>
+
     <${Panel} title=${T(t, "dnsTree")} data-dns=${dns.ip || ""}>
       <div class="flex items-center gap-2.5 pb-2 mb-1 border-b border-base-300/40">
         <span class="w-9 h-9 shrink-0 rounded-[var(--ms-r-in)] grid place-items-center" style=${{ background: ACCENT + "22", color: ACCENT }}>${Icon("lucide:git-branch", "text-lg")}</span>
@@ -280,9 +303,9 @@ export function trace({ S }) {
         </div>
       </div>
       <div ref=${treeRef} class="flex flex-col">
-        ${branch("A", dns.records && dns.records.A)}
-        ${branch("AAAA", dns.records && dns.records.AAAA)}
-        ${branch("NS", dns.records && dns.records.NS)}
+        ${branch(T(t, "lblAddr"), dns.records && dns.records.A)}
+        ${branch(T(t, "lblAddr6"), dns.records && dns.records.AAAA)}
+        ${branch(T(t, "lblNames"), nsLeaves)}
       </div>
     <//>
 
@@ -298,7 +321,9 @@ export function trace({ S }) {
             ${i < hops.length - 1 ? html`<span class="w-px grow" style=${{ background: ACCENT + "33" }}></span>` : null}
           </div>
           <div class="min-w-0 grow pb-1">
-            <div class="font-mono text-sm truncate">${h.host || h.ip || "*"}</div>
+            ${(h.host || h.ip)
+              ? html`<div class="font-mono text-sm truncate">${h.host || h.ip}</div>`
+              : html`<div class="text-sm text-muted">${T(t, "hopHidden")}</div>`}
             ${h.host && h.ip ? html`<div class="font-mono text-xs text-base-content/70 truncate">${h.ip}</div>` : null}
             <div class="mt-1 h-1 rounded-full bg-base-300/40 overflow-hidden">
               <span data-bar class="block h-full rounded-full origin-left" style=${{ width: (h.rtt != null ? Math.max(2, Math.round(h.rtt / maxRtt * 100)) : 0) + "%", background: ACCENT }}></span>
