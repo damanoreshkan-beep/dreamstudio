@@ -98,7 +98,7 @@ export function map({ S, openScreen, closeScreen }) {
   useEffect(() => {
     const el = moreRef.current;
     if (!el || !hasMore) return;
-    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setShownN((n) => n + PAGE); }, { rootMargin: "300px" });
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setShownN((n) => n + PAGE); }, { rootMargin: "0px" });
     io.observe(el);
     return () => io.disconnect();
   }, [hasMore, all.length]);
