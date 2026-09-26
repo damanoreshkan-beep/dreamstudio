@@ -1171,7 +1171,7 @@
     "bg": "#000000",
     "fg": "#F5B94D",
     "href": "./mayak/",
-    "version": "1.4",
+    "version": "1.7",
     "category": "tools",
     "needs": [
       "auth"
