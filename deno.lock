@@ -6,7 +6,7 @@
     "jsr:@deno-library/progress@^1.5.1": "1.5.1",
     "jsr:@deno/cache-dir@0.22.2": "0.22.2",
     "jsr:@deno/graph@0.86": "0.86.9",
-    "jsr:@microspec/core@1": "1.2.90",
+    "jsr:@microspec/core@1": "1.2.92",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/async@1": "1.4.0",
@@ -35,7 +35,7 @@
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.26",
     "npm:@jsquash/png@3.0.1": "3.0.1",
     "npm:@jsquash/webp@1.4.0": "1.4.0",
-    "npm:@jsr/microspec__core@1": "1.2.90",
+    "npm:@jsr/microspec__core@1": "1.2.92",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:@resvg/resvg-wasm@2.6.2": "2.6.2",
@@ -1748,6 +1748,18 @@
         "npm:topojson-client"
       ]
     },
+    "@microspec/core@1.2.92": {
+      "integrity": "4ae57ee00a79bd7556de31c20d003b293c3249fdc2d10fa4b1cf2fa7d34c3c76",
+      "dependencies": [
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:d3-geo",
+        "npm:htm",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:topojson-client"
+      ]
+    },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
@@ -1883,8 +1895,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.90": {
-      "integrity": "sha512-DDNt85qtFAAeDVVI2B6+XfT6QTjgvvzD0qCF/OPLT7p7S6ViTnlMaSwnnKiTawEREmNUZ3NoaIuQlhHxlBLhyw==",
+    "@jsr/microspec__core@1.2.92": {
+      "integrity": "sha512-aaPOXBa6EknBk5QG5xikoYtA8c1hsS5xRjpmwcGbOc+3XPaBIRBP8xrCokmaKjL29A4rJPN8l3e9+2HHtPg9IA==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -1906,7 +1918,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.90.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.92.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",
@@ -1922,12 +1934,12 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/std__assert/1.0.19.tgz"
     },
-    "@jsr/std__async@1.5.0": {
-      "integrity": "sha512-I2Qekl1oQYM+dpI2RQUCKi1TBuaA7Od3LNzxcqls9s1e2ytiZyREL4403qHJ6UbLNAwbqO2ZhdWAWDUQAajyiA==",
+    "@jsr/std__async@1.5.1": {
+      "integrity": "sha512-L6CfoI0FsWWTdnR6tWej3mcRObhmz7dthGj577uLwbDXpA1jZQTnIOL2PRdqgzqHzz9Q6Y8xvfOcEUpDNp8Wkw==",
       "dependencies": [
         "@jsr/std__data-structures"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/std__async/1.5.0.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/std__async/1.5.1.tgz"
     },
     "@jsr/std__bytes@1.0.6": {
       "integrity": "sha512-St6yKggjFGhxS52IFLJWvkchRFbAKg2Xh8UxA4S1EGz7GJ2Ui+ssDDldj/w2c8vCxvl6qgR0HaYbKeFJNqujmA==",
@@ -1941,12 +1953,12 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/std__cli/1.0.32.tgz"
     },
-    "@jsr/std__data-structures@1.1.2": {
-      "integrity": "sha512-YaNAaUYGr3qBnq8LJ0/FSW6tsnDBMX7hcPuGU7Zi/+aWlAJsZ4OroBNSpRIflizbOvCJCycAnXe9yLjIwDF2KA==",
+    "@jsr/std__data-structures@1.1.3": {
+      "integrity": "sha512-crPd/DvrElv0WDxCuDIlA4PDLvBgVbo+Ry3/XgOFKQTnWTNnpi/XC4znW6awQQZ0nbJLpWoo9AYc/+CxTYfUpQ==",
       "dependencies": [
         "@jsr/std__assert@1.0.19"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/std__data-structures/1.1.2.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/std__data-structures/1.1.3.tgz"
     },
     "@jsr/std__encoding@0.213.1": {
       "integrity": "sha512-VW5Kxmaaj0fLjH1DNkycEgZs8awr75mRePwrP651rTSheG1DSKZK7wtxHMXWeIpj4aFlNWXZg78MQ+yjIHFwWQ==",
@@ -1988,8 +2000,8 @@
       "integrity": "sha512-GtiN92YolMLr3YGtuqkejQCclff+tSYvnHhJorSjw/C9OG+ua+zwpRA/Xcsvfe+otI/dCT4PcNEub6XzBTUNsA==",
       "tarball": "https://npm.jsr.io/~/11/@jsr/std__html/1.0.7.tgz"
     },
-    "@jsr/std__http@1.1.3": {
-      "integrity": "sha512-PCRCj0NmitqL65rQaTSa5i/7IU+NxsPZTXfurNVePGCpNaUAbag6jmvUSScRb+eHWQoW+UcodrSUGDDplLSVpw==",
+    "@jsr/std__http@1.1.4": {
+      "integrity": "sha512-Jl4RZ3G07r6SbSbxEtU9/fQusZKKW3s0q00J5pEEfnuOWNDp36XkOJfpMT1bfTvI/vM1JWTI2wRSpEcuFzNc+w==",
       "dependencies": [
         "@jsr/std__cli",
         "@jsr/std__encoding@1.0.11",
@@ -2001,7 +2013,7 @@
         "@jsr/std__path@1.1.6",
         "@jsr/std__streams"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/std__http/1.1.3.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/std__http/1.1.4.tgz"
     },
     "@jsr/std__internal@1.0.14": {
       "integrity": "sha512-JT8b/t40WcR9q0GDwRZUooY7aXeXnFal8iidE/5TckdAFtvpVAsaJ71/Xgf1SfoChs41s6CZkuCYM8toaNgdvA==",
@@ -2018,9 +2030,9 @@
       "integrity": "sha512-dHvaxHL7ENWnltgL653uo3KnKFse3ZbopZop2gqsT7yrscx7irZEClu5Cba7gMPPRk4Lg1FbriNcaBViM2RSBw==",
       "tarball": "https://npm.jsr.io/~/11/@jsr/std__media-types/1.1.0.tgz"
     },
-    "@jsr/std__net@1.0.6": {
-      "integrity": "sha512-mh27Fw4UMCjGSIMoOhjia5cS5fNP9M9DZYhGB7EYSZNnzf/eguFiarii/W4oDwYMmnxCMouUzhc6Y7jFuwTzcg==",
-      "tarball": "https://npm.jsr.io/~/11/@jsr/std__net/1.0.6.tgz"
+    "@jsr/std__net@1.0.7": {
+      "integrity": "sha512-f357wwHwSCYFjvAulpImH8ijkQoUws+afTIal4/gDbrtJeXhXTBG278cBMT9wejDb7Gy0aqaL8t3YV/Sx7vU8Q==",
+      "tarball": "https://npm.jsr.io/~/11/@jsr/std__net/1.0.7.tgz"
     },
     "@jsr/std__path@0.213.1": {
       "integrity": "sha512-9DWJ/tE+iGHtAKB3NDJ8/wg+KLjPRX0I6CmrDwpzntwO/m9Qrhe9eFZ7zYGWpsP4Vai96eNDtigK2MzDucbc4g==",
@@ -2036,16 +2048,16 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/std__path/1.1.6.tgz"
     },
-    "@jsr/std__streams@1.1.2": {
-      "integrity": "sha512-TNg+Mr/vE2Wg+JDdZpVj9umEyzcmSAOtcp0ildlyVCjHy0/fJ2BJZgO8PQXA/SwJOchvKLaMafZzfFkm9PO13A==",
+    "@jsr/std__streams@1.2.0": {
+      "integrity": "sha512-cQnU2wdP12rYRy+gGAiFarEK9YmWjVwnFMiOGIe0wMKmRLY68INH9hB/mqjKdPX/ruUhNYB70x5YRPLzUYIrbg==",
       "dependencies": [
         "@jsr/std__bytes"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/std__streams/1.1.2.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/std__streams/1.2.0.tgz"
     },
-    "@jsr/zip-js__zip-js@2.16.0": {
-      "integrity": "sha512-qdbG6//EwIiNch+GflLH90Qs36V/3ywMUQTujiPj9L9Hkr6Jo+cHxr4DoQfURAebI/59jk4IT/ofxqATYfNbFw==",
-      "tarball": "https://npm.jsr.io/~/11/@jsr/zip-js__zip-js/2.16.0.tgz"
+    "@jsr/zip-js__zip-js@2.18.2": {
+      "integrity": "sha512-4x1Ar79ulpzT2yDdAURkFnCxaCjaPgnIjP8fe/D04YXNYs38iT7mWlrzmBuDDIzZ8Zh78q0zGjIDw0Ce1mdNNA==",
+      "tarball": "https://npm.jsr.io/~/11/@jsr/zip-js__zip-js/2.18.2.tgz"
     },
     "@nanostores/persistent@0.10.2_nanostores@0.11.4": {
       "integrity": "sha512-BEndnLhRC+yP7gXTESepBbSj8XNl8OXK9hu4xAgKC7MWJHKXnEqJMqY47LUyHxK6vYgFnisyHmqq+vq8AUFyIg==",
