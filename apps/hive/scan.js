@@ -41,9 +41,9 @@ function seedRose(dirDeg = 292) {
   $roseAt.set(Date.now());
 }
 
-function upsert(frame) {
+function upsert(frame, at) {
   if (!frame || frame.started || frame.ack || !frame.addr) return;
-  const now = Date.now();
+  const now = at ?? Date.now();
   const next = new Map($devices.get());
   const prev = next.get(frame.addr);
   const kind = frame.kind || "ble";
@@ -93,7 +93,8 @@ export function startScan() {
   $scanning.set(true);
   $err.set(null);
   if (gate) {
-    for (const d of GATE_FIELD) upsert(d);
+    const at = Date.now();
+    for (const d of GATE_FIELD) upsert(d, at);
     if ($target.get()) seedRose();
     return;
   }
