@@ -49,7 +49,7 @@ export function Finale({ devs = [], t, open = false, onClose }) {
     };
     const resize = () => {
       dpr = Math.min(2, globalThis.devicePixelRatio || 1);
-      W = canvas.clientWidth; H = canvas.clientHeight;
+      W = canvas.parentElement.clientWidth; H = canvas.parentElement.clientHeight;
       canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       seedStars();
@@ -92,7 +92,7 @@ export function Finale({ devs = [], t, open = false, onClose }) {
     const measure = () => { if (dead) return; resize(); if (gate) draw(0.6); };
     measure();
     const ro = new ResizeObserver(measure);
-    ro.observe(canvas);
+    ro.observe(canvas.parentElement);
 
     if (!gate) {
       const t0 = performance.now();

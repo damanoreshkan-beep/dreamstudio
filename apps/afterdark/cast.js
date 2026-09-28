@@ -8,6 +8,7 @@ import { gate } from "/_rt/gate.js";
 import { CHARACTERS, avatarUrl } from "./characters.js";
 import { MOVES, DEFAULT_MOVES, loadCatalog, getCatalog } from "./dances.js";
 import { CoinSheet } from "/_rt/coinsheet.js";
+import { Pixels } from "/_rt/skeleton.js";
 import { $cast, $moves, getCast, getMoves, toggleChar, toggleMove, setCast, setMoves, mixCast, DEFAULT_CAST, MAX_CAST, $myChars, getMyChars, removeMyChar, $genCharLoading, $genCharPct, $genCharError, $newChar, GEN_PRICE, wallet } from "./state.js";
 import { generateCharacter, cancelGenerate, genElapsed } from "./genchar.js";
 
@@ -41,7 +42,7 @@ function GenSheet({ t, loc, open, onClose, onTopUp }) {
           items=${[{ id: "human", label: T(t, "kindHuman"), icon: "lucide:user" }, { id: "creature", label: T(t, "kindCreature"), icon: "lucide:ghost" }]} />
       </div>
       ${stage ? html`<div data-gen-progress class="rounded-2xl bg-base-content/5 p-3 flex items-center gap-3">
-          <span class="loading loading-ring loading-md text-[var(--app-accent)] shrink-0"></span>
+          <${Pixels} cls="w-10 h-10 rounded-xl shrink-0" />
           <div class="flex-1 min-w-0">
             <div class="text-[0.9rem] leading-tight">${T(t, STAGE_KEY[stage] || "gQueued")}${pct ? ` · ${pct}%` : ""}</div>
             <div class="font-mono text-[0.72rem] text-muted tabular-nums">${mmss(genElapsed())} · ${T(t, "genHint")}</div>
@@ -110,7 +111,7 @@ export function castView({ S }) {
         <span data-cast-count class="badge badge-ghost font-mono tabular-nums">${cast.length}/${MAX_CAST}</span>
         <button data-cast-top type="button" class=${chip(isTopCast)} onClick=${() => setCast(DEFAULT_CAST.slice())}><iconify-icon icon="lucide:star"></iconify-icon>${T(t, "starMoves")}</button>
         <button data-mix type="button" class=${chip(false)} onClick=${() => mixCast()}><iconify-icon icon="lucide:shuffle"></iconify-icon>${T(t, "mix")}</button>
-        <button data-gen-open type="button" class=${chip(!!genStage)} onClick=${() => setGenOpen(true)}>${genStage ? html`<span class="loading loading-ring loading-xs"></span>` : html`<iconify-icon icon="lucide:sparkles"></iconify-icon>`}${T(t, "genOpen")}</button>
+        <button data-gen-open type="button" class=${chip(!!genStage)} onClick=${() => setGenOpen(true)}><iconify-icon icon="lucide:sparkles" class=${genStage ? "animate-pulse" : ""}></iconify-icon>${T(t, "genOpen")}</button>
         <div class="ml-auto"><${Segmented} attr="data-kind" size="sm" variant="ghost" label=${T(t, "kind")} value=${kind} onChange=${setKind}
           items=${[{ id: "all", label: T(t, "all"), icon: "lucide:users" }, { id: "human", label: T(t, "kindHuman"), icon: "lucide:user" }, { id: "creature", label: T(t, "kindCreature"), icon: "lucide:ghost" }]} /></div>
       </div>

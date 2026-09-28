@@ -3,9 +3,12 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "hive",
-  version: "8d3739d95b",
+  version: "a1cb506983",
   precache: [
     "./",
+    "./comb.js",
+    "./details.js",
+    "./guard.js",
     "./i18n/en.json",
     "./i18n/uk.json",
     "./icon.svg",
@@ -13,8 +16,11 @@ self.MS = {
     "./index.html",
     "./leaflet.css",
     "./leaflet.vendor.js",
+    "./lookup.js",
     "./manifest.json",
+    "./scan.js",
     "./spec.json",
+    "./store.js",
     "./view.js",
     "/_rt/account.js",
     "/_rt/ai-core.js",
