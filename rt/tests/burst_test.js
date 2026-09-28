@@ -1,12 +1,6 @@
-// microspec runtime — burst unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { instantFreq, magnitude, fmActivity, envelopeTransitions, classifyEvent, CLASSIFY } from "../burst.js";
 import { squelchOpen as levelSquelch } from "../demod.js";
-
-// ================= burst vs voice on one channel (burst.js) =================
-// Synthesises the two things that share the 433 band and proves the level squelch cannot separate them.
 
 function synthOok({ fs = 25_000, pulses = 8, pulseMs = 1, offsetHz = 500, noise = 0.005 } = {}) {
   const per = Math.round(fs * pulseMs / 1000), n = pulses * 2 * per;
@@ -15,8 +9,8 @@ function synthOok({ fs = 25_000, pulses = 8, pulseMs = 1, offsetHz = 500, noise 
   const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return (seed / 0xffffffff - 0.5) * 2; };
   for (let i = 0; i < n; i++) {
     const on = Math.floor(i / per) % 2 === 0;
-    const a = (on ? Math.SQRT2 : 0);                    // √2 so MEAN power matches the voice case at 50% duty
-    const ph = 2 * Math.PI * offsetHz * i / fs;         // a CONSTANT frequency error must not look like FM
+    const a = (on ? Math.SQRT2 : 0);
+    const ph = 2 * Math.PI * offsetHz * i / fs;
     re[i] = a * Math.cos(ph) + rnd() * noise;
     im[i] = a * Math.sin(ph) + rnd() * noise;
   }
@@ -46,7 +40,6 @@ Deno.test("a LEVEL squelch cannot tell a doorbell from a voice — they carry th
   const ook = synthOok(), voice = synthNfm();
   const a = meanPowerDb(ook.re, ook.im), b = meanPowerDb(voice.re, voice.im);
   assert(Math.abs(a - b) < 0.5, `the two events must be power-matched for this to prove anything (${a} vs ${b})`);
-  // demod.js squelchOpen is correct for what it does — and it opens on BOTH. This is the defect burst.js fixes.
   assertEquals(levelSquelch(a, a - 3, false), true);
   assertEquals(levelSquelch(b, b - 3, false), true);
 });
@@ -57,10 +50,6 @@ Deno.test("fmActivity separates them, and a constant frequency error does NOT lo
   assert(fVoice > fOok * 5, `voice must show far more frequency movement (voice ${fVoice}, ook ${fOok})`);
   assert(fOok < CLASSIFY.fmBurst, `a 500 Hz offset carrier must read as unmodulated, got ${fOok}`);
   assert(fVoice >= CLASSIFY.fmVoice, `NFM at 2.5 kHz deviation must read as modulated, got ${fVoice}`);
-  // The power weighting is load-bearing. Measured as a PLAIN standard deviation the way one would write it
-  // first, the undefined phase inside the OOK gaps reads as violent modulation, and every burst in the band
-  // would be misfiled as speech. (Note it is the weighting that does this, not the `floor` cut: a gap at
-  // m≈0 contributes m²≈0 regardless of the floor.)
   const f = instantFreq(ook.re, ook.im);
   let s = 0, ss = 0;
   for (const v of f) { s += v; ss += v * v; }
@@ -76,7 +65,7 @@ Deno.test("classifyEvent labels both correctly, and refuses to guess when it mat
   assertEquals(classifyEvent(ookEv), "burst");
   assertEquals(classifyEvent(voiceEv), "voice");
   assert(ookEv.transitions >= 8, `8 keyed pulses must show as edges, got ${ookEv.transitions}`);
-  assertEquals(voiceEv.transitions, 0);                 // constant envelope
+  assertEquals(voiceEv.transitions, 0);
   assertEquals(classifyEvent({ durationMs: 50, fmActivity: 0.05, transitions: 0 }), "unknown");
 });
 

@@ -1,40 +1,23 @@
-// Space launches adapter (Launch Library 2 by The Space Devs). CORS * → direct, no backend; the
-// 15 req/hour limit is PER IP, so each user has their own budget (a shared proxy would be worse here).
-//
-// ONE page is worth a lot here. The globe plots every pad we hold and the calendar draws a month of them,
-// and neither can ask for more (a tool tab has no `load`), so a 15-item first page left both screens
-// looking at a fortnight. At limit=40 one request reaches 2026-12-31 — three months, eleven countries and
-// thirty-one pads from a single call against a budget of fifteen an hour (measured 2026-09-21).
 import { fetchJson } from "/_rt/feed.js";
 import { dayKey } from "/_rt/calendar.js";
 import { gate } from "/_rt/gate.js";
 
-// How far a launch date is to be BELIEVED. Launch Library answers "sometime in Q4" by returning the last
-// day of the quarter at 00:00Z, and it is not a rare case: of the next 40 launches, 15 came back as a
-// quarter and 12 as a month, thirteen of them piled on 31 December (measured 2026-09-21). Printed as a
-// timestamp every one of those reads as a confirmed minute — so the precision rides along with the date,
-// the card label stops where the date stops being true (/_rt/i18n.js whenLabel), and the calendar marks
-// only the days someone actually promised.
 const BELIEVE = (abbrev) => {
   const a = String(abbrev || "").toUpperCase();
   if (/^Q[1-4]$/.test(a)) return "quarter";
   if (a === "Y" || a === "YEAR") return "year";
   if (a === "M" || a === "MO" || a === "MONTH") return "month";
   if (a === "DAY" || a === "D" || a === "WK" || a === "WEEK") return "day";
-  return "";   // SEC / MIN / HR — a real T-0
+  return "";
 };
 
 const SOON_MS = 7 * 86400000;
 
-// One LL2 record → one item. The gate fixture below goes through this same function on purpose: a mock
-// that bypasses the mapping proves the screens draw and nothing about whether the mapping is right.
 function toItem(r, now) {
   const precision = BELIEVE(r.net_precision?.abbrev);
   const fuzzy = precision === "month" || precision === "quarter" || precision === "year";
   const t = Date.parse(r.net);
   const pad = r.pad || {}, place = pad.location || {};
-  // Strings in the API ("19.597275"); the globe wants numbers, and a pad with no fix is simply not
-  // plottable — never a (0,0) pin in the Gulf of Guinea.
   const lat = Number(pad.latitude), lon = Number(pad.longitude);
   const fixed = Number.isFinite(lat) && Number.isFinite(lon) && (lat !== 0 || lon !== 0);
   const abbrev = String(r.status?.abbrev || "");
@@ -44,8 +27,6 @@ function toItem(r, now) {
     provider: r.launch_service_provider?.name || "",
     net: r.net,
     precision,
-    // The LOCAL day this launch falls on — "" when nobody has promised a day. A launch at 23:30Z is
-    // tomorrow in Kyiv, so the key comes from calendar.js rather than the ISO text's first ten chars.
     day: !fuzzy && !isNaN(t) ? dayKey(t) : "",
     thumb: r.image || "",
     rocket: r.rocket?.configuration?.full_name || r.rocket?.configuration?.name || "",
@@ -58,8 +39,6 @@ function toItem(r, now) {
     mission: r.mission?.description || "",
     url: r.vidURLs?.[0]?.url || "",
     map: pad.wiki_url || "",
-    // The three buckets the feed groups by — mutually exclusive, because a section renders every item
-    // whose test() passes and an item in two sections is an item printed twice.
     go: abbrev === "Go",
     hold: abbrev === "Hold",
     tbc: abbrev === "TBC" || abbrev === "TBD",
@@ -69,16 +48,6 @@ function toItem(r, now) {
   };
 }
 
-// ---- the gate fixture -------------------------------------------------------------------------------
-// This app's screens are the one kind the live API cannot gate: 15 requests an hour per IP means a CI run
-// can legitimately arrive throttled, and the old spec answered that by accepting an error state — which
-// makes every populated assertion optional, and a map and a calendar that are never drawn are a map and a
-// calendar nobody is checking. So under the gate the app seeds five real pads and six launches, shaped
-// exactly like LL2 answers and carrying all four precisions, and the screens are then deterministic.
-//
-// The dates are RELATIVE to today: a fixture pinned to fixed timestamps stops being "this month" the
-// moment the month turns, and a calendar fixture that drifts out of the month it is meant to fill is a
-// test that quietly stops testing.
 const px = "data:image/gif;base64,R0lGODlhAQABAIAAAKuqqgAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==";
 const site = (id, name, pad, lat, lon, cc) => ({ id, name: pad, latitude: String(lat), longitude: String(lon), location: { name, country_code: cc } });
 const endOfMonth = (ahead) => { const d = new Date(); return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + ahead + 1, 0)).toISOString(); };
@@ -116,9 +85,8 @@ function fixture(now) {
 export async function load(filters = {}) {
   const now = Date.now();
   if (gate) return { items: fixture(now).map((r) => toItem(r, now)), meta: {}, next: null };
-  // Infinite scroll: LL2 returns a `next` URL (offset-paged); use it verbatim as the cursor.
   const url = filters.cursor || "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=40&hide_recent_previous=true";
   const data = await fetchJson(url);
-  if (!Array.isArray(data.results)) throw new Error("unavailable"); // e.g. 429 throttle → error state, not empty
+  if (!Array.isArray(data.results)) throw new Error("unavailable");
   return { items: data.results.map((r) => toItem(r, now)), meta: {}, next: data.next || null };
 }

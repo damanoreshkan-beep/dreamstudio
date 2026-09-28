@@ -1,20 +1,3 @@
-// nova — the finale. A star-field celebrating the developers you lifted today: their avatars arranged as a
-// constellation over a live canvas of twinkling stars and expanding rings.
-//
-// The SHELL is the farm's one bottom sheet (`Sheet` from /_rt/ui.js) — this used to be a bespoke viewport-
-// pinned overlay with its own close button and no drag-to-dismiss, i.e. the kit's component rebuilt by hand
-// and already drifted from it. What stays nova's is the only part that was ever nova's: the scene.
-// It moved from full-bleed to a bounded stage inside the sheet, which is where the star-field belongs
-// anyway — a canvas sized to the SCREEN centres its glow behind the header and the dock; a canvas sized to
-// its own box is centred correctly at every breakpoint with no arithmetic.
-//
-// WHY Canvas2D, not WebGL. The star-field draws no external images (avatars are DOM <img> layered above), so
-// the canvas never taints and needs no CORS dance, it runs everywhere, and — crucially — it is deterministic
-// under the headless gate: seeded with mulberry32 and frozen to a single frame when `gate`, so the shot is
-// reproducible. The math (star seeding, ring phase) is trivially reused; nothing here needs three.js.
-//
-// The canvas is decorative (aria-hidden, pointer-events-none) and sits inside an OPAQUE sheet, so the axe
-// contrast gate reads the real foreground. Theme-aware: it re-reads --color-base-content / --color-secondary.
 import { html } from "htm/preact";
 import { useRef, useEffect } from "preact/hooks";
 import { T } from "/_rt/i18n.js";
@@ -23,21 +6,15 @@ import { mulberry32 } from "/_rt/groove.js";
 import { letterTile } from "/_rt/tile.js";
 import { Sheet } from "/_rt/ui.js";
 
-const GOLDEN = Math.PI * (3 - Math.sqrt(5));   // 137.5° — the angle that spreads points without clumping
-const MAX_AV = 12;                             // constellation caps here; the rest fold into a "+N" chip
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+const MAX_AV = 12;
 
-// Read the two theme tokens the scene paints with: the ink for the stars, and --app-accent — the product's
-// MARK colour, the one hue that is allowed to glow and ring (never text) — for the rings and the glow. Both
-// are read from the theme at mount; the literals are only the fallback for a DOM with no computed style
-// (the warm ink and the warm pole of rt/theme-lum.css, so a gate render matches the product).
 function readTheme() {
   const cs = getComputedStyle(document.documentElement);
   const g = (v, f) => (cs.getPropertyValue(v).trim() || f);
   return { ink: g("--color-base-content", "#F2EEE6"), accent: g("--app-accent", "#F2B84B") };
 }
 
-// Position n avatars on a golden-angle spiral inside a unit box (0..1), returned as {x,y} fractions. One point
-// sits dead centre; the rest spiral out evenly. Deterministic — same n → same constellation.
 function constellation(n) {
   if (n <= 1) return [{ x: 0.5, y: 0.5 }];
   const pts = [];
@@ -60,7 +37,7 @@ export function Finale({ devs = [], t, open = false, onClose }) {
     canvas.dataset.render = "2d";
     let raf = 0, dead = false, W = 0, H = 0, dpr = 1;
     const theme = readTheme();
-    const rng = mulberry32(0x5eed51);    // fixed seed → the same star-field every time (gate-reproducible)
+    const rng = mulberry32(0x5eed51);
     let stars = [];
 
     const seedStars = () => {
@@ -78,7 +55,6 @@ export function Finale({ devs = [], t, open = false, onClose }) {
       seedStars();
     };
 
-    // a canvas fill needs a real rgba; a token that is not a 6-digit hex falls back to the warm ink
     const hexA = (hex, a) => {
       const m = /^#?([0-9a-f]{6})$/i.exec(hex);
       if (!m) return `rgba(242,238,230,${a})`;
@@ -90,13 +66,11 @@ export function Finale({ devs = [], t, open = false, onClose }) {
       ctx.clearRect(0, 0, W, H);
       const cx = W / 2, cy = H * 0.42;
 
-      // soft central glow — the light the constellation sits in
       const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(W, H) * 0.55);
       g.addColorStop(0, hexA(theme.accent, 0.16));
       g.addColorStop(1, hexA(theme.accent, 0));
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
-      // twinkling stars
       for (const s of stars) {
         const tw = s.base + 0.35 * Math.sin(time * s.speed + s.phase);
         ctx.globalAlpha = Math.max(0.05, Math.min(1, tw));
@@ -105,7 +79,6 @@ export function Finale({ devs = [], t, open = false, onClose }) {
       }
       ctx.globalAlpha = 1;
 
-      // three expanding rings radiating from the centre — the "star effect" of the reveal, gently looping
       const period = 3.4;
       for (let k = 0; k < 3; k++) {
         const p = ((time / period) + k / 3) % 1;
@@ -116,10 +89,6 @@ export function Finale({ devs = [], t, open = false, onClose }) {
       }
     };
 
-    // A ResizeObserver, not a window `resize` listener. The canvas now lives inside a <dialog>, and a dialog
-    // has NO layout until showModal() runs — which the Sheet does in its own effect, i.e. AFTER this child
-    // effect. A one-shot measure here would read 0×0 and seed an empty sky. The observer fires on the open
-    // as well as on every later reflow, so the static gate frame is redrawn once the box actually has a size.
     const measure = () => { if (dead) return; resize(); if (gate) draw(0.6); };
     measure();
     const ro = new ResizeObserver(measure);
@@ -138,28 +107,21 @@ export function Finale({ devs = [], t, open = false, onClose }) {
   const extra = n - shown.length;
   const avatarSrc = (d) => (d.avatar
     ? `${d.avatar}${d.avatar.includes("?") ? "&" : "?"}size=120`
-    : letterTile(d.name || d.owner || "?", { w: 96, h: 96, light: 32 }));   // letterTile already returns a data URI
+    : letterTile(d.name || d.owner || "?", { w: 96, h: 96, light: 32 }));
 
-  // The headline IS the sheet's title (the kit draws the row, its icon and its close button), so it is not
-  // restated in the body — one representation per thing.
   return html`<${Sheet} id="finale" open=${open} onClose=${onClose} size="lg" icon="lucide:sparkles"
     title=${T(t, "finaleTitle").replace("{n}", String(n))}>
     <div data-live class="flex flex-col gap-[var(--ms-gap)] min-w-0">
-      ${/* The stage. A recess, declared not drawn (`sf-inset`): the sky is something you look INTO, and the
-           surface system already owns what that means in both themes. Height is clamped rather than flexed
-           — inside the sheet's scroll column a `flex-1` box has no basis to grow from and would collapse
-           the canvas to nothing. */""}
+      ${""}
       <div class="sf-inset relative w-full h-[clamp(11rem,42dvh,20rem)] overflow-hidden rounded-[var(--ms-r)]">
         <canvas ref=${canvasRef} aria-hidden="true" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
-        ${/* The spiral is centred on THIS box and each avatar is centre-anchored, so the positioning field is
-             inset by half an avatar plus its label — otherwise the outermost points of the constellation are
-             clipped by the stage's own rounded edge. */""}
+        ${""}
         <div class="absolute inset-x-3 inset-y-8">
           ${shown.map((d, i) => html`<a key=${`${d.owner}/${d.repo}`} href=${d.url} target="_blank" rel="noopener"
             class="ms-reveal absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1"
             style=${`left:${pts[i].x * 100}%;top:${pts[i].y * 100}%;animation-delay:${i * 90}ms`}>
             <span class="relative block">
-              ${/* the star's halo: the MARK colour as a glow behind the face, never behind the name */ ""}
+              ${ ""}
               <span class="absolute -inset-1.5 rounded-full blur-md" style="background:radial-gradient(circle,var(--app-accent),transparent 70%);opacity:.5"></span>
               <img src=${avatarSrc(d)} alt=${d.name || d.owner} width="44" height="44" loading="lazy"
                 class="relative w-11 h-11 rounded-full object-cover ring-2 ring-base-100 bg-base-300" />
@@ -167,8 +129,7 @@ export function Finale({ devs = [], t, open = false, onClose }) {
             <span class="font-mono text-[length:var(--ms-label)] text-base-content/75 max-w-[5rem] truncate">${d.name || d.owner}</span>
           </a>`)}
         </div>
-        ${/* Corner, not centre-bottom: the constellation is a disc inscribed in this box, so the corners are
-             the one region no avatar can ever land in. */""}
+        ${""}
         ${extra > 0 ? html`<div class="absolute right-3 bottom-2 font-mono text-[length:var(--ms-label)] font-medium text-muted">${T(t, "andMore").replace("{n}", String(extra))}</div>` : null}
       </div>
 

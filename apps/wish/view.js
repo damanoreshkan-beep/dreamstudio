@@ -1,10 +1,3 @@
-// Wishlist — a local-first "want" ledger. No API, no backend: every list and every wish lives in the
-// device IndexedDB (/_rt/db.js), so it works fully offline and the data is the user's (export/import JSON).
-// Multiple named lists; each wish carries a price, a want-level (1–3, the accent meter + default sort) and
-// an optional product link that can PREFILL title/image/price via /_rt/wish.js (Jina Reader, fail-open,
-// never in the gate). Sub-screens (wish detail, add sheet, list sheet) route through the runtime's
-// S.screen / S.sheet so system Back closes them (never exits). Delete safety: a single wish removal is a
-// reversible undo-snackbar; deleting a whole list is a history-backed danger-confirm.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect } from "preact/hooks";
@@ -18,28 +11,24 @@ import { isGate } from "/_rt/gate.js";
 import { sortWishes, wishTotals, fmtMoney, fetchWishMeta, CURRENCIES } from "/_rt/wish.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// `length:` is load-bearing — a bare `text-[var(--ms-label)]` is a COLOUR to Tailwind v4 (the label rendered at
-// body size for the life of the app)
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 const listsColl = collection("wishlists");
 const wishesColl = collection("wishes");
 
-// ---- shared local state -----------------------------------------------------
-const $lists = atom([]);     // [{ id, name, icon, color, createdAt }]
-const $wishes = atom([]);    // [{ id, listId, name, price, currency, url, image, want, note, granted, createdAt }]
-const $active = atom(null);  // active list id
+const $lists = atom([]);
+const $wishes = atom([]);
+const $active = atom(null);
 const $ready = atom(false);
-const $draft = atom(null);   // add/edit wish draft (null = closed)
-const $ldraft = atom(null);  // add/edit list draft (null = closed)
-const $busy = atom(false);   // link-prefill in flight
+const $draft = atom(null);
+const $ldraft = atom(null);
+const $busy = atom(false);
 
 const COLORS = ["#fb7185", "#f59e0b", "#a78bfa", "#34d399", "#60a5fa", "#f472b6", "#f97316", "#2dd4bf"];
 const LIST_ICONS = ["lucide:gift", "lucide:home", "lucide:book-open", "lucide:plane", "lucide:shirt", "lucide:gamepad-2", "lucide:cake", "lucide:heart", "lucide:baby", "lucide:bike", "lucide:sparkles", "lucide:palette"];
 const WANT_KEYS = ["wantLow", "wantMid", "wantHigh"];
 const uid = (p) => p + Date.now().toString(36) + Math.floor(performance.now()).toString(36);
 
-// ---- persistence ------------------------------------------------------------
 function wantSeed() { return typeof location !== "undefined" && location.search.includes("seed"); }
 
 async function loadAll() {
@@ -52,11 +41,11 @@ async function loadAll() {
     const saved = localStorage.getItem("wish:active");
     const ids = ls.map((l) => l.id);
     $active.set(ids.includes(saved) ? saved : (ids[0] || null));
-  } catch { /* no IndexedDB (headless preflight) → stay empty, app still renders */ }
+  } catch { }
   $ready.set(true);
 }
 
-function setActive(id) { $active.set(id); try { id ? localStorage.setItem("wish:active", id) : localStorage.removeItem("wish:active"); } catch { /* */ } }
+function setActive(id) { $active.set(id); try { id ? localStorage.setItem("wish:active", id) : localStorage.removeItem("wish:active"); } catch { } }
 
 async function saveList(d) {
   const id = d.id || uid("l");
@@ -64,7 +53,7 @@ async function saveList(d) {
   const rest = $lists.get().filter((l) => l.id !== id);
   $lists.set([...rest, { id, ...rec }].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
   if (!d.id) setActive(id);
-  try { await listsColl.put(id, rec); } catch { /* */ }
+  try { await listsColl.put(id, rec); } catch { }
   return id;
 }
 async function removeList(id) {
@@ -72,29 +61,26 @@ async function removeList(id) {
   $lists.set($lists.get().filter((l) => l.id !== id));
   $wishes.set($wishes.get().filter((w) => w.listId !== id));
   setActive($lists.get()[0]?.id || null);
-  try { await listsColl.remove(id); for (const w of dropped) await wishesColl.remove(w.id); } catch { /* */ }
+  try { await listsColl.remove(id); for (const w of dropped) await wishesColl.remove(w.id); } catch { }
 }
 
-// strip runtime/db-only fields before persisting a wish value
 const wishRec = (w) => ({ listId: w.listId, name: (w.name || "").trim(), price: w.price == null ? null : Number(w.price), currency: w.currency || "UAH", url: (w.url || "").trim(), image: w.image || "", want: w.want || 2, note: (w.note || "").trim(), granted: !!w.granted, createdAt: w.createdAt || Date.now() });
 
 async function saveWish(d) {
   const id = d.id || uid("w");
   const rec = wishRec(d);
   $wishes.set([{ id, ...rec }, ...$wishes.get().filter((w) => w.id !== id)]);
-  try { await wishesColl.put(id, rec); } catch { /* */ }
+  try { await wishesColl.put(id, rec); } catch { }
   return id;
 }
 async function removeWish(id) {
   const w = $wishes.get().find((x) => x.id === id);
   $wishes.set($wishes.get().filter((x) => x.id !== id));
-  try { await wishesColl.remove(id); } catch { /* */ }
-  return w;                                                  // returned so the undo-snackbar can restore it
+  try { await wishesColl.remove(id); } catch { }
+  return w;
 }
 async function toggleGrant(w) { await saveWish({ ...w, granted: !w.granted }); }
 
-// Link prefill — Jina Reader via /_rt/wish.js. Fills ONLY empty draft fields; fail-open; never in the gate
-// (headless has no network and must render deterministically).
 async function prefill() {
   const d = $draft.get();
   if (!d || !d.url || !d.url.trim() || isGate) return;
@@ -106,12 +92,12 @@ async function prefill() {
     if (m.price != null && cur.price == null) { cur.price = m.price; cur.currency = m.currency || cur.currency; }
     if (m.image && !cur.image) cur.image = m.image;
     $draft.set(cur);
-  } catch { /* fail-open — keep whatever the user typed */ } finally { $busy.set(false); }
+  } catch { } finally { $busy.set(false); }
 }
 
 function exportData() {
   const blob = new Blob([JSON.stringify({ lists: $lists.get(), wishes: $wishes.get() }, null, 2)], { type: "application/json" });
-  downloadBlob(blob, "wishlist.json");   // shell-aware: a bare <a download> saves nothing inside the APK
+  downloadBlob(blob, "wishlist.json");
 }
 async function importData(file) {
   try {
@@ -119,7 +105,7 @@ async function importData(file) {
     for (const l of d.lists || []) await listsColl.put(l.id, { name: l.name, icon: l.icon, color: l.color, createdAt: l.createdAt || Date.now() });
     for (const w of d.wishes || []) await wishesColl.put(w.id, wishRec(w));
     await loadAll();
-  } catch { /* bad file — ignore */ }
+  } catch { }
 }
 
 async function seed() {
@@ -128,7 +114,6 @@ async function seed() {
   for (let i = 0; i < L.length; i++) await listsColl.put(L[i][0], { name: L[i][1], icon: L[i][2], color: L[i][3], createdAt: now + i });
   const gift = "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" fill="#2a1420"/><g fill="none" stroke="#fb7185" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="12" y="26" width="40" height="9" rx="2"/><path d="M32 26v26"/><path d="M46 35v15a4 4 0 0 1-4 4H22a4 4 0 0 1-4-4V35"/><path d="M22 26a5 5 0 0 1 0-10 9 16 0 0 1 10 10 9 16 0 0 1 10-10 5 5 0 0 1 0 10"/></g></svg>');
   const W = [
-    // list, name, price, cur, want, note, granted, image
     ["bday", "Sony WH-1000XM5 бездротові навушники", 13999, "UAH", 3, "Активне шумозаглушення", false, gift],
     ["bday", "Худі Patagonia", 4200, "UAH", 2, "Розмір M, оливковий", false, ""],
     ["bday", "Книга «Дюна» у твердій обкладинці", 350, "UAH", 1, "", true, ""],
@@ -142,8 +127,6 @@ async function seed() {
   }
 }
 
-// ---- small pieces -----------------------------------------------------------
-// Want-level meter: 3 pips, filled in the brand ink (a DaisyUI class → flips with theme, never a JS hex).
 const WantPips = ({ level, t }) => html`<span class="inline-flex items-center gap-1" role="img" aria-label=${`${T(t, "want")}: ${level}/3`}>
   ${[1, 2, 3].map((i) => html`<span key=${i} class=${`w-1.5 h-1.5 rounded-full ${i <= level ? "bg-primary" : "bg-base-content/25"}`}></span>`)}
 </span>`;
@@ -154,21 +137,12 @@ const WantSelect = ({ value, onChange, t }) => html`<${Segmented} size="sm" labe
 
 const Thumb = ({ w, list, size }) => {
   const s = size || "w-11 h-11";
-  // The plate behind the picture is a SLOT the image drops into, so it declares the recess (`sf-inset`)
-  // instead of tinting itself base-200 — which is the same colour as base-100 in this material, i.e. the
-  // plate was invisible and a slow image left a hole in the row with nothing marking where it lands.
-  // On a replaced element the inset pair paints under the bitmap, so it shows only while the slot is empty.
-  // The list's colour is the user's own pick (a MARK on the plate, never text); it enters as a custom property
-  // and the tint is mixed in CSS, so there is no hex arithmetic in JS and a list without a colour falls back to
-  // the farm's warm pole.
   return w.image
     ? html`<img src=${w.image} alt="" class=${`${s} rounded-[var(--ms-r-in)] object-cover shrink-0 sf-inset`} loading="lazy" />`
     : html`<span class=${`${s} rounded-[var(--ms-r-in)] shrink-0 flex items-center justify-center text-[var(--wc)] bg-[color-mix(in_oklch,var(--wc)_14%,transparent)]`} style=${`--wc:${list?.color || "var(--app-accent)"}`}>${Icon("lucide:gift", "text-lg")}</span>`;
 };
 
 function WishCard({ w, list, t, onOpen }) {
-  // The kit's Panel — the page raised on the shallow rung, no hairline (a border on top of a shadow pair
-  // reads as a sticker stuck to the page rather than as the page raised).
   return html`<${Panel} data-wish=${w.id} className="p-[calc(var(--ms-pad)*0.75)]">
       <div class="flex items-center gap-[var(--ms-gap)]">
         <${Thumb} w=${w} list=${list} />
@@ -181,9 +155,7 @@ function WishCard({ w, list, t, onOpen }) {
           </span>
           ${w.note ? html`<span class="block text-xs text-base-content/70 mt-1 line-clamp-1">${w.note}</span>` : null}
         </button>
-        ${/* The unchecked state was an outlined ring — a hairline doing a material's job. It is a GROOVE now
-             (`sf-inset`, the same recess a checkbox gets in theme.css) and granting fills it. The transition
-             names its properties: the material is a box-shadow pair and must snap, not melt. */""}
+        ${""}
         <button data-grant aria-pressed=${w.granted} aria-label=${w.granted ? T(t, "ungrant") : T(t, "grant")}
           onClick=${() => toggleGrant(w)}
           class=${`w-9 h-9 rounded-full shrink-0 flex items-center justify-center transition-colors ${w.granted ? "bg-success text-success-content sf-e2" : "sf-inset text-muted"}`}>
@@ -192,10 +164,6 @@ function WishCard({ w, list, t, onOpen }) {
     <//>`;
 }
 
-// ---- add / edit wish sheet --------------------------------------------------
-// The kit's Sheet owns the shell (drag-dismiss, title row, close, backdrop, the one sanctioned inner scroll);
-// only the fields are the app's. `open`/`onClose` still come from S.sheet — the runtime's history-backed atom
-// — so the system Back button closes it instead of exiting the PWA. Routing is unchanged by the migration.
 function WishSheet({ S, t, open }) {
   const d = useStore($draft), busy = useStore($busy);
   const set = (patch) => $draft.set({ ...$draft.get(), ...patch });
@@ -204,7 +172,7 @@ function WishSheet({ S, t, open }) {
   return html`<${Sheet} id="w-sheet" open=${open && !!d} onClose=${close} icon="lucide:gift"
     title=${T(t, d && d.id ? "editWish" : "newWish")}>
     ${d ? html`<${Fragment}>
-      ${/* fields and buttons take the theme's own radii (--radius-field / --radius-box) — no per-app override */""}
+      ${""}
       <input id="w-name" class="input w-full" placeholder=${T(t, "namePh")} value=${d.name}
         maxlength="80" onInput=${(e) => set({ name: e.target.value })} />
       <div class="flex gap-2">
@@ -229,11 +197,6 @@ function WishSheet({ S, t, open }) {
   </${Sheet}>`;
 }
 
-// ---- add / edit list sheet --------------------------------------------------
-// Neither palette became a Segmented. A strip is a ONE-OF-N choice laid out as one ROW; these are wrapping
-// grids of 12 icons and 8 colours whose geometry IS the affordance (you scan a palette, you don't tab it).
-// What they adopt instead is the farm's selection convention — the palette is a groove (`sf-inset`) and the
-// chosen cell lifts out of it, which theme.css applies to any `[aria-pressed="true"]` inside one.
 function ListSheet({ S, t, open, closeScreen, confirm }) {
   const d = useStore($ldraft), wishes = useStore($wishes);
   const set = (patch) => $ldraft.set({ ...$ldraft.get(), ...patch });
@@ -249,15 +212,13 @@ function ListSheet({ S, t, open, closeScreen, confirm }) {
     ${d ? html`<${Fragment}>
       <input id="l-name" class="input w-full" placeholder=${T(t, "listNamePh")} value=${d.name}
         maxlength="40" onInput=${(e) => set({ name: e.target.value })} />
-      ${/* both palettes are grooves nested in the sheet (the concentric inner radius); their cells are pills —
-           one geometry for "pick one", whether it is a glyph or a colour */""}
+      ${""}
       <div class="flex flex-col gap-1.5"><div class=${LABEL}>${T(t, "icon")}</div>
         <div class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-wrap gap-2" id="l-icons">${LIST_ICONS.map((ic) => html`<button key=${ic} type="button" aria-label=${ic} aria-pressed=${d.icon === ic}
           onClick=${() => set({ icon: ic })}
           class="w-10 h-10 rounded-full flex items-center justify-center transition-colors"
           style=${d.icon === ic ? `color:${d.color}` : ""}>${Icon(ic, "text-lg")}</button>`)}</div></div>
-      ${/* `outline`, not Tailwind's `ring`: a ring IS a box-shadow, and the groove's raise rule sets
-           box-shadow on the selected cell — the two would overwrite each other and the mark would vanish. */""}
+      ${""}
       <div class="flex flex-col gap-1.5"><div class=${LABEL}>${T(t, "color")}</div>
         <div class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-wrap gap-2">${COLORS.map((c) => html`<button key=${c} type="button" aria-label=${c} aria-pressed=${d.color === c}
           onClick=${() => set({ color: c })}
@@ -269,12 +230,6 @@ function ListSheet({ S, t, open, closeScreen, confirm }) {
   </${Sheet}>`;
 }
 
-// ---- wish detail ------------------------------------------------------------
-// Was a full-screen `fixed inset-0` overlay with its own navbar, its own back button and its own nested
-// `overflow-y-auto` — the farm's Sheet rebuilt by hand one layer below the class-name ban, and a second page
-// scroll besides. It is the kit's Sheet now: the title row carries the wish's name (and "granted" as its
-// subtitle), the close is the kit's, and the sheet's max-h-88dvh is the one sanctioned nested scroll.
-// Routing is untouched (S.screen via closeScreen), so Back still closes it and the edit sheet still stacks.
 function WishDetail({ open, id, S, t, closeScreen, undo }) {
   const wishes = useStore($wishes), lists = useStore($lists);
   const w = wishes.find((x) => x.id === id);
@@ -288,8 +243,7 @@ function WishDetail({ open, id, S, t, closeScreen, undo }) {
       <${Panel}>
         <div class="flex items-center gap-3">
           <${Thumb} w=${w} list=${list} size="w-16 h-16" />
-          ${/* The want level is NOT drawn here as pips: the WantSelect below is already that state, and one
-               state drawn twice in two geometries is the rubric's "one representation per state". */""}
+          ${""}
           <div class="min-w-0 flex-1">
             ${w.price != null ? html`<div class="font-mono text-xl tabular-nums">${fmtMoney(w.price, w.currency)}</div>` : null}
           </div>
@@ -315,7 +269,6 @@ function WishDetail({ open, id, S, t, closeScreen, undo }) {
   </${Sheet}>`;
 }
 
-// ---- list switcher ----------------------------------------------------------
 const ListSwitcher = ({ lists, wishes, active, t, onAdd }) => html`<div class="flex items-center gap-2 min-w-0">
   <div class="flex-1 min-w-0"><${Segmented} attr="data-list" scroll variant="outline" label=${T(t, "tabLists")}
     items=${lists.map((l) => ({ id: l.id, label: l.name, icon: l.icon, dot: l.color, meta: wishes.filter((w) => w.listId === l.id && !w.granted).length }))}
@@ -324,12 +277,10 @@ const ListSwitcher = ({ lists, wishes, active, t, onAdd }) => html`<div class="f
     onClick=${onAdd}>${Icon("lucide:plus", "text-lg")}</button>
 </div>`;
 
-// ---- main tool view ---------------------------------------------------------
 export function wish({ S, closeScreen, confirm, undo }) {
   const t = useStore(S.t), lists = useStore($lists), wishes = useStore($wishes), active = useStore($active),
     ready = useStore($ready), screen = useStore(S.screen), sheet = useStore(S.sheet);
   useEffect(() => { loadAll(); }, []);
-  // list sheet is history-backed via S.screen==="list"; drop its draft once that screen closes
   useEffect(() => { if (screen !== "list" && $ldraft.get()) $ldraft.set(null); }, [screen]);
 
   const activeList = lists.find((l) => l.id === active) || lists[0] || null;
@@ -390,8 +341,7 @@ export function wish({ S, closeScreen, confirm, undo }) {
         </div>
       </div>`}
 
-    ${/* All three sheets stay mounted and are driven by `open`: a <dialog> has to exist before showModal can
-         open it, and the atom (S.sheet / S.screen) is still the only thing that decides. */""}
+    ${""}
     <${WishSheet} S=${S} t=${t} open=${!!sheet} />
     <${ListSheet} S=${S} t=${t} open=${screen === "list"} closeScreen=${closeScreen} confirm=${confirm} />
     <${WishDetail} id=${detailId} open=${!!detailId} S=${S} t=${t} closeScreen=${closeScreen} undo=${undo} />

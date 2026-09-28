@@ -1,12 +1,3 @@
-// Pendulum (Маятник) — a contemplative dowsing pendulum swinging between the two poles of a duality, one
-// full swing to a breath. A luminous orb on a fine rod, swinging in the lower-centre; the two pole words
-// float above it and crossfade with the breath — the accent lights on whichever pole it's drawn toward.
-// There is no pause and no transport bar: tap anywhere and the orb blooms as it turns to the next duality.
-//
-// Pure CSS/DOM (no WebGL) — so it renders identically everywhere (every phone, and the CI gate that
-// screenshots it), which is what makes it verifiable and reliable. The swing/crossfade math is the
-// systemic, unit-tested /_rt/pendulum.js; one rAF loop drives it from elapsed time (no drift). Reduced
-// motion holds the arm and stills the float. Fully offline, no emoji.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -16,7 +7,7 @@ import { T } from "/_rt/i18n.js";
 import { state as pstate } from "/_rt/pendulum.js";
 import { gate } from "/_rt/gate.js";
 
-const buzz = () => { try { navigator.vibrate?.(10); } catch { /* unsupported */ } };
+const buzz = () => { try { navigator.vibrate?.(10); } catch { } };
 const reduced = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp01 = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 
@@ -32,17 +23,14 @@ const DUALITIES = [
 ];
 const N = DUALITIES.length;
 
-const PERIOD = 8000;   // one breath (in + out), ms
-const AMP = 15;        // swing amplitude, degrees
-const ADVANCE = 6;     // breaths before the duality turns over on its own (tap turns it sooner)
-const PULSE_MS = 700;  // the bloom when the pair changes
-const GATE_PH = 0.12;  // a still, deterministic frame for the gate / screenshots
-const PIVOT = "9vh";   // pivot near the top
-const ARM = "47vh";    // rod length — a jewel in the lower-centre, not a wall
+const PERIOD = 8000;
+const AMP = 15;
+const ADVANCE = 6;
+const PULSE_MS = 700;
+const GATE_PH = 0.12;
+const PIVOT = "9vh";
+const ARM = "47vh";
 
-// The orb and its halo are painted in head.html (.pd-bob / .pd-halo): the app's mark colour shaded in
-// oklch, the theme's own bloom — no literal colour, so the same orb reads in both themes.
-// The pole words crossfade between 70% and full ink: /70 is the floor that stays legible on the light theme.
 const poleInk = (w) => (0.7 + 0.3 * w).toFixed(3);
 
 export function pendulum({ S }) {
@@ -64,7 +52,6 @@ export function pendulum({ S }) {
     set(bRef.current, st.weightB);
   };
 
-  // One rAF loop: swing, bloom pulse, word crossfade and the auto-turn.
   useEffect(() => {
     if (gate) return;
     const reduce = reduced();
@@ -83,7 +70,6 @@ export function pendulum({ S }) {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  // The calm floating drift of the two words.
   useEffect(() => {
     if (gate || reduced() || !aWrapRef.current || !bWrapRef.current) return;
     const opts = { ease: "easeInOut", repeat: Infinity, repeatType: "mirror" };

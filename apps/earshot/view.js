@@ -1,13 +1,3 @@
-// earshot — a chat that reaches exactly as far as the radio does.
-//
-// Two refusals shape this screen, and neither is up for re-litigation (docs/research/ble-ether.md):
-//   · No stock-Android API gives a BEARING, so there is no dial, no ring and no angle here.
-//   · A message is ONE advertisement or it is nothing. 27 payload bytes minus a 5-byte header is 22 bytes,
-//     about 11 Cyrillic characters. The channel has no ack and no retry, so a sentence assembled from four
-//     packets would be four chances to show half of it.
-//
-// The protocol and every pure decision live in packages/runtime/earshot.js with unit tests. This file is
-// wiring and layout.
 import { html } from "htm/preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -22,25 +12,17 @@ import {
 } from "/_rt/earshot.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the one micro-label recipe (design.md): mono, the density token — callsigns, timestamps, the packet count
 const LABEL = "font-mono text-[length:var(--ms-label)] tracking-wider text-base-content/70";
 
-// How long one message stays in the air. The platform refuses anything past 180 s outright
-// (AdvertiseSettings.setTimeout throws), and a minute is long enough to be caught by a phone whose screen
-// was off when you spoke.
 const HOLD_MS = 60_000;
 
-// Listening outlives a tab switch: a subscription restarted per render would hit the framework's
-// ~5-starts-per-30-seconds limit and go quiet with no error anyone could see.
 const $voices = atom([]);
 const $listening = atom(false);
 const $err = atom(null);
-const $blocked = atom(null);       // a KNOWN cause, as an i18n key — answerable by the user
-const $mine = atom([]);            // messages THIS phone has sent, newest last
+const $blocked = atom(null);
+const $mine = atom([]);
 const $now = atom(Date.now());
-const $packets = atom(0);          // advertisements pulled out of the air, ours or not
-// The Android permission an error named. A permission refused twice is refused forever: requestPermissions
-// returns instantly and no dialog can ever appear again, so app settings has to be reachable from here.
+const $packets = atom(0);
 const $needPerm = atom(null);
 
 const PERM_RE = /denied:([A-Z_]+)/;
@@ -60,8 +42,8 @@ async function grant() {
   try {
     const r = await shell.call("system.grant", { permission: p });
     if (r?.state === "granted") { $needPerm.set(null); $err.set(null); hush(); listen(); return; }
-  } catch { /* the grant call itself failed; settings is still worth offering */ }
-  try { await shell.call("system.settings", { page: "app" }); } catch { /* nothing else to offer */ }
+  } catch { }
+  try { await shell.call("system.settings", { page: "app" }); } catch { }
 }
 
 const SENDER_KEY = "earshot.sender";
@@ -69,16 +51,14 @@ function loadSender() {
   try {
     const kept = Number(localStorage.getItem(SENDER_KEY));
     if (Number.isFinite(kept) && kept > 0) return kept;
-  } catch { /* private mode has no storage; a fresh identity per session is still a working one */ }
+  } catch { }
   const made = newSender();
-  try { localStorage.setItem(SENDER_KEY, String(made)); } catch { /* nothing to keep it in */ }
+  try { localStorage.setItem(SENDER_KEY, String(made)); } catch { }
   return made;
 }
 let sender = null;
 const senderId = () => (sender ??= gate ? 0x5ea401 : loadSender());
 
-// The gate has no radio. Seed the WIDEST field it will ever measure: the longest legal message, the
-// shortest, both scripts — the string nobody measures is the one that overflows.
 const GATE_FIELD = [
   { sender: 0x2f7a10, seq: 1, text: "привіт усім", rssi: -48 },
   { sender: 0x8c1d44, seq: 7, text: "хто тут?", rssi: -59 },
@@ -93,7 +73,7 @@ let ageTimer = null;
 function heard(frame) {
   if (frame && frame.raw) $packets.set($packets.get() + 1);
   const v = readFrame(frame);
-  if (!v || v.sender === senderId()) return;   // your own message comes back through the air; not news
+  if (!v || v.sender === senderId()) return;
   $voices.set(mergeVoices($voices.get(), [v], Date.now()));
 }
 
@@ -109,12 +89,12 @@ async function diagnose() {
   try {
     const info = await shell.call("system.info", {});
     if (info && info.locationOn === false) { $blocked.set("locationOff"); return; }
-  } catch { /* an older shell has no such field; fall through to the radio check */ }
+  } catch { }
   try {
     const st = await shell.call("ble.state", {});
     if (st && st.supported === false) { $blocked.set("noBle"); return; }
     if (st && st.on === false) { $blocked.set("bleOff"); return; }
-  } catch { /* if the state call itself fails, the subscribe error path will say so */ }
+  } catch { }
   $blocked.set(null);
 }
 
@@ -130,7 +110,7 @@ function listen() {
 
 function hush() {
   $listening.set(false);
-  try { stopScan?.(); } catch { /* already gone */ }
+  try { stopScan?.(); } catch { }
   stopScan = null;
   clearInterval(ageTimer); ageTimer = null;
 }
@@ -144,8 +124,6 @@ async function send(text) {
   const at = Date.now();
   const keep = () => $mine.set([...$mine.get(), { seq, text: fit.text, at, until: at + HOLD_MS }]);
   if (gate) { keep(); return; }
-  // ALWAYS attempt it. Greying the button out on shell.has() hid the reason behind a dead control, and a
-  // dead control cannot be diagnosed from the outside.
   try {
     await shell.call("ble.advertise", { data: hexOf(bytes), ms: HOLD_MS });
     keep();
@@ -183,15 +161,11 @@ function Line({ row, loc }) {
   return html`<div data-voice=${row.sender.toString(16)} data-mine=${row.mine ? "1" : "0"}
       class=${`flex flex-col gap-0.5 max-w-[85%] ${row.mine ? "ml-auto items-end" : "items-start"}`}>
     <div class="flex items-center gap-1.5 px-1">
-      ${/* the sender's mark: their own hue for a voice from the air, the app's accent for yours — colour
-           on a dot, never on the words */ ""}
+      ${ ""}
       <span class="w-2 h-2 rounded-full shrink-0" style=${row.mine ? "background:var(--app-accent)" : `background:hsl(${hue} 70% 55%)`}></span>
       <span class=${LABEL}>${name}</span>
     </div>
-    ${/* A bubble has to be a SURFACE, not a tint: bg-base-200 sits within a few percent of the page in the
-         dark theme, so the messages read as a bare list. A voice from the air is the farm's raised card
-         (sf-raised/sf-e2, Panel's material); YOUR line is a well with the accent as its RIM (es-mine, head.html)
-         — an accent behind text fails contrast in one theme, an accent around it never does. */ ""}
+    ${ ""}
     <div class=${`min-w-0 rounded-[var(--ms-r)] px-3 py-2 ${row.mine ? "sf-inset es-mine" : "sf-raised sf-e2"}`}>
       <div class="break-words text-base-content">
         ${row.mine ? row.text : html`<${Scramble} text=${row.text} minMs=${420} />`}
@@ -212,8 +186,6 @@ export function airView({ S, t }) {
   const [draft, setDraft] = useState("");
   const endRef = useRef(null);
 
-  // The air is on as soon as the screen is. There is no "start listening" step in a chat, and the gate
-  // needs the populated screen anyway — left alone it would photograph an empty box.
   useEffect(() => {
     listen();
     return () => { if (!gate) hush(); };
@@ -226,7 +198,7 @@ export function airView({ S, t }) {
   return html`<div data-earshot data-listening=${listening ? "1" : "0"} data-lines=${rows.length} data-blocked=${blocked || err ? "1" : "0"}
       class="flex flex-col gap-[var(--ms-gap)] px-[var(--ms-pad)] pb-[calc(var(--dock-h)+11rem)]">
     <div data-scanner class="flex items-center gap-2 pt-1 text-base-content/70">
-      ${/* the live dot breathes while the radio listens (es-live, head.html) — a state light, not a placeholder */ ""}
+      ${ ""}
       <span class=${`w-1.5 h-1.5 rounded-full ${listening ? "bg-[var(--app-accent)]" : "bg-base-content/30"} ${listening && !gate ? "es-live" : ""}`}></span>
       <span class=${`${LABEL} tabular-nums`}>${packets}</span>
       <span class=${LABEL}>${T(t, "packets")}</span>
@@ -237,8 +209,6 @@ export function airView({ S, t }) {
           ${rows.map((row) => html`<${Line} key=${row.key} row=${row} loc=${loc} />`)}
           <div ref=${endRef}></div>
         </div>`
-      // the runtime's own empty-state shape (render.js Empty): mascot hook + glyph + the one line; the
-      // data-empty hook hangs the scatter decor behind it
       : html`<div data-empty class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6"><span data-mascot aria-hidden="true"></span>${Icon("lucide:radio", "text-4xl")}<span class="font-medium">${T(t, "quiet")}</span></div>`}
 
     <${Island} pinned=${true} className="w-full max-w-[36rem] flex flex-col gap-[var(--ms-gap)]">
@@ -269,7 +239,7 @@ export function airView({ S, t }) {
           class="input input-ghost flex-1 min-w-0 px-3 focus:outline-none"
           aria-label=${T(t, "say")} placeholder=${T(t, "say")}
           value=${draft} onInput=${(e) => setDraft(e.currentTarget.value)} />
-        ${/* the byte budget: ink while there is room, the warning colour (meaning, not the accent) at zero */ ""}
+        ${ ""}
         <span data-left class=${`font-mono text-sm tabular-nums shrink-0 ${fit.left ? "text-base-content/70" : "text-warning"}`}>${fit.left}</span>
         <button data-throw type="submit" disabled=${fit.bytes === 0}
                 class="btn btn-sm btn-primary btn-circle shrink-0" aria-label=${T(t, "send")}>

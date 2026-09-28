@@ -1,20 +1,11 @@
-// microspec runtime — natal unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
-// ── natal.js — the precise natal chart (see apps/transit/RESEARCH.md for every number quoted here) ─────
 import { aspects, ASPECTS } from "../aspects.js";
 import { zoneOffset, knownZone, zonedToUTC, parseOffset, formatOffset, lmtOffset, houses, houseOf, HOUSE_SYSTEMS, placidusDefined, transits, transitAspect, separation, exactHits, TRANSIT_ORB, TRANSIT_ASPECTS, HIT_PRECISION, norm360, wrap180 } from "../natal.js";
 
-// Albert Einstein, 14 Mar 1879 11:30 LMT, Ulm 48°24'N 10°00'E (Rodden AA). LMT from longitude = +0:40 →
-// 10:50 UT. Frame values come from astronomy-engine at that instant (astro.js chartFrame); they are pinned
-// here so this test stays pure and offline. Reference cusps: astro.com, Placidus.
 const EINSTEIN = { ramc: 344.18405, eps: 23.456473, phi: 48.4 };
 const dms = (deg, min) => deg + min / 60;
 
 Deno.test("natal/zoneOffset: the engine's tz database reaches back to Local Mean Time, to the second", () => {
-  // Before the railways every town kept its own solar time; tzdata records it and Intl exposes it. A chart
-  // that assumed +01:00 for 1879 Ulm would put the Ascendant half a sign away.
   assertEquals(zoneOffset(Date.parse("1879-03-14T10:00:00Z"), "Europe/Berlin"), 53 * 60000 + 28000);
   assertEquals(zoneOffset(Date.parse("1879-03-14T10:00:00Z"), "Europe/Kyiv"), 2 * 3600000 + 2 * 60000 + 4000);
   assertEquals(zoneOffset(Date.parse("1883-11-17T10:00:00Z"), "America/New_York"), -(4 * 3600000 + 56 * 60000 + 2000));
@@ -25,18 +16,14 @@ Deno.test("natal/zoneOffset: the engine's tz database reaches back to Local Mean
 });
 
 Deno.test("natal/zonedToUTC: wall clock → instant, including DST edges and the manual override", () => {
-  // plain winter time
   const w = zonedToUTC({ y: 1990, mo: 1, d: 15, h: 12, mi: 30 }, "Europe/Kyiv");
   assertEquals(w.ms, Date.parse("1990-01-15T09:30:00Z"), "UTC+3 in Jan 1990 (Kyiv was on Moscow time)");
   assert(!w.ambiguous && !w.nonexistent);
 
-  // historic LMT — the 1879 Ulm birth used by the reference chart below
   const e = zonedToUTC({ y: 1879, mo: 3, d: 14, h: 11, mi: 30 }, "Europe/Berlin");
   assertEquals(e.offset, 53 * 60000 + 28000);
   assertEquals(e.ms, Date.parse("1879-03-14T10:36:32Z"));
 
-  // Spring forward. The EU switches at 01:00 UTC, which in Kyiv (then UTC+2) is 03:00 local: the clock goes
-  // 02:59:59 → 04:00:00, so the whole 03:00 hour never happened. Measured, not assumed.
   const gap = zonedToUTC({ y: 2021, mo: 3, d: 28, h: 3, mi: 30 }, "Europe/Kyiv");
   assert(gap.nonexistent, "03:30 never occurred in Kyiv that morning — the flag must be raised");
   assertEquals(zonedToUTC({ y: 2021, mo: 3, d: 28, h: 2, mi: 30 }, "Europe/Kyiv").ms,
@@ -45,12 +32,10 @@ Deno.test("natal/zonedToUTC: wall clock → instant, including DST edges and the
   assert(!after.nonexistent);
   assertEquals(after.ms, Date.parse("2021-03-28T01:30:00Z"), "and the hour after it is UTC+3");
 
-  // autumn fall-back: 03:30 on 2021-10-31 ran twice in Kyiv → ambiguous, earlier (still-DST) instant taken
   const amb = zonedToUTC({ y: 2021, mo: 10, d: 31, h: 3, mi: 30 }, "Europe/Kyiv");
   assert(amb.ambiguous, "the repeated hour must be flagged, not silently resolved");
   assertEquals(amb.offset, 3 * 3600000, "the earlier pass is still on summer time");
 
-  // manual offset bypasses the database entirely — a birth certificate beats tzdata
   const m = zonedToUTC({ y: 1990, mo: 1, d: 15, h: 12, mi: 30 }, { offsetMs: 2 * 3600000 });
   assertEquals(m.ms, Date.parse("1990-01-15T10:30:00Z"));
   assertEquals(zonedToUTC({ y: 2000, mo: 1, d: 1, h: 0 }, "Nowhere/Nothing"), null);
@@ -110,8 +95,6 @@ Deno.test("natal/houses: the closed-form systems, and cusps that always run forw
 });
 
 Deno.test("natal/houses: above the polar circle Placidus is abandoned, and says so", () => {
-  // tan(phi)*tan(eps) = 1 at ~66.56 — beyond it some ecliptic degrees never rise, so the semi-arc that
-  // Placidus trisects does not exist. Silently drawing a different chart would be the real failure.
   assert(placidusDefined(23.44, 60), "60 N is fine");
   assert(!placidusDefined(23.44, 70), "70 N is past the polar circle");
   const arctic = houses(EINSTEIN.ramc, EINSTEIN.eps, 70, "placidus");
@@ -154,9 +137,6 @@ Deno.test("natal/transits: event orbs, applying vs separating, tightest first", 
   assertEquals(transitAspect(100, 100, 3).type, "conjunction");
   assertEquals(transitAspect(160, 100, 3).type, "sextile");
 
-  // Regression: `separation` is the SHORT arc, so a trine can sit on either side of the natal point. The
-  // root finder solves lon(t) - natal - angle = 0, so an unsigned angle sends it to the far side of the
-  // wheel and it reports "no hit" for an aspect perfecting within the hour. Caught in a live chart.
   assertEquals(transitAspect(220, 100, 3).signedAngle, 120, "transit 120 AHEAD of natal");
   assertEquals(transitAspect(340, 100, 3).signedAngle, -120, "transit 120 BEHIND natal — same separation");
   assertEquals(separation(340, 100), 120, "both really are a trine");
@@ -169,21 +149,17 @@ Deno.test("natal/transits: event orbs, applying vs separating, tightest first", 
 
 Deno.test("natal/exactHits: bisection finds every crossing, including a retrograde triple", () => {
   const DAY = 864e5;
-  // A body drifting 1 deg/day past a natal point at 100: one clean conjunction.
   const linear = (ms) => norm360(90 + (ms - 0) / DAY);
   const one = exactHits(linear, 100, 0, 0, 30 * DAY, { step: DAY, tolMs: 1000 });
   assertEquals(one.length, 1);
   assert(Math.abs(one[0] - 10 * DAY) < 2000, "crossing at day 10, to the second");
 
-  // A retrograde loop: forward, back, forward — the classic three passes over one natal degree. The body
-  // swings 98±4 with a 60-day period, so it reaches 100 at days 5, 25 and 65 — the window must hold all three.
   const loop = (ms) => { const d = ms / DAY; return norm360(98 + 4 * Math.sin((d / 60) * 2 * Math.PI)); };
   const three = exactHits(loop, 100, 0, 0, 70 * DAY, { step: DAY, tolMs: 1000 });
   assertEquals(three.length, 3, "a retrograde body hits the same aspect three times");
   for (const h of three) assert(Math.abs(wrap180(loop(h) - 100)) < 1e-4, "each hit is exact to 0.0001 deg");
   assert(three[0] < three[1] && three[1] < three[2], "returned in time order");
 
-  // A body that wraps 360 -> 0 must not register a phantom crossing.
   const wrapper = (ms) => norm360(350 + (ms / DAY) * 20);
   const none = exactHits(wrapper, 180, 0, 0, 2 * DAY, { step: DAY, tolMs: 1000 });
   assertEquals(none.length, 0, "the wrap guard keeps a 360 to 0 jump from faking a hit");

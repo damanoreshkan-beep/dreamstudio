@@ -1,18 +1,3 @@
-// reel — paste any page URL and every video on it becomes a full-screen, vertically-swiped feed (tiktok-style),
-// with the next pages loading themselves as you approach the end. Three views:
-//   • reel    — the full-bleed media surface (autoplay-the-visible-slide, poster, tap-to-pause, error state);
-//               the slide itself carries NO chrome — every control is one bottom island (see SourceIsland)
-//   • liked   — the poster grid of what you double-tapped; a tile opens the feed RIGHT HERE, in this tab
-//   • sources — your subscribed pages, grouped by site, + ready-made channels; tap to play, subscribe
-// Heavy lifting is systemic: /_rt/video.js createPlayer() owns mp4-vs-HLS attach+teardown+errors; the VPS
-// /feed/videos endpoint owns extraction (per-item title+poster+page via JSON-LD / <video> attrs / proximity,
-// plus the PAGE's own title); /_rt/sitelabel.js owns "what is this page called"; /_rt/gesture.js owns the drag.
-//
-// THE DIVE (see RESEARCH.md): every extracted clip carries the page it was found on. Drag a slide sideways
-// and that page becomes the next source — the site's own "related videos", as deep as you care to go. Each
-// dive pushes a FRAME (the whole feed state: items, cursor, slide, source), so coming back is a restore, not
-// a refetch: you land on the exact clip you left, mid-list, and keep going. The stack is history-backed via
-// the runtime's S.stack, so the system Back button walks it back one level at a time and never exits the app.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
@@ -37,24 +22,8 @@ import { collection, idbSupported } from "/_rt/db.js";
 import { Pixels } from "/_rt/skeleton.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-/* Route an asset through the reverse proxy. `ref` is the PAGE the asset was found on, and it is the whole
-   reason this works: what blocks a guarded clip is hotlink protection, not CORS. Measured against a live
-   signed clip with the browser UA held constant — no referer 404, the CDN's own origin 404, the page's origin
-   206 — and the CDN grants CORS freely either way (206 with our github.io Origin present). A browser cannot
-   send that header itself: `Referer` is a forbidden header name for fetch, and a <video> element sends its own
-   document's URL, which Referrer-Policy can only shorten, never move to another origin. So the proxy is not a
-   CORS workaround; it is the only party that can state the referer the source asks for.
-   The earlier note here claimed the token was bound to the VPS's IP. It is not: the same token served a
-   different address fine. It was the referer all along, and the proxy was sending the asset's own origin.
-   SEALED, and async because of it. Both the clip URL and the page it came from now travel inside the envelope
-   (`sealedFrameUrl`), not in the query string — for this app the destination is the part worth hiding, and it
-   was the one thing the tunnel still left in the clear. The cost is that a proxied src can no longer be
-   computed while rendering; it is resolved in an effect and the slide waits a beat for it. */
 const framed = (u, ref) => sealedFrameUrl(u, ref);
 
-// Ready-made channels — ONLY sources verified to extract THROUGH THE PROXY (the VPS datacenter IP matters:
-// Cloudflare-guarded sites like Pexels return nothing from it, exactly like the AliExpress lesson). They are
-// grouped by site in the Sources tab, so several pages of one site read as one channel with its own pages.
 const PRESETS = [
   { name: "Mixkit", url: "https://mixkit.co/free-stock-video/" },
   { name: "Space", url: "https://mixkit.co/free-stock-video/space/" },
@@ -62,37 +31,16 @@ const PRESETS = [
   { name: "Aerial", url: "https://mixkit.co/free-stock-video/aerial/" },
   { name: "Abstract", url: "https://mixkit.co/free-stock-video/abstract/" },
   { name: "Dareful 4K", url: "https://dareful.com/" },
-  /* Coverr was here and is gone (2026-09-07). Its pages are carousels of custom elements whose tiles carry no
-     link to the clip's own page at all — JS adds those after load — so half the rows could never be dived into,
-     measured on both its home page and its listing. That is not something extraction can fix: the fact is not
-     in the HTML. A source that cannot answer "what page is this clip on" is not a channel. */
   { name: "Wikimedia Commons", url: "https://commons.wikimedia.org/wiki/Category:Animations" },
   { name: "Underwater", url: "https://commons.wikimedia.org/wiki/Category:Underwater_videos" },
   { name: "Time-lapse", url: "https://commons.wikimedia.org/wiki/Category:Time-lapse_videos" },
 ];
 const DEFAULT_SRC = PRESETS[0].url;
-// Solid 8×8 PNGs (raster → never taint a canvas) that seed the poster filter end-to-end: data: posters are
-// analysed even under the gate (no network), remote ones are not. BLACK_PX → a broken/black poster;
-// GREY_PX → a flat single-colour placeholder a CDN serves when it has no real thumbnail (isFlatSample).
 const BLACK_PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAAAAADhZOFXAAAAEklEQVR4nGJgoA4AAAAA//8DAABIAAFYHHymAAAAAElFTkSuQmCC";
 const GREY_PX = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAFUlEQVR4nGJowAEYhpYEAAAA//8DAILzYAFRMt2JAAAAAElFTkSuQmCC";
-// Headless gate / ?mock: seed a populated reel from public-domain clips (a poster on one so the poster path is
-// exercised) — the live layout, never the empty state, is what the gate measures. The last three entries are
-// deliberately BAD: a duplicate of Big Buck Bunny (dedupe drops it), a black/broken poster (black filter drops
-// it) and a flat-grey placeholder poster (flat filter drops it) — so all three cleanups are provable in the
-// gate. After filtering, three good clips remain. Every clip carries a `page`, because the page IS the dive.
-// Every clip's `page` is a VIDEO page, and a video page's URL names nothing (`/watch/<id>/`) — which is the
-// whole reason a dive needs a title from somewhere else. The mock reproduces that shape deliberately: derive
-// a label from these URLs and you get "Mixkit", which is what the island used to show.
 const GV = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/";
 const MOCK = [
-  // The first clip names its ACCOUNT, so the island's avatar is provable offline: tapping it dives, and
-  // under the gate any url but the default lands on the "Deeper …" batch. avatar stays null on purpose —
-  // that is what a listing tile actually carries, and it makes the monogram the tested path.
   { video: GV + "BigBuckBunny.mp4", title: "Big Buck Bunny", poster: GV + "images/BigBuckBunny.jpg", page: "https://mixkit.co/watch/10241/",
-    // The account's url is a HANDLE that names nothing ("user10241" — an id wearing a word's clothes, which
-    // sitelabel reads as weak), so the island has to take the page's own name. That is the same proof the
-    // clip page used to carry before the dive button came out, and the only reason GATE_TITLES exists.
     channel: { name: "Nine Lives Studio", url: "https://mixkit.co/profiles/user10241/", avatar: null } },
   { video: GV + "ElephantsDream.mp4", title: "Elephants Dream", poster: null, page: "https://mixkit.co/watch/10242/" },
   { video: GV + "Sintel.mp4", title: "Sintel", poster: null, page: "https://mixkit.co/watch/10243/" },
@@ -100,71 +48,29 @@ const MOCK = [
   { video: GV + "ForBiggerBlazes.mp4", title: "Broken clip", poster: BLACK_PX, page: "https://mixkit.co/watch/10244/" },
   { video: GV + "ForBiggerEscapes.mp4", title: "Flat placeholder", poster: GREY_PX, page: "https://mixkit.co/watch/10245/" },
 ];
-// What a DIVE lands on under the gate: a different, recognisable batch, so "the feed actually changed" and
-// "back restored the old one" are both assertable without a network. Its clips dive one level deeper again.
 const MOCK_DEEP = [
-  // Names an ACCOUNT of its own, so a SECOND dive has a door under the gate. The island's chevron used to be
-  // that door; it came out on 2026-09-20 (the rightward drag already did it), and a drag is the one gesture
-  // this harness cannot dispatch — so the stack-depth case rides the avatar, which needs a channel here.
   { video: GV + "ForBiggerFun.mp4", title: "Deeper one", poster: null, page: "https://mixkit.co/watch/55012/",
     channel: { name: "Deeper Studio", url: "https://mixkit.co/profiles/deeper-studio", avatar: null } },
   { video: GV + "ForBiggerJoyrides.mp4", title: "Deeper two", poster: null, page: "https://mixkit.co/watch/55013/" },
 ];
-// …and what each of those pages calls ITSELF — the `title` the /videos endpoint now returns. Wrapped in site
-// chrome on purpose, so the gate proves cleanPageTitle strips it in a real browser, not only in the unit suite.
 const GATE_TITLES = {
-  // Deliberately MACHINE TEXT, not a clean string: a percent-escape and an HTML entity, which is how a real
-  // page title arrives (a filename-derived title is encoded, a scraped <title> still carries its entities).
-  // The gate therefore proves the decode in a real browser, on the path a page title actually travels —
-  // island, sources row and all — and not only in the unit suite.
   "https://mixkit.co/watch/10241/": "Big%20Buck%20Bunny in 4K &amp; Friends — Mixkit",
-  // The account page the island's avatar dives into — machine text for the same reason as the one above. It
-  // must not OPEN with the site's name either: cleanPageTitle reads that as chrome and throws the title away,
-  // which is how the first version of this line silently left the island on the url's own shape.
   "https://mixkit.co/profiles/user10241/": "Nine%20Lives Studio &amp; Friends — Mixkit",
   "https://mixkit.co/watch/55013/": "Deeper two · Mixkit",
-};                                    // …it must reach the screen as: Big Buck Bunny in 4K & Friends
-
-/* Where a slide STARTS, once. Sources put a branded card on the front of the preview they hand out, so frame 0
-   is a watermark rather than the clip. A fixed offset was the first attempt and it is the wrong shape: these
-   previews run anywhere from a few seconds to half a minute, so any constant is too deep into a short one and
-   not past the card on a long one. A FRACTION scales with whatever arrives, and needs no number per source.
-   Applied on the first play only — `loop` then wraps to 0 like any video. That is deliberate: catching the
-   wrap to re-skip means fighting the element every pass, and on a repeat you have already chosen to keep
-   watching, the opening is no longer the thing standing between you and the clip. */
-const START_FRACTION = 1 / 8;
-const seekStart = (v) => {
-  // Unknown duration (a manifest that has not said yet) → leave it at 0 rather than guess a second into it.
-  try { if (isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration * START_FRACTION; } catch { /* not seekable yet */ }
 };
 
-/* How many slides EITHER SIDE of the active one keep a live <video>. 1, so three exist at once, and the
-   number is small on purpose: there is no documented cap on concurrent media elements. Android's own
-   `getMaxSupportedInstances()` is described by Android as a HINT for an upper bound that real resources may
-   undercut, Chrome documents nothing at the web layer, and — the part that decides it — nothing specifies
-   what HAPPENS at the limit: not a dropped `src`, not a rejected `play()`, not a `MediaError`. A budget whose
-   failure mode is undefined is a budget you stay well inside.
-   One ahead is also all a feed needs: you swipe forward, and one behind makes going back free too. */
+const START_FRACTION = 1 / 8;
+const seekStart = (v) => {
+  try { if (isFinite(v.duration) && v.duration > 0) v.currentTime = v.duration * START_FRACTION; } catch { }
+};
+
 const PRELOAD = 1;
 
 const $src = persistentAtom("reel:src", DEFAULT_SRC);
-/* Noir — the picture in black and white. Persistent, because it is a way of watching rather than a thing you
-   do to one clip: it has to still be on tomorrow. The mode itself is CSS (see index.html); this atom only
-   raises a flag on <html>, the same lever data-feed already uses, so nothing re-renders when it flips. */
 const $mono = persistentAtom("reel:mono", "0");
-// "Open site" opens the source's real website in the external browser. (The in-app reverse-proxy iframe was
-// removed — heavy/anti-bot sites never rendered reliably through the datacenter-IP proxy.) The reel is the tap.
 function openExternal(url) { if (url && typeof window !== "undefined") window.open(url, "_blank", "noopener"); }
 const openSite = (s) => openExternal(s.url);
-// Subscriptions live in IndexedDB (the runtime's collection() store) — a real DB, not localStorage. $subs is a
-// reactive mirror the views read; writes go to both (optimistic atom + async idb). Headless/no-idb: atom only.
 const subsDB = collection("reelSubs");
-// SEEDED under the gate, like the likes grid. Everything above the "Discover" heading was otherwise only ever
-// measured — and only ever photographed — as its empty state, so the one row shape that carries a real page's
-// name (a `/watch/<id>/` URL names nothing, so the saved title IS the row) had no populated screen at all.
-// These two are what a subscription actually looks like: a long one, because that is the case the row has to
-// survive, and a short one beside it. Their pages are never opened by the mock feed, so nothing renames them.
-// What the edge reads off a real page's own links (`search`), stood in for offline — see searchHere.
 const GATE_SEARCH = "https://mixkit.co/free-stock-video/?q=nature";
 const GATE_SUBS = [
   { id: "https://mixkit.co/watch/70001/", url: "https://mixkit.co/watch/70001/", name: "Fog over the Carpathians at first light, in one long slow take" },
@@ -174,47 +80,25 @@ const $subs = atom(gate ? GATE_SUBS : []);
 if (idbSupported && !gate) subsDB.all().then((rows) => $subs.set(rows)).catch(() => {});
 async function subscribe(s) {
   if (!s?.url || $subs.get().some((x) => x.url === s.url)) return;
-  // The name is FROZEN here — a subscription keeps the title the page had when you saved it, which is the
-  // only thing a list of N pages can show without N round-trips (see sitelabel's own note on deriving).
-  /* …and so is the FACE, when one is already known. The sources tab asks the network for nothing: it shows
-     the picture the island resolved for this account while you were watching it (avatarSeen), or the one
-     the feed itself carried when the page you subscribed to IS an account. A source saved before any of
-     that simply keeps its favicon, and gains a face the next time you watch it. */
   const feed = $feedChannel.get();
   const avatar = s.avatar || avatarSeen.get(s.url) || (feed && feed.url === s.url ? feed.avatar : null) || null;
   const rec = { name: s.name || sourceTitle(s.url), url: s.url, ...(avatar ? { avatar } : {}) };
   $subs.set([{ id: s.url, ...rec }, ...$subs.get()]);
-  try { await subsDB.put(s.url, rec); } catch { /* no idb (headless) — the atom still holds it this session */ }
+  try { await subsDB.put(s.url, rec); } catch { }
 }
 async function unsubscribe(url) {
   $subs.set($subs.get().filter((x) => x.url !== url));
-  try { await subsDB.remove(url); } catch { /* */ }
+  try { await subsDB.remove(url); } catch { }
 }
-// …and the frozen name is CORRECTED the moment the page itself answers. That freeze is what made the sources
-// tab a second, worse answer to "what is this page called": you can subscribe from the add-URL sheet, where
-// nothing but the URL is known yet, and the row then kept that guess forever while the island — which had
-// since been handed the page's own <title> — showed the real name. A source resolves its title on every load
-// anyway, so the row costs one write and no round-trip. Same input, same function, one string.
 function renameSub(url, title) {
   const cur = $subs.get().find((x) => x.url === url);
   if (!cur || !title || cur.name === title) return;
   $subs.set($subs.get().map((x) => (x.url === url ? { ...x, name: title } : x)));
-  subsDB.put(url, { name: title, url }).catch(() => { /* no idb (headless) — the atom still holds it */ });
+  subsDB.put(url, { name: title, url }).catch(() => { });
 }
 
-// ── a site's SESSION: your own cookies, per site ─────────────────────────────────────────────────────────
-// A front page is PERSONAL — its "recommended" is the visitor's account and history — and the VPS is one
-// anonymous visitor for everyone (a datacenter IP, one shared cookie jar per host), so the root of a site you
-// are signed in to came back as somebody else's front page. A site can therefore carry YOUR Cookie header,
-// pasted once from the browser you are signed in with. Every fetch of that site's pages then goes to
-// /feed/videos as POST {url, cookie} — inside the sealed envelope, never in a query string — and the server
-// uses it for that one request and never writes it into its jar. Keyed by the registrable domain, so the
-// root, a dive page and a www./m. host all share one session. IndexedDB, mirrored into an atom for the views.
 const sessDB = collection("reelSessions");
-const $sessions = atom({});                                 // domain → Cookie header value
-// The boot fetch fires from the first mount, before IndexedDB has answered — so the very first page of a
-// site with a saved session went out ANONYMOUS every cold start, and the owner met the server's front page
-// again. loadSource awaits this before it reads the cookie; it is a settled promise from then on.
+const $sessions = atom({});
 const sessionsReady = idbSupported && !gate
   ? sessDB.all().then((rows) => $sessions.set(Object.fromEntries(rows.map((r) => [r.id, r.cookie])))).catch(() => {})
   : Promise.resolve();
@@ -225,12 +109,10 @@ async function setSession(url, cookie) {
   const next = { ...$sessions.get() };
   if (c) next[k] = c; else delete next[k];
   $sessions.set(next);
-  try { if (c) await sessDB.put(k, { cookie: c }); else await sessDB.remove(k); } catch { /* no idb (headless) — the atom holds it */ }
+  try { if (c) await sessDB.put(k, { cookie: c }); else await sessDB.remove(k); } catch { }
 }
-const $sessSite = atom("");                                 // the site the session sheet is editing (a url of it)
+const $sessSite = atom("");
 
-// Watch history (IndexedDB) — a video counts as watched after it dwells as the active slide (not a fly-by), and
-// is then filtered out of future loads. $watched mirrors the store as a Set for O(1) lookups during filtering.
 const watchedDB = collection("reelWatched");
 const $watched = atom(new Set());
 if (idbSupported && !gate) watchedDB.all().then((rows) => $watched.set(new Set(rows.map((r) => r.id)))).catch(() => {});
@@ -240,29 +122,20 @@ function markWatched(url) {
   watchedDB.put(url, {}).catch(() => {});
 }
 function clearWatched() { $watched.set(new Set()); watchedDB.clear().catch(() => {}); }
-const unseen = (arr) => arr.filter((i) => !$watched.get().has(i.orig || i.video));         // key on the stable original URL
+const unseen = (arr) => arr.filter((i) => !$watched.get().has(i.orig || i.video));
 
-// Liked reels (IndexedDB) — a double-tap on a slide saves it; the Liked tab lists them and is the ONLY place
-// to remove one. Keyed by the STABLE original URL (orig || video), which is globally unique across sources, so
-// likes from different sources (any tube site, mixkit, commons…) coexist and never duplicate. Each record carries its
-// host + the per-item `eph` flag so the Liked feed replays a mix of ephemeral and inline clips correctly.
-// Under the gate it is SEEDED: the grid is measured populated, and the in-tab feed is testable without a
-// double-tap (the e2e surface can't dispatch two taps inside useTap's 260 ms window).
 const likesDB = collection("reelLikes");
 const likeId = (i) => i.orig || i.video;
-/* The first one keeps a PICTURE — a data: URI, so it decodes with no network and the same way every run.
-   The grid is posters, and "noir reaches the liked grid" is a claim about a poster; with every seeded like
-   poster-less the tile renders a play glyph and there is nothing on the screen to measure. */
 const GATE_LIKES = MOCK.slice(0, 3).map((i, n) => ({ id: likeId(i), video: i.video, orig: null, poster: n === 0 ? GREY_PX : null, page: i.page, title: i.title, host: hostOf(i.page), eph: false, ts: 1000 - n }));
 const $likes = atom(gate ? GATE_LIKES : []);
 if (idbSupported && !gate) likesDB.all().then((rows) => $likes.set(rows)).catch(() => {});
-function addLike(i) {                                                                       // double-tap → save; dedupe (never store twice)
+function addLike(i) {
   const id = likeId(i); if (!id || $likes.get().some((l) => l.id === id)) return;
   const rec = { id, video: i.video, orig: i.orig || null, poster: i.poster || null, page: i.page || null, title: i.title || null, host: hostOf(i.page || i.orig || i.video), eph: i.eph != null ? i.eph : $ephemeral.get(), ts: Date.now() };
   $likes.set([rec, ...$likes.get()]);
-  likesDB.put(id, rec).catch(() => { /* headless / no idb — atom still holds it this session */ });
+  likesDB.put(id, rec).catch(() => { });
 }
-function unlike(id) {                                                                       // remove — only from the Liked tab
+function unlike(id) {
   $likes.set($likes.get().filter((l) => l.id !== id));
   likesDB.remove(id).catch(() => {});
 }
@@ -272,95 +145,59 @@ const $next = atom(null);
 const $loading = atom(!gate);
 const $err = atom(false);
 const $active = atom(0);
-const $ephemeral = atom(false);   // source hands out signed/expiring URLs → show poster + "watch" link, don't play
-// What the current source is CALLED, and the name we had for it before the page could answer. A video page's
-// URL is a shape (`/watch/10241/`), so `pageLabel` alone put "Mixkit"/"View video" in the island; the title
-// is resolved by sitelabel.sourceTitle from three producers, best first: the URL when it names the page, the
-// page's own <title> (the /videos `title` field), and the title of the clip you dived from ($srcHint) — which
-// is the one that exists INSTANTLY, so the island never shows a placeholder while the new feed loads.
+const $ephemeral = atom(false);
 const $srcTitle = atom(sourceTitle(DEFAULT_SRC));
 const $srcHint = atom("");
-// The ONE place a source's name is decided, so the island and the sources list can't drift apart: whatever
-// this writes is what the row for that URL shows (see renameSub).
 function setSrcTitle(url, opts) {
   const title = sourceTitle(url, opts);
   $srcTitle.set(title);
   renameSub(url, title);
   return title;
 }
-let booted = false;               // the very first feed load happens once, on the first mount — never on a re-mount
+let booted = false;
 
-// ── navigation: the dive stack ──────────────────────────────────────────────────────────────────────────
-// $frames holds the feed states you can go BACK to, deepest last. Its length is mirrored into the runtime's
-// S.stack, which is what turns each level into one history entry — so the system Back button, the island's
-// back chevron and a rightward drag are three doors into the same single path (S.stack → listener → restore).
 const $frames = atom([]);
-const $restoreTo = atom(null);    // the slide the scroller must land on after a restore (null = nothing pending)
-const $owner = atom("reel");      // which TAB owns the full-screen feed: "reel" | "liked" (a liked tile plays HERE)
+const $restoreTo = atom(null);
+const $owner = atom("reel");
 
 const snapshot = (label) => ({ label, src: $src.get(), title: $srcTitle.get(), hint: $srcHint.get(), items: $items.get(), next: $next.get(), active: $active.get(), eph: $ephemeral.get(), owner: $owner.get(), err: $err.get() });
 function restoreTop() {
   const fs = $frames.get(); if (!fs.length) return;
   const f = fs[fs.length - 1];
   $frames.set(fs.slice(0, -1));
-  gen++;                                                    // anything still in flight for the abandoned source is stale
+  gen++;
   loadingMore = false;
   $src.set(f.src); $srcTitle.set(f.title); $srcHint.set(f.hint); $items.set(f.items); $next.set(f.next); $ephemeral.set(f.eph);
   $owner.set(f.owner); $loading.set(false); $err.set(f.err);
-  $active.set(f.active); $restoreTo.set(f.active);          // …and land on the exact slide you left
-  // Never restore INTO a phantom skeleton: if you left that level before it ever filled, fetch it now.
+  $active.set(f.active); $restoreTo.set(f.active);
   if (!f.items.length && !f.err && !gate) loadSource(f.src, false, f.hint);
 }
 let bound = false;
 function bindNav(S) {
   if (bound) return; bound = true;
-  // ONE reaction for every way back: the runtime pops S.stack on system Back, and our own back button/drag
-  // pop it too — either way the stack got shorter than the frames, so restore until they match.
   S.stack.listen((v) => { while ($frames.get().length > (v?.length || 0)) restoreTop(); });
 }
 function pushFrame(S, label) { $frames.set([...$frames.get(), snapshot(label)]); S.stack.set([...S.stack.get(), label]); }
 function popFrame(S) { const st = S.stack.get(); if (st.length) S.stack.set(st.slice(0, -1)); }
-function resetNav(S) { $frames.set([]); if (S.stack.get().length) S.stack.set([]); }        // frames first — the listener must find nothing to restore
+function resetNav(S) { $frames.set([]); if (S.stack.get().length) S.stack.set([]); }
 
-// Where a slide dives to: the page the clip was extracted FROM. Never the media URL — a bare .mp4 is not an
-// html page and extracting it returns nothing — and never the page we're already on.
 function diveTarget(item, src) {
   const u = item?.page;
   if (!u || !/^https?:\/\//i.test(u)) return null;
   return u.replace(/#.*$/, "") === String(src).replace(/#.*$/, "") ? null : u;
 }
 function openSource(url, hint) { $src.set(url); loadSource(url, false, hint); }
-// `hint` is the title of the clip you dived FROM — i.e. the name of the page you are diving INTO, known
-// before a single byte of it is fetched.
 function diveTo(S, url, hint) {
   if (!url) return;
-  pushFrame(S, $srcTitle.get());                             // the level you are leaving, by its real name
-  navigator.vibrate?.(10);                                   // a gesture commit isn't a tap → the delegated haptic doesn't cover it
+  pushFrame(S, $srcTitle.get());
+  navigator.vibrate?.(10);
   openSource(url, hint);
 }
 
-// ── SHARED IN: a link another app handed us ─────────────────────────────────────────────────────────────
-// Two doors, because an INSTALLED reel is two different apps. As a PWA it is a WebAPK that Chrome (or
-// Samsung Internet) mints from manifest.json, so the door is `share_target` there: Android lists reel in the
-// system sheet and launches the start URL with the shared fields as query params. As an APK it is our own
-// shell, which has no Web Share Target at all — a WebView implements none of Web Share, in either direction.
-// The shell's mechanism is the mirror image: every `full` shell carries one DISABLED share activity-alias
-// per kind, and a page turns its own on (`share.target`) and then listens (`share.incoming`), because a farm
-// of sixty APKs must not all answer "share text". Both doors end in the same two lines — resolve a URL out
-// of what was sent, then hand it to the same function the add-URL sheet uses. A shared link is a source you
-// did not have to type.
-
-/* What was shared, reduced to a source URL. No two senders fill the three fields the same way: Chrome sends
-   `url`, Telegram sends a title and a url, TikTok sends one `text` with its caption wrapped around the link,
-   and a plain-text share may carry a bare domain and nothing else. So every field is scanned for a real link
-   first and only then for a bare domain — on the same terms the add-URL sheet accepts one, because that is
-   the same question asked by a different mouth. Our OWN links are skipped: sharing a reel back into reel
-   would load this page as a "source", which extracts nothing and looks like a bug. */
 const SHARE_KEYS = ["sh_url", "sh_text", "sh_title"];
 const LINK_RE = /https?:\/\/[^\s<>"']+/i;
 const BARE_RE = /(?:^|[\s("'])((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}(?:\/[^\s<>"']*)?)/i;
 function sharedHref(raw) {
-  // A link at the end of a sentence keeps the sentence: "дивись https://x.co/a." is one whitespace token.
   try {
     const u = new URL(String(raw).trim().replace(/[.,;:!?)\]'"]+$/, ""));
     if (!/^https?:$/.test(u.protocol) || !u.hostname.includes(".")) return "";
@@ -375,12 +212,7 @@ function sharedUrl(p) {
   return "";
 }
 
-// Play a URL as the source: subscribe to it, drop the dive stack, and land on the reel tab. The add-URL
-// sheet and both share doors are the same act — this is the one place it happens.
 function openAsSource(S, url, hint, keep = true) {
-  // `keep` is false for a search from the island: that is a filter on the feed you are watching, and every
-  // term you try would otherwise become a permanent row in the sources tab. It stays one tap from being
-  // kept — the More sheet offers "subscribe" for whatever is playing, search results included.
   if (keep) subscribe({ name: sourceTitle(url), url });
   resetNav(S);
   $owner.set("reel");
@@ -389,10 +221,6 @@ function openAsSource(S, url, hint, keep = true) {
   S.screen.set(null);
 }
 
-/* A share can arrive when no view of ours is mounted — a cold start hands it over before the first render,
-   and the shell can deliver one while the profile tab (which the runtime renders, not this file) is up. So
-   the payload WAITS, and the app's state graph is lent to this module by the first view that renders. S is
-   created once per app and never changes identity, which is what makes that safe. */
 let APP = null, TOAST = null, waiting = null;
 function shareIn(payload) { waiting = payload; flushShare(); }
 function flushShare() {
@@ -400,71 +228,45 @@ function flushShare() {
   const p = waiting; waiting = null;
   const url = sharedUrl(p);
   if (url) openAsSource(APP, url);
-  // Someone shared a screenshot, or a caption with no link in it. Silence would read as a broken app.
   else TOAST?.(T(APP.t.get(), "shareNoLink"));
 }
 function useShareIntake(S, toast) {
   useEffect(() => { APP = S; TOAST = toast; flushShare(); }, [S, toast]);
 }
 
-/* The PWA door. Read before anything else can touch the URL, and taken OFF it in the same breath: a reload
-   of a shared link must not add the source a second time, and the address bar of an installed app is the
-   last place a caption belongs. Only our own three keys are removed — `?tab=`, `?mock`, `?__hold=1` and the
-   rest of the query belong to the runtime and to the gates. The keys are prefixed for exactly that reason:
-   `url` and `title` are names the farm's own params could collide with, and the manifest is free to map the
-   Web Share fields onto any key we like. */
 if (typeof location !== "undefined") {
   const u = new URL(location.href);
   if (SHARE_KEYS.some((k) => u.searchParams.has(k))) {
     shareIn({ url: u.searchParams.get("sh_url"), text: u.searchParams.get("sh_text"), title: u.searchParams.get("sh_title") });
     for (const k of SHARE_KEYS) u.searchParams.delete(k);
     const q = u.searchParams.toString();
-    try { window.history.replaceState(null, "", u.pathname + (q ? `?${q}` : "") + u.hash); } catch { /* the URL is not load-bearing here */ }
+    try { window.history.replaceState(null, "", u.pathname + (q ? `?${q}` : "") + u.hash); } catch { }
   }
 }
 
-/* The APK door. `text` only: reel's source is a page, and a shared file is not one — a shell that answered
-   "share video" would put itself in the sheet for every clip in the gallery and have nothing to do with it.
-   PackageManager remembers the alias across reboots, so this is idempotent, not a per-launch cost. The
-   subscription is never cancelled on purpose: it is the app's whole lifetime. Both calls are no-ops in a
-   browser, where there is no bridge and `shell.has` is false. */
 if (shell.has("share.target")) {
-  shell.call("share.target", { kinds: ["text"] }).catch(() => { /* an older bridge simply stays out of the sheet */ });
+  shell.call("share.target", { kinds: ["text"] }).catch(() => { });
   shell.subscribe("share.incoming", {}, (f) => { if (f?.text) shareIn({ text: f.text }); });
 }
 
-// ── blank-poster filter (black + flat placeholders) ─────────────────────────────────────────────────────
-// A broken/placeholder poster renders as a dead slide: a solid black frame OR a single flat-colour fill a CDN
-// serves when it has no real thumbnail. Both are dead weight (they don't play, and for CORS-locked/ephemeral
-// sources the poster IS the whole slide). We sample each poster into a small canvas and drop the ones a real
-// frame never produces — near-black (vfilter.isBlackSample) or uniform flat-fill (vfilter.isFlatSample).
-// Fail-open: anything we can't prove blank is kept. Applies to EVERY item — inline-playable and ephemeral alike.
-//
-// These used to go through /feed/frame unconditionally, to keep the canvas untainted. Measured across three
-// source CDNs: every poster answers 200 with `access-control-allow-origin: *`, and none of them hotlink-checks
-// images the way the video hosts do. So the proxy was buying nothing and costing our bandwidth plus a URL in
-// our logs on every thumbnail. Direct with crossOrigin="anonymous" is the path now; the sealed proxy stays as
-// the fallback for a host that does lock its images, and it is sealed like everything else.
-const blankPosters = new Set();     // posters classified black/flat/broken → filtered out (+ dropped from future loads)
-const checkedPosters = new Set();   // posters already analysed (don't re-fetch)
+const blankPosters = new Set();
+const checkedPosters = new Set();
 function posterIsBlank(poster, page) {
   const isData = poster.startsWith("data:");
-  if (gate && !isData) return Promise.resolve(false);                                    // gate: no network — only inline posters
-  if (typeof document === "undefined" || typeof Image === "undefined") return Promise.resolve(false);  // no DOM (preflight) → keep
+  if (gate && !isData) return Promise.resolve(false);
+  if (typeof document === "undefined" || typeof Image === "undefined") return Promise.resolve(false);
   return new Promise((resolve) => {
     let done = false; const finish = (v) => { if (!done) { done = true; clearTimeout(to); resolve(v); } };
-    const to = setTimeout(() => finish(false), 6000);                                     // slow poster → keep (fail-open)
+    const to = setTimeout(() => finish(false), 6000);
     const sample = (src) => {
       const img = new Image(); if (!isData) img.crossOrigin = "anonymous";
       img.onload = () => { try {
         const c = document.createElement("canvas"); c.width = 24; c.height = 24;
         const cx = c.getContext("2d", { willReadFrequently: true }); cx.drawImage(img, 0, 0, 24, 24);
         const px = cx.getImageData(0, 0, 24, 24).data;
-        finish(isBlackSample(px) || isFlatSample(px));                                     // black OR uniform flat-fill → blank
-      } catch { finish(false); } };                                                        // tainted / decode error → keep
+        finish(isBlackSample(px) || isFlatSample(px));
+      } catch { finish(false); } };
       img.onerror = () => {
-        // Direct refused (locked host, or no ACAO so the load itself failed) → one retry through the sealed
-        // proxy, which can state a referer and always answers with CORS. A second failure is fail-open.
         if (isData || src !== poster) return finish(false);
         framed(poster, page).then(sample).catch(() => finish(false));
       };
@@ -475,23 +277,13 @@ function posterIsBlank(poster, page) {
 }
 async function checkBlankPosters() {
   const todo = [];
-  // The page travels with the poster now: it is what the sealed-proxy retry needs for a referer, on the hosts
-  // that lock their images. Keyed on the poster still — the page is only carried alongside.
   for (const it of $items.get()) { const p = it.poster; if (p && !checkedPosters.has(p)) { checkedPosters.add(p); todo.push([p, it.page || null]); } }
   if (!todo.length) return;
   const hits = new Set();
-  await pool(todo, 4, async ([p, pg]) => { if (await posterIsBlank(p, pg)) hits.add(p); }); // small concurrency — don't hammer the proxy
+  await pool(todo, 4, async ([p, pg]) => { if (await posterIsBlank(p, pg)) hits.add(p); });
   if (hits.size) { hits.forEach((p) => blankPosters.add(p)); $items.set(reject($items.get(), (i) => i.poster && hits.has(i.poster))); }
 }
-// One pipeline for every incoming batch: unseen (watched) → drop already-known-blank posters → optionally drop
-// posterless clips → dedupe. requirePoster is set ONLY for ephemeral sources, where a clip with no poster is a
-// guaranteed-blank watch-link slide (nothing to show, won't play inline); inline sources keep posterless clips
-// (they still play, with a video backdrop). Blanks are rejected BEFORE dedupe so a blank never wins a dup's slot.
 function clean(arr, { requirePoster = false } = {}) {
-  // A clip's title is decoded ONCE, here, on the way in — not at each place that draws it. It arrives as
-  // machine text (a percent-encoded filename, a scraped title still carrying `&amp;`/`&#8217;`), and it then
-  // travels: it names the island after a dive, it is the hint the next page is titled by, it is saved with a
-  // like, it captions the full clip. Decoding at render would leave each of those free to disagree.
   let out = reject(unseen(arr), (i) => i.poster && blankPosters.has(i.poster));
   out = out.map((i) => (i.title ? { ...i, title: humanText(i.title) } : i));
   if (requirePoster) out = out.filter(hasPoster);
@@ -502,13 +294,11 @@ let loadingMore = false, gen = 0;
 async function loadSource(url, append = false, hint = "") {
   if (append) { if (loadingMore || !url) return; loadingMore = true; }
   else {
-    $loading.set(true); $err.set(false); $items.set([]); $next.set(null); $active.set(0); $restoreTo.set(0);   // a new source starts at its top, wherever you dived from
-    $srcHint.set(hint || ""); setSrcTitle(url, { hint });                                                      // named from the first frame, upgraded when the page answers
+    $loading.set(true); $err.set(false); $items.set([]); $next.set(null); $active.set(0); $restoreTo.set(0);
+    $srcHint.set(hint || ""); setSrcTitle(url, { hint });
   }
-  const g = append ? gen : ++gen;                            // a dive/back mid-flight makes this response stale
-  if (gate) {                                                // the gate never fetches: a deterministic batch per source
-    // …including what the edge would have said about where this SITE searches: the island's search button
-    // exists only where there is somewhere to send it, so without this the gate could never press it.
+  const g = append ? gen : ++gen;
+  if (gate) {
     rememberSearch(url, GATE_SEARCH);
     if (!append) {
       $items.set(clean(url === DEFAULT_SRC ? MOCK : MOCK_DEEP)); $ephemeral.set(false); $loading.set(false);
@@ -517,77 +307,41 @@ async function loadSource(url, append = false, hint = "") {
     loadingMore = false; return;
   }
   try {
-    await sessionsReady;                                   // the saved sessions, before the first fetch decides anonymous or not
-    const cookie = sessionFor(url);                        // your session for this site → the page is yours, not the server's
-    // x-ms-egress names the reel's own EGRESS GROUP — its pinned pod (open-reel + media-reel), not the shared
-    // main egress, which never drifts to an exit the tube refuses. It says `reel` and not a country because
-    // the pod's region has already moved once (Poland → Amsterdam) while this call did not change; the old
-    // `pl` still answers as an alias, for bundles cached on phones that have not checked in since.
+    await sessionsReady;
+    const cookie = sessionFor(url);
     const r = await (cookie
       ? fetch(`${VPS_PROXY}/videos`, { method: "POST", headers: { "content-type": "application/json", "x-ms-egress": "reel" }, body: JSON.stringify({ url, cookie }) })
       : fetch(`${VPS_PROXY}/videos?url=${encodeURIComponent(url)}`, { headers: { "x-ms-egress": "reel" } }));
     const d = await r.json();
-    if (g !== gen) return;                                   // you already moved on — never inject into the new feed
-    // ephemeral (signed, poster-only) is known BEFORE cleaning → require a poster so no-poster clips (dead
-    // blank watch-link slides) are dropped. On append the source doesn't change, so reuse the current flag.
+    if (g !== gen) return;
     const eph = append ? $ephemeral.get() : !!d.ephemeral;
     const got = clean(Array.isArray(d.items) ? d.items : [], { requirePoster: eph });
-    $items.set(append ? dedupeVideos([...$items.get(), ...got]) : got);                   // re-dedupe across the page boundary too
+    $items.set(append ? dedupeVideos([...$items.get(), ...got]) : got);
     $next.set(d.next || null);
-    if (!append) $feedChannel.set(d.channel || null);        // the page IS an account → it names itself, avatar and all
-    rememberSearch(url, d.search);                           // where this SITE searches, learned from a page it published
-    if (!append) setSrcTitle(url, { pageTitle: d.title || "", hint });                     // the page has now told us its own name
-    if (!append) $ephemeral.set(eph);                  // signed/expiring source → show poster + "watch" link, don't try to play
+    if (!append) $feedChannel.set(d.channel || null);
+    rememberSearch(url, d.search);
+    if (!append) setSrcTitle(url, { pageTitle: d.title || "", hint });
+    if (!append) $ephemeral.set(eph);
   } catch { if (g === gen && !append) $err.set(true); }
   finally { if (g === gen) $loading.set(false); if (append) loadingMore = false; }
 }
 
-/* ── the FULL clip, over the reel ──────────────────────────────────────────────────────────────────────────
-   A slide plays the site's PREVIEW: short, small, often 240p. The clip's own page carries the real thing, and
-   `/feed/stream` takes the quality ladder out of that page on the server — which is the only place it can be
-   taken. Two measurements decided the whole shape of this:
-     · a segment fetched straight from the browser is 412; the same segment through our proxy is 206. The
-       token answers to whoever was handed the page, and that is the VPS.
-     · rendering the page instead would be 988 KB of HTML and 462 subresources per open, every one of them a
-       request through our box, to reach a handful of URLs already sitting in the markup.
-   So: parse on the server, play here, and the page stops being somewhere you GO. It is where the clip comes
-   from. The button that used to leave the app for a browser tab is now this, and so is a tap on the reel. */
-/* WHOSE CLIPS THESE ARE. A tile names the account that posted it and /feed/videos hands that up as
-   `channel: {name, url, avatar}`; when the page you are on IS an account, the feed carries one of its own.
-   The item's wins — on a mixed listing every slide has a different owner, and the island should follow the
-   slide, not the page. A listing tile carries the name alone, so the avatar is usually null here and the
-   island draws a monogram: a missing picture is a placeholder, a made-up one is a broken image. */
-const $feedChannel = atom(null);                           // null | {name, url, avatar}
+const $feedChannel = atom(null);
 
-const $full = atom(null);                                  // null | {page, title, url, err}
+const $full = atom(null);
 
 async function openFull(S, item) {
   const page = item?.page || item?.orig || item?.video;
   if (!page) return;
   const title = item.title || "";
   $full.set({ page, title, url: null, err: false });
-  S.screen.set("full");                                    // history-backed: the system Back closes it
-  // Only ever write back onto the clip we were opening — a fast second tap must not be overwritten by the
-  // first one's late answer.
+  S.screen.set("full");
   const settle = (patch) => { const cur = $full.get(); if (cur && cur.page === page) $full.set({ ...cur, ...patch }); };
-  if (gate) return settle({ url: item.video });             // the gate never fetches; the preview stands in
+  if (gate) return settle({ url: item.video });
   try {
     const d = await (await fetch(`${VPS_PROXY}/stream?url=${encodeURIComponent(page)}`)).json();
     const list = (Array.isArray(d.sources) ? d.sources : []).filter((s) => !s.remote);
-    /* ── THE LADDER, AS ONE MANIFEST THE PLAYER CAN CHOOSE FROM ────────────────────────────────────────
-       This site publishes a separate master playlist per HEIGHT, so handing the player one of them pins it
-       to that height forever — and the tallest is what we picked. Measured on the box, one 10.7s segment:
-       1080p 3.98MB against 480p 1.67MB. Every seek paid the 4MB before a frame appeared, which is the wait
-       the owner reported.
-       /feed/stream now resolves each rung to its MEDIA playlist (`variants`, with the site's own BANDWIDTH
-       /RESOLUTION/CODECS), so the combined master is assembled HERE — each rung sealed exactly like any
-       other media url, the manifest itself a blob that never leaves this tab. hls.js then starts low and
-       climbs, and a seek costs the small segment first.
-       Fewer than two rungs → nothing to choose between, and the single-url path below still stands. */
     const vars = (Array.isArray(d.variants) ? d.variants : []).filter((v) => v?.url && v?.bandwidth);
-    /* Only where hls.js will be the player. It needs MediaSource, and it is the half that can read a
-       manifest out of a blob; the native element (Safari/iOS, no MSE) is handed a real url instead — a
-       blob playlist is not something it is documented to accept, and a clip that plays beats a ladder. */
     const canLadder = typeof MediaSource !== "undefined" || typeof window.ManagedMediaSource !== "undefined";
     if (canLadder && vars.length > 1) {
       const sealed = await Promise.all(vars.map((v) => framed(v.url, page)));
@@ -604,28 +358,12 @@ async function openFull(S, item) {
         return settle({ url: master, type: "hls", blob: master, title: humanText(d.title) || title });
       }
     }
-    // HLS first, and not because it is taller: ONE master carries every rendition, so the player adapts to the
-    // link instead of us committing to a height on the viewer's behalf. A progressive file is the fallback.
     const pick = list.find((s) => s.format === "hls") || list[0];
     if (!pick) return settle({ err: true });
-    // The format is KNOWN here, and the proxied URL it is about to become carries no extension to recover it
-    // from — so it travels with the url rather than being guessed at the player.
-    // /stream answers with the page's own title — scraped HTML, so it carries entities like every other
-    // title in this app. It goes through the same decode as the feed's, and for the same reason: it is a
-    // caption AND the dialog's accessible name.
     settle({ url: await sealedFrameUrl(pick.url, page), type: pick.format === "hls" ? "hls" : "progressive", title: humanText(d.title) || title });
   } catch { settle({ err: true }); }
 }
 
-/* ROTATING THE PHONE MUST NOT HAND THE CLIP TO THE SYSTEM PLAYER. Chrome on Android promotes a playing
-   <video> to fullscreen by itself when you turn the device into landscape, and the promoted element is the
-   MEDIA element: the browser paints it in the top layer with its own chrome, outside the dialog this app
-   draws. Noir goes with it — `:root[data-mono] [role="dialog"] video` (head.html) describes a video INSIDE
-   our dialog, and the system's copy is not one — so the picture the owner turned the phone to look at comes
-   back in colour, with controls we never styled. Reported from the installed app, 2026-09-20.
-   So: while the clip overlay is up, a fullscreen whose element is the media itself is undone. Nothing else
-   is touched — the player's own fullscreen button promotes its dialog BOX (video.js), which keeps the video
-   a descendant, keeps the filter, and still passes this check. Rotating now only rotates the video. */
 function useNoSystemFullscreen() {
   useEffect(() => {
     if (typeof document === "undefined") return;
@@ -633,11 +371,9 @@ function useNoSystemFullscreen() {
     const on = () => {
       const el = document.fullscreenElement || document.webkitFullscreenElement;
       if (!isMedia(el)) return;
-      // A promise, so the refusal arrives as a rejection — a bare try/catch here catches nothing.
-      try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {}); } catch { /* already gone */ }
+      try { (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {}); } catch { }
     };
-    // iOS never reports a fullscreenElement for its native player, so it gets its own pair of events.
-    const iosIn = (e) => { try { e.target?.webkitExitFullscreen?.(); } catch { /* ignore */ } };
+    const iosIn = (e) => { try { e.target?.webkitExitFullscreen?.(); } catch { } };
     document.addEventListener("fullscreenchange", on);
     document.addEventListener("webkitfullscreenchange", on);
     document.addEventListener("webkitbeginfullscreen", iosIn, true);
@@ -649,16 +385,11 @@ function useNoSystemFullscreen() {
   }, []);
 }
 
-// The overlay itself. While the ladder is being fetched there is a real wait (a page fetch on the server, then
-// one more hop), so this is a skeleton and never a spinner — and it carries the way out from the first frame,
-// because a screen you cannot leave while it loads is the worst version of this.
 function FullClip({ S, t }) {
   const full = useStore($full), locale = useStore(S.locale);
   useNoSystemFullscreen();
   if (!full) return null;
-  /* A blob: url is a reference the tab HOLDS until it is revoked — one per clip opened, each pinning its
-     manifest. Released on the way out, which is the only moment we know it is finished with. */
-  const close = () => { const b = $full.get()?.blob; S.screen.set(null); $full.set(null); if (b) { try { URL.revokeObjectURL(b); } catch { /* already gone */ } } };
+  const close = () => { const b = $full.get()?.blob; S.screen.set(null); $full.set(null); if (b) { try { URL.revokeObjectURL(b); } catch { } } };
   if (full.url) return html`<${Player} url=${full.url} type=${full.type} title=${full.title} locale=${locale} onClose=${close} />`;
   return html`<div data-full role="dialog" aria-modal="true" aria-label=${full.title || T(t, "watch")}
       class="fixed inset-0 z-40 bg-black flex flex-col" style="padding-top:env(safe-area-inset-top)">
@@ -670,10 +401,7 @@ function FullClip({ S, t }) {
       ${full.err
         ? html`<div class="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70 p-6 text-center">
             ${Icon("lucide:tv-minimal-play", "text-5xl opacity-40")}<div>${T(t, "videoErr")}</div>
-            ${/* The ladder comes off the clip's page through our box, and that trip fails transiently — a
-                  502 from the pod, a page that answered slowly once. Before this the only way to ask again
-                  was to close the clip and find it in the feed again, so the same clip that plays on the
-                  second attempt read as broken. Same door the player's own error state grew (video.js). */""}
+            ${""}
             <div class="flex items-center gap-2 flex-wrap justify-center">
               <button data-full-retry class="btn btn-sm btn-primary gap-2" onClick=${() => openFull(S, { page: full.page, title: full.title })}>${Icon("lucide:rotate-cw")}${T(t, "retry")}</button>
               <a href=${full.page} target="_blank" rel="noopener" class="btn btn-sm btn-outline text-white border-white/30 gap-2">${Icon("lucide:external-link")}${T(t, "openSite")}</a>
@@ -684,8 +412,6 @@ function FullClip({ S, t }) {
   </div>`;
 }
 
-// The site's real favicon, falling back to a deterministic letter tile (a data-URI SVG — no fetch, so it is
-// identical offline and in the gate). Never an emoji, never a coloured blob per source.
 function Favicon({ url, size = "w-6 h-6" }) {
   const [failed, setFailed] = useState(false);
   const cls = `${size} rounded-lg object-contain shrink-0`;
@@ -694,25 +420,15 @@ function Favicon({ url, size = "w-6 h-6" }) {
     : html`<img src=${`https://${hostOf(url)}/favicon.ico`} alt="" loading="lazy" class=${`${cls} bg-base-content/10`} onError=${() => setFailed(true)} />`;
 }
 
-/* A poster the CDN refuses to hand this origin is not a missing poster. Measured 2026-09-04 on a clip page's
-   related rail: the tile poster answers 403 without a referer and 206 with the page's — the same hotlink
-   check the clips get, and the clip path already answers it by going through the sealed proxy, which is the
-   one party that can state the referer. The posters never learned that: a direct failure simply REMOVED the
-   <img>, and on a dive every slide of the rail was a poster that had removed itself over a preview the eye's
-   Chromium could not decode — a black screen, the whole feed long. So a poster is loaded the way a clip is:
-   direct first (most sources need no help and every proxied byte crosses our box), once through the proxy on
-   failure, and only a proxied failure is really the end. One hook, so the fill and the <video poster> agree. */
 function usePosterSrc(poster, page) {
   const [src, setSrc] = useState(poster || null);
   useEffect(() => { setSrc(poster || null); }, [poster]);
   const fail = () => {
-    if (!src || src !== poster || poster.startsWith("data:")) return setSrc(null);       // already the proxied one, or inline → gone
+    if (!src || src !== poster || poster.startsWith("data:")) return setSrc(null);
     framed(poster, page).then((s) => setSrc(s || null)).catch(() => setSrc(null));
   };
   return [src, fail];
 }
-// Blanking fill: a poster shown full-frame (object-contain) over a blurred scaled copy of itself — no black bars,
-// nothing cropped. Reused by the preview/inactive slides and the video-error fallback.
 function PosterFill({ poster, page }) {
   const [src, fail] = usePosterSrc(poster, page);
   return src ? html`<${Fragment}>
@@ -720,38 +436,11 @@ function PosterFill({ poster, page }) {
     <img src=${src} alt="" loading="lazy" class="absolute inset-0 w-full h-full object-contain" onError=${fail} />
   </${Fragment}>` : null;
 }
-// A live <video>, mounted for the active slide AND its neighbours (see PRELOAD). Exactly one PLAYS; the rest
-// are attached and buffering, paused. createPlayer handles mp4 vs HLS and tears down on unmount. On failure it
-// falls back to the poster — the island's way out is already there either way, so no failure flag has to
-// travel upwards for it.
-//
-// THE BLINK. This used to mount only in the ACTIVE slide, and that is what the owner was seeing: every swipe
-// destroyed one element and built another, so the new clip started from nothing — a fresh element, a fresh
-// connection, a wait for `loadeddata`, and only then a frame. The gap between the old video going away and the
-// new one having a pixel to show IS the flash, and no amount of styling closes it, because there is genuinely
-// nothing to display in the middle. So the element for the next clip now exists BEFORE you swipe to it and has
-// been buffering while you watched the current one; becoming active is a play() on data that is already here.
-//
-// Three things make that safe rather than just eager:
-//   · attach and PLAY are separate effects. The element is built once per clip URL and never rebuilt for a
-//     change of active — which is the whole point, since rebuilding it is the bug.
-//   · the ambient backdrop copy waits for the main video to have data. It is a SECOND fetch of the same URL,
-//     and starting it in parallel (as it used to) makes the thing you are actually watching arrive later.
-//     It is also the active slide's alone: at three slides it would otherwise be six decoders.
-//   · `poster` on the element itself, so a cold slide shows the still instead of black while it loads. The
-//     blurred fill behind it is a different job (filling the letterbox) and stays a separate node.
-//   · a clip the CDN refuses to hand this origin is RETRIED through the proxy rather than written off. Direct
-//     first, because most sources need no help and every proxied byte crosses our own box; the proxy only on
-//     failure, or immediately for a source already known to hand out guarded URLs (`ephemeral`), where the
-//     direct attempt is a round trip we know the answer to. One retry, then the poster — never a loop.
 function VideoLayer({ item, playing, ephemeral }) {
   const ref = useRef(), bgRef = useRef();
   const [errored, setErrored] = useState(false);
   const [viaProxy, setViaProxy] = useState(!!ephemeral);
-  const [poster, posterFail] = usePosterSrc(item.poster, item.page);                    // direct, then once through the proxy
-  // Sealing is WebCrypto, so a proxied src cannot be derived during render any more. Direct stays synchronous
-  // (the common path pays nothing); only the proxied one resolves in an effect, and `src` is null until it
-  // does — which the attach effect below treats as "not ready yet" rather than as a failure.
+  const [poster, posterFail] = usePosterSrc(item.poster, item.page);
   const [src, setSrc] = useState(ephemeral ? null : item.video);
   useEffect(() => {
     if (!viaProxy) { setSrc(item.video); return; }
@@ -760,55 +449,38 @@ function VideoLayer({ item, playing, ephemeral }) {
     return () => { dead = true; };
   }, [viaProxy, item.video, item.page]);
   const [ready, setReady] = useState(false);
-  // The active flag as the ATTACH effect will see it whenever it finally resolves. `onReady` fires after an
-  // await, so reading `playing` from the closure would play whichever slide was active when the fetch started.
   const wants = useRef(playing);
   wants.current = playing;
 
   useEffect(() => {
     setErrored(false); setReady(false);
-    const v = ref.current; if (!v || !src) return;                                        // no src yet → the seal is still resolving
-    v.muted = true; v.loop = true;                                                        // muted → browsers allow autoplay
-    v.preload = "auto";                                                                   // a neighbour exists to BUFFER; metadata is not enough
+    const v = ref.current; if (!v || !src) return;
+    v.muted = true; v.loop = true;
+    v.preload = "auto";
     let handle, dead = false;
-    // The ORIGINAL url still has its extension; `src` may be the proxied one, which has none. Sniff the thing
-    // that can still be sniffed.
     createPlayer(v, src, {
       type: /\.m3u8(\?|#|$)/i.test(item.video) ? "hls" : "progressive",
       onReady: () => {
         if (dead) return;
         setReady(true);
-        seekStart(v);                                                                     // past the source's intro, before the first frame is shown
+        seekStart(v);
         if (wants.current) { v.play?.().catch(() => {}); return; }
-        /* PRIME. `preload` is a hint the spec explicitly lets a UA ignore, and Chrome's own guidance says
-           it downgrades `auto` to `metadata` on cellular (`none` under Data Saver) — i.e. exactly on the
-           phone this is for. Metadata is not a picture, so a neighbour could still arrive with nothing to
-           show and the blink would survive the rewrite. A muted play() is permitted without a gesture, so
-           one is taken and immediately given back: that forces the decode of frame 0, which is the thing
-           we actually want buffered. Rewound afterwards to the START, not to 0, so the clip still opens where it should, and
-           swallowed on failure — an interrupted play() rejects, and that is not an error here. */
         v.play?.().then(() => {
-          if (dead || wants.current) return;                                              // it became active mid-prime — let it run
+          if (dead || wants.current) return;
           v.pause?.();
-          seekStart(v);                                                                   // rewound to the START, not to 0 — priming must not undo the skip
+          seekStart(v);
         }).catch(() => {});
       },
-      // A direct failure is a question, not a verdict: the CDN may simply want a referer we cannot send. Swap
-      // to the proxied URL once and let this effect run again; only a proxied failure is really the end.
       onError: () => { if (dead) return; if (viaProxy) setErrored(true); else setViaProxy(true); },
     }).then((h) => { if (dead) h?.destroy?.(); else handle = h; });
     return () => { dead = true; handle?.destroy?.(); };
   }, [src]);
 
-  // Play follows the ACTIVE flag and nothing else — the element is never rebuilt for it. A manual pause (tap)
-  // survives, because this only runs when `playing` or `ready` actually changes.
   useEffect(() => {
     const v = ref.current; if (!v || !ready) return;
     if (playing) v.play?.().catch(() => {}); else v.pause?.();
   }, [playing, ready]);
 
-  // The ambient backdrop, for clips with no poster: a muted copy of the same video, blurred, filling the
-  // letterbox. Active slide only, and only once the main one has data — see the note above.
   useEffect(() => {
     if (!playing || !ready || poster || errored) return;
     const bg = bgRef.current; if (!bg) return;
@@ -826,17 +498,11 @@ function VideoLayer({ item, playing, ephemeral }) {
         ? html`<img src=${poster} alt="" aria-hidden="true" class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-60" onError=${posterFail} />`
         : html`<video ref=${bgRef} aria-hidden="true" muted loop playsinline class="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"></video>`}
     <div class="absolute inset-0 bg-black/25" aria-hidden="true"></div>
-    ${/* `data-playing` mirrors which element owns playback. A <video> is opaque to every gate this farm has
-          — `paused` is a property, not an attribute, so no selector can see it — and the whole claim of the
-          preload window is "several are mounted, exactly ONE plays". State the claim in the DOM or it
-          cannot be tested, and a window that quietly plays all three is the regression to catch. */""}
+    ${""}
     <video ref=${ref} data-main data-playing=${playing ? "" : null} poster=${poster} playsinline loop muted class=${`absolute inset-0 w-full h-full object-contain ${errored ? "opacity-0" : ""}`}></video>
   </${Fragment}>`;
 }
 
-// Heart burst — the like animation that blooms under the finger on a double-tap. There is deliberately NO
-// persistent like-state UI on slides (that would subscribe every slide to the likes store — wasteful); the
-// heart just plays once and fades, and the save is silent + deduped. Removal happens only in the Liked tab.
 function HeartBurst({ x, y, onDone }) {
   const ref = useRef();
   useEffect(() => {
@@ -852,30 +518,15 @@ function HeartBurst({ x, y, onDone }) {
   return html`<div ref=${ref} aria-hidden="true" class="absolute z-[5] pointer-events-none" style=${`left:${x}px;top:${y}px`}>${Icon("lucide:heart", "text-7xl text-rose-500 fill-rose-500 drop-shadow-[0_2px_16px_rgba(0,0,0,.45)]")}</div>`;
 }
 
-// A slide is the clip and NOTHING else — no chip, no link, no pill. Every affordance it used to carry (dive,
-// open the page, "watch on the site") is one control in the island below, where it is stated once instead of
-// once per slide, and where a keyboard can reach it. The surface is the video.
 function Slide({ S, item, idx, active, near, ephemeral }) {
   const secRef = useRef();
   const [burst, setBurst] = useState(null);
-  // Systemic tap dispatch (runtime useTap): SINGLE tap opens the clip's PAGE; DOUBLE tap likes + blooms a
-  // heart — and never fires the single (so a like never navigates).
-  /* SINGLE tap opens the clip HERE, in our own player. This has been round the houses: the in-app player
-     was the tap, then the page was (2026-09-04, when that player was a beta that "worked where it worked"),
-     and now it is the player again — because the player earned it. It parses the ladder on the box, adapts
-     across the site's rungs, scrubs under the finger and keeps the noir; the site's page is a megabyte of
-     markup and somebody else's controls. The trip out did not disappear: it is a named row in the More
-     sheet, which is where a decision belongs. Pause is not lost — swiping away is what "not this one"
-     already meant. */
   const onTap = useTap({
     onSingle: () => openFull(S, item),
     onDouble: (p) => { setBurst({ x: p.x, y: p.y, k: Date.now() }); addLike(item); navigator.vibrate?.(12); },
   });
   return html`<section ref=${secRef} data-reel data-idx=${idx} onClick=${onTap} class="snap-start snap-always relative h-[100dvh] w-full flex items-center justify-center bg-black overflow-hidden">
-    ${/* `ephemeral` used to mean "do not even try" — a poster and a link out to the site. It meant that because
-          a guarded clip looked unplayable, and it looked unplayable because the proxy was sending the wrong
-          referer and the HTML branch was reporting the rejection as 200. Both are fixed, so the flag now means
-          what it should have meant all along: START on the proxy instead of discovering the need to. */""}
+    ${""}
     ${near
       ? html`<${VideoLayer} item=${item} playing=${active} ephemeral=${ephemeral} />`
       : item.poster
@@ -888,9 +539,6 @@ function Slide({ S, item, idx, active, near, ephemeral }) {
 function SourceSheet({ S, t }) {
   const [val, setVal] = useState("");
   const [q, setQ] = useState("");
-  /* What the owner types is a SOURCE, not a URL: `tube.com`, `tube.com/best`, with or without a scheme,
-     sometimes with the spaces a phone keyboard adds around a paste. https:// is the assumption because a
-     site that only speaks http will redirect and our proxy follows that hop anyway. */
   const norm = () => {
     const u = val.trim().replace(/\s+/g, "");
     if (!u) return "";
@@ -899,22 +547,13 @@ function SourceSheet({ S, t }) {
   };
   const goto = (url) => openAsSource(S, url);
   const load = (e) => { e?.preventDefault?.(); const url = norm(); if (!url) return S.screen.set(null); goto(url); };
-  // A pasted results URL (`…/search?q=…`) is searchable → offer to swap the term and play those results.
   const sr = resolveSearch(norm());
   const search = (e) => { e?.preventDefault?.(); const url = norm(), term = q.trim(); if (url && term) goto(buildSearchUrl(url, term)); };
-  // The shell is the kit's: drag-to-dismiss, the title row with its close button, the backdrop, and the
-  // 88dvh cap with the only sanctioned inner scroll. This app had hand-rolled all four, and had already
-  // drifted (no drag-dismiss at all, its own radius, its own backdrop opacity). `open` is derived from the
-  // same S.screen atom the close handler writes, so the system Back button still closes it.
   return html`<${Sheet} open onClose=${() => S.screen.set(null)} title=${T(t, "srcTitle")} icon="lucide:link">
     <form onSubmit=${load} class="flex flex-col gap-3">
       <label class="input flex items-center gap-2 rounded-2xl">
         ${Icon("lucide:globe", "opacity-50 shrink-0")}
-        ${/* `type="url"` looks right and is wrong here: the browser then VALIDATES the field before the form
-              submits, and a bare `site.com` is not a URL to it — so typing a domain and pressing Load did
-              nothing at all, silently, while `norm()` (which would have put the https:// on) never ran. The
-              field is text; the keyboard stays a url keyboard (inputmode), and this app decides what a
-              source is. autocapitalize/spellcheck off because a phone will otherwise offer "Site.com". */""}
+        ${""}
         <input id="src-input" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" class="grow min-w-0" placeholder=${T(t, "srcPlaceholder")} aria-label=${T(t, "srcTitle")} value=${val} onInput=${(e) => setVal(e.target.value)} />
       </label>
       ${sr.searchable ? html`<div class="flex gap-2">
@@ -929,15 +568,10 @@ function SourceSheet({ S, t }) {
   <//>`;
 }
 
-// The session sheet: one field, the site's Cookie header, and a verb. Routed through S.screen like every other
-// dismissable surface, so the system Back closes it. "Forget" exists only while a session is saved — a delete,
-// so it goes through the undo snackbar (the pasted line is not something you want to type twice).
 function SessionSheet({ S, t, undo }) {
   const site = useStore($sessSite), sessions = useStore($sessions);
   const cur = sessions[sessionKey(site)] || "";
   const [val, setVal] = useState(cur);
-  // The saved line arrives from the atom (IndexedDB behind it), not from this render: seed once and the field
-  // stays empty while the fetch happily uses the session — the owner saw exactly that. Follow the atom.
   useEffect(() => { setVal(cur); }, [cur, site]);
   const close = () => S.screen.set(null);
   const save = (e) => { e?.preventDefault?.(); const next = val.trim(); if (!next) return; setSession(site, next); close(); };
@@ -951,38 +585,17 @@ function SessionSheet({ S, t, undo }) {
   <//>`;
 }
 
-// ---- the feed surface (shared by the Reel tab and the in-place Liked feed) ---------------------------
-// The island is the reel's ONLY chrome, and it sits at the bottom — where the thumb is, above the dock, on
-// the systemic rung (`Island pinned at="bottom"` owns the arithmetic; nothing here hardcodes a height).
-// It answers the three questions a full-screen feed leaves open — where am I, how do I get back, where does
-// this clip go — and it carries the one action a clip that won't play inline needs. Left half is identity,
-// right half is actions; both halves shrink before the title does anything but truncate.
-//
-// It is ALWAYS present now. It used to hide itself on a subscribed root feed "for a clean surface", which
-// was affordable only while every control also existed on the slide. It is the controls now.
-/* ---- exporting a clip -------------------------------------------------------------------------------
-   A SERVER round trip, not a canvas capture, for two reasons that are both already settled elsewhere in this
-   file: the clip's bytes are gated on Referer + UA (a forbidden header name for fetch — the whole reason
-   /feed/frame exists), and a JS re-encode drops frames under load, which is the one property that was asked
-   for. `sealedClipUrl` puts the destination in the envelope and lets the bytes ride TLS — sealing them would
-   inflate a 24 MB GIF by a third and double the wait (measured; see the note on that helper).
-   Sizes, measured on real clips: GIF is 360px/12.5fps whole-clip, 8-27 MB depending on how much moves; the
-   video is a 720p re-encode, ~3 MB. Both are inside the 50 MB the share sheet accepts. */
-const $busy = atom("");                                 // "gif-save" | "gif-share" | … — one export at a time
+const $busy = atom("");
 
-// The file the owner ends up with, named after the clip rather than after our URL scheme. Kept short and
-// filesystem-safe; a title is scraped HTML and can carry anything at all.
 const exportName = (item, ext) => `${(item?.title || "clip").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "clip"}.${ext}`;
 
 async function exportClip({ item, format, mode, t, toast }) {
   const url = item?.orig || item?.video;
-  if (!url || $busy.get()) return;                      // one at a time: the box does real CPU work per call
+  if (!url || $busy.get()) return;
   $busy.set(`${format}-${mode}`);
   try {
     const r = await fetch(await sealedClipUrl(url, item.page || null, format));
     if (!r.ok) {
-      // The edge answers with a reason and a number (a size ceiling, a refused source). Show it — "export
-      // failed" with nothing after it is the diagnostic this project keeps having to go back and add.
       const why = await r.json().catch(() => null);
       toast?.(why?.error ? `${T(t, "expFail")}: ${why.error}` : T(t, "expFail"));
       return;
@@ -990,8 +603,6 @@ async function exportClip({ item, format, mode, t, toast }) {
     const blob = await r.blob();
     const name = exportName(item, format);
     if (mode === "share") {
-      // shareFile falls back to saving where nothing can share (a desktop browser, a refused bridge), and
-      // reports which happened — so the toast tells the truth instead of claiming a share that never opened.
       const how = await shareFile(blob, name);
       if (how === "saved") toast?.(T(t, "expSaved"));
     } else {
@@ -1005,30 +616,16 @@ async function exportClip({ item, format, mode, t, toast }) {
   }
 }
 
-/* The overflow sheet. The island had grown to five controls plus a favicon and a title that truncated to
-   make room for them — a control panel floating over the video it was meant to stay out of the way of. Only
-   the things you reach for WHILE watching stay out there (the way back, the way in, and play); everything
-   that is a decision rather than a reflex moved in here.
-   A Sheet and not a popover: it is the kit's, it drag-dismisses, and it is routed through S.screen, so the
-   system Back closes it like every other dismissable surface in this farm. */
 function MoreSheet({ S, t, item, src, title, subbed, toast }) {
   const page = item?.page || item?.orig || item?.video || "";
   const busy = useStore($busy), loc = useStore(S.locale), mono = useStore($mono);
   const close = () => S.screen.set(null);
   const row = "btn btn-ghost justify-start gap-3 rounded-2xl w-full font-normal";
-  // Save and share sit on the same line as the format they act on: two rows instead of four, and the pair
-  // reads as one choice about one thing rather than as four unrelated buttons.
-  /* Same left edge, same gap, same icon slot as the rows below. Shot 2026-08-20 and measured: the export
-     labels sat at 20px from the edge while the list labels sat at 62px, and only the list rows carried an
-     icon — one sheet speaking two visual languages, which reads as two unrelated widgets stacked. `px-4`
-     matches DaisyUI's --btn-p (1rem) so this aligns with .btn rows without hard-coding their padding twice. */
   const pair = (format, icon, label) => html`<div class="flex items-center gap-3 px-4 py-1 rounded-2xl">
     ${Icon(icon, "text-lg opacity-70 shrink-0")}
     <span class="flex-1 min-w-0 truncate">${label}</span>
     ${[["save", "lucide:download"], ["share", "lucide:share-2"]].map(([mode, icon]) => {
       const key = `${format}-${mode}`;
-      /* No spinner on the button, per the farm rule: a spinner is what you reach for when you have nothing
-         to say. There IS something to say here — which artifact is being built — and the line below says it. */
       return html`<button data-exp=${key} class=${`btn btn-sm btn-circle btn-ghost border border-base-content/15${busy === key ? " btn-active" : ""}`} disabled=${!!busy}
         aria-label=${`${T(t, mode === "save" ? "expSave" : "expShare")}: ${label}`}
         onClick=${() => exportClip({ item, format, mode, t, toast })}>${Icon(icon)}</button>`;
@@ -1039,45 +636,28 @@ function MoreSheet({ S, t, item, src, title, subbed, toast }) {
       ${item ? html`<${Fragment}>
         ${pair("gif", "lucide:image", T(t, "expGif"))}
         ${pair("mp4", "lucide:video", T(t, "expVideo"))}
-        ${/* The wait is real (a download and a transcode on our box), so it is STATED rather than hidden
-              behind a control that simply does not respond for half a minute. */""}
+        ${""}
         ${busy ? html`<div data-exp-busy class="text-xs text-muted px-4">${T(t, "expBusy")} ${T(t, busy.startsWith("mp4") ? "expVideo" : "expGif")}</div>` : null}
         <div class="h-px bg-base-content/10 my-1"></div>
       </${Fragment}>` : null}
-      ${/* Noir and the clean screen are the two ways of WATCHING, so they sit together and first. Noir is a
-            switch and not a door — it has an on state you have to be able to see in the sheet — so it is the
-            runtime's own settings language (icon · name · DaisyUI toggle, exactly the profile's theme row),
-            aligned to px-4 = --btn-p so its left edge lands on the .btn rows' text. */""}
+      ${""}
       <label class="flex items-center gap-3 px-4 py-3 rounded-2xl">
         ${Icon("lucide:contrast", "text-lg opacity-70 shrink-0")}
         <span class="flex-1 min-w-0 truncate">${T(t, "noir")}</span>
         <input data-noir type="checkbox" class="toggle toggle-primary shrink-0" aria-label=${T(t, "noir")}
           checked=${mono === "1"} onChange=${(e) => $mono.set(e.target.checked ? "1" : "0")} />
       </label>
-      ${/* Clean screen. A reel is the one surface where the chrome is genuinely in the way — it floats over
-            the picture rather than beside it, and in landscape the app bar, the island and the dock cover 48%
-            of the height (measured, 832x384). The mode belongs to the RUNTIME (S.clean) because the app bar
-            and the dock are its elements and --hdr-h/--dock-h are its measurements — an app hiding them from
-            the outside would leave both numbers describing chrome that is no longer on screen. */""}
+      ${""}
       <button data-clean class=${row} onClick=${() => { close(); S.clean.set(true); }}>${Icon("lucide:maximize-2", "text-lg opacity-70")}${sys("clean", loc)}</button>
       ${!subbed ? html`<button data-subscribe class=${row} onClick=${() => { subscribe({ name: title, url: src }); close(); }}>${Icon("lucide:plus", "text-lg opacity-70")}${T(t, "sub")}</button>` : null}
-      ${/* The site's own page. It was the tap on the reel until the in-app player took that over; it is a
-            DECISION now — the rest of the page, the comments, an account we do not model — and decisions
-            live behind this door. Named, never a glyph, and it leaves the app, so it says so. */""}
+      ${""}
       ${page ? html`<button data-open-page class=${row} onClick=${() => { close(); openExternal(page); }}>${Icon("lucide:external-link", "text-lg opacity-70")}${T(t, "openBrowser")}</button>` : null}
     </div>
   <//>`;
 }
 
-/* THE ACCOUNT'S PICTURE, WHICH THE FEED DOES NOT CARRY. A listing tile names the person and — measured on
-   the pages this app reads, 2026-09-20 — ships no picture of them at all: 0 avatars in 73 images on a page
-   of 31 clips. The picture exists on their own page, so the box answers for it one account at a time
-   (/feed/avatar, cached there for 6h) and the island asks only for the account it is currently showing.
-   Cached here too, by url: one feed is a handful of accounts and the same circle comes round on every
-   swipe back. A miss is remembered as a miss — asking again on each swipe would be a page fetch per slide
-   for a picture the account does not have. Never under the gate: it fetches nothing. */
-const avatarSeen = new Map();                              // account url → string | null (null = asked, has none)
-const avatarWait = new Map();                              // account url → in-flight promise, so one swipe = one ask
+const avatarSeen = new Map();
+const avatarWait = new Map();
 function accountAvatar(url) {
   if (!url || gate) return Promise.resolve(null);
   if (avatarSeen.has(url)) return Promise.resolve(avatarSeen.get(url));
@@ -1089,10 +669,6 @@ function accountAvatar(url) {
   return p;
 }
 
-/* The account, as one circle in the island. It is a DIVE and nothing new: an account page is a list of
-   clips, so tapping it is the same move the slide already makes — push the frame, load that url — and the
-   way back is the one that was already there. Until the picture arrives (or if there is none) it is a
-   monogram, never a guessed URL. */
 function ChannelAvatar({ channel, onClick, label, current }) {
   const url = channel?.url || "";
   const given = channel?.avatar || null;
@@ -1106,12 +682,8 @@ function ChannelAvatar({ channel, onClick, label, current }) {
     return () => { dead = true; };
   }, [url, given]);
   if (!channel?.url) return null;
-  // Already inside their feed — the circle still says WHOSE this is, but there is nowhere to go.
   const here = String(channel.url).replace(/#.*$/, "") === String(current || "").replace(/#.*$/, "");
   const initial = (channel.name || "?").trim().charAt(0).toUpperCase();
-  /* A picture the CDN refuses this origin is not a missing picture — the same hotlink check the posters
-     answer (see usePosterSrc). Direct first, once through the sealed proxy on failure, and only then the
-     monogram. `proxied` also stops a loop: the proxied url's own onError must end it. */
   const fail = () => {
     if (proxied || !pic) return setPic(null);
     setProxied(true);
@@ -1125,24 +697,9 @@ function ChannelAvatar({ channel, onClick, label, current }) {
   </button>`;
 }
 
-/* ── the island's two drawers ────────────────────────────────────────────────────────────────────────────
-   The island is the app's whole control surface (owner, 2026-09-21: "все зміни роби в островку"), and it is
-   384px wide, so a new function cannot simply be a new circle in the row — two more would make seven. Each
-   of these is a DRAWER instead: one button in the row, and the pill grows to hold what it opened. Search
-   REPLACES the row, because an input needs the width the row is using; the cast opens ABOVE it, because you
-   are choosing between faces and the row you came from should stay where it is. One at a time, and the
-   system Back closes either (S.screen is not involved: neither is a screen, and both must survive a swipe
-   between slides without the runtime unwinding a history entry). */
-const $drawer = atom("");                                            // "" | "search" | "cast"
+const $drawer = atom("");
 
-/* WHERE THIS SITE SEARCHES. Two answers, in order: the source itself, when it is already a results page (the
-   runtime resolves which key carries the term), and otherwise the pattern the SITE published, which the edge
-   reads out of the links on whatever page we just loaded (`search` on the feed). The second is remembered
-   per host — a front page states it, an account page may not, and having once been told where a site's
-   results live is not something to forget when you dive. */
 const $searchBases = persistentAtom("reel:searchbase", {}, { encode: JSON.stringify, decode: JSON.parse });
-// The gate's feed is SEEDED, so loadSource never runs at boot and nothing would ever learn this — and a
-// button that exists only where there is somewhere to send it would then never exist under the gate.
 if (gate) $searchBases.set({ ...$searchBases.get(), [hostOf(DEFAULT_SRC)]: GATE_SEARCH });
 function rememberSearch(url, example) {
   if (!example) return;
@@ -1153,14 +710,10 @@ function rememberSearch(url, example) {
 }
 const searchBaseFor = (url, bases) => {
   if (!url) return "";
-  if (resolveSearch(url).searchable) return url;                     // the source IS a search — swap its term
+  if (resolveSearch(url).searchable) return url;
   return (bases || $searchBases.get())[hostOf(url)] || "";
 };
 
-/* WHO IS IN IT. A second request, made only when the button is pressed: a listing tile never carries a cast,
-   so this is the clip's own page being read, and thirty of those per feed is not a thing to do speculatively
-   (the edge caches the answer for six hours, misses included). Keyed by the page, so swiping and coming back
-   costs nothing, and a response that arrives after you have swiped on is dropped rather than shown. */
 const GATE_CAST = [
   { name: "Nine Lives Studio", url: "https://mixkit.co/profiles/user10241/", avatar: null },
   { name: "Proog", url: "https://mixkit.co/profiles/proog/", avatar: null },
@@ -1169,7 +722,7 @@ const $cast = atom({ page: "", loading: false, people: [], err: false });
 async function pullCast(page) {
   if (!page) return;
   const cur = $cast.get();
-  if (cur.page === page && !cur.err) return;                         // already answered for this clip
+  if (cur.page === page && !cur.err) return;
   $cast.set({ page, loading: true, people: [], err: false });
   if (gate) { $cast.set({ page, loading: false, people: GATE_CAST, err: false }); return; }
   try {
@@ -1182,8 +735,6 @@ async function pullCast(page) {
   }
 }
 
-// One face: the picture where the page had one, the monogram where it did not — the island's own circle,
-// reused, so a person reads the same here as the account does beside the title. A tap is the dive.
 function CastFace({ person, onGo }) {
   const initial = (person.name || "?").trim().charAt(0).toUpperCase();
   const [pic, setPic] = useState(person.avatar || null);
@@ -1202,16 +753,12 @@ function CastDrawer({ t, onGo }) {
     ${[0, 1, 2].map((i) => html`<span key=${i} class="h-8 w-24 rounded-full bg-white/10 animate-pulse shrink-0"></span>`)}
   </div>`;
   if (err || !people.length) return html`<div data-cast-row class="px-2.5 py-1.5 text-xs text-white/60">${T(t, err ? "loadErr" : "castNone")}</div>`;
-  /* Scrolls sideways, and says so with a fade rather than a scrollbar: a cast can be twelve people on a
-     384px pill, and the alternative — wrapping — grows the island to half the screen. */
   return html`<div data-cast-row data-scroller class="flex items-center gap-1.5 px-0.5 overflow-x-auto max-w-full"
       style="-webkit-mask-image:linear-gradient(to right,transparent,#000 12px,#000 calc(100% - 12px),transparent);mask-image:linear-gradient(to right,transparent,#000 12px,#000 calc(100% - 12px),transparent)">
     ${people.map((p) => html`<${CastFace} key=${p.url} person=${p} onGo=${onGo} />`)}
   </div>`;
 }
 
-// The search drawer: one field and one verb. It takes the island's whole row, because a 384px pill cannot
-// hold an input AND the identity row, and what you are doing while it is open is typing.
 function SearchDrawer({ t, base, onFind, onClose }) {
   const [q, setQ] = useState(resolveSearch(base).term || "");
   const ref = useRef();
@@ -1221,8 +768,7 @@ function SearchDrawer({ t, base, onFind, onClose }) {
     <button type="button" class="btn btn-ghost btn-sm btn-circle text-white shrink-0" aria-label=${T(t, "close")} onClick=${onClose}>
       ${Icon("lucide:x", "text-lg")}
     </button>
-    ${/* type=text, not search: the browser's own clear button lands on a dark pill as a grey smudge, and the
-          field is 200px wide — every pixel of it is the term. inputmode=search still gives the right key. */""}
+    ${""}
     <input id="island-q" ref=${ref} type="text" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
       class="grow min-w-0 bg-transparent text-sm text-white placeholder:text-white/40 outline-none px-1"
       placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
@@ -1233,44 +779,26 @@ function SearchDrawer({ t, base, onFind, onClose }) {
 }
 
 function SourceIsland({ S, t, src, title, clip, depth, channel, page }) {
-  /* btn-GHOST on every control in here, for the island's own reason: `.btn:not(.btn-ghost)` carries
-     --sf-drop, the extrusion pair, and the pair's light half has nothing to shade against on a black media
-     surface — it draws a white ring instead. In the light theme (--nm-light is bright) each of these
-     circles came out haloed inside an island that was itself hard-outlined in white. Same fix as the island
-     box and the clean-screen door; a utility cannot reach it, the DaisyUI rule is (0,4,0). */
   const act = "btn btn-ghost btn-sm btn-circle shrink-0 border border-white/20 bg-white/10 text-white";
   const drawer = useStore($drawer), bases = useStore($searchBases);
   const base = searchBaseFor(src, bases);
-  // A drawer belongs to the clip it was opened on: swipe, and the faces under the row are somebody else's.
   useEffect(() => { if ($drawer.get() === "cast") $drawer.set(""); }, [page]);
-  // …and to the source: a search box still open on a site you have left searches the wrong place.
   useEffect(() => { $drawer.set(""); }, [src]);
   const toggle = (which) => { const next = drawer === which ? "" : which; $drawer.set(next); if (next === "cast") pullCast(page); };
   const row = html`<div class="flex items-center gap-1 min-w-0 max-w-full">
       ${depth ? html`<button data-feed-back class="btn btn-ghost btn-sm btn-circle text-white shrink-0" aria-label=${T(t, "back")} onClick=${() => popFrame(S)}>${Icon("lucide:chevron-left", "text-xl")}</button>` : null}
       <${Favicon} url=${src} size="w-6 h-6" />
-      ${/* Beside the favicon, which says which SITE this is, so the pair reads "site · who". It sits before
-            the label because it is an identity, not an action, and the label may be their name already. */""}
+      ${""}
       <${ChannelAvatar} channel=${channel} current=${src} label=${channel?.name || ""}
         onClick=${() => diveTo(S, channel.url, channel.name)} />
-      ${/* WHAT IT NAMES: the clip you are watching, and the feed only when the clip has no name of its own.
-            It said the feed's name on every slide, so swiping changed the picture, the account and nothing
-            else — the one line of text on the screen sat still while everything under it moved (the owner,
-            on the reel). The feed's name is still HERE, in an attribute: it is what the sources list has to
-            agree with, and a name nobody can read is not a name the gate can check. */""}
+      ${""}
       <span data-island-label data-island-src=${title} class="text-sm text-white truncate min-w-0 pl-0.5 pr-1">${clip || title}</span>
-      ${/* Search is shown only where there is somewhere to send it: this source is already a results page,
-            or the site published where its results live (the edge reads that off the links on the page we
-            just loaded). A button that cannot work is worse than no button. */""}
+      ${""}
       ${base ? html`<button data-island-search class=${`${act} ${drawer === "search" ? "bg-white/25" : ""}`} aria-pressed=${drawer === "search"}
         aria-label=${T(t, "search")} onClick=${() => toggle("search")}>${Icon("lucide:search", "text-base")}</button>` : null}
       ${page ? html`<button data-island-cast class=${`${act} ${drawer === "cast" ? "bg-white/25" : ""}`} aria-pressed=${drawer === "cast"}
         aria-label=${T(t, "cast")} onClick=${() => toggle("cast")}>${Icon("lucide:users", "text-base")}</button>` : null}
-      ${/* One door instead of three. Clean screen, subscribe and the trip to the site all used to sit out
-            here as their own circles; with the export actions added that would have been eight controls in a
-            pill 384px wide, which is a control panel laid over the thing it is supposed to keep out of the
-            way of. What stays outside is what NO gesture already does, and what a gesture could never do:
-            the way back, who posted it, this site's search, who is in this clip, and one door. */""}
+      ${""}
       <button data-more class=${act} aria-label=${T(t, "more")} onClick=${() => S.screen.set("more")}>${Icon("lucide:ellipsis", "text-base")}</button>
     </div>`;
   return html`<${Island} pinned at="bottom" tone="dark"
@@ -1283,14 +811,6 @@ function SourceIsland({ S, t, src, title, clip, depth, channel, page }) {
   <//>`;
 }
 
-/* Noir is a document-level flag, not a class on the slides: the full-clip player is the runtime's element
-   and lives outside this tree, so the only place both surfaces can be reached from is <html>.
-   It does NOT come off on unmount any more, and that is the fix the owner asked for: the liked grid is
-   three columns of frames from the same clips, and it lives in another tab, so a flag that died with the
-   feed left the one screen that is nothing BUT posters in full colour. Both screens raise it now, and
-   nothing has to hand it over between them. Letting it linger costs nothing: every rule behind it names
-   the surface it drains (`[data-reel]`, a dialog's video, `[data-liked] img` — see index.html), so on a
-   screen with no picture on it the flag selects nothing at all. */
 function useMonoFlag() {
   const mono = useStore($mono);
   useEffect(() => {
@@ -1299,12 +819,7 @@ function useMonoFlag() {
   }, [mono]);
 }
 
-// What the drag reveals underneath the feed: the destination, on the side the finger is uncovering. Painted
-// by ref (opacity written straight to the nodes from usePanX's onDrag) — a re-render per pointermove would
-// stutter the very gesture it is drawing.
 function DragReveal({ underRef, diveRef, backRef, target, targetLabel, prev }) {
-  // The layer the reel slides OFF is a recess, not a darker page: base-200 and base-100 are the same colour
-  // by design, so the tone step it used to lean on painted nothing at all. `sf-inset` is the word for it.
   return html`<div ref=${underRef} aria-hidden="true" class="fixed inset-0 z-0 sf-inset opacity-0">
     ${prev ? html`<div ref=${backRef} class="absolute inset-y-0 left-0 w-40 flex flex-col items-center justify-center gap-2 px-3 text-center opacity-0">
       ${Icon("lucide:corner-up-left", "text-2xl text-primary")}
@@ -1323,26 +838,17 @@ function FeedSurface({ S, t, toast }) {
   const active = useStore($active), next = useStore($next), ephemeral = useStore($ephemeral);
   const src = useStore($src), frames = useStore($frames), subs = useStore($subs), restoreTo = useStore($restoreTo);
   const title = useStore($srcTitle), feedChannel = useStore($feedChannel);
-  /* While the full clip is up, the reel underneath must stop. Two elements playing at once is two soundtracks
-     and two decoders, and the preview is the last thing anyone wants to hear over the thing they opened. It
-     rides the ACTIVE flag rather than a new mechanism, so the existing play effect handles it and the element
-     is never torn down — swiping back finds the slide exactly where it was left. */
   const screen = useStore(S.screen);
   const suspended = screen === "full";
   const clean = useStore(S.clean);
   const mono = useStore($mono);
   const underRef = useRef(), diveRef = useRef(), backRef = useRef();
   const target = diveTarget(items[active], src);
-  // The destination is named by the clip you're leaving on — the reveal under the finger says where you land,
-  // and "Mixkit" (all a `/watch/10241/` URL can yield) is not where you land.
   const targetLabel = target ? sourceTitle(target, { hint: items[active]?.title }) : "";
   const prev = frames.length ? frames[frames.length - 1] : null;
 
-  // The drag IS the navigation: pull the reel left to fall into the page this clip came from, right to come
-  // back. The pane follows the finger 1:1 (usePanX), so it reads as moving the reel itself, not pressing a
-  // button; `touch-pan-y` keeps the vertical scroll native, and a real drag swallows the tap it would fire.
   const { paneRef, pan } = usePanX({
-    threshold: 64,                                                   // a full-screen move deserves a firmer commit than a card flick
+    threshold: 64,
     canNext: !!target, canPrev: frames.length > 0,
     onNext: () => diveTo(S, target, items[active]?.title),
     onPrev: () => popFrame(S),
@@ -1357,33 +863,21 @@ function FeedSurface({ S, t, toast }) {
   useEffect(() => {
     bindNav(S);
     if (!booted) { booted = true; if (!gate) loadSource($src.get()); }
-    else if ($active.get() > 0) $restoreTo.set($active.get());        // re-mounted (tab switch) → keep your place
-    // Tell the document a black media surface is up: index.html restyles the app bar light for as long as
-    // it is (in signal-light the bar's own background never lands under a fixed full-bleed surface, and its
-    // near-black title sat on black at ~1.2:1 — invisible, and axe can't see a stacking-context problem).
+    else if ($active.get() > 0) $restoreTo.set($active.get());
     const root = document.documentElement;
     root.setAttribute("data-feed", "");
-    /* …and the clean screen dies with the surface it was clearing. It is a property of THIS full-bleed
-       thing, not of the app, and the runtime cannot know that — S.clean sits BELOW S.stack in the overlay
-       order, so a Back taken from the Liked feed pops the stack first and lands on the liked GRID, which
-       would otherwise render with no app bar, no dock and a "show controls" button as its only navigation.
-       A dive is the opposite case and stays clean on purpose: the surface never went away, only its source.
-       Setting the atom here is also what BALANCES history — the overlay listener sees the count fall and
-       consumes clean's own entry with the same go(-1) a tap on the door would. */
     return () => { root.removeAttribute("data-feed"); S.clean.set(false); };
   }, [S]);
   useMonoFlag();
-  useEffect(() => { void checkBlankPosters(); }, [items]);            // sample new posters → drop black/flat/broken slides (gate: inline data: posters too)
+  useEffect(() => { void checkBlankPosters(); }, [items]);
   useEffect(() => { if (next && active >= items.length - 3) loadSource(next, true); }, [active, items.length, next]);
-  useEffect(() => { const it = items[active]; if (!it || gate) return; const id = setTimeout(() => markWatched(it.orig || it.video), 2500); return () => clearTimeout(id); }, [active, items]);   // dwell → watched
+  useEffect(() => { const it = items[active]; if (!it || gate) return; const id = setTimeout(() => markWatched(it.orig || it.video), 2500); return () => clearTimeout(id); }, [active, items]);
   useEffect(() => {
     const root = paneRef.current; if (!root || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting && e.intersectionRatio >= 0.6) { const i = Number(e.target.dataset.idx); if (!Number.isNaN(i)) $active.set(i); } }, { root, threshold: [0.6] });
     root.querySelectorAll("[data-idx]").forEach((el) => io.observe(el));
     return () => io.disconnect();
-  }, [items]);                                                        // identity, not length: a restored list of the same size is still new DOM
-  // Landing after a restore. Every slide is exactly one viewport tall under snap-mandatory, so the offset is
-  // arithmetic — no measuring, no scrollIntoView race with the observer. Layout effect: before paint.
+  }, [items]);
   useLayoutEffect(() => {
     if (restoreTo == null) return;
     const el = paneRef.current;
@@ -1399,37 +893,24 @@ function FeedSurface({ S, t, toast }) {
         ? html`<section class="h-[100dvh] w-full flex flex-col items-center justify-center gap-3 text-white/60 px-8 text-center">${Icon("lucide:film", "text-5xl")}<div>${T(t, "empty")}</div><button class="btn btn-sm btn-outline text-white border-white/25 rounded-2xl" onClick=${() => S.tab.set("sources")}>${T(t, "changeSrc")}</button></section>`
         : items.map((it, i) => html`<${Slide} S=${S} item=${it} idx=${i} active=${i === active && !suspended} near=${Math.abs(i - active) <= PRELOAD} ephemeral=${it.eph != null ? it.eph : ephemeral} key=${(it.orig || it.video) + i} />`);
 
-  // The island's controls belong to the ACTIVE clip, so they are derived here, once, from `items[active]` —
-  // never per slide. The way out is unconditional: whether the clip plays inline is a browser/CORS verdict
-  // this code never sees, so gating the link on it hid the link precisely when the slide was a dead poster.
   const cur = items[active];
-  /* The SLIDE's account wins over the page's: a mixed listing gives every clip a different owner, and an
-     island that showed the page's would name the wrong person on all but one slide. The page's own account
-     is the fallback, which is what a feed that IS an account has — and there every slide agrees with it. */
   const channel = cur?.channel || feedChannel;
 
   return html`<${Fragment}>
     <${DragReveal} underRef=${underRef} diveRef=${diveRef} backRef=${backRef} target=${target} targetLabel=${targetLabel} prev=${prev} />
-    ${/* The reel scrolls, so a keyboard has to be able to drive it — and now it MUST be stated here: every
-          slide used to contain a link, which is what quietly made this region reachable. With the slide
-          empty, the region carries its own focus and its own name (axe: scrollable-region-focusable). */""}
+    ${""}
     <div ref=${paneRef} ...${pan} data-scroller tabindex="0" role="region" aria-label=${T(t, "tabReel")} class="fixed inset-0 z-[1] bg-black overflow-y-auto snap-y snap-mandatory overscroll-y-contain touch-pan-y will-change-transform">${body}</div>
-    ${/* The island is the app's half of the clean screen: the runtime takes its own chrome off, this comes
-          off with it, and what is left is the video and the swipe. Unmounted rather than faded — a
-          transparent island still eats the taps under it, which on this surface is the whole gesture. */""}
+    ${""}
     ${clean ? null : html`<${SourceIsland} S=${S} t=${t} src=${src} title=${title} clip=${cur?.title || ""} subbed=${subs.some((s) => s.url === src)} depth=${frames.length}
       channel=${channel} page=${cur?.page || ""} />`}
-    ${/* The island's overflow. Rendered HERE rather than in reel(), because this surface is what the Liked
-          tab plays through too — hanging it off the tab would give the same feed two different sets of
-          actions depending on which way you arrived at it. */""}
+    ${""}
     ${screen === "more" ? html`<${MoreSheet} S=${S} t=${t} toast=${toast} item=${cur} src=${src} title=${title}
       subbed=${subs.some((s) => s.url === src)} />` : null}
-    ${/* Lives with the feed, not with the tab, so it works identically from Liked — one engine, one overlay. */""}
+    ${""}
     ${suspended ? html`<${FullClip} S=${S} t=${t} />` : null}
   </${Fragment}>`;
 }
 
-// ---- reel (the feed) --------------------------------------------------------
 export function reel({ S, toast }) {
   const t = useStore(S.t), screen = useStore(S.screen);
   useShareIntake(S, toast);
@@ -1439,29 +920,8 @@ export function reel({ S, toast }) {
   </${Fragment}>`;
 }
 
-// ---- sources (subscriptions + ready channels, grouped by site) ---------------
-// A site is the unit, not a URL: dive into a video's page, subscribe, and that page joins its site's card as
-// another channel. Rows carry the page's TITLE (sitelabel.sourceTitle: derived from the URL where the URL
-// names the page, else the real title saved when you subscribed — no round-trip either way), because a
-// truncated raw URL told you nothing and cost a whole line doing it.
-//
-// REWORKED 2026-09-21 (owner: "список джерел застарів, не продуманий ui/ux"). What was wrong was not the
-// grouping, which is right — it was that every line was a control panel. A page row carried up to four
-// icon buttons (search, open site, session key, keep) beside the one thing you came to do, which is play it;
-// the search among them has since moved to the island, where it searches whatever you are watching. So:
-//   · the SITE owns the site's actions — opening it in the browser, and the cookie you pasted for it — and
-//     they live once, in the card's header, instead of once per page;
-//   · a PAGE row owns the one action that is about that page: keep it, or drop it;
-//   · a site with one page is ONE tap target, not a header above a row that says the same thing again;
-//   · identity is a face where we know one. Nothing is fetched for this screen: the picture is the one the
-//     island already resolved for that account (or the one saved when you subscribed from it), so the list
-//     fills in as you watch and costs not a single request when you open the tab;
-//   · a filter appears once the list is long enough to need one, and searches names AND hosts.
 const ROW_MAX = 120;
 
-// The face of a source, where one is known, and the site's favicon where it is not. `avatarSeen` is the
-// island's own cache — see accountAvatar — so this screen shows what the app has already learned and asks
-// the network for nothing.
 function SourceFace({ s, size = "w-10 h-10" }) {
   const pic = s.avatar || avatarSeen.get(s.url) || null;
   const [src, setSrc] = useState(pic);
@@ -1469,26 +929,12 @@ function SourceFace({ s, size = "w-10 h-10" }) {
   return html`<img src=${src} alt="" loading="lazy" class=${`${size} rounded-full object-cover shrink-0 bg-base-300`} onError=${() => setSrc(null)} />`;
 }
 
-// One page of a site. The row IS the play button; the only control beside it is whether you keep the page.
 function PageRow({ s, active, subbed, onPlay, onToggle, lead, sub, t }) {
-  // The playing row is marked by DEPTH, never by a luminance step: this theme's primary and base-content
-  // are the same ink, so "active = text-primary" would be 100% vs 100% — the exact trap that hid the dock's
-  // active tab for the life of the project. The row it plays from is pressed INTO the card (`sf-inset`) —
-  // the material says "selected" without a tint — and the rail stays, readable from across the room.
   return html`<li class=${`flex items-center gap-0.5 pr-1 ${active ? "sf-inset rounded-2xl" : ""}`}>
     <button data-src-row class="flex items-center gap-2.5 flex-1 min-w-0 text-left px-2.5 py-2.5 rounded-xl sf-press" onClick=${() => onPlay(s)}>
       ${lead}
       <span class="min-w-0 flex-1">
-        ${/* the saved name is the page's real title — the string the island resolved and renameSub wrote
-              back — and it only wins where the URL itself names nothing, so a category page stays "Space",
-              not "Mixkit". Fed in as the page's OWN title (which is what it is), the row runs the identical
-              priority chain the island ran, on the identical inputs: two surfaces, one answer.
-              And it WRAPS. A row is the one place with room for the whole name — the island is a chip
-              beside four controls and has to cut, this has a full-width line and can spend two of them —
-              so the cap is the row's own (ROW_MAX), not the island's, and there is no `truncate` to cut
-              what the cap let through. `break-words` is for the pathological case: a title that is one
-              unbroken 60-character token has to break somewhere, and the alternative is a horizontal
-              overflow the gates would (rightly) fail. */""}
+        ${""}
         <span data-src-title class=${`block break-words leading-snug ${active ? "font-semibold" : ""}`}>${sourceTitle(s.url, { pageTitle: s.name, max: ROW_MAX })}</span>
         ${sub ? html`<span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${sub}</span>` : null}
       </span>
@@ -1497,26 +943,17 @@ function PageRow({ s, active, subbed, onPlay, onToggle, lead, sub, t }) {
   </li>`;
 }
 
-// One site. The header is the site — its face, its name, its host, how many of its pages you keep, and the
-// two things that belong to a SITE rather than to a page: opening it in the browser, and the session you
-// pasted for it. A site with a single page whose name is the site's own name is that header and nothing
-// else: a row underneath would be the same line twice, which is what the old card did.
-// The card is the page extruded, on the shallow rung a long scrolling list can afford (`sf-e2`); the site
-// you are watching right now stands one rung higher (`sf-e3`) and keeps the primary tint as its FILL.
 function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession, sessions, t }) {
   const hot = g.items.some((s) => s.url === curSrc);
   const hasSession = !!(sessions && sessions[g.domain]);
   const shell = `rounded-2xl ${hot ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`;
   const one = g.items.length === 1 ? g.items[0] : null;
   const oneName = one ? sourceTitle(one.url, { pageTitle: one.name, max: ROW_MAX }) : "";
-  const solo = one && oneName.toLowerCase() === String(g.name || "").toLowerCase();   // the page IS the site
+  const solo = one && oneName.toLowerCase() === String(g.name || "").toLowerCase();
   const head = html`<div class="flex items-center gap-2.5 min-w-0 flex-1 text-left px-2.5 py-2.5 rounded-xl">
     <${SourceFace} s=${one || g.items[0]} />
     <span class="min-w-0 flex-1">
-      ${/* The hook names the SOURCE, and a multi-page card's header names the SITE — two different things.
-            Putting it on both made `[data-src-title]` resolve to "Mixkit" where the test (and the reader)
-            wanted the page: "Nine Lives Studio & Friends". It is the row's, except where the header is
-            the row. */""}
+      ${""}
       <span data-src-title=${solo ? "" : null} class="block font-semibold truncate leading-tight">${solo ? oneName : g.name}</span>
       <span class="block text-[0.7rem] font-mono text-base-content/70 truncate">${g.domain}${g.items.length > 1 ? ` · ${g.items.length}` : ""}</span>
     </span>
@@ -1543,7 +980,6 @@ function DomainCard({ g, curSrc, subbedUrls, onPlay, onOpen, onToggle, onSession
   </section>`;
 }
 
-// Below this many kept sites the filter is noise: it would sit above a list you can already see all of.
 const FILTER_FROM = 6;
 
 export function sources({ S, undo, toast }) {
@@ -1552,10 +988,8 @@ export function sources({ S, undo, toast }) {
   const subs = useStore($subs), curSrc = useStore($src), watchedN = useStore($watched).size, sessions = useStore($sessions);
   const [q, setQ] = useState("");
   const editSession = (s) => { $sessSite.set(s.url); S.screen.set("session"); };
-  const play = (s) => { resetNav(S); $owner.set("reel"); openSource(s.url, s.name); S.tab.set("reel"); };   // the saved title carries into the island
+  const play = (s) => { resetNav(S); $owner.set("reel"); openSource(s.url, s.name); S.tab.set("reel"); };
   const subbedUrls = new Set(subs.map((x) => x.url));
-  // The filter reads what the row SHOWS plus the host, because "mixkit" is how you look for a page whose
-  // saved title never mentions it.
   const needle = q.trim().toLowerCase();
   const hit = (s) => !needle || `${sourceTitle(s.url, { pageTitle: s.name })} ${hostOf(s.url)}`.toLowerCase().includes(needle);
   const mine = groupByDomain(subs.filter(hit));
@@ -1563,8 +997,7 @@ export function sources({ S, undo, toast }) {
 
   return html`<${Fragment}>
     <div class="flex flex-col gap-4 @container">
-      ${/* One line, two jobs: narrow the list you have, or add one it does not. The add button keeps its id
-            — it is the door the source sheet opens through, and three e2e cases knock on it. */""}
+      ${""}
       <div class="flex items-center gap-2">
         ${subs.length >= FILTER_FROM ? html`<label class="input input-sm flex items-center gap-2 rounded-2xl flex-1 min-w-0">
           ${Icon("lucide:filter", "opacity-50 shrink-0 text-sm")}
@@ -1592,26 +1025,21 @@ export function sources({ S, undo, toast }) {
   </${Fragment}>`;
 }
 
-// ---- liked (saved reels) ----------------------------------------------------
-// A poster grid of the reels you double-tapped, newest first. Tapping a tile plays the liked collection AS A
-// FEED RIGHT HERE — the Liked tab becomes the reel, no tab switch, and Back (system or the island chevron)
-// brings the grid straight back with the source feed underneath untouched. Removal lives ONLY here.
 export function liked({ S, toast }) {
   const t = useStore(S.t), likes = useStore($likes), owner = useStore($owner);
-  useShareIntake(S, toast);   // before the early return below — a hook is not allowed to be conditional
-  useMonoFlag();              // the grid is posters: noir has to reach it, not just the feed
+  useShareIntake(S, toast);
+  useMonoFlag();
   const sorted = [...likes].sort((a, b) => (b.ts || 0) - (a.ts || 0));
   if (owner === "liked") return html`<${FeedSurface} S=${S} t=${t} toast=${toast} />`;
   const playAt = (i) => {
-    pushFrame(S, T(t, "tabLiked"));                       // …so Back returns to THIS grid, one step
+    pushFrame(S, T(t, "tabLiked"));
     $owner.set("liked"); $ephemeral.set(false); $next.set(null); $err.set(false); $loading.set(false);
     $items.set([...sorted.slice(i), ...sorted.slice(0, i)]);
     $active.set(0); $restoreTo.set(0);
   };
   if (!sorted.length) return html`<div class="flex flex-col items-center justify-center gap-3 text-muted text-center" style="min-height:60vh">${Icon("lucide:heart", "text-6xl opacity-30")}<div class="text-sm max-w-[16rem]">${T(t, "likedEmpty")}</div></div>`;
   return html`<div data-liked class="grid grid-cols-3 gap-1.5">
-    ${/* A tile is a SLOT the poster drops into — `sf-inset`. It reads as an empty well until the frame
-          lands and fills it, which is what `bg-base-300` was trying to say with a tone step. */""}
+    ${""}
     ${sorted.map((l, i) => html`<div class="relative aspect-[9/16] rounded-xl overflow-hidden sf-inset" key=${l.id}>
       <button data-liked-tile class="absolute inset-0 w-full h-full active:scale-[.98] transition" aria-label=${l.title || l.host} onClick=${() => playAt(i)}>
         ${l.poster

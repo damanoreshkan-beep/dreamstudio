@@ -1,14 +1,3 @@
-// Tarot — draw the Rider-Waite-Smith deck for a reading. Eleven spreads, each with a plain one-line
-// description of what it answers: card of the day, past/present/future, situation/action/outcome,
-// mind/body/spirit, the crossroads, two-poles, shadow & light, the star, a love reading, the Major-Arcana
-// Soul Pyramid, and the ten-card Celtic Cross. Every multi-card spread renders through `FitReading`, which
-// scales the cards so the WHOLE spread and its structure fit the screen at once (no page scroll); tapping a
-// card opens the full meaning. The deck (78 cards + canonical Waite meanings + the
-// public-domain 1909 scans) is the product's /_rt/tarotdeck.js with images vendored same-origin under ./assets/ —
-// fully offline. The draw math is the SYSTEMIC /_rt/tarot.js (seeded, unit-tested): the card of the day is
-// seeded by the date so it's stable through the day; other spreads reshuffle. English meanings are
-// translated to the active locale by /_rt/translate.js (fail-open to the original). No emoji: the only
-// imagery is the classic card art; suits/arcana are words.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -27,8 +16,8 @@ import { HeroStage } from "/_rt/hero.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const QS = new URLSearchParams(location.search);
-const SPREAD_OVERRIDE = QS.get("spread"); // ?spread=celtic previews any spread (phone/mock check)
-const imgURL = (file) => new URL(`./assets/${file}`, import.meta.url).href;   // robust regardless of page path
+const SPREAD_OVERRIDE = QS.get("spread");
+const imgURL = (file) => new URL(`./assets/${file}`, import.meta.url).href;
 const randSeed = () => Math.floor(Math.random() * 0x100000000) >>> 0;
 const dk = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -42,33 +31,28 @@ const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider te
 export function tarot({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t);
   const loc = useStore(S.locale);
-  useStore(trTick);                                              // re-render as translations land
-  useStore(aiTick);                                             // …and as the AI synthesis of the spread lands
+  useStore(trTick);
+  useStore(aiTick);
   const [spreadId, setSpreadId] = useState(SPREADS.some((s) => s.id === SPREAD_OVERRIDE) ? SPREAD_OVERRIDE : "daily");
-  const [nonce, setNonce] = useState(0);                         // bumped on quick shuffle → fresh draw
-  const [override, setOverride] = useState(null);                // the seed from a completed ritual
-  const [detail, setDetail] = useState(0);                       // index into the current draw, for the sheet
-  const liveBase = useRef(randSeed()).current;                   // random per session, stable across renders
+  const [nonce, setNonce] = useState(0);
+  const [override, setOverride] = useState(null);
+  const [detail, setDetail] = useState(0);
+  const liveBase = useRef(randSeed()).current;
 
   const now = gate ? new Date(2027, 6, 23) : new Date();
   const spread = spreadById(spreadId);
   const seed = spreadId === "daily" ? hashSeed(dk(now))
-    : override != null ? override                                // the ritual's charged draw
+    : override != null ? override
     : ((gate ? 0 : liveBase) ^ hashSeed(spreadId + ":" + nonce)) >>> 0;
   const drawn = draw(seed, spread.pos.length, spread.majorOnly ? 22 : 78);
   const isDaily = spread.pos.length === 1;
 
-  // Systemic AI synthesis of a multi-card spread: gather the structured facts (position · card · orientation ·
-  // meaning) into one block, keyed by a stable signature of THIS draw so the same spread hits cache. The short
-  // reading is produced on demand (when the synthesis sheet opens), never per shuffle — see SynthSheet.
   const drawSig = spreadId + "|" + drawn.map((d) => d.card + (d.reversed ? "r" : "u")).join(",");
   const synthText = `${T(t, SPREAD_KEY[spreadId])} — ${T(t, DESC_KEY[spreadId])}\n` +
     drawn.map((d, i) => `${i + 1}. ${T(t, spread.pos[i])}: ${cardName(DECK[d.card], loc)} (${T(t, d.reversed ? "reversed" : "upright")}) — ${meaningOf(d)}`).join("\n");
 
-  useEffect(() => { setOverride(null); }, [spreadId]);           // a new spread starts fresh
-  // translate the meanings actually shown (chosen orientation) into the active locale
+  useEffect(() => { setOverride(null); }, [spreadId]);
   useEffect(() => { warm(drawn.map(meaningOf), loc); }, [seed, loc]);
-  // deal the cards in whenever the draw changes (skipped under the gate so shots stay static)
   useEffect(() => {
     if (gate || isDaily) return;
     const cards = document.querySelectorAll("[data-reading] [data-tile]");
@@ -79,36 +63,25 @@ export function tarot({ S, screen, openScreen, closeScreen }) {
 
   const openCard = (i) => { setDetail(i); openScreen("card"); };
   const pickSpread = (id) => { setSpreadId(id); };
-  // swipe the reading left/right to move between spreads — the pane follows the finger and WRAPS (last↔first)
   const sIdx = SPREADS.findIndex((s) => s.id === spreadId);
   const goSpread = (d) => { const s = SPREADS[(sIdx + d + SPREADS.length) % SPREADS.length]; if (s) setSpreadId(s.id); };
-  const { paneRef, pan } = usePanX({ onNext: () => goSpread(1), onPrev: () => goSpread(-1) });   // canNext/canPrev default true → cyclic
+  const { paneRef, pan } = usePanX({ onNext: () => goSpread(1), onPrev: () => goSpread(-1) });
   const shuffle = () => { setOverride(null); setNonce((n) => n + 1); };
-  // The ritual: request motion/compass on the tap gesture (iOS needs it inline), then open the flow.
-  const openRitual = () => { try { const req = typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission; if (typeof req === "function") req.call(DeviceOrientationEvent).catch(() => {}); } catch { /* */ } openScreen("ritual"); };
+  const openRitual = () => { try { const req = typeof DeviceOrientationEvent !== "undefined" && DeviceOrientationEvent.requestPermission; if (typeof req === "function") req.call(DeviceOrientationEvent).catch(() => {}); } catch { } openScreen("ritual"); };
   const completeRitual = (s) => { setOverride(s >>> 0); closeScreen(); };
 
   const rows = spread.rows || defaultRows(spread.pos.length);
 
   return html`<${Fragment}>
-    ${/* The lit table, and NOTHING else changed on this screen — layout, card sizes and the existing deal
-          animation are exactly as they were. The stage is a candle over baize: radial and warm, where
-          iching's is a cold directional current, because the two apps must not share an atmosphere.
-
-          `relative z-10` on the content wrappers is the whole reason the tabs vanished last time. A
-          `fixed inset-0` canvas paints over everything that has no stacking context of its own; iching had
-          the wrapper, this screen did not, and I shipped it without looking at a render that could show a
-          canvas at all. */""}
+    ${""}
     <${HeroStage} shader=${new URL("hero.wgsl", import.meta.url)} seed=${((drawn[0]?.card ?? 0) + 1) / 79} />
 
     ${isDaily
-      // the card of the day: the picker, then one large card with its meaning inline (scrolls naturally)
       ? html`<div class="relative z-10 flex flex-col gap-4" data-spread-id=${spreadId} data-cards=${drawn.length}>
           <${Picker} t=${t} spreadId=${spreadId} onPick=${pickSpread} />
           <${Header} t=${t} spreadId=${spreadId} isDaily=${true} />
           <div class="overflow-hidden"><div ref=${paneRef} ...${pan} class="touch-pan-y will-change-transform"><${Solo} d=${drawn[0]} pos=${spread.pos[0]} t=${t} loc=${loc} onOpen=${() => openCard(0)} /></div></div>
         </div>`
-      // any multi-card spread: the WHOLE structure fits the screen — cards shrink to fit, no page scroll.
       : html`<div class="relative z-10 flex flex-col gap-2.5 h-[calc(100dvh-11.5rem)] min-h-0 overflow-hidden" data-spread-id=${spreadId} data-cards=${drawn.length}>
           <${Picker} t=${t} spreadId=${spreadId} onPick=${pickSpread} />
           <${Header} t=${t} spreadId=${spreadId} isDaily=${false} onShuffle=${shuffle} onRitual=${openRitual} onSynth=${() => openScreen("synth")} />
@@ -121,8 +94,6 @@ export function tarot({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// Spreads without a hand-authored `rows` shape (the 3-card ones, the ten-card Celtic Cross) fall into
-// balanced rows of ≤4 so they still lay out as a neat, fully-visible grid.
 const seq = (a, b) => Array.from({ length: b - a }, (_, i) => a + i);
 function defaultRows(n) {
   if (n <= 4) return [seq(0, n)];
@@ -132,7 +103,6 @@ function defaultRows(n) {
   return rows;
 }
 
-// the compact, horizontally-scrolling spread picker (chips) — frees the vertical room for the reading
 function Picker({ t, spreadId, onPick }) {
   const wrapRef = useRef();
   useEffect(() => { wrapRef.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView?.({ inline: "center", block: "nearest", behavior: "smooth" }); }, [spreadId]);
@@ -143,17 +113,13 @@ function Picker({ t, spreadId, onPick }) {
   </div>`;
 }
 
-// title + one-line description + a quick shuffle and the Ritual (charged draw). Both hidden for the day's card.
 function Header({ t, spreadId, isDaily, onShuffle, onRitual, onSynth }) {
   return html`<div class="shrink-0 flex items-start justify-between gap-3">
     <div class="min-w-0">
       <div class="font-bold text-lg leading-tight">${T(t, SPREAD_KEY[spreadId])}</div>
       <p class="mt-0.5 text-sm leading-snug text-muted break-words line-clamp-2">${T(t, DESC_KEY[spreadId])}</p>
     </div>
-    ${/* Two icon buttons, same size and same order as before — what changed is what they are MADE of.
-         `btn-ghost` means "a text button, not an object", so theme.css deliberately leaves it flat; these
-         two then bought their visibility back with `border border-base-300`, a hairline drawn around a
-         thing that was declaring itself flat. They are objects: plain `.btn` and the material lifts them. */""}
+    ${""}
     ${!isDaily ? html`<div class="shrink-0 flex items-center gap-1.5">
       <button data-synth aria-label=${T(t, "synthTitle")} class="btn btn-sm btn-circle" onClick=${onSynth}>${Icon("lucide:scroll-text", "text-base")}</button>
       <button data-shuffle aria-label=${T(t, "redraw")} class="btn btn-sm btn-circle" onClick=${onShuffle}>${Icon("lucide:shuffle", "text-base")}</button>
@@ -162,16 +128,10 @@ function Header({ t, spreadId, isDaily, onShuffle, onRitual, onSynth }) {
   </div>`;
 }
 
-// The AI reading of the whole spread — history-backed sheet (Back closes). Opens → the systemic summarize
-// synthesises the structured draw into one short reading in the active locale; a skeleton animates until it
-// lands, then it reveals. On-demand (not per shuffle) to respect the free quota; cached per draw. Under the
-// gate a fixed reading renders so the shot + e2e are deterministic and offline. Fail-open.
 const GATE_SUMMARY = { uk: "Розклад радить довіритися внутрішньому чуттю: минуле поступово відпускає, теперішнє прояснюється, а майбутнє винагородить терпіння й чесність із собою. Дій виважено — рівновага вже поруч.", en: "The spread counsels trust in your own instinct: the past is loosening its grip, the present is clearing, and the future rewards patience and honesty with yourself. Move deliberately — the balance you seek is already near." };
 function SynthSheet({ open, onClose, sig, input, t, loc, spreadName }) {
   useStore(aiTick);
   const [failed, setFailed] = useState(false);
-  // Request the synthesis; fail-open — if it hasn't landed in ~12s (offline / the free tier rate-limited), stop
-  // the skeleton and offer a retry rather than spinning forever (the RPM window clears within ~a minute).
   const run = () => { setFailed(false); warmSummary(sig, input, loc); return setTimeout(() => setFailed(!isSummarized(sig, loc)), 12000); };
   useEffect(() => {
     if (!open || gate || isSummarized(sig, loc)) return;
@@ -189,8 +149,6 @@ function SynthSheet({ open, onClose, sig, input, t, loc, spreadName }) {
   </${Sheet}>`;
 }
 
-// The reading, fit to the viewport: rows share the height (flex-1) and each card scales to the smaller of
-// its row's height and 1/maxCols of the width, keeping the spread's shape — the whole thing visible at once.
 function FitReading({ rows, drawn, pos, t, loc, onOpen, paneRef, pan }) {
   const maxCols = Math.max(...rows.map((r) => r.length));
   const wpct = (94 / maxCols).toFixed(2);
@@ -201,14 +159,6 @@ function FitReading({ rows, drawn, pos, t, loc, onOpen, paneRef, pan }) {
   </div>`;
 }
 
-// one card in the fit layout: the art scaled to fit, a tiny position label beneath. Tap opens the sheet.
-// The hook is data-TILE, not data-card: theme.css lifts every [data-card] as a card SURFACE (box-shadow), and
-// on a row-tall button that painted a full-height "column" behind each width-bound card. The art carries
-// its own sf-e2; the button is a hit target, not a surface.
-// The tile keeps the row's DEFINITE height (h-full) — that is what lets the image's max-h-full resolve when
-// the row is the limit — but centres its content instead of stretching the art box: with flex-1 on the art
-// box the label sat at the bottom of a tall column, a screen away from a width-bound card (the 3-card
-// spreads). Now art + label travel together; the art box only shrinks (min-h-0) when the row is short.
 function FitTile({ d, pos, t, loc, wpct, onOpen }) {
   const c = DECK[d.card];
   return html`<button data-tile class="h-full min-h-0 flex flex-col items-center justify-center gap-1 active:scale-95 transition" style=${`max-width:${wpct}%`} aria-label=${`${cardName(c, loc)} — ${T(t, pos)}`} onClick=${onOpen}>
@@ -219,16 +169,6 @@ function FitTile({ d, pos, t, loc, wpct, onOpen }) {
   </button>`;
 }
 
-// The Ritual — a participatory "charge the draw" flow. Instead of an opaque shuffle, the querent gives the
-// draw its entropy: a colour, and the phone's tilt + compass heading (or a finger dragged through the
-// field) + the moment in time — all swirling in a living particle field, distilled into a number 0..N-1 and
-// hashed into the seed. Makes the randomness feel personal and legible. Canvas2D (not WebGL) so it renders
-// identically everywhere — on the device and in the CI gate that screenshots it. Deterministic under gate.
-//
-// The ritual is a DARK CHAMBER in both themes: a canvas scene the particles are painted into with `lighter`
-// compositing, which only reads on black. So every colour here is a scene colour over that canvas, not a
-// theme token — the six lights the querent picks from (the first is the farm's amber, the app's own mark),
-// the wash that leaves the motion trails, and the white ink of the words over it.
 const RIT_COLORS = [[242, 184, 75], [92, 228, 220], [240, 101, 94], [64, 193, 115], [90, 169, 230], [232, 160, 214]];
 const rgba = (c, a) => `rgba(${c[0]},${c[1]},${c[2]},${a})`;
 
@@ -240,28 +180,23 @@ function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
   const [live, setLive] = useState(gate ? { tilt: 18, head: 127, time: "07:23:00" } : { tilt: 0, head: 0, time: "" });
   const S = useRef({ samples: [], heading: 0, tx: 0, ty: 0, px: 0.5, py: 0.5, touch: 0, moved: 0, color: 0, num: 0 }).current;
 
-  // The drawn cards are a PURE function of (colour, number): the same colour + number always give the same
-  // spread. The number is distilled live from your motion/tilt/compass/touch + the moment; a different
-  // colour reshapes it too. So the ring is the honest key — reproducible, legible.
   const recount = () => { const n = hashSeed(`${S.color}|${S.samples.join(",")}`) % deckLen; S.num = n; setNum(n); };
   useEffect(() => { const el = dref.current; if (!el) return; if (open) { if (!el.open) el.showModal?.(); } else el.close?.(); }, [open]);
   useEffect(() => { S.color = color; recount(); }, [color]);
 
-  // the living particle field (+ device tilt/compass + touch drag → entropy)
   useEffect(() => {
     if (!open) return;
     const cv = cref.current; if (!cv || !cv.getContext) return;
-    const ctx = cv.getContext("2d"); if (!ctx || typeof ctx.arc !== "function") return;   // real 2D context only (linkedom → bail)
+    const ctx = cv.getContext("2d"); if (!ctx || typeof ctx.arc !== "function") return;
     S.samples = []; S.touch = 0; S.moved = 0;
     const dpr = Math.min((globalThis.devicePixelRatio || 1), 2);
     const size = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(1, (r.width || globalThis.innerWidth || 360) * dpr); cv.height = Math.max(1, (r.height || globalThis.innerHeight || 640) * dpr); };
     size();
-    // deterministic golden-angle distribution → same field everywhere, animates live
     const P = Array.from({ length: 96 }, (_, i) => ({ a: i * 2.39996, r: 0.14 + ((i * 0.61803) % 1) * 0.86, sz: 1 + ((i * 0.37) % 1) * 2.4, spd: 0.0025 + ((i * 0.113) % 1) * 0.006 }));
     const paint = (now) => {
       const w = cv.width, h = cv.height, cx = w / 2, cy = h * 0.44, R = Math.min(w, h) * 0.4, c = RIT_COLORS[S.color];
       ctx.globalCompositeOperation = "source-over";
-      ctx.fillStyle = "rgba(10,10,12,0.22)"; ctx.fillRect(0, 0, w, h);       // dark wash → motion trails
+      ctx.fillStyle = "rgba(10,10,12,0.22)"; ctx.fillRect(0, 0, w, h);
       ctx.globalCompositeOperation = "lighter";
       const tx = S.tx * 0.5 + (S.touch ? (S.px - 0.5) * 0.7 : 0), ty = S.ty * 0.5 + (S.touch ? (S.py - 0.5) * 0.7 : 0);
       for (const p of P) {
@@ -272,7 +207,7 @@ function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
         ctx.fillStyle = rgba(c, 0.06); ctx.beginPath(); ctx.arc(x, y, p.sz * 5 * dpr, 0, 6.2832); ctx.fill();
       }
     };
-    if (gate) { ctx.fillStyle = "#0a0a0c"; ctx.fillRect(0, 0, cv.width, cv.height); paint(1400); return; }   // one still frame for the gate/CI shot
+    if (gate) { ctx.fillStyle = "#0a0a0c"; ctx.fillRect(0, 0, cv.width, cv.height); paint(1400); return; }
     let raf, last = 0;
     const push = (now) => {
       if (now - last < 90) return; last = now;
@@ -294,11 +229,10 @@ function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
     return () => { cancelAnimationFrame(raf); window.removeEventListener("deviceorientation", onOri); cv.removeEventListener("pointerdown", onPtr); cv.removeEventListener("pointermove", onPtr); window.removeEventListener("pointerup", onUp); window.removeEventListener("resize", size); };
   }, [open]);
 
-  const drawNow = () => { onDraw(hashSeed(`${S.color}|${S.num}`) >>> 0); };   // pure fn of (colour, number)
+  const drawNow = () => { onDraw(hashSeed(`${S.color}|${S.num}`) >>> 0); };
   const col = RIT_COLORS[color];
-  const { boxRef, grip } = useSheetDrag(onClose);   // swipe down to dismiss
+  const { boxRef, grip } = useSheetDrag(onClose);
 
-  // the chamber's own ink: white over the canvas scene (see RIT_COLORS), never a theme token
   const ink = "text-white", inkMuted = "text-white/70";
   return html`<dialog id="ritual" ref=${dref} class="modal" onClose=${onClose}>
     <div ref=${boxRef} data-charge=${charge.toFixed(2)} data-key-color=${color} class=${`modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 ${ink} overflow-hidden relative`} style="background:#000">
@@ -337,8 +271,7 @@ function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
           </div>
         </div>
 
-        ${/* The colour is the querent's KEY, so it paints marks only — the ring, the number, the dot — and the
-             verb stays the farm's ink button: a colour as a background under text fails in half the picks. */""}
+        ${""}
         <div class="flex flex-col gap-4">
           <div class="flex justify-center gap-3">
             ${RIT_COLORS.map((c, i) => html`<button data-color=${i} aria-label=${`${T(t, "colorPick")} ${i + 1}`} aria-pressed=${color === i} class=${`h-8 w-8 rounded-full transition-[transform,box-shadow] ${color === i ? "ring-2 ring-offset-2 ring-offset-black scale-110" : ""}`} style=${`background:${rgba(c, color === i ? 1 : 0.6)};--tw-ring-color:${rgba(c, 1)}`} onClick=${() => setColor(i)} key=${i}></button>`)}
@@ -351,7 +284,6 @@ function Ritual({ open, onClose, onDraw, deckLen, t, loc, spreadName }) {
   </dialog>`;
 }
 
-// the single card-of-the-day: larger, with the meaning shown inline (tap the image for the full sheet too)
 function Solo({ d, pos, t, loc, onOpen }) {
   useStore(trTick);
   const c = DECK[d.card];
@@ -368,7 +300,6 @@ function Solo({ d, pos, t, loc, onOpen }) {
   </div>`;
 }
 
-// full-screen-ish detail sheet — big art + arcana/suit + orientation + full meaning. History-backed.
 function CardSheet({ open, onClose, d, pos, t, loc }) {
   useStore(trTick);
   const c = d ? DECK[d.card] : null;
@@ -380,12 +311,7 @@ function CardSheet({ open, onClose, d, pos, t, loc }) {
         <div class="text-center">
           <div class="font-bold text-xl leading-tight">${cardName(c, loc)}</div>
           <div class=${`${LBL} mt-1`}>${kind}</div>
-          ${/* Upright / reversed is a TAG on the card, and the farm already has that object: `.badge`,
-               which theme.css gives the shallow pair (a 20px chip cannot carry the full extrusion). This
-               was a hand-rolled pill whose entire body was a 15% tint of its own text colour — depth
-               faked with tone, and a fill so faint that on the light theme the chip barely existed. The
-               kit's badge carries its own contrast-checked content colour, so the word stays readable in
-               both themes. Same place, same shape, same two states. */""}
+          ${""}
           <div class=${`mt-2 badge badge-sm font-medium ${d.reversed ? "badge-warning" : "badge-secondary"}`}>${T(t, d.reversed ? "reversed" : "upright")}</div>
         </div>
         <p class="text-[0.95rem] leading-relaxed">${tr(meaningOf(d), loc)}</p>

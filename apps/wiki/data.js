@@ -1,19 +1,11 @@
-// Wikipedia search adapter. searchFetch family: the search box drives load() and the trimmed query
-// arrives as filters.q. One request per search via the Action API generator=search (rank-ordered
-// pages WITH plaintext intro extract + description + thumbnail). origin=* → CORS *, direct on any host.
 import { fetchJson } from "/_rt/feed.js";
 import { isGate, gate } from "/_rt/gate.js";
 import { letterTile } from "/_rt/tile.js";
 
 const LANGS = { uk: "Українська", en: "English", de: "Deutsch", pl: "Polski" };
 const oneLine = (s) => { s = s.replace(/\s+/g, " ").trim(); return s.length > 100 ? s.slice(0, 100).replace(/\s+\S*$/, "") + "…" : s; };
-// Not every article has a thumbnail → a deterministic letter tile so a card is NEVER image-less (keeps the
-// feed visually consistent + the "cards have a thumbnail" gate honest). Self-contained data-URI, no fetch.
 const placeholder = (title) => letterTile(title, { w: 400, h: 400, sat: 32, light: 40, fontSize: 230 });
 
-// Gate fixture: Wikipedia search goes thin/down and reds the run on a live-data e2e. In the gate we return
-// a deterministic set for any non-empty query (self-contained placeholder thumbs), so the search e2e is
-// stable regardless of the network.
 const GATE_ARTS = [
   ["Київ", "Столиця України", "Київ — столиця та найбільше місто України на річці Дніпро, одне з найдавніших міст Європи."],
   ["Україна", "Держава у Східній Європі", "Україна — держава у Східній Європі, друга за площею країна континенту."],
@@ -41,7 +33,7 @@ export async function load(filters) {
     exintro: "1", explaintext: "1", exchars: "600",
     piprop: "thumbnail", pithumbsize: "400", origin: "*",
   };
-  if (filters.cursor != null) params.gsroffset = String(filters.cursor); // infinite scroll: search offset
+  if (filters.cursor != null) params.gsroffset = String(filters.cursor);
   const api = `https://${lang}.wikipedia.org/w/api.php?` + new URLSearchParams(params);
   const data = await fetchJson(api);
   const pages = Object.values(data.query?.pages || {}).sort((a, b) => (a.index || 0) - (b.index || 0));
@@ -59,6 +51,5 @@ export async function load(filters) {
       url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, "_"))}`,
     };
   });
-  // Wikipedia signals more results via continue.gsroffset — use it verbatim as the next-page cursor.
   return { items, meta: { count: items.length }, next: data.continue?.gsroffset ?? null };
 }

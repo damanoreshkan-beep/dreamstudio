@@ -1,6 +1,3 @@
-// Audio is unavailable in the headless gate; the whole console renders statically (audioSupported guard), so
-// these check the UI wiring — station selection, faders, transport, sleep timer — not the synthesis (that's
-// the unit-tested /_rt/scifi.js formulas). Default station is "bridge" so the still is populated.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-station]")) > 0) break; await h.wait(300); } };
 
 export default [

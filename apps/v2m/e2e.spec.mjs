@@ -1,10 +1,3 @@
-// V2 Player: an AudioWorklet drives a hand-built WebAssembly V2 synth (0-import v2synth.wasm, instantiated
-// glue-free on the audio thread). Player tab = a three.js hero that draws the loaded tune's OWN bytes as a
-// point cloud + transport island; Store = the modland V2 archive read live (headless uses a fixture and the
-// bundled demo, so nothing here touches the network); Library = IndexedDB downloads with undo-delete.
-// Playing state is optimistic so the button reacts instantly and headless can assert it without real audio.
-// Tests share one page, so a previous case may have left another tab open — go to the player, then wait for
-// it. (Without the tab click this polled for an element that was never going to appear and read "" from it.)
 const ready = async (h) => {
   await h.click('[data-tab="play"]');
   for (let i = 0; i < 20; i++) { if ((await h.attr("[data-track]", "data-track")) !== "") return; await h.wait(250); }
@@ -53,9 +46,6 @@ export default [
       h.expect(n > 1, "магазин порожній");
       h.expect(/KB|MB/.test(await h.bodyText()), "на плитках немає розміру — головної цифри застосунку");
       h.expect((await h.count("[data-sort]")) >= 3, "немає перемикача сортування");
-      // Coming back must not re-run the skeletons. NOTE this assertion is weak on purpose-of-record:
-      // useReveal short-circuits under `isGate`, so headless never sits through its 1 s hold and cannot
-      // reproduce the "re-enters and reloads" bug this is written for. See docs/GATE_BLINDSPOTS.md.
       await h.click('[data-tab="play"]'); await h.wait(200);
       await h.click('[data-tab="store"]'); await h.wait(150);
       h.expect((await h.count("[data-skel]")) === 0, "магазин перезавантажується при поверненні");
@@ -89,13 +79,10 @@ export default [
       await h.click('[data-tab="store"]'); await h.wait(400);
       const id = await h.attr("[data-tune]", "data-tune");
       await h.tap("[data-tune]");
-      // assert the STATE atom mirrored into the DOM, never real audio output (headless has no device that
-      // a synthetic tap can unlock — that is an environment limit, not the app's behaviour)
       let cur = "";
       for (let i = 0; i < 20; i++) { cur = await h.attr("[data-track]", "data-track"); if (cur === id) break; await h.wait(250); }
       h.expect((await h.count("[data-track]")) === 1, "не повернувся на плеєр");
       h.expect(cur === id, "плеєр не перемкнувся на обраний трек: " + cur + " ≠ " + id);
-      // playing must NOT keep anything: the library is a shelf, not a history log
       h.expect((await h.attr("#save", "data-saved-track")) === "false", "трек зберігся сам, без кнопки");
       await h.click('[data-tab="library"]'); await h.wait(400);
       h.expect((await h.count("[data-track-row]")) === 0, "відтворення саме поклало трек у бібліотеку");

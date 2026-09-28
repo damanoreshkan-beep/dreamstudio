@@ -1,8 +1,3 @@
-// The Book of Changes casts under the gate from a FIXED line set (GATE_LINES) and a fixed journal
-// (GATE_ROWS), so the populated screen renders with no interaction and no randomness. Under the gate the
-// ceremony is INSTANT (no shuffle, no typewriter) and the answer is the fixed GATE_READING — so every
-// answer's TEXT is identical, and the dedupe branch is proven by STATE instead: [data-asked]/[data-recast]
-// appear only when a known question replayed its journal entry (g1 carries an old day on purpose).
 const ready = async (h) => { for (let i = 0; i < 15; i++) { if ((await h.count("[data-reading]")) > 0) break; await h.wait(200); } };
 
 export default [
@@ -17,9 +12,6 @@ export default [
     },
   },
   {
-    // The fixed cast has two moving lines (9 at the bottom, 6 in the middle), so the change block must
-    // show a second hexagram. A cast with no moving lines must NOT — that is asserted in the unit tests,
-    // where a fixture can be chosen freely.
     name: "рухомі лінії дають другу гексаграму", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-change]")) === 1, "немає блоку зміни");
@@ -27,8 +19,6 @@ export default [
     },
   },
   {
-    // The odds are the app's whole reason to exist: the two methods are different distributions, so the
-    // displayed ratio MUST change when the method does. Both now live at the foot of the ask act.
     name: "зміна методу змінює показані шанси", run: async (h) => {
       await ready(h);
       await h.tap("[data-ask]"); await h.wait(300);
@@ -54,8 +44,6 @@ export default [
     },
   },
   {
-    // A FRESH question: cast → the answer renders (instant under the gate), and neither the replay marks
-    // nor the recast button may appear — the entry was made today.
     name: "нове питання: кидок і відповідь, без перекидання", run: async (h) => {
       await ready(h);
       await h.tap("[data-ask]"); await h.wait(300);
@@ -70,16 +58,12 @@ export default [
     },
   },
   {
-    // A KNOWN question (g1 in the gate journal, cast on an OLD day): the entry replays — the hexagram is
-    // g1's (40), the replay date shows, and the once-a-day recast button is offered.
     name: "повторне питання: та сама відповідь і перекидання раз на день", run: async (h) => {
       await ready(h);
       await h.tap("[data-ask]"); await h.wait(300);
-      await h.type("#question", "  чи ВАРТО починати зараз ");   // normalization: case + spacing must not fork the entry
+      await h.type("#question", "  чи ВАРТО починати зараз ");
       await h.tap("[data-cast]"); await h.wait(400);
       h.expect((await h.count("[data-answer-text]")) === 1, "відповідь не зʼявилась");
-      // GATE_LINES [9,8,7,6,7,8] compute to hexagram 63 (既濟) — the number is derived from the lines,
-      // never trusted from a fixture field (the first fixture hand-wrote 40 beside these very lines).
       h.expect((await h.text("[data-a-number]")).trim() === "63", "повтор не повернув гексаграму запису журналу");
       h.expect((await h.count("[data-asked]")) === 1, "повтор без позначки первинного кидка");
       h.expect((await h.count("[data-recast]")) === 1, "немає кнопки перекидання для старого запису");
@@ -104,9 +88,6 @@ export default [
   {
     name: "i18n EN/UA міняє chrome", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
-      // Assert on strings the test is actually STANDING in front of — the profile's own labels. The first
-      // version checked "Метод", which lives on the cast tab, and the dock's tab captions, which are not
-      // guaranteed to be visible at every width. sonar already had this right.
       await h.click('[data-loc="en"]'); await h.wait(300);
       h.expect(/Language|Theme|Install/i.test(await h.bodyText()), "не EN");
       await h.click('[data-loc="uk"]'); await h.wait(300);

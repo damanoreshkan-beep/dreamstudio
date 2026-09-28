@@ -1,26 +1,3 @@
-// The presets — DATA, the whole of what is "ours" over the ready system (PixiJS 8 + pixi-filters 6.1.5, MIT).
-// One entry per theme of rt/themes.json, in the strip's order. A preset is a GRAPH (graph.js — TD's TOPs on pixi):
-//   tex     the material texture (assets/tex-<id>.webp, 1024², generated on the pods) — it DRAWS the contours and
-//           fills the tones, at an ATOMIC tile, its phase nailed to the scene by the optical flow
-//   detail  the resolution of the passes (1 = CSS px, 2 = device px on a DPR-2 phone) — a knob
-//   edge    the trace: strength (gain on the Sobel gradient), step (sample distance, px), floor (below = nothing)
-//   lines   alpha (into the loop), scale (the tile = scale × the texture's 1024 px: 0.25 = 256 px, 0.12 = 123 px —
-//           "дрібні текстурочки атомні"), speed px/s of the phase drift (a shimmer, not a film — the flow moves the
-//           rest), tempo (× on it, a knob), blend of the loop over the base (add | screen | normal | multiply),
-//           invert (a pale material draws dark), breathe (amplitude) + rate (rad/s)
-//   shade   the tone hatching: amount (0–1), on ("dark" = the shadows take the material, "light" = the lights),
-//           band [from, to] of the tone where it fades in
-//   echo    FEEDBACK: the last loop frame, advected by the flow, under the new trace — decay, zoom (per frame), rot
-//   base    the camera under it all — AS IS by default (owner: "якість камери не порти"); dim (0–1 grey) and sat
-//           (ColorMatrix saturate) exist only as knobs
-//   chain   the POST filters in pass order, `[Name, dark, light?]` (`light` merges over `dark`; `dark: null` = only
-//           on the light theme, `light: null` = only on the dark), built once per preset + mode, never per frame;
-//           `time`-driven filters (Godray, Reflection, CRT) are advanced by the view
-//   light   overrides of the graph numbers for the light theme (merged one level deep over LIGHT, then the preset)
-// Read at the source (`lib/*/*.d.ts`, 2026-09-05): Outline, Glow and Bevel work on ALPHA edges — on an opaque
-// camera sprite they draw nothing, so none is used; Emboss takes `strength` and Pixelate `size` positionally.
-// Overlay colours are the theme's own marks (rt/themes.json swatch[1], dark / light). No preset mirrors (owner:
-// "не дзеркаль бо укачує").
 export const POSITIONAL = { EmbossFilter: "strength", PixelateFilter: "size" };
 
 /** The light theme's ground for every preset: the camera still as it is, the lines over it in `normal`. */
@@ -120,10 +97,6 @@ export const PRESETS = {
 };
 export const IDS = Object.keys(PRESETS);
 
-// THE KNOBS — the fine settings behind the sliders icon (owner, 2026-09-05: "кожна тема може мати свій набор
-// тонких налаштувань"). A knob is a path into the preset's graph (or `chain.<i>.<prop>` into a post filter's
-// options) with a range; each theme names its own set. Values the person moves are stored per preset (view.js)
-// and laid over the mode's numbers.
 const K = (id, path, min, max, step = 0.01, def) => ({ id, path, min, max, step, def });
 const C = {
   intensity: K("kIntensity", "lines.alpha", 0, 1, 0.01),
@@ -139,9 +112,6 @@ const C = {
   detail: K("kDetail", "detail", 1, 2, 0.5),
 };
 const GLOW = (i) => K("kGlow", `chain.${i}.bloomScale`, 0, 2, 0.05);
-// THE ENGINE'S KNOBS — paths only the Godot stage reads (godot/portal/presets.gd carries the mode's numbers; the
-// page shows these in the APK only). look.amount = the material's eye over the plain camera; motion.lift = how
-// much the line lives on what moves; echo.warp = the wind bending the trails; lines.shimmer = the tile breathing.
 export const ENGINE_KNOBS = [
   K("kLook", "look.amount", 0, 1, 0.05, 1),
   K("kLife", "motion.lift", 0, 6, 0.1, 2.5),
@@ -213,7 +183,7 @@ export function buildChain(F, id, light, over) {
   const p = PRESETS[id] || PRESETS.plain;
   const out = [];
   p.chain.forEach(([name, dark, lite], i) => {
-    if (light ? lite === null : dark === null) return;   // a filter of the other theme
+    if (light ? lite === null : dark === null) return;
     const Cls = F[name];
     if (!Cls) { console.warn("portal: no filter", name); return; }
     const opts = light && lite ? { ...(dark || {}), ...lite } : { ...dark };

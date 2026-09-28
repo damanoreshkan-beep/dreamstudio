@@ -1,6 +1,3 @@
-// drift — generative ambient. Play stage (full-bleed field + floating islands), Shape (10 packs + 3 macros),
-// profile. Audio is guarded by audioSupported and never auto-plays; $playing flips on a real tap regardless, so
-// the transport is testable headless. No sensor hardware → no data-live requirement.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-style]")) > 0) break; await h.wait(300); } };
 
 export default [

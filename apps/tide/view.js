@@ -1,13 +1,3 @@
-// apps/tide — live currents of sound behind a WebGL field. The REGISTRY (six currents, ~60 https stations, a
-// measured `cors` flag each) and the signal maths are the unit-tested /_rt/tide.js; the field is tide.frag on
-// /_rt/glstage.js; this file is the player + the UI. One fit screen: the current strip · the now-playing void ·
-// an Island with the kit Transport (prev/next walk the current, the station picker is a history-backed Sheet).
-//
-// The audio path (RESEARCH.md §2): one new <audio> PER station switch; where the stream is CORS-open the
-// element is `crossOrigin="anonymous"` and runs through src → analyser → destination so the field breathes with
-// the real spectrum; where it is not, the element plays plainly and the field rides the idle breath. Switches
-// cross-fade (old volume → 0, new 0 → 1) — the smoothness the owner asked for is audible, not only visual.
-
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -34,68 +24,48 @@ import {
 
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 
-// ---- persisted working set ----
 const $cat = persistentAtom("tide:cat", CATEGORIES[0].id);
 const $station = persistentAtom("tide:station", stationsIn(CATEGORIES[0].id)[0].id);
-// favourites: station ids in the order they were hearted (the gate shoots the POPULATED hero: a fixture set)
 const $favs = persistentAtom("tide:favs", gate ? ["dronezone", "groovesalad", "defcon"] : [], { encode: JSON.stringify, decode: (v) => { try { const a = JSON.parse(v); return Array.isArray(a) ? a : []; } catch { return []; } } });
-const $vol = persistentAtom("tide:vol", "1");                    // one user-level volume, 0..1 (synced across devices)
+const $vol = persistentAtom("tide:vol", "1");
 const $playing = atom(false);
-const $state = atom("idle");                                     // idle | connecting | live | reconnecting | error
-const $now = atom(null);                                         // { title, artist } | null
-const $listeners = atom(gate ? FIXTURE_LISTENERS : {});          // soma id → count (sheet meta)
-const $fs = atom(false);                                         // the field is fullscreen (the screensaver)
-const $bg = atom(false);                                         // the OS media session is held (APK: a real foreground service)
+const $state = atom("idle");
+const $now = atom(null);
+const $listeners = atom(gate ? FIXTURE_LISTENERS : {});
+const $fs = atom(false);
+const $bg = atom(false);
 
 const curCat = () => categoryById($cat.get());
 const curStation = () => stationById($station.get()) || stationsIn($cat.get())[0];
 const vol = () => clampVol($vol.get());
 
-// ---- the engine (module scope: survives tab switches, shared with the lock screen) ----
 let el = null, ctx = null, src = null, analyser = null, freq = null, np = null, wl = null, nowTimer = null;
-let fails = 0, connectTimer = null;                              // auto-skip: a dead stream moves on, once per station, until the current is exhausted
-let attempt = 0, retryTimer = null, stallTimer = null;          // reconnect: a DROPPED link holds the station and retries with backoff (runtime onLoss/retryDelay)
-let mark = null, liveTimer = null;                               // liveness: currentTime is the only drop signal a seamless network handover cannot hide
+let fails = 0, connectTimer = null;
+let attempt = 0, retryTimer = null, stallTimer = null;
+let mark = null, liveTimer = null;
 let curT = {};
 const npTitle = () => curStation().name;
 const artUrl = () => { try { return new URL("icons/icon-512.png", location.href).href; } catch { return null; } };
 
-// Volume ramp on an element; iOS ignores `volume` — the cut is still correct there.
-//
-// A RAMP MUST NEVER BE THE REASON A STREAM IS INAUDIBLE, and it was. This ran on requestAnimationFrame,
-// which does NOT fire in a hidden document — so a reconnect that happened while the app was in the
-// background created a fresh element, set it to volume 0, scheduled the fade-in and then never ran a single
-// frame of it. The element streamed perfectly at volume 0 for as long as the app stayed closed; the moment
-// it was reopened rAF resumed and the fade finished in 500 ms. That IS "it went quiet after the wifi switch
-// and played the instant I opened it" — no Android freeze, no dead socket, our own fade. The currentTime
-// watchdog could never see it either: the element really was playing, just silently.
-//
-// The same hole made a PAUSE from the lock screen do nothing while hidden — the first step writes `from`
-// (k=0), so the volume stayed where it was and `done` never ran, which is where teardown lives.
-//
-// Two layers, because neither is sufficient alone. Hidden → there is no fade worth hearing, so jump to the
-// target and finish synchronously. Visible → drive it with a TIMER, not a frame: a page can be starved of
-// frames while still reporting itself visible, and the elapsed-time maths means a late timer simply snaps
-// k to 1 instead of stalling.
 function ramp(a, from, to, ms, done) {
-  const finish = () => { try { a.volume = to; } catch { /* iOS: read-only volume */ } done?.(); };
+  const finish = () => { try { a.volume = to; } catch { } done?.(); };
   const hidden = () => typeof document !== "undefined" && document.visibilityState === "hidden";
   if (hidden()) { finish(); return; }
   const t0 = performance.now();
   const step = () => {
     if (hidden()) { finish(); return; }
     const k = Math.min(1, (performance.now() - t0) / ms);
-    try { a.volume = from + (to - from) * k; } catch { /* iOS: read-only volume */ }
+    try { a.volume = from + (to - from) * k; } catch { }
     if (k < 1) setTimeout(step, 16); else done?.();
   };
   step();
 }
 function teardown(a) {
-  try { a.pause(); a.removeAttribute("src"); a.load(); } catch { /* */ }
+  try { a.pause(); a.removeAttribute("src"); a.load(); } catch { }
 }
 
 function attach(a, cors) {
-  if (src) { try { src.disconnect(); } catch { /* */ } src = null; }
+  if (src) { try { src.disconnect(); } catch { } src = null; }
   if (!cors || !AC) return;
   try {
     ctx ||= new AC();
@@ -106,13 +76,6 @@ function attach(a, cors) {
   } catch { src = null; }
 }
 
-// The OS media session. In a browser that is navigator.mediaSession: lock-screen transport, plus the audio
-// focus that keeps a hidden tab's timers un-throttled. INSIDE THE APK the identical call reaches the shell,
-// because browser-compat-data records `api.MediaSession` as webview_android:false for every member
-// (crbug 40611412) — there the handle owns a framework MediaSession behind a foreground service, and THAT
-// service is the point: without one Android may treat the process as cached, a cached process runs no
-// reconnect timer, and a stream that dropped on a wifi switch stays dead until the app is reopened. The
-// branch lives in /_rt/mediasession.js, so this file asks for a session and never asks where it runs.
 function hold() {
   if (!np) np = holdAudio({ title: npTitle(), artist: T(curT, curCat().key), artwork: artUrl(), onPlay: () => { if (!$playing.get()) start(); }, onPause: () => stop(), onPrev: () => skip(-1), onNext: () => skip(1), resumeCtx: () => ctx?.resume() });
   np.setPlaying(npTitle());
@@ -120,9 +83,6 @@ function hold() {
 }
 
 function play(station, { retryPlain = false, reconnect = false } = {}) {
-  // the gate (preflight has no media; CI must not stream a third party): the mock owns the state machine.
-  // The session is held on BOTH paths — it is the has-bridge branch, and Chromium is the only place CI can
-  // see it at all, so short-circuiting before it would leave the APK half untested for ever.
   if (gate || typeof Audio === "undefined") { $playing.set(true); $state.set("live"); hold(); pollNow(station); return; }
   if (!reconnect) attempt = 0;
   if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
@@ -135,51 +95,32 @@ function play(station, { retryPlain = false, reconnect = false } = {}) {
   if (cors) a.crossOrigin = "anonymous";
   a.src = station.url;
   el = a;
-  // a reconnect on an exhausted current (every station failed once) keeps the error line while it retries
   const waitState = reconnect ? (exhausted() ? "error" : "reconnecting") : "connecting";
   $state.set(waitState);
-  let hadAudio = false;                                          // this element produced sound → a later error is a DROP, not a dead station
+  let hadAudio = false;
   const armStall = () => { if (stallTimer) clearTimeout(stallTimer); stallTimer = setTimeout(() => { if (el === a && $state.get() !== "live") lost(a, station, hadAudio); }, 8000); };
   a.onplaying = () => { if (el !== a) return; fails = 0; attempt = 0; hadAudio = true; if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; } if (stallTimer) { clearTimeout(stallTimer); stallTimer = null; } $state.set("live"); if (!reconnect) ramp(a, 0, vol(), 500); };
-  // a live stream that stalls mid-play (the link went away) stays "waiting" for ever in some engines — an
-  // 8 s watchdog turns a stall into a reconnect; a stall that clears on its own (playing) disarms it
   a.onwaiting = a.onstalled = () => { if (el !== a) return; if (hadAudio) { $state.set("reconnecting"); armStall(); } else $state.set(waitState); };
   a.onended = () => { if (el === a) lost(a, station, hadAudio); };
-  // a CORS station whose server dropped the header errors at load: once, retry as a plain element (plays,
-  // the field goes idle) rather than dying — the registry flag was measured, servers change
   a.onerror = () => { if (el !== a) return; if (cors && !hadAudio) play(station, { retryPlain: true, reconnect }); else lost(a, station, hadAudio); };
   if (connectTimer) clearTimeout(connectTimer);
   connectTimer = setTimeout(() => { if (el === a && $state.get() !== "live") lost(a, station, hadAudio); }, 12000);
-  // A RECONNECT DOES NOT FADE IN. The fade exists to cross-fade one station into another; recovering the
-  // SAME station has nothing to cross-fade against — the old element is already dead. Starting at 0 and
-  // relying on a fade to raise it is what made a background reconnect silent, and the two guards inside
-  // ramp() both rest on assumptions this one does not need: that a WebView reports visibilityState
-  // honestly, and that a hidden page's timers are not throttled to once a minute. Full volume from the
-  // first byte depends on neither, and it is what a recovering stream should do anyway.
   a.volume = reconnect ? vol() : 0;
   attach(a, cors);
-  // NotAllowedError = no user gesture yet on THIS device (a remote play command can arrive before any tap) —
-  // that is a quiet stop, never a "dead station": lost() would cycle the whole current through fail().
   const p = a.play(); if (p && p.catch) p.catch((err) => { if (el !== a) return; if (err && err.name === "NotAllowedError") { stop(); return; } lost(a, station, hadAudio); });
   $playing.set(true);
   if (!wl) wl = wakeLock.acquire();
   hold();
-  mark = null;                                                   // a fresh element restarts the liveness marker
+  mark = null;
   if (!liveTimer) liveTimer = setInterval(probe, 4000);
   pollNow(station);
 }
 
-// The element died or stalled. A DROPPED link (it had played, or the device is offline, or we are already
-// retrying) HOLDS the station and reconnects with backoff — a live Icecast stream cannot resume, so a
-// reconnect is a fresh element; the browser's own few seconds of buffer are all the buffer there is. The
-// `online` event short-circuits the wait. A station that never produced audio while online is dead → fail().
 const exhausted = () => fails >= stationsIn($cat.get()).length;
 function lost(a, station, hadAudio) {
   if (el !== a || !$playing.get()) return;
   const online = typeof navigator === "undefined" || navigator.onLine !== false;
   if (!exhausted() && onLoss({ hadAudio, online, attempt }) === "skip") { fail(); return; }
-  // an exhausted current (a captive wifi, a dead host) is not a stop either: hold the station, keep the
-  // error line, retry at the backoff cap — `playing` resets the count the moment anything streams
   $state.set(exhausted() ? "error" : "reconnecting");
   el = null; teardown(a);
   if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
@@ -188,34 +129,22 @@ function lost(a, station, hadAudio) {
   const wait = retryDelay(attempt); attempt += 1;
   retryTimer = setTimeout(() => { retryTimer = null; if ($playing.get() && curStation().id === station.id) play(station, { reconnect: true }); }, wait);
 }
-// The drop nothing announces. Every handler above waits for an EVENT, and a wifi→cellular handover raises
-// none: Chromium sees the connection type change without a CONNECTION_NONE in between, so there is no
-// offline/online pair, while the old socket — bound to the path that just went away — quietly stops
-// delivering and the element can sit in `waiting` for ever with no terminal error. `networkState` does not
-// help (NETWORK_LOADING describes a fetch that was started, not bytes arriving). So this asks the only
-// question with an answer: has currentTime moved? The arithmetic is the runtime's progressCheck.
 function probe() {
   if (gate || !$playing.get() || !el || $state.get() !== "live") return;
   const r = progressCheck({ time: el.currentTime, mark, now: performance.now() });
   mark = r.mark;
-  if (r.dead) lost(el, curStation(), true);                      // it had played, so this holds the station and retries
+  if (r.dead) lost(el, curStation(), true);
 }
 function relink() {
   if (!$playing.get() || gate) return;
-  // mid-backoff: the path changed, so do not sit out the wait — try now
   if ($state.get() !== "live") { if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; } play(curStation(), { reconnect: true }); return; }
-  probe();                                                       // live: only currentTime can say whether it survived
+  probe();
 }
 if (typeof addEventListener !== "undefined") {
-  // the link is back: do not sit out the backoff — reconnect now (only when we are not already live)
   addEventListener("online", relink);
-  // the link CHANGED without going away — NetworkInformation is webview_android 50+, which is every shell
-  // we ship, and it is the only notice a seamless handover gives us
-  try { navigator.connection?.addEventListener?.("change", relink); } catch { /* not here: the probe still covers it */ }
+  try { navigator.connection?.addEventListener?.("change", relink); } catch { }
 }
 
-// A stream that will not play is not a screen you sit on: move to the next station in the current at once.
-// Bounded — after every station in the current has failed once the state stays "error" instead of looping.
 function fail() {
   $state.set("error");
   if (gate) return;
@@ -241,7 +170,6 @@ function stop() {
 const start = () => play(curStation());
 const toggle = () => { $playing.get() ? stop() : start(); };
 
-// prev/next walk the CURRENT current; the queue rule is the kit's (manual: a press never traps)
 function skip(d) {
   const list = stationsIn($cat.get());
   const i = Math.max(0, list.findIndex((s) => s.id === $station.get()));
@@ -254,8 +182,6 @@ function select(id) {
   if (np) np.meta(s.name);
   if ($playing.get()) play(s);
 }
-// favourites: station ids, in the order they were hearted; the heart on the transport toggles the station
-// that is playing, the hero strip (idle only) is the shortcut back to them
 function toggleFav(id) {
   const f = $favs.get();
   $favs.set(f.includes(id) ? f.filter((x) => x !== id) : [...f, id]);
@@ -267,15 +193,13 @@ function setCat(id) {
   if (!list.some((s) => s.id === $station.get())) select(list[0].id);
 }
 
-// now-playing: SomaFM's songs JSON (ACAO *), polled while a soma station plays; nothing else exposes it
-// without a proxy. Under the gate the fixture stands in — no network in CI.
 async function fetchNow(station) {
   if (!station.soma) { $now.set(null); return; }
   if (gate) { $now.set(FIXTURE_NOW); return; }
   try {
     const j = await fetchJson(`https://somafm.com/songs/${station.soma}.json`);
     if (curStation().id === station.id) $now.set(somaNow(j));
-  } catch { /* the field carries the station; a missing title is not an error */ }
+  } catch { }
 }
 function pollNow(station) {
   if (nowTimer) clearInterval(nowTimer);
@@ -286,28 +210,23 @@ let listenersAt = 0;
 async function fetchListeners() {
   if (gate || performance.now() - listenersAt < 60000) return;
   listenersAt = performance.now();
-  try { const m = somaChannels(await fetchJson("https://somafm.com/channels.json")); const out = {}; for (const k in m) out[k] = m[k].listeners; $listeners.set(out); } catch { /* */ }
+  try { const m = somaChannels(await fetchJson("https://somafm.com/channels.json")); const out = {}; for (const k in m) out[k] = m[k].listeners; $listeners.set(out); } catch { }
 }
 
 const cycleCat = (d) => { const i = CATEGORIES.findIndex((c) => c.id === $cat.get()); setCat(CATEGORIES[(i + d + CATEGORIES.length) % CATEGORIES.length].id); };
 
-// ---- cross-device sync (module scope, like the engine) ----
-// Signed in → one room per user on the edge (/_rt/sync.js, RESEARCH.md §6). Devices mirror STATE for the
-// Sound sheet and exchange COMMANDS: play/pause from the peer row, volume always (one user-level volume).
-// A local transport press stays local — remote control, not multi-room.
 let syncApi = null, volSend = null;
-const $sync = atom("off");                                       // off | conn | on
-const $peers = atom(1);                                          // room size, this device included
-const $peer = atom(null);                                        // latest remote state { playing, station, vol } | null
+const $sync = atom("off");
+const $peers = atom(1);
+const $peer = atom(null);
 const announce = () => syncApi?.sendState({ playing: $playing.get(), station: $station.get(), vol: vol() });
 $playing.listen(announce);
 $station.listen(announce);
 function setVol(v, remote) {
   const x = clampVol(v);
   $vol.set(String(x));
-  if (el) { try { el.volume = x; } catch { /* iOS: read-only volume */ } }
+  if (el) { try { el.volume = x; } catch { } }
   if (!remote && syncApi) {
-    // a slider drag is a burst — trail it so peers get one command, not sixty
     if (volSend) clearTimeout(volSend);
     volSend = setTimeout(() => { volSend = null; syncApi?.sendCmd("vol", vol()); announce(); }, 200);
   }
@@ -328,9 +247,6 @@ function syncStop() {
   $sync.set("off"); $peer.set(null); $peers.set(1);
 }
 
-// The field as a SCREENSAVER: the Fullscreen API on the field's own wrapper (a top-layer element shows alone,
-// so the canvas fills the display and the UI is gone). System Back / ESC exits natively; the button and a
-// double-tap toggle it. Guarded: iOS Safari has no element fullscreen — the action is hidden there.
 const fsSupported = typeof document !== "undefined" && !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
 function toggleFs(elm) {
   try {
@@ -339,18 +255,12 @@ function toggleFs(elm) {
     const r = elm.requestFullscreen?.({ navigationUI: "hide" }) || elm.webkitRequestFullscreen?.();
     if (r && r.catch) r.catch(() => {});
     if (!wl) wl = wakeLock.acquire();
-  } catch { /* */ }
+  } catch { }
 }
 if (typeof document !== "undefined") document.addEventListener("fullscreenchange", () => { $fs.set(!!document.fullscreenElement); if (!document.fullscreenElement && wl && !$playing.get()) { wl.release(); wl = null; } });
 
-// The current's hue is a MARK (the dots on the strip, the transport and the picker), never text — and never
-// the farm's --app-accent: that pair of light is farm-wide (rt/theme-lum.css), and writing it per current
-// repainted every bloom and rim in the material. The hue NUMBER is the current's data; its saturation and
-// lightness are the theme's (`--tide-s` / `--tide-l` in head.html, deeper on paper), so the colour is
-// composed by CSS and flips with the theme instead of being fixed by JS at render.
 const hue = (h) => `hsl(${h} var(--tide-s) var(--tide-l))`;
 
-// ---- the field's signal: read every frame by GlStage through `vary`/`ink` (no second rAF loop) ----
 const env = { bass: 0.25, mid: 0.2, treble: 0.12, phase: 0, last: 0, tick: 0, ready: 0, readyTo: 0 };
 function bands() {
   const now = performance.now();
@@ -365,13 +275,12 @@ function bands() {
   }
   env.bass = settle(env.bass, target.bass); env.mid = settle(env.mid, target.mid); env.treble = settle(env.treble, target.treble);
   env.phase += phaseStep(dt, (env.bass + env.mid) * 0.5);
-  env.ready = settle(env.ready, env.readyTo, 0.04, 0.08);       // a palette fades in / a swap cross-fades, never cuts
+  env.ready = settle(env.ready, env.readyTo, 0.04, 0.08);
   return [env.bass, env.mid, env.treble, env.phase];
 }
 const inkFor = () => { const [r, g, b] = hslRgb(curCat().hue, 45, 52); return [r, g, b, env.ready]; };
 const seedFor = (s) => (s.id.split("").reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 97) / 97;
 
-// ================= Listen: the strip · the void · the transport =================
 export function tide({ S }) {
   const t = useStore(S.t); curT = t;
   const loc = useStore(S.locale);
@@ -381,20 +290,13 @@ export function tide({ S }) {
   const screen = useStore(S.screen), fs = useStore($fs), bg = useStore($bg);
   const cat = categoryById(catId), station = stationById(stId) || stationsIn(catId)[0];
   const fieldRef = useRef();
-  // the field's gestures — swipe down/up = next/prev station, left/right = next/prev current, double-tap =
-  // fullscreen; the same handlers sit on the void (normal) and on the field wrapper (fullscreen, where the
-  // wrapper is the only element on the display). A button covers every gesture (a gesture is never the only way).
   const swipe = useSwipe({ onDown: () => skip(1), onUp: () => skip(-1), onLeft: () => cycleCat(1), onRight: () => cycleCat(-1) });
   const tap = useTap({ onDouble: () => toggleFs(fieldRef.current) });
   const surface = { ...swipe, onClick: tap };
   const currents = CATEGORIES.map((c) => ({ id: c.id, label: T(t, c.key), dot: hue(c.hue) }));
   const isFav = favs.includes(station.id);
-  // the hero's favourites — a frost rail of the hearted stations (each pill wears its current's hue), shown
-  // only while nothing plays: once a station is live the void belongs to the track
   const favItems = favs.map(stationById).filter(Boolean).map((s) => ({ id: s.id, label: s.name, dot: hue(categoryById(s.cat).hue) }));
   useEffect(() => { if (screen === "stations") fetchListeners(); }, [screen]);
-  // the session drives the sync engine: signed in → the user's room, signed out → torn down. restore() is
-  // optimistic and gate-safe (mock session under the gate, so the shot sees the populated Sound sheet).
   useEffect(() => {
     restore();
     const apply = (s) => { s ? syncStart(s.sid) : syncStop(); };
@@ -415,12 +317,9 @@ export function tide({ S }) {
       <div class="shrink-0"><${Segmented} attr="data-current" scroll variant="outline" tone="frost" label=${T(t, "tabListen")}
         items=${currents} value=${catId} onChange=${setCat} /></div>
 
-      ${/* the void: what is playing right now, in the field — the station lives on the transport, the
-           TRACK lives here (one representation per state; the two are different states) */""}
+      ${""}
       <div class="flex-1 min-h-0 flex flex-col justify-end px-1 gap-0.5 touch-none" data-now=${now ? "yes" : "no"} data-void ...${surface}>
-        ${/* two lines, always: ARTIST · STATE (mono) over the title (one line, ellipsis) — a two-line clamp
-             clipped its descenders in the ~60px void a 340px split window leaves; a fixed two-line block
-             never does, at any height the density ladder reaches */""}
+        ${""}
         ${!playing && favItems.length ? html`<div class="shrink-0 self-start max-w-full mb-1" data-favs><${Segmented} attr="data-fav" scroll variant="outline" tone="frost" size="sm" label=${T(t, "favs")}
           items=${favItems} value=${station.id} onChange=${(id) => { const f = stationById(id); if (f && f.cat !== catId) setCat(f.cat); select(id); start(); }} /></div>` : null}
         ${(now || stateLine) ? html`<div class=${`font-mono uppercase tracking-wider text-[length:var(--ms-label)] truncate ${state === "error" ? "text-error" : "text-base-content/70"}`}>${[now?.artist, stateLine].filter(Boolean).join(" · ")}</div>` : null}
@@ -434,8 +333,6 @@ export function tide({ S }) {
           subtitle=${html`<span class="inline-flex items-center gap-1.5"><span class="tide-dot inline-block w-1.5 h-1.5 rounded-full shrink-0"></span>${T(t, cat.key)} · ${T(t, station.genre)}</span>`}
           actions=${[
             { id: "fav", icon: "lucide:heart", label: T(t, isFav ? "aUnfav" : "aFav"), active: isFav, pressed: isFav, onClick: () => toggleFav(station.id), attr: { "data-fav-btn": "" } },
-            // id ≠ the Sound Sheet's dialog id — Transport writes the action id onto the button element,
-            // and two #sound nodes would send every e2e prop() to the wrong one
             { id: "soundbtn", icon: "lucide:volume-2", label: T(t, "aSound"), onClick: () => S.screen.set("sound"), attr: { "data-sound": "" } },
             { id: "list", icon: "lucide:list-music", label: T(t, "aStations"), onClick: () => S.screen.set("stations"), attr: { "data-stations": "" } },
             ...(fsSupported ? [{ id: "fs", icon: fs ? "lucide:minimize" : "lucide:maximize", label: T(t, fs ? "aFsExit" : "aFs"), onClick: () => toggleFs(fieldRef.current), attr: { "data-fs-btn": "" } }] : []),
@@ -448,15 +345,11 @@ export function tide({ S }) {
   </${Fragment}>`;
 }
 
-// The Sound sheet: the one volume (user-level, synced), then the devices — signed out it IS the sign-in
-// surface for sync; signed in it shows the room and remote play/pause for the peer. Copy rule: the signed-out
-// text is the screen's content (an empty state), not a caption on a control.
 function SoundSheet({ S, t, loc, open }) {
   const sess = useStore(session);
   const sync = useStore($sync), peers = useStore($peers), peer = useStore($peer);
   const v = clampVol(useStore($vol));
   const peerStation = peer && stationById(peer.station);
-  // `length:` is load-bearing — a bare `text-[var(--ms-label)]` is a COLOUR to Tailwind v4
   const label = "font-mono uppercase tracking-wider font-semibold text-[length:var(--ms-label)] text-base-content/70";
   const meta = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
   return html`<${Sheet} id="sound" open=${open} onClose=${() => S.screen.set(null)} title=${T(t, "aSound")} icon="lucide:volume-2" tone="frost">
@@ -490,8 +383,6 @@ function SoundSheet({ S, t, loc, open }) {
   <//>`;
 }
 
-// The station picker: ONE current per sheet (the strip already chose it), rows tap to play. The sheet's inner
-// scroll is the farm's one sanctioned nested scroll, so a 12-row current fits every height.
 function StationSheet({ S, t, open, cat, stId, playing }) {
   const listeners = useStore($listeners);
   const list = stationsIn(cat.id);

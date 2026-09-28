@@ -1,6 +1,3 @@
-// The gate seeds a fixed date (2027-07-23) so the card of the day is reproducible, and non-daily spreads
-// use a deterministic seed per (spread, shuffle-count) so draws are stable yet shuffle still changes them.
-// Card art is the vendored public-domain RWS scans — no emoji anywhere.
 export default [
   {
     name: "card of the day renders: 11 spreads, one card + meaning", run: async (h) => {
@@ -25,7 +22,6 @@ export default [
   {
     name: "shuffle re-draws", run: async (h) => {
       await h.click('[data-spread="ppf"]'); await h.wait(150);
-      // compact tiles show no card name — the drawn card is identified by its art, so compare the image
       const before = await h.attr("[data-reading] img", "src");
       await h.click("[data-shuffle]"); await h.wait(150);
       h.expect((await h.attr("[data-reading] img", "src")) !== before, "перетасування не змінило розклад");

@@ -1,4 +1,3 @@
-// Poll on [data-fav] (real result cards), not .card — the loading Skeleton also renders .card divs.
 const load = async (h) => { for (let i = 0; i < 24; i++) { if ((await h.count("[data-fav]")) > 0) break; await h.wait(500); } };
 
 export default [
@@ -10,8 +9,6 @@ export default [
     },
   },
   {
-    // The drill-down contract: a tap opens the in-app detail; the outbound link lives INSIDE it. This test
-    // used to assert the opposite — that .card was an <a href> — so the gate was guarding the anti-pattern.
     name: "картка → деталі → кнопка відкрити", run: async (h) => {
       await load(h);
       h.expect((await h.count(".card[href]")) === 0, "картка — зовнішнє посилання; тап має вести в деталі");

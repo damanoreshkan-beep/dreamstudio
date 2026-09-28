@@ -1,22 +1,3 @@
-// iching — the Yijing (易經) casting math. Pure functions over numbers: no DOM, no store, no text.
-// The hexagram DATA (names, canonical text) is app-owned, like apps/tarot/deck.js; this module owns only
-// what can be got WRONG silently, which is all of it.
-//
-// Everything here is sourced in docs/research/iching.md. The three facts that matter:
-//
-// 1. THE TWO METHODS ARE NOT THE SAME DISTRIBUTION, and this is the thing digital I Ching apps erase.
-//    Three coins are symmetric: 6 and 9 both 1/8. Yarrow stalks are NOT: 6 is 1/16 but 9 is 3/16, so a
-//    yang→yin change is three times likelier than yin→yang. Picking a uniform random 6..9 — the usual
-//    shortcut — is neither, and it silently changes what the oracle says.
-//
-// 2. LINES ARE BUILT BOTTOM-UP. The first line cast is the BOTTOM line (初爻), the sixth is the top (上爻).
-//    Getting this backwards yields a different, perfectly valid-looking hexagram, with no error anywhere.
-//    So the array is bottom-first, always, and only the renderer reverses.
-//
-// 3. INVERSION IS NOT TRANSFORMATION. Inversion (反卦) reverses the line ORDER and is what relates King Wen
-//    pairs. Transformation flips the MOVING lines and is what produces the second hexagram of a reading.
-//    They are different operations on the same six bits and the farm's own naming keeps them apart.
-
 /** Line values. 6 and 9 move; 7 and 8 are static. */
 export const OLD_YIN = 6, YOUNG_YANG = 7, YOUNG_YIN = 8, OLD_YANG = 9;
 
@@ -31,9 +12,6 @@ export const METHODS = {
   yarrow: { id: "yarrow", weights: { 6: 1, 7: 5, 8: 7, 9: 3 }, total: 16 },
 };
 
-// Both methods produce a moving line exactly 1/4 of the time — coins 2/8, yarrow 4/16. What differs is
-// WHICH way it moves. Asserted in the unit test so a future edit to the weights cannot break it quietly.
-
 /** Draw one line value from a method, given a random source in [0,1). */
 export function castLine(method = "yarrow", rnd = Math.random) {
   const m = METHODS[method];
@@ -43,7 +21,7 @@ export function castLine(method = "yarrow", rnd = Math.random) {
     n -= m.weights[v];
     if (n < 0) return Number(v);
   }
-  return YOUNG_YIN;                       // unreachable while the weights sum to total
+  return YOUNG_YIN;
 }
 
 /** Six line values, BOTTOM FIRST. `lines[0]` is the bottom line (line 1). */
@@ -75,9 +53,6 @@ export const keyOf = (bits) => bits.reduce((n, b, i) => n | (b << i), 0);
 /** …and back. */
 export const bitsFromKey = (k) => Array.from({ length: 6 }, (_, i) => (k >> i) & 1);
 
-// ── the eight trigrams (bagua) ────────────────────────────────────────────────────────────────────
-// `bits` is bottom-first, matching everything else here. The common way to get this wrong is to copy a
-// table written top-first (as the Unicode glyphs are drawn) into a bottom-first runtime.
 export const TRIGRAMS = [
   { key: 0b000, cn: "坤", pinyin: "Kūn", en: "Earth", glyph: "☷" },
   { key: 0b001, cn: "震", pinyin: "Zhèn", en: "Thunder", glyph: "☳" },
@@ -93,11 +68,6 @@ export const trigramOf = (k) => TRIGRAMS[k & 0b111];
 export const lowerTrigram = (bits) => trigramOf(keyOf(bits.slice(0, 3)));
 export const upperTrigram = (bits) => trigramOf(keyOf(bits.slice(3, 6)));
 
-// ── King Wen order ───────────────────────────────────────────────────────────────────────────────
-// KING_WEN[n - 1] is the bit key of hexagram n. This is a canonical fixture, not a derivation: there is
-// no accepted algorithm that generates the King Wen order, so it can only be transcribed — and therefore
-// it has to be CHECKED. The unit test validates it three ways (pair rule, completeness, anchors), which
-// between them catch a flipped bit, a duplicate, a wrong partner and a reversed reading direction.
 export const KING_WEN = [
   0b111111, 0b000000, 0b010001, 0b100010, 0b010111, 0b111010, 0b000010, 0b010000,
   0b110111, 0b111011, 0b000111, 0b111000, 0b111101, 0b101111, 0b000100, 0b001000,
@@ -130,14 +100,12 @@ export function reading(lines) {
   const moving = movingLines(lines);
   const toBits = transform(lines);
   return {
-    lines,                                   // 6/7/8/9, bottom first
+    lines,
     bits,
     number: hexagramNumber(bits),
     lower: lowerTrigram(bits),
     upper: upperTrigram(bits),
-    moving,                                  // 1-based from the bottom
-    // A reading with no moving lines has ONE hexagram. Reporting an identical second one as a result
-    // is the app inventing a change the cast did not produce.
+    moving,
     changing: moving.length > 0,
     toBits: moving.length ? toBits : null,
     toNumber: moving.length ? hexagramNumber(toBits) : null,

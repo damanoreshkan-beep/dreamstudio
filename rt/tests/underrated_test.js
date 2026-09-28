@@ -1,10 +1,6 @@
-// microspec runtime — underrated unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { scoreRepo, parseFunding, ageDays, hostLabel } from "../underrated.js";
 
-// ── underrated: why a developer deserves a lift, and the FUNDING.yml → support links ────────────────────
 Deno.test("scoreRepo: fresh, low-star, solo, documented project scores high with ordered reasons", () => {
   const NOW = Date.parse("2026-07-25T00:00:00Z");
   const { score, reasons } = scoreRepo({
@@ -12,7 +8,6 @@ Deno.test("scoreRepo: fresh, low-star, solo, documented project scores high with
     ownerFollowers: 40, goodFirst: 3, description: "A tiny well-made CLI for tidying imports",
   }, NOW);
   assert(score >= 80, `expected a strong lift, got ${score}`);
-  // freshness first, then the under-recognised / welcomes-help / solo / documented / rising signals.
   assertEquals(reasons[0], "reasonFresh");
   assert(reasons.includes("reasonFewStars"));
   assert(reasons.includes("reasonNeedsHelp"));

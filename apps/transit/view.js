@@ -1,17 +1,3 @@
-// Transits — what today's sky is doing TO YOUR CHART. Without a birth moment a "transit" is just a planet
-// somewhere, so this app is built around the natal chart: a birth date, a birth TIME (to the second) and a
-// birth PLACE resolve to one exact UTC instant, and everything else is derived from it.
-//
-// The precision lives in the SYSTEMIC runtime, not here (see apps/transit/RESEARCH.md for the derivations
-// and the measurements that verify them):
-//   /_rt/birth   — the record, and the wall-clock → UTC resolution with three ways to name the offset.
-//   /_rt/natal   — Ascendant, Midheaven, Vertex, four house systems, transit orbs, exact-hit root finding.
-//   /_rt/astro   — the ephemeris, and the two wrappers that feed the frame (RAMC + true obliquity) in.
-//   /_rt/places  — the geocoder that supplies lat/lng AND the IANA zone, Cyrillic input included.
-//
-// Three tabs: the bi-wheel (natal inside, transits outside, contacts as chords), the hits (each contact
-// with the instant it perfects, quoted only as finely as the body's speed honestly allows), and the chart
-// (every natal placement with its house, plus the angles and cusps).
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
@@ -36,68 +22,44 @@ import { Scramble } from "/_rt/skeleton.js";
 import { gate } from "/_rt/gate.js";
 import { Sheet, Segmented, Panel } from "/_rt/ui.js";
 
-// Synastry between two people, re-exported from its own module. It was apps/compat, and its whole apparatus
-// was already a subset of this one's — zodiac.Sign, astro.eclipticPositions, synastry.{signOf,compat,band},
-// all of which transit imports anyway alongside natal, birth, skydial and houses. A different reading of
-// the same sky is a tab, not an app.
 export { match } from "./match.js";
 import { Reading } from "./reading.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const DAY = 86400000;
-// the farm's mono micro-label (the density token, never a literal size) and the small mono readout beside it
 const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const META = "font-mono text-[length:var(--ms-label)] text-base-content/70";
-// standard chart orientation: 0° Aries at the left (9 o'clock), signs run COUNTER-clockwise. The dial angle
-// is 0=up / clockwise, so screen angle = 270 − ecliptic longitude.
 const wheelAngle = (lon) => norm360(270 - lon);
 const signOf = (lon) => Math.floor(norm360(lon) / 30);
 const degIn = (lon) => norm360(lon) % 30;
 const bodyLabel = (t, k) => T(t, k === "asc" || k === "mc" ? (k === "asc" ? "angAsc" : "angMc") : "b" + k[0].toUpperCase() + k.slice(1));
-// point on a unit dial (0=up, clockwise) as [x%, y%] — for the ring / cusp / chord SVG overlay
 const pt = (deg, r) => { const a = deg * Math.PI / 180; return [(50 + r * Math.sin(a)).toFixed(2), (50 - r * Math.cos(a)).toFixed(2)]; };
-// 11°Can39' — how an astrologer reads a longitude
 const dm = (lon) => { const d = degIn(lon), g = Math.floor(d); return `${g}°${String(Math.floor((d - g) * 60)).padStart(2, "0")}'`; };
 
 const ASPECT_HUE = { soft: "var(--color-success)", hard: "var(--color-error)", neutral: "var(--color-base-content)" };
 const ASPECT_DASH = { soft: "", hard: "2 2.4", neutral: "0.6 2" };
 const ASPECT_KEY = { conjunction: "aspConjunction", sextile: "aspSextile", square: "aspSquare", trine: "aspTrine", opposition: "aspOpposition" };
-// Two presets and a calendar. A ±week/±month jump is a guess at which day someone means; the two days that
-// are named in a language ("today", "tomorrow") are the ones worth a chip, and everything else is a DATE —
-// so the third control is the platform's own picker rather than a fourth approximation.
 const CHIPS = [[0, "today"], [1, "tomorrow"]];
-const SCRUB = 365;                                      // the window the slider covers, and the picker with it
+const SCRUB = 365;
 const pad2 = (n) => String(n).padStart(2, "0");
-// LOCAL calendar day, never toISOString() — a UTC ISO string names yesterday for anyone west of Greenwich.
 const ymd = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 const midnight = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-// A picked calendar day → the offset in whole days, measured between local midnights and rounded: a DST
-// hour inside the span would otherwise make 20 days 19.96 and floor it to 19.
 const dayOffset = (s, now) => { const [y, m, d] = s.split("-").map(Number); return Math.round((midnight(new Date(y, m - 1, d)) - midnight(now)) / DAY); };
 const clampScrub = (n) => Math.max(-SCRUB, Math.min(SCRUB, n));
 
-// Under the gate everything is pinned — a fixed birth record AND a fixed "now" — so the CI shot, the axe
-// pass and the e2e assertions see the same sky on every run. A live clock would make the shot a lottery.
 const GATE_BIRTH = { date: "1990-07-15", time: "14:32:00", zoneMode: "place", offset: "",
   place: { id: 703448, name: "Kyiv", country: "Ukraine", countryCode: "UA", region: "Kyiv", lat: 50.45466, lng: 30.5238, zone: "Europe/Kyiv" } };
 const NOW = () => (gate ? new Date("2026-07-25T12:00:00Z") : new Date());
 
 const $birth = persistentAtom("transit:birth", gate ? GATE_BIRTH : null, BIRTH_CODEC);
-const $offset = atom(0);                               // days from today, shared by the wheel and the hits
+const $offset = atom(0);
 
-// Fixed readings so the CI shot, the axe pass and the e2e assertions are deterministic and offline (live
-// positions vary by run time, and the gate never reaches the network). Each is the LONGEST the prompt's
-// sentence budget allows, because the string nobody measures is the one that overflows a sheet.
 const GATE_INTERP = { uk: "Сатурн у квадратурі до натального Сонця робить цей період вимогливим: те, що ти будуєш, перевіряють на міцність, і поспіх лише додасть тертя. Транзитний Меркурій ретроградним рухом повертає до старої розмови, яку варто переписати, а не форсувати. Тригон Юпітера до натального Місяця дає тиху опору — рухайся послідовно, і обов'язок обернеться на структуру, а не на пастку.", en: "Saturn square your natal Sun makes this stretch exacting: what you are building is being tested for load, and pushing only adds friction. A retrograde Mercury turns you back to an old conversation worth rewriting rather than forcing. Jupiter's trine to your natal Moon lends quiet support — move step by step and the duty becomes structure, not a snare." };
 const GATE_TRANSIT = { uk: "Сонце проходить квадратурою до твого Асцендента — до самої точки, якою ти зустрічаєш світ. Сонце освітлює те, чого торкається, і ненадовго робить це центром: кілька днів навколо тебе більше уваги, ніж зазвичай, і менше можливості лишитися непоміченим. Квадратура означає тертя між тим, ким ти є всередині, і тим, як тебе бачать, — щось одне доведеться посунути. Орб уже менший за градус і аспект сходиться, тож це відбувається зараз, а не насувається. Сонце проходить градус за добу, тому мірою тут є дні: за тиждень від цього лишиться тільки те, що ти встиг(ла) з ним зробити.", en: "The Sun is passing square your Ascendant — the very point you meet the world with. The Sun lights up whatever it touches and briefly makes it the centre: for a few days there is more attention on you than usual and less room to go unnoticed. A square means friction between who you are inside and how you are seen, and one of the two will have to give. The orb is already inside a degree and the aspect is applying, so this is happening now rather than approaching. The Sun covers a degree a day, so the unit here is days: in a week only what you did with it will be left." };
 const GATE_PLACEMENT = { uk: "Місяць — це те, чим ти реагуєш раніше за думку, і в Рибах він реагує співчуттям: межа між твоїм і чужим станом тут тонка, і ти вбираєш настрій кімнати, ще не встигнувши його назвати. У пʼятому домі це виходить назовні як творення і прив'язаність — тебе живить те, що зроблено з любові й для когось конкретного. Сила цього положення в уяві та відгуку, ціна — у дрейфі й у чужому смутку, взятому за власний. Навчитися розрізняти, чиє це почуття, тут важливіше, ніж навчитися його стримувати.", en: "The Moon is what reacts in you before thought does, and in Pisces it reacts with sympathy: the line between your state and someone else's is thin here, and you absorb the mood of a room before you can name it. In the fifth house that comes out as making things and as attachment — you are fed by what is made out of love and for someone in particular. The gift of this placement is imagination and responsiveness; the cost is drift, and other people's sadness carried as your own. Learning whose feeling it is matters more here than learning to hold it in." };
 const GATE_HOUSE = { uk: "Другий дім — це те, що ти вважаєш своїм: гроші, речі, здатність заробити і власне відчуття вартості. Стрілець на куспіді додає сюди широти й віри в те, що вистачить, — ти радше ризикнеш і доробиш, ніж будеш рахувати наперед. Управитель цього дому Юпітер стоїть у девʼятому, а це означає, що твої ресурси майже завжди переплетені з чужими: спільні бюджети, борги, спадок, домовленості на довіру. Планет у самому домі немає, і в традиції це не порожнеча — просто справи цього дому робляться там, де стоїть його управитель. Тож питання не в тому, скільки в тебе є, а з ким це «є» пов’язане.", en: "The second house is what you count as yours: money, possessions, the ability to earn, and your own sense of worth. Sagittarius on the cusp brings width and a working faith that there will be enough — you would rather take the risk and make it up afterwards than count in advance. Jupiter rules this house and stands in the ninth, which means your resources are almost always tangled with someone else’s: shared budgets, debts, inheritance, arrangements held together by trust. No planet stands in the house itself, and in the tradition that is not emptiness — the affairs of the house are simply carried out where its ruler sits. So the question is less how much you have than whose it is bound up with." };
 const GATE_PORTRAIT = { uk: "Сонце в Раку при Асценденті в Терезах дає поєднання обережного серця і привітної поверхні: ти зустрічаєш світ рівно й тактовно, а вирішуєш усе всередині, за зачиненими дверима. Місяць у Рибах поглиблює це — реакція йде раніше за слова, і вона майже завжди про когось іншого. \n\nУправителька карти Венера стоїть у восьмому домі, тож те, що для тебе справді важить, ніколи не лежить на видноті: близькість тут вимірюється мірою довіри, а не кількістю часу. У карті переважає вода при браку вогню, і це означає, що почати щось тобі важче, ніж витримати. Кардинальна якість дає поштовх, але поштовх цей іде від обставин, а не від нетерпіння. \n\nНайщільніший аспект — тригон Сонця до Місяця: воля і почуття тут не воюють, і саме тому ти рідко помічаєш, наскільки на них спираєшся. Сатурн у десятому домі додає до цього обовʼязок, який ти сам собі виписав. Разом це карта людини, яку легко недооцінити ззовні й важко зрушити зсередини.", en: "A Cancer Sun under a Libra Ascendant sets a careful heart behind an agreeable surface: you meet the world evenly and tactfully, and decide everything inside, behind a closed door. The Moon in Pisces deepens that — the reaction comes before the words, and it is almost always about someone else. \n\nVenus, ruler of the chart, stands in the eighth house, so what actually matters to you is never left in plain view: closeness here is measured in trust rather than in hours. Water dominates the chart and fire is thin, which means starting a thing costs you more than enduring it. The cardinal emphasis does supply a push, but the push comes from circumstance rather than impatience. \n\nThe tightest aspect is the Sun trine the Moon: will and feeling are not at war here, which is exactly why you rarely notice how much you lean on them. Saturn in the tenth adds a duty you wrote for yourself. Together this is the chart of someone easy to underestimate from outside and hard to move from within." };
 
-// ── the chart, computed once and shared by all three tabs ──────────────────────────────────────────────
-
-// Everything derived from the stored record + the scrubbed date. Memoised on the inputs that actually move,
-// because a Placidus solve plus twenty ephemeris evaluations per render would make the scrubber crawl.
 function useChart(S) {
   const rec = useStore($birth), offset = useStore($offset), filters = useStore(S.filters);
   const [, tick] = useState(0);
@@ -117,15 +79,12 @@ function useChart(S) {
     const H = natalHouses(b.date, b.lat, b.lng, system);
     const natal = eclipticPositions(b.date, shown);
     const natalRetro = Object.fromEntries(eclipticPositions(new Date(b.ms - DAY), shown).map((p) => [p.key, p.lon]));
-    // the angles join the natal points: a transit to the Ascendant or Midheaven is the loudest kind there is
     const targets = [...natal, { key: "asc", lon: H.asc }, { key: "mc", lon: H.mc }];
     const hits = transits(sky, targets, { prev: prevMap, orb: TRANSIT_ORB.range });
     return { rec, b, when, sky, prevMap, retro, shown, ready: true, H, natal, targets, hits, system: H.system,
       natalRetroFor: (k, lon) => (k === "sun" || k === "moon" || natalRetro[k] == null) ? false : wrap180(lon - natalRetro[k]) < 0 };
   }, [rec, offset, shownKey, system, Math.floor(Date.now() / 60000)]);
 }
-
-// ── the empty state — no chart without a birth moment ──────────────────────────────────────────────────
 
 const NeedBirth = ({ t, onOpen }) => html`<div data-need-birth class="flex flex-col items-center gap-4 py-14 px-6 text-center">
   <div class="rounded-full sf-raised sf-e3 p-4 text-base-content/70">${Icon("lucide:calendar-clock", "text-3xl")}</div>
@@ -135,24 +94,6 @@ const NeedBirth = ({ t, onOpen }) => html`<div data-need-birth class="flex flex-
   </button>
 </div>`;
 
-// ── the reading sheets: facts first, tradition second, AI third ────────────────────────────────────────
-//
-// Three surfaces (one contact · one placement · the whole chart) that share one shape, and the order of
-// that shape is the whole argument. A reading is only worth anything if it is TRUE, and a language model is
-// the least reliable thing in this app — so the two layers below the prose come from local data and are
-// always there:
-//
-//   the READING   — the model's synthesis. It can fail, and when it does the sheet is still complete.
-//   the FACTS     — what the ephemeris and the trigonometry computed, quoted at the precision they earn.
-//   the MEANINGS  — the sourced significations corpus (/_rt/signif.js), the same entries the model was
-//                   handed. Anyone can compare the paragraph against them, which is the point.
-//
-// The model gets exactly the third layer plus the second, and is told to add nothing (see the astro prompts
-// in the edge's ai-prompts.js). Its job here is connective prose in the reader's language, not knowledge.
-
-// `S.screen` is one string and it is history-backed by the runtime, so a sub-screen that has to remember
-// WHICH item it is showing carries the item in its own key. These prefixes are also what `?screen=` accepts,
-// which is how the reading sheets can be shot and reviewed at all (render.js).
 const READ_TRANSIT = "tr:", READ_PLACEMENT = "pl:", READ_CUSP = "cu:", READ_PORTRAIT = "portrait", READ_ASK = "ask";
 const readScreen = (screen, pfx) => (typeof screen === "string" && screen.startsWith(pfx)) ? screen.slice(pfx.length) : null;
 
@@ -167,17 +108,13 @@ const Section = (label, body) => html`<div class="flex flex-col gap-1.5">
   <div class=${LBL}>${label}</div>
   ${body}
 </div>`;
-// a section's box: a well inside the sheet, so it takes the inner radius
 const WELL = "rounded-[var(--ms-r-in)] sf-inset px-3 py-1";
 
-// A computed fact: a mono label and the number or word it names. Nothing here came from a model.
 const Fact = (label, value, key) => html`<div data-fact=${key || null} class="flex items-baseline gap-3 py-1.5 border-b border-base-300/40 last:border-0">
   <span class=${`${LBL} w-[5.5rem] shrink-0`}>${label}</span>
   <span class="text-[0.84rem] min-w-0 flex-1">${value}</span>
 </div>`;
 
-// One corpus entry, attributed to the piece of the chart it belongs to — so the paragraph above can be
-// checked against it rather than taken on trust.
 const Mean = (src, text) => html`<div data-mean class="py-1.5 border-b border-base-300/40 last:border-0">
   <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-primary">${src}</div>
   <div class="text-[0.84rem] leading-snug">${text}</div>
@@ -187,9 +124,6 @@ const cap1 = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const signName = (t, i) => T(t, "s" + i);
 const digKey = (d) => "dig" + cap1(d);
 
-// An exact hit, quoted only as finely as the body's speed honestly allows: the Moon to the second, Saturn to
-// the minute, Pluto to the day (RESEARCH.md §5). Module-level because the Timing tab and the transit sheet
-// must never disagree about how precise a date is allowed to look.
 function fmtHitAt(ms, prec, locale) {
   const loc = locale === "en" ? "en-GB" : locale || "uk";
   const d = new Date(ms);
@@ -201,13 +135,8 @@ function fmtHitAt(ms, prec, locale) {
   return `${date}, ${time}`;
 }
 
-// ── the per-transit sheet ──────────────────────────────────────────────────────────────────────────────
-
 function TransitSheet({ open, onClose, C, t, loc, dateLabel }) {
   const a = (open && C.ready) ? C.hits.find((x) => hitKey(x) === open) : null;
-  // The sheet solves its OWN contact rather than being handed the Timing tab's table: one contact is ~57 ms
-  // at worst (RESEARCH.md §6), so it is affordable anywhere, and it means the wheel tab's contact rows open
-  // the same sheet without the wheel paying for twenty root-finds it never shows.
   const [times, setTimes] = useState(null);
   const akey = a ? hitKey(a) : "", whenMs = C.when.getTime();
   useEffect(() => {
@@ -259,8 +188,6 @@ function TransitSheet({ open, onClose, C, t, loc, dateLabel }) {
   </${Sheet}>`;
 }
 
-// ── the per-placement sheet ────────────────────────────────────────────────────────────────────────────
-
 function PlacementSheet({ open, onClose, C, t, loc }) {
   if (!open || !C.ready) return null;
   const key = open;
@@ -301,11 +228,6 @@ function PlacementSheet({ open, onClose, C, t, loc }) {
   </${Sheet}>`;
 }
 
-// ── the per-house sheet, opened from a cusp ────────────────────────────────────────────────────────────
-
-// The reading with the most technique in it. A cusp row shows a number, a glyph and a degree; what it
-// cannot show is that the house is DELEGATED to the ruler of the sign on it, and that the ruler lives
-// somewhere else in the chart. That sentence is the whole reason this sheet exists.
 function CuspSheet({ open, onClose, C, t, loc }) {
   if (open == null || !C.ready) return null;
   const house = Number(open);
@@ -348,17 +270,6 @@ function CuspSheet({ open, onClose, C, t, loc }) {
   </${Sheet}>`;
 }
 
-// ── the ten questions ──────────────────────────────────────────────────────────────────────────────────
-//
-// A chat with no text field. Ten questions, tapped rather than typed, and that is a feature three times over:
-// each question declares the significators it may be answered from (so the grounding is exact rather than
-// "here is the whole chart, good luck"), there is no user text to smuggle instructions in, and ten questions
-// against one chart is ten cached answers rather than an unbounded bill.
-//
-// The thread is a log, not a conversation: every answer is an independent grounded reading, so there is no
-// history to fold and no follow-up to resolve. Asking is append-only and the asked list persists, because
-// the answers are the point of coming back.
-
 const $asked = persistentAtom("transit:asked", gate ? ["love", "workNow"] : [], {
   encode: JSON.stringify,
   decode: (s) => { try { const a = JSON.parse(s); return Array.isArray(a) ? a.filter((x) => questionById(x)) : []; } catch { return []; } },
@@ -369,7 +280,6 @@ const GATE_ASK = {
   workNow: { uk: "Зараз у роботі рухається одне: транзитний Сатурн у тригоні до твого Середини Неба, орб 0.63° і аспект розходиться. Сатурн перевіряє на міцність те, що вже збудовано, а тригон означає, що перевірка йде без опору — радше визнання, ніж тиск. Він стає точним тричі: 29 червня 2026, 23 серпня 2026 і 10 березня 2027, бо між ними Сатурн повертає назад. Сатурн проходить знак за два з половиною роки, тож мірою тут є місяці: це не тиждень, коли щось вирішиться, а період, у який твоя публічна роль набуває форми. Що з цим робити — те, що вже робиш, тільки не кидати на середині.", en: "One thing is moving in your work right now: transiting Saturn trine your Midheaven, orb 0.63°, and separating. Saturn tests what has already been built for load, and a trine means the test comes without resistance — recognition rather than pressure. It perfects three times: 29 June 2026, 23 August 2026 and 10 March 2027, because Saturn turns back between them. Saturn spends two and a half years in a sign, so the unit here is months: this is not a week in which something is decided but a period in which your public role takes its shape. What to do with it is what you are already doing, only without abandoning it halfway." },
 };
 
-// One question in the thread: what was asked, then the answer under it.
 function Asked({ qid, C, t, loc, chart, timingFor }) {
   const q = questionById(qid);
   if (!q) return null;
@@ -390,9 +300,6 @@ function Asked({ qid, C, t, loc, chart, timingFor }) {
 
 function AskSheet({ open, onClose, C, t, loc }) {
   const asked = useStore($asked);
-  // Exact dates for the timing questions. One root-find per contact is ~57ms (RESEARCH.md §6), so it is
-  // done off the render in its own task and capped at the four tightest — a timing answer needs the dates
-  // that are actually near, not every contact in the chart.
   const [hits, setHits] = useState(null);
   const wantsTiming = open && C.ready && asked.some((id) => questionById(id)?.transit);
   const contactSig = C.ready ? C.hits.slice(0, 4).map(hitKey).join(",") : "";
@@ -414,8 +321,6 @@ function AskSheet({ open, onClose, C, t, loc }) {
   const chart = { cusps: C.H.cusps, houseSystem: C.system, asc: C.H.asc, mc: C.H.mc,
     points: C.natal.map((p) => ({ key: p.key, lon: p.lon, house: houseOf(p.lon, C.H.cusps), retro: C.natalRetroFor(p.key, p.lon) })) };
   const dateEN = C.when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-  // A transit question is fed only the contacts that touch ITS points — a Saturn transit to the natal Moon
-  // has nothing to do with a question about work, and handing it over invites the model to use it.
   const timingFor = (q) => {
     if (hits === null) return null;
     const want = new Set([...(q.bodies || []), ...(q.angles || [])]);
@@ -429,14 +334,9 @@ function AskSheet({ open, onClose, C, t, loc }) {
 
   return html`<${Sheet} id="asksheet" open=${true} onClose=${onClose} title=${T(t, "askTitle")}
       subtitle=${placeLabel(C.b.place) + " · " + C.rec.date} icon="lucide:sparkles">
-    ${/* Catalogue FIRST, then answers newest-first. A messenger puts the input at the bottom because its
-         history is skimmable one-liners; here every entry is a five-sentence reading, so after two
-         questions the catalogue sat two full essays down the scroll — and asking the next one is the
-         thing you most want to reach. Seen on the shot, not deduced. */""}
+    ${""}
     <div class="flex flex-col gap-5">
-      ${/* Topics, not sentences — so the catalogue is a row of pills you scan, not eleven full-width rows you
-           read. The sparkle went with the sentences: one mark per row was an affordance, eleven is wallpaper,
-           and the sheet's own title already says what these do. */""}
+      ${""}
       ${rest.length ? html`<div class="flex flex-wrap gap-2">
         ${rest.map((q) => html`<button data-ask=${q.id} onClick=${() => $asked.set([...$asked.get(), q.id])}
             class="rounded-full sf-raised sf-e2 sf-press px-3.5 py-2 text-[0.9rem] font-medium transition" key=${q.id}>
@@ -452,8 +352,6 @@ function AskSheet({ open, onClose, C, t, loc }) {
   </${Sheet}>`;
 }
 
-// ── the whole-chart portrait ───────────────────────────────────────────────────────────────────────────
-
 function PortraitSheet({ open, onClose, C, t, loc }) {
   if (!open || !C.ready) return null;
   const points = C.natal.map((p) => ({ key: p.key, lon: p.lon, house: houseOf(p.lon, C.H.cusps), retro: C.natalRetroFor(p.key, p.lon) }));
@@ -462,8 +360,6 @@ function PortraitSheet({ open, onClose, C, t, loc }) {
   const ruler = chartRuler(C.H.asc);
   const rulerPt = points.find((p) => p.key === ruler.body);
   const co = RULERS[ruler.sign][1];
-  // Two tallies as bars rather than numbers in a row: the SHAPE of a chart's balance is the thing being
-  // read, and four counts side by side make it legible at a glance where "fire 0, earth 2…" does not.
   const bars = (counts, names) => html`<div class="flex gap-1.5">
     ${counts.map((n, i) => html`<div class="flex-1 flex flex-col items-center gap-1" key=${i}>
       <div class="w-full h-1.5 rounded-full sf-inset overflow-hidden"><div class="h-full rounded-full bg-primary/70" style=${`width:${points.length ? Math.round(n / points.length * 100) : 0}%`}></div></div>
@@ -494,13 +390,6 @@ function PortraitSheet({ open, onClose, C, t, loc }) {
   </${Sheet}>`;
 }
 
-// ── tab 1: the bi-wheel ────────────────────────────────────────────────────────────────────────────────
-
-// One day back / forward, flanking the scrub track. A ±1 step is the move the slider is worst at — one day
-// out of 730 is under a pixel of travel — so these are not a shortcut for the track, they are the only
-// control that can name a single day. At either end of the ±SCRUB window the button goes to the row's empty
-// slot (`sf-inset`, the chips' own unchosen state) rather than vanishing: a control that disappears moves
-// everything beside it.
 function DayStep({ dir, t, offset }) {
   const to = clampScrub(offset + (dir === "prev" ? -1 : 1)), end = to === offset;
   return html`<button data-step=${dir} aria-label=${T(t, dir === "prev" ? "prevDay" : "nextDay")} disabled=${end}
@@ -515,9 +404,8 @@ export function wheel({ S, screen, openScreen, closeScreen }) {
   const offset = useStore($offset);
 
   const fmtDate = (d) => d.toLocaleDateString(locale === "en" ? "en-GB" : locale || "uk", { day: "numeric", month: "short", year: "numeric" });
-  // the chip has no room for the year the readout above it already carries
   const shortDate = (d) => d.toLocaleDateString(locale === "en" ? "en-GB" : locale || "uk", { day: "numeric", month: "short" });
-  const picked = offset !== 0 && offset !== 1;           // any day the two words cannot name is the picker's
+  const picked = offset !== 0 && offset !== 1;
 
   if (!C.ready) {
     return html`<${Fragment}>
@@ -529,10 +417,9 @@ export function wheel({ S, screen, openScreen, closeScreen }) {
   const { H, natal, sky, hits, b } = C;
   const lonOf = Object.fromEntries([...C.targets].map((p) => [p.key, p.lon]));
 
-  // the zodiac ring, the house cusps, and the transit→natal contacts as chords across the middle
   const cuspLines = H.cusps.map((c, i) => {
     const [x1, y1] = pt(wheelAngle(c), 17), [x2, y2] = pt(wheelAngle(c), 40);
-    const angular = i === 0 || i === 9;                      // the Ascendant and Midheaven axes read heavier
+    const angular = i === 0 || i === 9;
     return html`<line x1=${x1} y1=${y1} x2=${x2} y2=${y2} stroke="currentColor"
       stroke-width=${angular ? 0.7 : 0.3} stroke-opacity=${angular ? 0.85 : 0.4} key=${"c" + i}></line>`;
   });
@@ -558,8 +445,6 @@ export function wheel({ S, screen, openScreen, closeScreen }) {
     ${chords}
   </svg>`;
 
-  // transiting bodies ride the outer ring (SkyDial, which de-clusters conjunctions into a radial spoke);
-  // the natal chart sits on its own inner ring, drawn dimmer so "now" reads on top of "always".
   const marks = sky.map((p) => ({ key: p.key, body: p.key, angle: wheelAngle(p.lon), value: norm360(p.lon), label: bodyLabel(t, p.key) }));
   const rim = Array.from({ length: 12 }, (_, i) => ({ label: html`<${Sign} i=${i} cls="w-[18px] h-[18px]" />`, angle: wheelAngle(i * 30 + 15), cls: "text-base-content/70", rimR: 43 }));
   const natalRing = html`<div class="absolute inset-0 pointer-events-none">
@@ -588,26 +473,17 @@ export function wheel({ S, screen, openScreen, closeScreen }) {
       </button>
 
       <div class="w-full max-w-[420px] flex flex-col gap-2">
-        ${/* The «● Сьогодні» badge that used to sit beside the date is gone: with the two named days now
-             holding the row below, a lit chip and a badge 40px apart were the same fact said twice. */""}
+        ${""}
         <div class="text-center">
           <span data-date class="text-2xl font-bold tabular-nums">${fmtDate(C.when)}</span>
         </div>
-        ${/* One row: a day back, the year-wide scrub, a day forward. A ±1 step is the move the slider is
-             worst at — one day out of 730 is under a pixel of travel — so the arrows are not a shortcut for
-             the track, they are the only control that can name a single day. `.btn` is shrink-0 by rule, so
-             the arrows keep --ms-ctl and the track takes what is left (`min-w-0 flex-1`). */""}
+        ${""}
         <div class="flex items-center gap-2">
           <${DayStep} dir="prev" t=${t} offset=${offset} />
           <input id="scrub" type="range" min=${-SCRUB} max=${SCRUB} step="1" value=${offset} class="range range-xs range-primary min-w-0 flex-1" aria-label=${T(t, "dateAria")} onInput=${(e) => $offset.set(Number(e.target.value))} />
           <${DayStep} dir="next" t=${t} offset=${offset} />
         </div>
-        ${/* An unchosen preset is an empty slot in the row (`sf-inset`) and the chosen one lifts out of it on
-             the shallow rung, keeping the primary tint as its FILL. The third slot is the same slot and the
-             same two states — it just holds a day the row cannot name, so it SHOWS that day instead of a
-             word. Its native input covers the cell at opacity 0 so the tap reaches the picker directly:
-             showPicker() needs a transient activation and is not on every engine, and a chip that opens the
-             calendar only on some phones is worse than no chip. */""}
+        ${""}
         <div class="grid grid-cols-3 gap-1.5 text-center">
           ${CHIPS.map(([o, lbl]) => html`<button data-chip=${lbl} aria-pressed=${offset === o} class=${`rounded-[var(--ms-r-in)] py-1.5 text-[0.78rem] font-medium transition-colors ${offset === o ? "sf-e2 bg-primary/10 text-primary font-semibold" : "sf-inset"}`} onClick=${() => $offset.set(o)} key=${lbl}>${T(t, lbl)}</button>`)}
           <label data-chip="pick" data-picked=${picked ? "true" : "false"} class=${`relative flex items-center justify-center gap-1 rounded-[var(--ms-r-in)] py-1.5 text-[0.78rem] font-medium transition-colors cursor-pointer ${picked ? "sf-e2 bg-primary/10 text-primary font-semibold" : "sf-inset"}`}>
@@ -643,10 +519,6 @@ export function wheel({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// one transit→natal contact: transiting body · aspect · natal point · applying/separating · orb
-// Exact vs merely in-range is carried by the ORB's colour, never by dimming the row. `opacity-70` over
-// `text-base-content/70` is 49% effective and axe failed 39 elements on it in the light theme — the exact
-// trap the design rules warn about. State reads through colour = meaning; contrast stays full strength.
 function ContactRow({ a, t, retro, onOpen }) {
   return html`<button data-contact onClick=${onOpen} class="w-full text-left flex items-center gap-2 py-1.5 border-b border-base-300/40 last:border-0 active:opacity-80 transition">
     ${dot(a.t)}
@@ -662,15 +534,6 @@ function ContactRow({ a, t, retro, onOpen }) {
   </button>`;
 }
 
-// ── tab 2: the exact hits ──────────────────────────────────────────────────────────────────────────────
-
-// Each contact resolved to the INSTANT it perfects, by bisecting the ephemeris. Quoted only as finely as
-// the body's speed allows: the Moon to the second, Saturn to the minute, Pluto to the day. Printing
-// "14:22:07" for a Pluto transit would be a lie told with decimal places (RESEARCH.md §5).
-// Bisecting the ephemeris is not free: a Pluto contact scans a twelve-year window, and a full chart can
-// carry twenty contacts. Doing them all inside a render would freeze the tab switch for seconds on a phone,
-// so each contact is solved in its own task with a yield between them, and its card carries a skeleton
-// until its answer lands. Never a spinner — the card is already there, only its times are pending.
 const hitKey = (a) => `${a.t}|${a.n}|${a.type}`;
 function useHitTimes(contacts, whenMs) {
   const [solved, setSolved] = useState({});
@@ -683,7 +546,7 @@ function useHitTimes(contacts, whenMs) {
       const a = contacts[i++];
       const times = hitTimes(a.t, a.natalLon, a.signedAngle, whenMs);
       setSolved((m) => ({ ...m, [hitKey(a)]: times }));
-      setTimeout(step, 0);                                  // yield: let the browser paint between bodies
+      setTimeout(step, 0);
     };
     const id = setTimeout(step, 0);
     return () => { cancelled = true; clearTimeout(id); };
@@ -695,8 +558,6 @@ export function hits({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t), locale = useStore(S.locale);
   const C = useChart(S);
   const loc = locale === "en" ? "en-GB" : locale || "uk";
-  // BEFORE the empty-state return: a hook that runs conditionally desynchronises the hook order the moment
-  // birth data is saved, and the tab would blow up on exactly the transition that matters most.
   const solved = useHitTimes(C.hits || [], C.when.getTime());
 
   if (!C.ready) {
@@ -712,10 +573,6 @@ export function hits({ S, screen, openScreen, closeScreen }) {
         const times = solved[hitKey(a)];
         const prec = HIT_PRECISION[a.t] || "minute";
         const nearest = times && times.length ? times.reduce((best, x) => Math.abs(x - C.when) < Math.abs(best - C.when) ? x : best) : null;
-        // A card in a long list gets the SHALLOW rung: twenty contacts each casting the full 5px pair is a
-        // stack of plates rather than a list. The whole card is the tap target and the sparkle is its
-        // trailing affordance — one target that says what it opens, rather than a chevron plus a second
-        // little AI button competing for the same 20 rows.
         return html`<button data-hit data-hit-key=${hitKey(a)} onClick=${() => openScreen(READ_TRANSIT + hitKey(a))}
           class="w-full text-left rounded-[var(--ms-r)] sf-raised sf-e2 sf-press px-[var(--ms-pad)] py-3 flex flex-col gap-2 transition" key=${i}>
         <div class="flex items-center gap-2">
@@ -744,8 +601,6 @@ export function hits({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// ── tab 3: the natal chart itself ──────────────────────────────────────────────────────────────────────
-
 export function chart({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t), locale = useStore(S.locale);
   const C = useChart(S);
@@ -759,20 +614,7 @@ export function chart({ S, screen, openScreen, closeScreen }) {
   const { H, natal, b } = C;
   const rows = natal.slice().sort((x, y) => norm360(x.lon) - norm360(y.lon));
 
-  // Every row in this tab opens its own reading, and the sparkle is the row's trailing affordance rather
-  // than a separate little button per row: thirteen rows with two targets each is a control panel, not a
-  // chart. `data-angle-row` keeps its i18n-key value because the gate already addresses it by that name.
   const open = (key) => openScreen(READ_PLACEMENT + key);
-  // Owner's call: every row carries its own reading mark. Re-adding the icon to the row as it stood put
-  // "Близнюки" and "Скорпіон" back into ellipsis, so the row was re-measured rather than just re-decorated.
-  // Where the ~34px came from, and none of it is data:
-  //   • ℞ loses its own 16px column + 8px gap and rides in the house cell, which is where it was always
-  //     read from anyway (and it is what ContactRow already does with the transiting body);
-  //   • the two TEXT columns both flex instead of the name being pinned at a fixed 80px — the name and the
-  //     sign share the slack, so neither is starved by a long word in the other;
-  //   • gaps 8 → 6px across six columns, and the degrees column loses the 4px it never used.
-  // Fixed cost is now glyph 20 + degrees 46 + house/℞ 44 + mark 14 + gaps 30 = 154, leaving ~166 for the two
-  // names at the reference width. Verified by shooting it, not by arithmetic alone.
   const mark = () => Icon("lucide:sparkles", "text-xs text-primary shrink-0 w-3.5");
   const ROW = "w-full text-left flex items-center gap-1.5 py-1.5 border-b border-base-300/40 last:border-0 active:opacity-80 transition";
   const angleRow = (key, lbl, lon) => html`<button data-angle-row=${lbl} data-place=${key} onClick=${() => open(key)} class=${ROW} key=${key}>
@@ -848,11 +690,6 @@ export function chart({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// ── the birth-data sheet ───────────────────────────────────────────────────────────────────────────────
-
-// Everything a chart needs, and nothing it does not. The resolved instant is echoed back live, because the
-// one thing the user can actually verify is "does that UTC moment match my birth certificate?". The two
-// time-zone traps (an hour that ran twice, an hour that never ran) are shown rather than silently resolved.
 function BirthSheet({ open, onClose, t, locale }) {
   const stored = useStore($birth);
   const [draft, setDraft] = useState(stored || EMPTY);
@@ -861,7 +698,6 @@ function BirthSheet({ open, onClose, t, locale }) {
   const [searching, setSearching] = useState(false);
   useEffect(() => { if (open) { setDraft(stored || EMPTY); setQ(""); setResults(null); } }, [open]);
 
-  // debounced place search; an in-flight request is abandoned when the query moves on
   useEffect(() => {
     if (!open || q.trim().length < 2) { setResults(null); setSearching(false); return; }
     const ctl = new AbortController();
@@ -904,9 +740,7 @@ function BirthSheet({ open, onClose, t, locale }) {
           </button>`)}
         </div>` : html`<div class="text-sm text-muted px-1">${T(t, "placeNone")}</div>`) : null}
 
-        ${/* Two readouts, and both used to be `border-base-300 bg-base-200/NN` — a tone step that the repaint
-             turned into nothing at all, since base-200 and base-100 are now the same colour. A value the app
-             hands BACK to you sits IN the sheet, so both are wells. */""}
+        ${""}
         ${draft.place ? html`<div data-birth-chosen class="rounded-[var(--ms-r-in)] sf-inset px-3 py-2">
           <div class="text-sm font-medium truncate">${placeLabel(draft.place)}</div>
           <div class=${`${META} truncate`}>${formatCoords(draft.place.lat, draft.place.lng)} · ${draft.place.zone}</div>
@@ -927,8 +761,7 @@ function BirthSheet({ open, onClose, t, locale }) {
             : html`<div class="text-sm text-muted mt-0.5">${T(t, "need_" + r.reason)}</div>`}
         </div>
 
-        ${/* The tint carries the meaning; the shadow pair carries the edge. The warning hairline these two
-             (and the house-system fallback) drew was the object's outline, which the material now owns. */""}
+        ${""}
         ${r.ok && r.ambiguous ? html`<div data-birth-warn class="rounded-[var(--ms-r-in)] sf-e2 bg-warning/10 px-3 py-2 text-sm">${T(t, "warnAmbiguous")}</div>` : null}
         ${r.ok && r.nonexistent ? html`<div data-birth-warn class="rounded-[var(--ms-r-in)] sf-e2 bg-warning/10 px-3 py-2 text-sm">${T(t, "warnNonexistent")}</div>` : null}
 
@@ -937,18 +770,6 @@ function BirthSheet({ open, onClose, t, locale }) {
   </${Sheet}>`;
 }
 
-// ── the AI reading of the transits against the chart ───────────────────────────────────────────────────
-
-// The model interprets ONLY the structured facts below — the transit contacts, the natal points they touch,
-// and the corpus meaning of every piece — in canonical English, so the cache signature is locale-independent.
-//
-// This used to hand over a bare coordinate dump: the whole natal chart as a list, then the contacts as a
-// second list, and no meanings at all. It was the only one of the six readings built that way, and it was
-// the only one that came back sounding like a horoscope column — three live probes are recorded above
-// `groundSky` in signif.js, and two of the three named not one of the three contacts they were given.
-// Sending the natal list was itself part of the problem: ten placements the reading was never going to use
-// are ten invitations to write about something other than the day. The block now carries the contacts, the
-// Moon, and the corpus entry for each — nothing that is not being read.
 function InterpSheet({ open, onClose, C, t, loc, dateLabel }) {
   if (!open) return null;
   const dateEN = C.when.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -959,8 +780,6 @@ function InterpSheet({ open, onClose, C, t, loc, dateLabel }) {
     retro: C.retro(c.t, skyLon[c.t]),
     natalHouse: ANGLE[c.n] ? null : houseOf(c.natalLon, C.H.cusps),
   })).filter((x) => x.transitLon != null);
-  // The Moon rides along even when nothing it does is in orb — it is the day's own tempo, and on a quiet
-  // sky it is the only honest thing the reading has left to stand on. It can be filtered off the wheel.
   const moonLon = skyLon.moon;
   const moon = moonLon == null ? null : { lon: moonLon, house: houseOf(moonLon, C.H.cusps), retro: false };
   const { text: input, sig } = groundSky({ dateEN, houseSystem: C.system, contacts, moon });
@@ -971,13 +790,6 @@ function InterpSheet({ open, onClose, C, t, loc, dateLabel }) {
   </${Sheet}>`;
 }
 
-// a uniform little planet dot for the contact rows — the real spheres, size-scaled, live on the wheel.
-// This one DEPICTS a sphere rather than declaring a surface (a 10px mark cannot hold the shadow pair), but
-// the two colours it shaded with were literals: rgba(0,0,0,.35) is a bruise on a light page and rgba(130,
-// 130,130,.4) is a hairline that belongs to neither theme. Both are theme tokens now — --nm-cast stays a
-// shade in both modes and --sf-rim is the material's own counter-light, so a dark planet still lifts off a
-// dark page. The two angles are not bodies, so they get a hollow primary ring instead: hollow vs filled is
-// MEANING, not an outline, and it stays.
 const dot = (p) => BODIES[p]
   ? html`<span class="inline-block w-2.5 h-2.5 rounded-full shrink-0" style=${`background:${BODIES[p].color};box-shadow:inset -0.5px -0.5px 1px var(--nm-cast),0 0 0 0.5px var(--sf-rim)`}></span>`
   : html`<span class="inline-block w-2.5 h-2.5 rounded-full shrink-0 border-2 border-primary"></span>`;

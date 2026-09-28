@@ -1,14 +1,3 @@
-// Handpan — a playable steel-tongue pan over ONE shared engine + loop (module scope, so a strike ringing and
-// a loop playing survive tab switches, exactly like rave). Three tabs: Play (the circular pan you strike +
-// Flow, the auto-generator + a live striker-recorder), Weave (the loop as an editable note grid + a settings
-// sheet: tempo, space, shimmer, drone, voice, scale), Saved (IndexedDB loops). Everything is SYNTHESISED.
-//
-// Why it sounds sweet: a real handpan tunes every tone field to three partials in a 1:2:3 ratio — the
-// fundamental, its OCTAVE (2×) and the TWELFTH / compound fifth (3×). Those three ringing in phase are the
-// warm, bell-like, long-sustain voice of the instrument (Rohner/Schärer Hang acoustics; Saraz). So each
-// voice here is built on that 1:2:3 core (+ a faint attack "chiff" and optional shimmer), struck into a
-// shared convolution-reverb wash — the wash is what turns single notes into that meditative bloom. The Flow
-// generator is the unit-tested /_rt/melody.js scored search (consonance · voice-leading · resolution).
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -27,7 +16,7 @@ import { bindAudio, enableImmersion, disableImmersion, immersionState, immersion
 import { Parallax } from "/_rt/spectrum.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const N = 16, STEPS = [...Array(N).keys()];
 const PC = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const letter = (m) => PC[((m % 12) + 12) % 12];
@@ -37,8 +26,6 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const reducedMotion = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
-// ---- scales: ding (index 0, the deep centre note) + tone fields ascending, as absolute MIDI. The famous
-// handpan tunings; switching retunes every field. mood is a one-word feel used in the picker. ----
 const SCALES = [
   { id: "kurd", name: "scKurd", mood: "scaleMelancholic", midi: [50, 57, 58, 60, 62, 64, 65, 67, 69] },
   { id: "celtic", name: "scCeltic", mood: "scaleWarm", midi: [50, 57, 60, 62, 64, 65, 67, 69] },
@@ -53,8 +40,6 @@ const SCALES = [
 ];
 const scaleById = (id) => SCALES.find((s) => s.id === id) || SCALES[0];
 
-// ---- voices ("add-on sound modes"): all built on the 1:2:3 core, varied in extra partials, decay, brightness
-// and a noise "chiff" on the attack. partials are [ratio, gain, decayScale?]. ----
 const TIMBRES = [
   { id: "classic", name: "tbClassic", dur: 3.6, attack: 0.004, peak: 0.5, chiff: 0.06, partials: [[1, 1], [2, 0.5], [3, 0.33], [4, 0.12, 0.6], [6, 0.05, 0.4]] },
   { id: "crystal", name: "tbCrystal", dur: 3.0, attack: 0.002, peak: 0.42, chiff: 0.1, partials: [[1, 0.8], [2, 0.6], [3, 0.42], [5, 0.18, 0.5], [7, 0.08, 0.35]] },
@@ -70,24 +55,22 @@ function makeIR(ctx, seconds = 3.2, decay = 2.4) {
   return buf;
 }
 
-// ---- shared state ----
 const $scale = atom("kurd"), $timbre = atom("classic"), $space = atom(0.5), $shimmer = atom(true), $drone = atom(false);
 const $loop = atom(Array.from({ length: N }, () => [])), $bpm = atom(80);
 const $playing = atom(false), $recording = atom(false), $cur = atom(-1), $sweep = atom(-1), $lit = atom(new Set()), $hist = atom({ seeds: [], idx: -1 });
 const SAVES = collection("handpanLoops");
 const curScale = () => scaleById($scale.get());
-const offsets = (s) => s.midi.map((m) => m - s.midi[0]);   // semitone offsets from the ding (the tonic)
+const offsets = (s) => s.midi.map((m) => m - s.midi[0]);
 const emptyLoop = () => Array.from({ length: N }, () => []);
 
-// ---- engine (module scope): dry + a reverb send fan out of one bus, so the wash is built ONCE ----
 let eng = null, busIn = null, revSend = null, drone = null, sched = null, raf = null, nextT = 0, stepN = 0, q = [];
 let wl = null, np = null;
 const npTitle = () => `${T(dictNow(), curScale().name)} · ${T(dictNow(), timbreById($timbre.get()).name)}`;
-let _dict = {}; const dictNow = () => _dict;                     // media-session labels need the live dict
+let _dict = {}; const dictNow = () => _dict;
 const artUrl = () => { try { return new URL("icons/icon-512.png", location.href).href; } catch { return null; } };
 const spaceGain = (v) => 0.05 + 0.95 * clamp(v, 0, 1);
 
-function applySpace() { if (revSend && eng) { try { revSend.gain.setTargetAtTime(spaceGain($space.get()), eng.ctx.currentTime, 0.05); } catch { /* */ } } }
+function applySpace() { if (revSend && eng) { try { revSend.gain.setTargetAtTime(spaceGain($space.get()), eng.ctx.currentTime, 0.05); } catch { } } }
 function ensure() {
   if (!audioSupported) return null;
   if (!eng) {
@@ -98,8 +81,6 @@ function ensure() {
     const dry = ctx.createGain(); dry.gain.value = 0.92; busIn.connect(dry); dry.connect(sum);
     const rev = ctx.createConvolver(); rev.buffer = makeIR(ctx); revSend = ctx.createGain(); revSend.gain.value = spaceGain($space.get());
     busIn.connect(revSend); revSend.connect(rev); rev.connect(sum);
-    // tap the final mix for the resonance viz — master → analyser is an OBSERVER branch (no onward
-    // connection), so it never alters the sound. Strikes drive the ripples; this scalar drives the breathing.
     const an = ctx.createAnalyser(); an.fftSize = 1024; an.smoothingTimeConstant = 0.75;
     const fb = new Uint8Array(an.frequencyBinCount); e.master.connect(an);
     bindAudio(() => { if (!eng) return null; an.getByteFrequencyData(fb); return fb; });
@@ -108,60 +89,52 @@ function ensure() {
   eng.resume(); return eng;
 }
 
-// a struck tone: the 1:2:3 partials (+ voice extras), an optional octave/twelfth shimmer, a noise chiff.
 function strikeNote(freq, vel = 1) {
   const e = eng; if (!e) return; const c = e.ctx, t = c.currentTime, tb = timbreById($timbre.get());
   const g = c.createGain(); g.gain.value = 1; g.connect(busIn);
   const parts = tb.partials.slice();
-  if ($shimmer.get()) { parts.push([2, 0.1, 0.45], [3, 0.06, 0.3]); }   // extra octave+twelfth sparkle
+  if ($shimmer.get()) { parts.push([2, 0.1, 0.45], [3, 0.06, 0.3]); }
   for (const [r, pg, ds = 1] of parts) {
     const o = c.createOscillator(); o.type = "sine"; o.frequency.value = freq * r;
     const og = c.createGain(); const dur = tb.dur * ds;
     og.gain.setValueAtTime(0.0001, t); og.gain.linearRampToValueAtTime(tb.peak * pg * vel, t + tb.attack); og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(og); og.connect(g); o.start(t); o.stop(t + dur + 0.05);
-    o.onended = () => { try { o.disconnect(); og.disconnect(); } catch { /* */ } };
+    o.onended = () => { try { o.disconnect(); og.disconnect(); } catch { } };
   }
-  if (tb.chiff && e.buffers.white) {                                    // the metallic ping of the mallet on steel
+  if (tb.chiff && e.buffers.white) {
     const s = c.createBufferSource(); s.buffer = e.buffers.white; const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = clamp(freq * 6, 800, 9000); f.Q.value = 0.7;
     const ng = c.createGain(); ng.gain.setValueAtTime(tb.chiff * vel, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
-    s.connect(f); f.connect(ng); ng.connect(g); s.start(t); s.stop(t + 0.1); s.onended = () => { try { s.disconnect(); f.disconnect(); ng.disconnect(); } catch { /* */ } };
+    s.connect(f); f.connect(ng); ng.connect(g); s.start(t); s.stop(t + 0.1); s.onended = () => { try { s.disconnect(); f.disconnect(); ng.disconnect(); } catch { } };
   }
 }
 
-// drone: a soft sustained tonic + fifth pad under everything, into the reverb wash
 function applyDrone() {
   if (!eng) return; const c = eng.ctx;
-  if (drone) { try { drone.stop(); drone.g.gain.setTargetAtTime(0, c.currentTime, 0.2); } catch { /* */ } drone = null; }
+  if (drone) { try { drone.stop(); drone.g.gain.setTargetAtTime(0, c.currentTime, 0.2); } catch { } drone = null; }
   if (!$drone.get()) return;
   const base = curScale().midi[0] - 12, g = c.createGain(); g.gain.value = 0; g.connect(busIn);
   g.gain.setTargetAtTime(0.09, c.currentTime, 0.6);
   const oscs = [midiToFreq(base), midiToFreq(base + 7), midiToFreq(base + 12)].map((fr, i) => { const o = c.createOscillator(); o.type = i === 2 ? "triangle" : "sine"; o.frequency.value = fr; const og = c.createGain(); og.gain.value = i === 2 ? 0.3 : 1; o.connect(og); og.connect(g); o.start(); return o; });
-  drone = { g, stop: () => oscs.forEach((o) => { try { o.stop(); o.disconnect(); } catch { /* */ } }) };
+  drone = { g, stop: () => oscs.forEach((o) => { try { o.stop(); o.disconnect(); } catch { } }) };
 }
 
-// ---- flash (long ring on a struck field) ----
 const flash = (i) => { const s = new Set($lit.get()); s.add(i); $lit.set(s); setTimeout(() => { const n = new Set($lit.get()); n.delete(i); $lit.set(n); }, 520); };
-// map a struck tone-field → a resonance ripple (viz.js): position from its ring angle (ding = centre), hue
-// from the semitone above the ding (violet → blue), amp from velocity. A no-op where WebGL/the viz is absent.
 function rippleFor(idx, vel = 1) {
   const s = curScale(), n = s.midi.length - 1; let nx = 0, nz = 0;
   if (idx > 0 && n > 0) { const a = -Math.PI / 2 + ((idx - 1) / n) * Math.PI * 2; nx = Math.cos(a); nz = Math.sin(a); }
   strikeRipple(nx, nz, vel, 268 - clamp((s.midi[idx] - s.midi[0]) / 24, 0, 1) * 70);
 }
-// strike a scale index (0 = ding). Records into the loop when armed.
 function strike(idx, vel = 1) {
   const s = curScale(); if (idx < 0 || idx >= s.midi.length) return; ensure(); strikeNote(midiToFreq(s.midi[idx]), vel); flash(idx); rippleFor(idx, vel);
   if ($recording.get() && $playing.get()) { const step = $cur.get() < 0 ? 0 : $cur.get(); const cur = $loop.get(), cell = cur[step] || []; if (!cell.includes(idx)) { const next = cur.slice(); next[step] = [...cell, idx]; $loop.set(next); } }
 }
 
-// ---- loop scheduler ----
-const spb = () => 60 / $bpm.get() / 2;                              // an 8th-note grid — a flowing, not frantic, pace
+const spb = () => 60 / $bpm.get() / 2;
 function fireStep(step, time) {
   const s = curScale(), cell = $loop.get()[step] || [];
   for (const idx of cell) strikeAtTime(midiToFreq(s.midi[idx]), time);
   if (q.length < 128) q.push({ time, step });
 }
-// schedule a strike at an absolute time (loop playback) — same voice as strikeNote but time-addressed
 function strikeAtTime(freq, t) {
   const e = eng; if (!e) return; const c = e.ctx, tb = timbreById($timbre.get());
   const g = c.createGain(); g.gain.value = 1; g.connect(busIn);
@@ -169,9 +142,9 @@ function strikeAtTime(freq, t) {
   for (const [r, pg, ds = 1] of parts) {
     const o = c.createOscillator(); o.type = "sine"; o.frequency.value = freq * r; const og = c.createGain(); const dur = tb.dur * ds;
     og.gain.setValueAtTime(0.0001, t); og.gain.linearRampToValueAtTime(tb.peak * pg, t + tb.attack); og.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(og); og.connect(g); o.start(t); o.stop(t + dur + 0.05); o.onended = () => { try { o.disconnect(); og.disconnect(); } catch { /* */ } };
+    o.connect(og); og.connect(g); o.start(t); o.stop(t + dur + 0.05); o.onended = () => { try { o.disconnect(); og.disconnect(); } catch { } };
   }
-  if (tb.chiff && e.buffers.white) { const s = c.createBufferSource(); s.buffer = e.buffers.white; const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = clamp(freq * 6, 800, 9000); f.Q.value = 0.7; const ng = c.createGain(); ng.gain.setValueAtTime(tb.chiff, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.08); s.connect(f); f.connect(ng); ng.connect(g); s.start(t); s.stop(t + 0.1); s.onended = () => { try { s.disconnect(); f.disconnect(); ng.disconnect(); } catch { /* */ } }; }
+  if (tb.chiff && e.buffers.white) { const s = c.createBufferSource(); s.buffer = e.buffers.white; const f = c.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = clamp(freq * 6, 800, 9000); f.Q.value = 0.7; const ng = c.createGain(); ng.gain.setValueAtTime(tb.chiff, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.08); s.connect(f); f.connect(ng); ng.connect(g); s.start(t); s.stop(t + 0.1); s.onended = () => { try { s.disconnect(); f.disconnect(); ng.disconnect(); } catch { } }; }
 }
 const tick = () => { const e = eng; if (!e) return; const dt = spb(); if (nextT < e.ctx.currentTime) nextT = e.ctx.currentTime; while (nextT < e.ctx.currentTime + 0.12) { fireStep(stepN, nextT); nextT += dt; stepN = (stepN + 1) % N; } };
 const draw = () => { const e = eng; if (e) { const now = e.ctx.currentTime; while (q.length && q[0].time <= now) { const it = q.shift(); $cur.set(it.step); const cell = $loop.get()[it.step] || []; cell.forEach((i) => { flash(i); rippleFor(i, 0.9); }); } } raf = requestAnimationFrame(draw); };
@@ -192,7 +165,6 @@ function stop() {
 const toggle = () => { buzz(12); $playing.get() ? stop() : start(); };
 const toggleRec = () => { buzz(12); const on = !$recording.get(); $recording.set(on); if (on && !$playing.get()) start(); };
 
-// ---- Flow: auto-generate a sweet meditative line, write it left→right, then play it ----
 let genT = null;
 function generate(seed = randSeed(), animate = true) {
   ensure(); if (genT) { clearInterval(genT); genT = null; }
@@ -205,21 +177,16 @@ function generate(seed = randSeed(), animate = true) {
 const newFlow = () => { buzz(); const seed = randSeed(); const { seeds } = $hist.get(); const next = [...seeds, seed]; $hist.set({ seeds: next, idx: next.length - 1 }); generate(seed); };
 const stepFlow = (d) => { buzz(); let { seeds, idx } = $hist.get(); idx += d; if (idx < 0) { seeds = [randSeed(), ...seeds]; idx = 0; } else if (idx >= seeds.length) { seeds = [...seeds, randSeed()]; idx = seeds.length - 1; } $hist.set({ seeds, idx }); generate(seeds[idx]); };
 
-// ---- saves ----
 const loopSig = (r) => JSON.stringify([r.loop, r.scaleId, r.bpm]);
 const loopCount = (loop) => (loop || []).reduce((n, cell) => n + (cell ? cell.length : 0), 0);
 const autoName = (t, scaleId, loop, list) => { const base = `${T(t, scaleById(scaleId).name)} · ${loopCount(loop)}`; let n = base, i = 2; while (list.some((it) => it.name === n)) n = `${base} (${i++})`; return n; };
 
-// ================= Play: the circular pan =================
 export function handpan({ S }) {
   const t = useStore(S.t); _dict = t;
   const loc = useStore(S.locale);
   const scaleId = useStore($scale), playing = useStore($playing), recording = useStore($recording), lit = useStore($lit), sweep = useStore($sweep), space = useStore($space);
-  const s = scaleById(scaleId), n = s.midi.length - 1;              // fields around the ding
+  const s = scaleById(scaleId), n = s.midi.length - 1;
   const ptr = useRef(new Map()), usingPtr = useRef(false), panRef = useRef();
-  // Drive the steel fields' light direction (--lx/--ly on the pan) — the gyroscope when "Depth" is on (shared
-  // immersion tilt stream, smoothed by Parallax), else a slow idle drift so the metal is always alive; a fixed
-  // top-left light under reduced-motion. Writes CSS vars only (no re-render) — see RESEARCH-buttons.md.
   useEffect(() => {
     const el = panRef.current; if (!el || typeof requestAnimationFrame === "undefined") return;
     const lp = Parallax({ maxDeg: 26, gain: 1, reduced: reducedMotion });
@@ -240,12 +207,11 @@ export function handpan({ S }) {
   const pick = (id) => { buzz(); ensure(); $scale.set(id); applyDrone(); $hist.set({ seeds: [], idx: -1 }); };
 
   const fieldAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest && el.closest("[data-field]"); return b ? Number(b.getAttribute("data-field")) : null; };
-  const onDown = (e) => { const i = fieldAt(e.clientX, e.clientY); if (i == null) return; usingPtr.current = true; e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ } ptr.current.set(e.pointerId, i); strike(i); };
+  const onDown = (e) => { const i = fieldAt(e.clientX, e.clientY); if (i == null) return; usingPtr.current = true; e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { } ptr.current.set(e.pointerId, i); strike(i); };
   const onMove = (e) => { if (!ptr.current.has(e.pointerId)) return; const i = fieldAt(e.clientX, e.clientY); if (i == null) return; if (ptr.current.get(e.pointerId) !== i) { ptr.current.set(e.pointerId, i); strike(i, 0.85); } };
   const onLift = (e) => { ptr.current.delete(e.pointerId); };
   const onClickBoard = (e) => { if (usingPtr.current) return; const b = e.target.closest && e.target.closest("[data-field]"); if (b) strike(Number(b.getAttribute("data-field"))); };
 
-  // field geometry: ding in the centre, fields evenly around a ring starting from the top, ascending clockwise
   const fields = s.midi.slice(1).map((m, k) => { const ang = -Math.PI / 2 + (k / n) * Math.PI * 2; const R = 37; return { idx: k + 1, m, x: 50 + R * Math.cos(ang), y: 50 + R * Math.sin(ang), size: clamp(24 - (m - s.midi[0]) * 0.32, 15, 23) }; });
 
   return html`<div class="ms-stage z-20 flex flex-col">
@@ -258,10 +224,7 @@ export function handpan({ S }) {
     </div>
 
     <div class="flex-1 min-h-0 relative grid place-items-center px-3">
-      ${/* The shell of the pan is the PAGE pushed out — `sf-raised`, the same material as every other object
-           in the farm. It used to be a from-base-300→base-100 gradient over `sf-e3`: base-300 and base-100 are
-           one colour now, so the gradient painted nothing and only the shadow was doing the work. The steel
-           lives INSIDE it (the fields), which is where an instrument's own material belongs. */""}
+      ${""}
       <div ref=${panRef} class="relative w-[min(90vw,62vh)] aspect-square rounded-full sf-raised select-none" style="touch-action:none"
         onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onLift} onPointerCancel=${onLift} onClick=${onClickBoard}>
         <!-- ding (centre) — a convex steel dome -->
@@ -278,8 +241,7 @@ export function handpan({ S }) {
 
     <div class="shrink-0 px-3 pb-2 pt-1 flex justify-center">
       <${Island} className="w-full max-w-md flex items-center gap-2">
-        ${/* The transport is the kit's; `space` stays beside it because reverb on a hand instrument is an
-             expressive control you reach for mid-phrase, not a setting you go and find. */""}
+        ${""}
         <${Transport} className="shrink-0" locale=${loc} stopIcon playing=${playing} onToggle=${toggle}
           actions=${[
             { id: "flow", icon: "lucide:sparkles", label: T(t, "genFlow"), onClick: newFlow, tone: "accent", active: sweep >= 0, pulse: sweep >= 0, attr: { "data-flow": true } },
@@ -295,21 +257,17 @@ export function handpan({ S }) {
   </div>`;
 }
 
-// ================= Weave: the loop as a note grid + settings sheet =================
 export function handpanWeave({ S, toast, screen, openScreen, closeScreen }) {
   const t = useStore(S.t); _dict = t;
   const loc = useStore(S.locale);
   const scaleId = useStore($scale), loop = useStore($loop), playing = useStore($playing), cur = useStore($cur), sweep = useStore($sweep);
-  const s = scaleById(scaleId), rows = s.midi.map((m, i) => ({ i, m })).reverse();   // highest pitch on top
+  const s = scaleById(scaleId), rows = s.midi.map((m, i) => ({ i, m })).reverse();
   const cellToggle = (i, step) => { ensure(); const cell = loop[step] || []; const has = cell.includes(i); const next = loop.slice(); next[step] = has ? cell.filter((x) => x !== i) : [...cell, i]; $loop.set(next); if (!has) strike(i); };
-  const save = async () => { try { const list = await SAVES.all(); const rec = { loop, scaleId, bpm: $bpm.get() }; if (loopCount(loop) === 0) { buzz(); return; } if (list.find((it) => loopSig(it) === loopSig(rec))) { buzz(); toast?.(T(t, "toastDup", { name: autoName(t, scaleId, loop, list) })); return; } await SAVES.put("l" + Date.now(), { name: autoName(t, scaleId, loop, list), ...rec, timbreId: $timbre.get(), space: $space.get() }); toast?.(T(t, "toastSaved")); } catch { /* */ } };
+  const save = async () => { try { const list = await SAVES.all(); const rec = { loop, scaleId, bpm: $bpm.get() }; if (loopCount(loop) === 0) { buzz(); return; } if (list.find((it) => loopSig(it) === loopSig(rec))) { buzz(); toast?.(T(t, "toastDup", { name: autoName(t, scaleId, loop, list) })); return; } await SAVES.put("l" + Date.now(), { name: autoName(t, scaleId, loop, list), ...rec, timbreId: $timbre.get(), space: $space.get() }); toast?.(T(t, "toastSaved")); } catch { } };
 
   return html`<${Fragment}>
     <div class="pb-40 flex flex-col gap-[3px]">
-      ${/* The step rail is a real object that floats over the grid, so it is opaque and shallow-raised
-           (`sf-e2`) instead of frosted: a blur erases the very shadow pair that says "this is on top".
-           Its 4px ticks are the theme's one sanctioned exception — a rail that thin cannot hold a pair, so
-           the idle tick takes --sf-track-face, the same tone step a range groove uses. */""}
+      ${""}
       <div class="sticky z-10 -mx-4 px-4 bg-base-100 sf-e2 flex items-center gap-[3px] py-1" style="top:calc(var(--hdr-h) + env(safe-area-inset-top))">
         <div class="w-7 shrink-0"></div>
         ${STEPS.map((step) => html`<div class=${`flex-1 h-1 rounded-full transition-colors ${step % 4 === 0 && step > 0 ? "ml-1" : ""} ${step === sweep ? "bg-accent" : step === cur ? "bg-secondary" : ""}`}
@@ -317,25 +275,15 @@ export function handpanWeave({ S, toast, screen, openScreen, closeScreen }) {
       </div>
       ${rows.map(({ i, m }) => { const live = loop.some((cell) => cell && cell.includes(i)); return html`<div class="flex items-center gap-[3px]" key=${i}>
         <div class=${`w-7 shrink-0 text-center text-sm font-medium tabular-nums ${i === 0 ? "text-secondary" : live ? "text-base-content" : "text-base-content/70"}`} title=${label(m)}>${letter(m)}</div>
-        ${/* A cell is a SLOT: empty it is a hole in the page (`sf-inset`), struck it is that hole filled by a
-             raised object carrying the row's colour (`sf-e2` — 144 of these, and the full pair on a 36px
-             square is a shadow bigger than the thing). Two flavours of bg-base-300 used to say beat vs
-             off-beat, and base-300 is base-100 now, so both were invisible; the 4-step `ml-1` gutters and
-             the rail above carry the beat, exactly as they did. Grid, cell height and gutters untouched.
-             The playhead/sweep marker is an `outline`, not a `ring`: a ring is painted with box-shadow and
-             would fight the material for the same property. */""}
-        ${/* The cell names its transition properties, never `all` — and the OUTLINE is deliberately not in
-             the set. It is the playhead, moving one cell per sixteenth: a transitioned outline would still
-             be fading in on cell N when cell N+1 lit, so the marker smears across the row instead of
-             stepping. The material (box-shadow), the fill and the sweep's scale are what should ease. */""}
+        ${""}
+        ${""}
         ${STEPS.map((step) => { const on = (loop[step] || []).includes(i); const beat = step % 4 === 0; return html`<button data-cell=${`${i}-${step}`} aria-pressed=${on} aria-label=${`${label(m)} ${step + 1}`} onClick=${() => cellToggle(i, step)} key=${step}
           class=${`flex-1 min-w-0 h-9 rounded-md touch-manipulation transition-[box-shadow,background-color,transform,scale] duration-150 ${beat && step > 0 ? "ml-1" : ""} ${on ? `sf-e2 ${i === 0 ? "bg-secondary" : "bg-primary"}` : "sf-inset"} ${step === sweep ? "outline-2 outline-accent scale-105" : step === cur ? "outline-2 outline-base-content/50" : ""}`}></button>`; })}
       </div>`; })}
     </div>
 
     <${Island} pinned className="w-full max-w-xl">
-        ${/* Five controls in one bar is exactly what the widget's `actions` exist for: wide, they are icons;
-             narrow, the last three demote into the overflow sheet WITH their words, and nothing is lost. */""}
+        ${""}
         <${Transport} locale=${loc} stopIcon playing=${playing} onToggle=${toggle} keep=${1}
           subtitle=${T(t, scaleById(scaleId).name)}
           moreOpen=${screen === "more"} onMore=${() => openScreen("more")} onMoreClose=${closeScreen}
@@ -352,13 +300,10 @@ export function handpanWeave({ S, toast, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// The settings island → a history-backed bottom sheet (S.screen="set"): tempo, space, shimmer, drone, the
-// voice ("add-on sound modes") and the scale — the whole sound-design surface, out of the way while you weave.
 function SettingsSheet({ open, onClose, t }) {
   const bpm = useStore($bpm), space = useStore($space), shimmer = useStore($shimmer), drone = useStore($drone), timbre = useStore($timbre), scaleId = useStore($scale);
   return html`<${Sheet} id="setsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
-    ${/* Two kit sliders. Tempo carries its number in the caption (a BPM is a unit the ear can act on — the
-         mono "label · count" shape), space is a macro and prints nothing, as the kit intends. */""}
+    ${""}
     <div class="grid grid-cols-2 gap-x-4 gap-y-2">
       <${Slider} id="tempo" attr="data-set" label=${`${T(t, "tempo")} · ${bpm}`} value=${bpm} min=${52} max=${132} step=${1} onInput=${(v) => $bpm.set(v)} />
       <${Slider} id="space" attr="data-set" label=${T(t, "space")} value=${space} min=${0} max=${1} step=${0.02} onInput=${(v) => { $space.set(v); applySpace(); }} />
@@ -383,10 +328,6 @@ function SettingsSheet({ open, onClose, t }) {
   </${Sheet}>`;
 }
 
-// ================= Saved =================
-// The bars are 3px wide inside a 20px strip — far under the size a shadow pair can survive, so the empty
-// step takes --sf-track-face, the same thin-track tone step as the rail on Weave. One token for every
-// too-small-to-extrude groove in the app.
 const Spectrum = ({ loop, live, cur }) => { const bars = (loop || emptyLoop()).map((c) => (c ? c.length : 0)), mx = Math.max(1, ...bars); return html`<span data-spectrum class="flex items-end gap-px h-5 w-full" aria-hidden="true">${bars.map((v, s) => html`<span class=${`flex-1 rounded-sm transition-colors ${live && s === cur ? "bg-secondary" : v ? "bg-primary" : ""}`} style=${`height:${Math.round((v ? 0.25 + 0.75 * (v / mx) : 0.12) * 100)}%${(live && s === cur) || v ? "" : ";background:var(--sf-track-face)"}`} key=${s}></span>`)}</span>`; };
 
 export function handpanSaved({ S, undo }) {
@@ -400,14 +341,13 @@ export function handpanSaved({ S, undo }) {
   const loadLoop = (it) => { $scale.set(it.scaleId || "kurd"); $loop.set((it.loop || emptyLoop()).map((c) => (c ? c.slice() : []))); $bpm.set(it.bpm || 80); if (it.timbreId) $timbre.set(it.timbreId); if (typeof it.space === "number") { $space.set(it.space); applySpace(); } applyDrone(); };
   const open = (it) => { buzz(); loadLoop(it); S.tab.set("weave"); };
   const play = (it) => { buzz(); if (isCur(it)) { stop(); return; } loadLoop(it); start(); };
-  const del = async (it) => { const { id, _ts, ...rec } = it; try { await SAVES.remove(id); } catch { /* */ } load(); undo?.(async () => { try { await SAVES.put(id, rec); } catch { /* */ } load(); }, it.name || T(t, "loopWord")); };
+  const del = async (it) => { const { id, _ts, ...rec } = it; try { await SAVES.remove(id); } catch { } load(); undo?.(async () => { try { await SAVES.put(id, rec); } catch { } load(); }, it.name || T(t, "loopWord")); };
 
   if (!useReveal(list !== null)) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel class="card bg-base-100 rounded-[var(--ms-r)] overflow-hidden" key=${i}><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${12} /></div><div class="h-5"><${Scramble} len=${16} /></div></div></div></div>`)}</div>`;
   if (!list.length) return html`<div class="flex flex-col items-center text-base-content/70 py-20 gap-2 text-center px-6">${Icon("lucide:bookmark", "text-4xl")}<span>${T(t, "savedEmpty")}</span></div>`;
 
   return html`<div class="flex flex-col gap-2">
-    ${/* No hairline on either card: `.card` already declares the shallow pair, and an outline on top of an
-         extrusion is the edge drawn twice. The skeleton's avatar slot is a WELL waiting to be filled. */""}
+    ${""}
     ${list.map((it) => { const on = isCur(it); return html`<div data-saved class="card bg-base-100 rounded-[var(--ms-r)] transition-colors" key=${it.id}>
       <div class="card-body p-3 flex-row items-center gap-3">
         <button data-play aria-label=${on ? T(t, "aStop") : T(t, "aPlay")} class=${`btn btn-circle btn-sm shrink-0 ${on ? "btn-secondary" : "btn-primary"}`} onClick=${() => play(it)}>${Icon(on ? "lucide:square" : "lucide:play", "text-base")}</button>

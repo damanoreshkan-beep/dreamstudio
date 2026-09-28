@@ -1,13 +1,9 @@
-// Breathe — a guided breathing exercise. A soft orb expands on the inhale, holds, and contracts on the
-// exhale, driven by ONE rAF loop (compute phase + scale + countdown from elapsed time → perfect sync, no
-// drift). Fully offline, no API. Four techniques; the choice persists in localStorage.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
 import { Segmented, Transport, Island } from "/_rt/ui.js";
 
-// seconds: inhale · hold · exhale · hold
 const TECHS = {
   box: { name: "tBox", sub: "sBox", in: 4, h1: 4, out: 4, h2: 4 },
   "478": { name: "t478", sub: "s478", in: 4, h1: 7, out: 8, h2: 0 },
@@ -15,7 +11,7 @@ const TECHS = {
   calm: { name: "tCalm", sub: "sCalm", in: 4, h1: 0, out: 6, h2: 0 },
 };
 const ORDER = ["box", "478", "coherent", "calm"];
-const ease = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2); // easeInOutQuad
+const ease = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
 const readTech = () => { try { const k = localStorage.getItem("breathe.tech"); return TECHS[k] ? k : "box"; } catch { return "box"; } };
 
 export function breathe({ S }) {
@@ -25,14 +21,12 @@ export function breathe({ S }) {
   const [playing, setPlaying] = useState(true);
   const orbRef = useRef(), phaseRef = useRef(), countRef = useRef();
 
-  const choose = (k) => { setTech(k); try { localStorage.setItem("breathe.tech", k); } catch { /* private mode */ } };
+  const choose = (k) => { setTech(k); try { localStorage.setItem("breathe.tech", k); } catch { } };
 
   useEffect(() => {
     if (!playing) return;
     const c = TECHS[tech], total = c.in + c.h1 + c.out + c.h2;
     const label = { in: T(t, "pIn"), hold: T(t, "pHold"), out: T(t, "pOut") };
-    // Reduced motion: keep the phase/count guidance updating, but hold the orb still — the size pulse is
-    // exactly the large, repeating motion a sensitive user asked us to suppress.
     const reduce = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
     let raf, start = performance.now();
     const loop = (now) => {
@@ -51,22 +45,14 @@ export function breathe({ S }) {
     return () => cancelAnimationFrame(raf);
   }, [tech, playing, t]);
 
-  // The state hook is data-tech-SEL, never data-tech: the Segmented's own options carry data-tech, so a root
-  // that repeats the name joins the same selector — count("[data-tech]") read 5 instead of 4 and
-  // attr('[data-tech="478"]', "aria-pressed") read the wrapper (CI, 2026-09-04).
   return html`<div data-breathe data-tech-sel=${tech} data-playing=${playing ? "1" : "0"} class="flex flex-col items-center gap-[calc(var(--ms-gap)*1.5)] pt-2">
     <div class="flex flex-col gap-1 self-stretch min-w-0 px-[var(--ms-pad)]">
-      ${/* self-stretch, not w-full: this column is align-items:center, so a child's width is shrink-to-fit
-           — `w-full` resolves against a content-sized parent and the rail's w-max row simply pushes it
-           wider, overflowing at 320px instead of scrolling. Stretching gives the rail a definite width
-           to scroll inside. The technique's gloss ("fall asleep easier") rides the option's `title` — the
-           kit's slot for a one-line mood — instead of a caption under a working strip. */""}
+      ${""}
       <${Segmented} attr="data-tech" scroll label=${T(t, "tabBreathe")}
         items=${ORDER.map((k) => ({ id: k, label: T(t, TECHS[k].name), title: T(t, TECHS[k].sub) }))} value=${tech} onChange=${choose} />
     </div>
 
-    ${/* The orb is the instrument: its material lives in head.html (.br-orb) — a sphere shaded in the
-         app's accent with the luminous bloom, no hex and no shadow written here. */""}
+    ${""}
     <div class="w-full flex justify-center py-3">
       <div ref=${orbRef} data-orb class="br-orb w-full max-w-[210px] aspect-square rounded-full" style="will-change:transform"></div>
     </div>

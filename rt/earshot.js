@@ -1,31 +1,14 @@
-// microspec runtime — the earshot protocol: a voice that fits in one BLE advertisement.
-//
-// The whole design is dictated by one measured number. A non-connectable legacy advertisement is charged
-// no AD flags structure (AOSP BluetoothLeAdvertiser.totalBytes: hasFlags = isConnectable && isDiscoverable),
-// so 31 bytes minus AD length, AD type and a 2-byte company id leaves 27 — and that is the entire message.
-// Full derivation and the traps: docs/research/ble-ether.md.
-//
-// Deliberately NOT fragmented. A throw is one packet or it is nothing: the channel has no ack, no ordering
-// and no retry, so a message assembled from four advertisements is four chances to show half a sentence.
-//
-// Pure — no DOM, no clock, no shell. Every time is passed in.
-
 import { parseAd, adSummary, smooth } from "./radar.js";
 
 /** The SIG's internal / interoperability-test space. The shell fixes it so a page cannot wear a vendor id. */
 export const COMPANY = 0xffff;
 
-// A first byte of our own, because 0xFFFF is where every hobby project in range also puts its bytes.
-// High nibble marks the protocol, low nibble its version — one byte buys 16 revisions before a rename.
 export const MAGIC = 0xe1;
 
-export const HEADER = 5;        // magic · sender(3) · seq
+export const HEADER = 5;
 export const MAX_PAYLOAD = 27;
-export const MAX_TEXT = MAX_PAYLOAD - HEADER;   // 22 bytes — about 10 Cyrillic characters
+export const MAX_TEXT = MAX_PAYLOAD - HEADER;
 
-// A throw cannot outlive the transmitter repeating it, and the platform stops that at 180 s
-// (AdvertiseSettings.LIMITED_ADVERTISING_MAX_MILLIS). Holding a voice on screen for longer would show a
-// speaker who has already gone silent.
 export const VOICE_TTL_MS = 180_000;
 
 const enc = new TextEncoder();
@@ -99,10 +82,6 @@ export const newSender = (rand = Math.random) => Math.floor(rand() * 0x1000000) 
 /** Golden-angle hue: consecutive ids land far apart, so two speakers are rarely the same colour. */
 export const hueOf = (sender) => Math.round(((sender >>> 0) * 137.508) % 360);
 
-// A sender id has to be shown as SOMETHING, and six hex digits is a serial number, not a person. Alternating
-// consonant and vowel gives a name that can be read aloud and told apart across a room in either locale.
-// 14×5 per syllable, three syllables = 343,000 names — collisions matter only among people standing
-// together, and the colour disambiguates the rest.
 const CONS = "bdfgklmnprstvz";
 const VOW = "aeiou";
 
@@ -145,7 +124,5 @@ export function mergeVoices(voices, sightings, now, ttlMs = VOICE_TTL_MS) {
       by.set(key, { sender: s.sender, seq: s.seq, text: s.text, rssi: s.rssi ?? null, first: now, last: now, heard: 1 });
     }
   }
-  // Age out against `last`, not `first`: a speaker still repeating a throw is still in the room, and
-  // expiring on first-heard would silence the person who has been standing there longest.
   return [...by.values()].filter((v) => now - v.last <= ttlMs);
 }

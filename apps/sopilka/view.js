@@ -1,26 +1,3 @@
-// Сопілка — a playable Ukrainian folk fipple flute. Diatonic prima: SIX holes, C major — the folk
-// instrument, not Demínchuk's chromatic ten-hole redesign of 1970. Synthesised through the runtime's
-// blown-pipe voice (/_rt/wind.js); no samples.
-//
-// Every hole is INDEPENDENT and the pipe takes as many fingers as you can put on it. That is not a feature
-// bolted on for its own sake — it is what makes "вилки" (cross/fork fingerings) possible, and forks are how
-// a six-hole diatonic pipe reaches the notes between its scale steps. A one-touch abstraction cannot express
-// them, so it cannot express the instrument.
-//
-// The pitch is NOT a lookup table. It is the physics:
-//   the air column effectively ends at the FIRST OPEN hole from the top — that sets the note;
-//   holes covered BELOW that opening lengthen the column slightly and flatten it about a semitone.
-// That second line is the fork. Checked against the canonical case: on a D whistle, C natural is fingered
-// ○●●○○○ — top hole open (so the base is C♯, the seventh), two holes covered below it → flattened to C
-// natural. The rule reproduces the real chart rather than imitating it.
-// Refs: whistle cross-fingering practice · fipple-flute acoustics (see /_rt/wind.js).
-//
-// Touching the pipe ANYWHERE is the breath: your fingers are on the pipe when you play it, and a finger
-// resting between holes covers nothing — exactly as here. That is also what makes the all-open note (Сі)
-// reachable without inventing a button for it.
-//
-// Передування (overblowing) is a toggle: a phone has no breath sensor. The fingering and the octave
-// relationship are real; the way you ask for the octave is an admitted simplification.
 import { html } from "htm/preact";
 import { useState, useRef, useEffect } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -31,24 +8,16 @@ import { haptic } from "/_rt/sensors.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-// Prima sopilka in C: all six covered sounds C5. (A transposing instrument — notated an octave below.)
 const TONIC = 72;
-// index = holes covered CONSECUTIVELY from the top → semitones above the tonic. The diatonic staircase.
 const SCALE = [11, 9, 7, 5, 4, 2, 0];
 const HOLES = 6;
-const TOP = 28, GAP = 11.4;                         // hole centres, % of pipe height — shared by render + hit-test
-const HIT = 0.052;                                  // half-height of a hole's touch zone, as a fraction of the pipe
+const TOP = 28, GAP = 11.4;
+const HIT = 0.052;
 const NAMES = ["До", "До♯", "Ре", "Ре♯", "Мі", "Фа", "Фа♯", "Соль", "Соль♯", "Ля", "Ля♯", "Сі"];
 const LAT = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 
-// The pipe is an OBJECT, not a surface: its wood, bore, pad and labium window are a fixed palette that lives in
-// head.html (.so-pipe / .so-bore / .so-pad / .so-window) with the reasoning next to it. The pipe itself sits on
-// the PAGE, so its extrusion IS the page's — `sf-e3`, like handpan's bowl.
-// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
-// The app owns the TUNING; the runtime owns the acoustics (fingeredSemitone in /_rt/wind.js). Same split
-// as groove.js: a rule true of every fipple flute does not belong to one of them.
 const semitoneFor = (covered) => fingeredSemitone(covered, SCALE);
 
 export function sopilka({ S }) {
@@ -57,7 +26,7 @@ export function sopilka({ S }) {
   const [blowing, setBlowing] = useState(false);
   const [over, setOver] = useState(false);
   const eng = useRef(null), voice = useRef(null), pipe = useRef(null);
-  const ptrs = useRef(new Map());                   // pointerId → hole index | null (null = on the pipe, covering nothing)
+  const ptrs = useRef(new Map());
   const overRef = useRef(false); overRef.current = over;
 
   const ensure = () => {
@@ -68,10 +37,9 @@ export function sopilka({ S }) {
   };
   const freqOf = (set) => midiToFreq(TONIC + semitoneFor(set) + (overRef.current ? 12 : 0));
 
-  useEffect(() => () => { try { voice.current?.stop(); } catch { /* */ } if (eng.current) eng.current.close(); }, []);
+  useEffect(() => () => { try { voice.current?.stop(); } catch { } if (eng.current) eng.current.close(); }, []);
   useEffect(() => { if (voice.current) voice.current.setFreq(freqOf(covered)); }, [over]);
 
-  // Which hole a point sits on — null means the pipe itself: breath, no hole covered.
   const holeAt = (clientY) => {
     const el = pipe.current; if (!el) return null;
     const r = el.getBoundingClientRect();
@@ -83,19 +51,10 @@ export function sopilka({ S }) {
     }
     return null;
   };
-  // The hand. A screen has no palm, so the holes ABOVE your highest finger are taken as covered — because
-  // on a real pipe they are: the fingers that are not doing anything are still resting on the upper holes.
-  // Without this the instrument is unplayable, and provably so: with one finger the covered set is a single
-  // hole, which never forms the consecutive run the air column needs, so every hole in the pipe sounds
-  // Ля or Ля♯ and nothing else. That is what "всі отвори ля" was — not a mis-tuning, a missing hand.
-  //
-  // What this buys: ONE finger walks the whole diatonic scale (touch the lowest hole you want stopped),
-  // and a SECOND finger below it covers an extra hole — which is exactly a fork. Playable with a thumb,
-  // still able to express the cross-fingerings that made independent holes worth having.
   const sync = () => {
     const set = handCovered([...ptrs.current.values()].filter((v) => v != null));
     setCovered(set);
-    if (voice.current) voice.current.setFreq(freqOf(set));   // legato: the breath never stops, only the bore
+    if (voice.current) voice.current.setFreq(freqOf(set));
     return set;
   };
 
@@ -121,7 +80,7 @@ export function sopilka({ S }) {
   };
   const up = (e) => {
     if (!ptrs.current.delete(e.pointerId)) return;
-    if (ptrs.current.size === 0) {                  // last finger off the pipe → the breath stops
+    if (ptrs.current.size === 0) {
       voice.current?.stop(); voice.current = null;
       setBlowing(false); setCovered(new Set());
       return;
@@ -133,7 +92,7 @@ export function sopilka({ S }) {
   const oct = over ? 6 : 5;
 
   return html`<div class="flex flex-col items-center gap-[var(--ms-gap)]" data-note=${semi == null ? "" : LAT[semi]} data-blowing=${blowing} data-octave=${oct}>
-    ${/* the note is INK — the reading of the instrument, never a coloured word; colour is for marks */""}
+    ${""}
     <div class="text-center min-h-16">
       <div class=${LABEL}>${T(t, "note")}</div>
       <div class="text-4xl font-bold leading-none tabular-nums">
@@ -154,9 +113,7 @@ export function sopilka({ S }) {
         style=${`top:calc(${TOP + i * GAP}% - 0.875rem)`}></div>`)}
     </div>
 
-    ${/* Передування is ON or OFF — a boolean, not a one-of-N choice, so it stays a button with aria-pressed
-          and never becomes a `Segmented` strip (same call as sigil's tilt). The off face carries the raised
-          extrusion from theme.css `.btn:not(.btn-ghost)`; the on face is the filled ink pill. */""}
+    ${""}
     <button id="over" data-over aria-pressed=${over} class=${`btn btn-sm gap-2 ${over ? "btn-primary" : "btn-outline"}`}
       data-haptic="bump" onClick=${() => setOver((v) => !v)}>${Icon("lucide:wind", "text-base")}${T(t, "overblow")}</button>
     ${!audioSupported ? html`<div class="text-sm text-muted text-center">${T(t, "noAudio")}</div>` : null}

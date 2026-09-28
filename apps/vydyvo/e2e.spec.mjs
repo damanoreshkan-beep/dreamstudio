@@ -1,5 +1,3 @@
-// Under the gate a race is a 90 ms wait that yields two gradient frames — no network, no GPU, no sign-in.
-// Poll the frame that is ON, not the <img> (both slots exist from the first render).
 const ready = async (h) => { for (let i = 0; i < 30; i++) { if ((await h.count("[data-frame][data-on]")) > 0) break; await h.wait(400); } };
 
 export default [
@@ -8,7 +6,6 @@ export default [
       await ready(h);
       h.expect((await h.count("[data-frame][data-on]")) === 1, "немає кадру на сцені");
       h.expect(/\S/.test(await h.text("[data-status]")), "порожній рядок статусу");
-      // the THEME is the world: the stage carries its id — no preset UI, no theme label anywhere
       h.expect(/\S/.test(await h.attr("[data-stage]", "data-vy-world") || ""), "сцена не знає світу теми");
       h.expect((await h.count("[data-preset-card]")) === 0, "пресети мали зникнути");
     },
@@ -39,10 +36,6 @@ export default [
     },
   },
   {
-    // nothing is kept (owner 2026-09-04): there is no collection to count — the wand's proof is the number of
-    // FRESH frames waiting for the stage, which the stage carries as data-vy-ahead
-    // the wand DISCARDS the frames painted ahead (they belong to the old words) and starts a new race: the proof is
-    // the race counter on the stage going up and a fresh frame landing again within a few seconds
     name: "паличка: явна генерація скидає старі свіжі кадри і малює нові", run: async (h) => {
       await ready(h);
       const num = async (a) => Number(await h.attr("[data-stage]", a));
@@ -55,8 +48,6 @@ export default [
     },
   },
   {
-    // the characters are their own choice (owner 2026-09-04): twelve tiles, a tap picks the character AND opens the
-    // show; the pick survives a reload as opts.char, and the stage now belongs to that world
     name: "персонажі: сітка з дванадцяти, тап обирає і відкриває показ", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-chars] [data-char]")) === 12, "у сітці має бути дванадцять персонажів");
@@ -79,9 +70,6 @@ export default [
     },
   },
   {
-    // The veil itself is a sub-second state under the gate (the fixture paints a matching frame in ~90 ms,
-    // faster than a poll can look) — the CHECKABLE invariant is the outcome: after a theme flip the stage
-    // ends up holding a frame of the new mode, with no veil left. The veil's look is the eye's job.
     name: "зміна теми: сцена отримує кадр нового режиму, вуаль знімається", run: async (h) => {
       await ready(h);
       await h.click('[data-tab="me"]'); await h.wait(200);

@@ -1,6 +1,3 @@
-// Under the gate a clip is already on the stage (boot seeds the VP9 mock, data-live), the model rail is a
-// three-row mock catalogue, the chooser's third source is a fixed mock picture, and a job is a 90 ms wait that
-// yields the same mock — no network, no GPU, no sign-in.
 const ready = async (h) => { for (let i = 0; i < 30; i++) { if ((await h.count("[data-frame][data-live]")) > 0) break; await h.wait(200); } };
 
 export default [
@@ -37,9 +34,6 @@ export default [
     },
   },
   {
-    // the first frame: the chooser's "last picture" becomes the frame (the i2v row joins the rail, the verb turns
-    // into Оживити); × removes it with an undo toast; after a take the clip is ON TOP and the first-frame chip
-    // brings the picture back for another take
     name: "перший кадр: остання картинка → фото, i2v-ряд, Оживити; × прибирає; після зйомки кліп зверху, чіп повертає фото", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-src-upload]")) === 1 && (await h.count("[data-src-camera]")) === 1, "немає джерел фото на кадрі");

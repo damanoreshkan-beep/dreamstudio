@@ -1,18 +1,8 @@
-// microspec runtime — trace geometry: a series of position fixes → something drawable and measurable.
-//
-// The app owns taste, this owns the maths. That split is why the projection and the fit are unit-tested
-// here rather than eyeballed on a phone, and why `share` exists at all: every gate the farm has measures
-// overflow, so a drawing that uses a tenth of its stage passes all of them.
-//
-// A fix is `{ lat, lon, at }` (+ whatever the caller carries). Metres everywhere, degrees never.
-
-const R = 6371008.8;                       // IUGG mean radius
+const R = 6371008.8;
 const rad = (d) => (d * Math.PI) / 180;
 export const M_PER_DEG_LAT = (R * Math.PI) / 180;
 export const mPerDegLon = (lat) => M_PER_DEG_LAT * Math.cos(rad(lat));
 
-// Haversine. Equirectangular is tempting at a day's scale and is what `project` uses for DRAWING, but a
-// distance readout is a claim about the world and gets the exact formula.
 export function distanceM(a, b) {
   if (!a || !b) return 0;
   const dLat = rad(b.lat - a.lat), dLon = rad(b.lon - a.lon);
@@ -21,8 +11,6 @@ export function distanceM(a, b) {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-// Sums CONSECUTIVE fixes, so a gap is counted as a straight line across it. Pass one segment at a time
-// (see `segments`) whenever the answer is shown to a user as a distance they travelled.
 export function length(points) {
   let m = 0;
   for (let i = 1; i < points.length; i++) m += distanceM(points[i - 1], points[i]);
@@ -96,7 +84,6 @@ export function simplify(points, epsilonM = 8) {
     const den = Math.hypot(dx, dy);
     let far = -1, best = epsilonM;
     for (let i = lo + 1; i < hi; i++) {
-      // Degenerate span (start === end) has no perpendicular; the radial distance is the right measure.
       const d = den === 0
         ? Math.hypot(x[i] - x[lo], y[i] - y[lo])
         : Math.abs(dy * (x[i] - x[lo]) - dx * (y[i] - y[lo])) / den;
@@ -119,7 +106,6 @@ export function project(points, { box, width, height, pad = 0 } = {}) {
   const c = centre(box), kx = mPerDegLon(c.lat);
   const span = spanM(box);
   const w = Math.max(0, width - 2 * pad), h = Math.max(0, height - 2 * pad);
-  // A single fix, or a day spent in one building, has no span to scale by — it belongs at the centre.
   const k = (span.w > 0 || span.h > 0)
     ? Math.min(span.w > 0 ? w / span.w : Infinity, span.h > 0 ? h / span.h : Infinity)
     : 0;

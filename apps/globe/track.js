@@ -1,9 +1,3 @@
-// ISS tracker — the live position of the International Space Station on the shared globe, following it in
-// real time, with altitude / speed / sunlight state / which country (or ocean) it's over. Resilient by design:
-// it fetches the ISS orbital elements (TLE) ONCE, then propagates the sub-satellite point locally every second
-// with SGP4 (/_rt/orbit.js, unit-tested vs the standard reference vector) — no live-position API to break on a
-// cert or an outage, and it keeps ticking offline from the cached (or baked) TLE. TLE from tle.ivanstanojevic
-// .me (CORS *, relays Celestrak). Built on /_rt/globe (points + focus + countryAt).
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -17,11 +11,8 @@ import { subpoint, makeSat, FALLBACK_TLE } from "/_rt/orbit.js";
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const TLE_URL = "https://tle.ivanstanojevic.me/api/tle/25544";
 const CACHE_KEY = "iss.tle.v1";
-const ME_KEY = "iss.me.v1";        // the reader's own point, kept so the prompt is asked once and not per visit
-const GATE_ME = { lat: 50.45, lon: 30.52 };   // Kyiv, for the deterministic shot
-// One orbit is about 92 minutes. The track is drawn 25 minutes behind and 92 ahead at one point a minute:
-// solid for where the station HAS been, dashed for where it is GOING, so the two halves of the line answer
-// the only question a rule about distance asks — WHEN will it be close.
+const ME_KEY = "iss.me.v1";
+const GATE_ME = { lat: 50.45, lon: 30.52 };
 const BACK_MIN = 25, AHEAD_MIN = 92, STEP_MS = 60e3;
 const ISS_COLOR = "#F5B94D", ME_COLOR = "#4ADE80";
 
@@ -37,12 +28,11 @@ function groundTrack(rec, at) {
   };
   return [arc(-BACK_MIN, 0), arc(0, AHEAD_MIN)];
 }
-const GATE_DATE = new Date("2026-07-20T02:10:00Z");   // deterministic fix (mid-Pacific) for the gate shot & e2e
+const GATE_DATE = new Date("2026-07-20T02:10:00Z");
 const fmt = (n) => n == null ? "—" : Math.round(Number(n)).toLocaleString("en-US").replace(/,/g, " ");
 
-// a satrec from cache or the baked fallback, so first paint (and offline / the gate) already has a position
 function initialSat() {
-  try { if (typeof localStorage !== "undefined") { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); if (c && c.line1 && c.line2) return makeSat(c.line1, c.line2); } } catch { /* */ }
+  try { if (typeof localStorage !== "undefined") { const c = JSON.parse(localStorage.getItem(CACHE_KEY) || "null"); if (c && c.line1 && c.line2) return makeSat(c.line1, c.line2); } } catch { }
   return makeSat(FALLBACK_TLE.line1, FALLBACK_TLE.line2);
 }
 
@@ -55,14 +45,10 @@ export function iss({ S }) {
     if (isGate || MOCK) return GATE_ME;
     try { const v = JSON.parse(localStorage.getItem(ME_KEY) || "null"); return v && v.lat != null ? v : null; } catch { return null; }
   });
-  const [rings, setRings] = useState([]);      // the bands this reader actually asked for, in km
+  const [rings, setRings] = useState([]);
   const [track, setTrack] = useState(null);
   const [meErr, setMeErr] = useState(false);
 
-  // THE BANDS, DRAWN. The rule row never shows a kilometre — the reader chose a word — but the edge stored
-  // the number that word resolved to, and a circle of that radius around his own point is the same fact in
-  // the only language a globe speaks. A rule about distance from me is unreadable on a globe that does not
-  // say where me is, which is the whole reason these two arrived together.
   useEffect(() => {
     let live = true;
     watchList("iss").then((j) => {
@@ -72,8 +58,6 @@ export function iss({ S }) {
     return () => { live = false; };
   }, []);
 
-  // The track is arithmetic on elements we already hold, so it costs no network — but 117 propagations a
-  // second would be silly, and the line only moves a pixel a second anyway. Once every half minute.
   useEffect(() => {
     const redraw = () => { const r = recRef.current; if (r) setTrack(groundTrack(r, isGate || MOCK ? GATE_DATE : new Date())); };
     redraw();
@@ -87,17 +71,15 @@ export function iss({ S }) {
     const p = await place();
     if (!p) { setMeErr(true); return; }
     setMe(p);
-    try { localStorage.setItem(ME_KEY, JSON.stringify(p)); } catch { /* private mode — the dot lasts this visit */ }
+    try { localStorage.setItem(ME_KEY, JSON.stringify(p)); } catch { }
   };
 
-  // propagate the current TLE locally every second — the dot moves with zero network per frame
   useEffect(() => {
     if (isGate || MOCK) return;
     const id = setInterval(() => { const r = recRef.current; if (r) { const p = subpoint(r, new Date()); if (p) setPos(p); } }, 1000);
     return () => clearInterval(id);
   }, []);
 
-  // fetch a fresh TLE once (refresh every few hours) and cache it; on failure we keep propagating what we have
   useEffect(() => {
     if (isGate || MOCK) return;
     let live = true;
@@ -106,20 +88,18 @@ export function iss({ S }) {
         const r = await fetch(TLE_URL); if (!r.ok) throw 0; const j = await r.json();
         if (!live || !j.line1 || !j.line2) return;
         recRef.current = makeSat(j.line1, j.line2);
-        try { if (typeof localStorage !== "undefined") localStorage.setItem(CACHE_KEY, JSON.stringify({ line1: j.line1, line2: j.line2, name: j.name, date: j.date })); } catch { /* */ }
+        try { if (typeof localStorage !== "undefined") localStorage.setItem(CACHE_KEY, JSON.stringify({ line1: j.line1, line2: j.line2, name: j.name, date: j.date })); } catch { }
         const p = subpoint(recRef.current, new Date()); if (p) setPos(p);
-      } catch { /* keep the cached/baked TLE — the position stays live, just from slightly older elements */ }
+      } catch { }
     };
     load();
     const id = setInterval(load, 3 * 3600 * 1000);
     return () => { live = false; clearInterval(id); };
   }, []);
 
-  // re-render until the globe's topology is loaded, so "over <country>" resolves
   useEffect(() => { const id = setInterval(() => { tick((x) => x + 1); if (worldReady()) clearInterval(id); }, 1000); return () => clearInterval(id); }, []);
 
-  const ready = useReveal(!!pos);   // hold the skeleton ≥1s so a fast fix doesn't flash
-  // the real globe spins immediately (it needs no data); the readout + stats are decoding skeletons
+  const ready = useReveal(!!pos);
   if (!ready) return html`<div class="flex flex-col gap-4 items-center">
     <${Globe} points=${[]} spin=${true} height=${320} />
     <div class="flex items-center gap-2 text-sm text-muted">${Icon("lucide:satellite", "text-base")}<span class="font-semibold"><${Scramble} len=${12} /></span></div>
@@ -131,9 +111,6 @@ export function iss({ S }) {
   const over = country?.name || T(t, "overOcean");
   const visKey = sunlit ? "visDay" : "visEclipse";
 
-  // A stat tile is a small raised object, so it takes the SHALLOW rung: the hairline it replaces was the
-  // only thing separating it from the page (base-100 and base-300 are one step apart and the tile's own
-  // face is base-100), and the full pair under a 4-up grid of 60px cards is a shadow bigger than the card.
   const stat = (icon, label, value, unit) => html`<div class="card bg-base-100 rounded-2xl sf-e2"><div class="card-body p-3 gap-0.5">
     <div class="text-[0.62rem] font-mono uppercase text-muted flex items-center gap-1">${Icon(icon)}${T(t, label)}</div>
     <div class="text-xl font-bold tabular-nums truncate">${value}<span class="text-sm font-medium text-muted ml-1">${T(t, unit)}</span></div>
@@ -166,9 +143,7 @@ export function iss({ S }) {
       ${stat("lucide:gauge", "velocity", fmt(velocityKmh), "kmh")}
     </div></div>
 
-    ${/* The detail panel is the page extruded — `sf-raised`, not an outlined box. The `divide-y` STAYS: it
-         separates two rows INSIDE one surface, which is a divider doing a divider's job, not a hairline
-         standing in for the panel's edge. */""}
+    ${""}
     <div class="w-full max-w-[420px] rounded-2xl sf-raised px-4 flex flex-col divide-y divide-base-300/40">
       <div class="flex items-center justify-between py-2.5"><span class="text-base-content/70 flex items-center gap-2">${Icon("lucide:map-pin")}${T(t, "coords")}</span><span data-coords class="font-medium tabular-nums">${lat.toFixed(2)}°, ${lon.toFixed(2)}°</span></div>
       <div class="flex items-center justify-between py-2.5"><span class="text-base-content/70 flex items-center gap-2">${Icon("lucide:sun-moon")}${T(t, "visibility")}</span><span class="font-medium">${T(t, visKey)}</span></div>

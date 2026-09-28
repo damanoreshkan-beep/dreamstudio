@@ -1,11 +1,3 @@
-// swarm e2e — the canvas is invisible to every gate, so the truth lives in the [data-readout] hud's
-// dataset mirror: frame/wave/alive prove the reactor runs, shots proves the trigger, and the
-// records sheet proves the routing invariant. The gate fixture is the aim-bot forward-run in
-// view.js; these tests assert its aftermath, never pixels.
-//
-// [data-readout], not [data-live]: the hud lives inside the kit's CamStage now, and the stage stamps
-// its own [data-live] on the element that wraps it — the hud needs a mark of its own to be addressed.
-
 const hud = '[data-swarm] [data-readout]';
 const num = (h, name) => h.attr(hud, `data-${name}`).then((v) => +v || 0);
 
@@ -22,8 +14,6 @@ export default [
       const f1 = await num(h, "frame");
       await h.wait(600);
       h.expect((await num(h, "frame")) > f1, "frames stopped advancing — the clock is dead");
-      // polled, not sampled: the attract bot clears waves, and a single read can land inside the
-      // legitimate 1.5s empty-ring breath between them
       h.expect(await until(h, async () => (await num(h, "alive")) > 0, 8000), "no enemies alive — the ring never repopulated");
       h.expect((await num(h, "kills")) > 0, "the gate bot landed zero kills — the populated screen is a lie");
       h.expect((await num(h, "dead")) === 0, "the fixture left a dead player on screen");
@@ -32,8 +22,6 @@ export default [
   {
     name: "тригер: тап по кнопці вогню реєструє РУЧНИЙ постріл",
     async run(h) {
-      // data-mshots, not data-shots: the attract bot fires on its own in the gate, so the
-      // engine's total would pass this test with the trigger unplugged
       const before = await num(h, "mshots");
       await h.tap("[data-fire]");
       h.expect(await until(h, async () => (await num(h, "mshots")) > before, 4000), "a tap on the trigger fired nothing");
@@ -43,8 +31,6 @@ export default [
     name: "клавіатура: пробіл стріляє",
     async run(h) {
       const before = await num(h, "mshots");
-      // held past a full trigger cooldown (16 frames ≈ 267ms): a recent shot's recharge can
-      // otherwise swallow a short hold whole
       await h.key("Space", 600);
       h.expect(await until(h, async () => (await num(h, "mshots")) > before, 4000), "Space fired nothing");
     },

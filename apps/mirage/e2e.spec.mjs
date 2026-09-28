@@ -1,14 +1,9 @@
-// The gate has no network, no camera and no GPU minute to spend: state.js seeds Make as DONE with four local
-// pictures, Edit and Read with a local source, and every run re-seeds locally. The whole pipeline — prompt →
-// race → variants → hand-off between modes → words — is exercised without a single call out.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-result]")) > 0) break; await h.wait(300); } };
 const mode = async (h, m) => { await h.click(`[data-mode="${m}"]`); await h.wait(250); };
 const changed = async (h, before, n = 15) => { for (let i = 0; i < n; i++) { const now = await h.attr("[data-result]", "src"); if (now && now !== before) return true; await h.wait(250); } return false; };
 
 export default [
   {
-    // Покращити (2026-09-03): the picture in view ×4 through zir's route — under the gate a 350 ms wait and the
-    // same slide at 4× the viewBox; the pill turns into «Покращено» and refuses a second tap
     name: "покращити: кнопка при результаті → слайд замінюється 4×, кнопка каже Покращено", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-act=enhance]")) === 1, "немає кнопки Покращити");
@@ -34,7 +29,6 @@ export default [
     },
   },
   {
-    // The picture is the subject: the stage must take the larger share of the view, the composer what is left.
     name: "сцена отримує більшу частку екрана, ніж композер", run: async (h) => {
       await ready(h);
       const stage = await h.css("[data-stage-box]", "height"), island = await h.css("[data-island]", "height");
@@ -84,8 +78,6 @@ export default [
     },
   },
   {
-    // The gate seeds a fixed catalogue: Auto + the alive/unknown Spaces; a pick sticks per mode and shows on
-    // the options button; Rework and Read carry the same control with their own lists.
     name: "модель: Авто + живі Spaces, вибір тримається по режимах", run: async (h) => {
       await ready(h);
       await h.click("[data-opts]"); await h.wait(300);
@@ -114,7 +106,6 @@ export default [
     },
   },
   {
-    // The history sheet is a kit Sheet (children stay mounted while closed): assert the dialog's own `open`.
     name: "історія: sheet, тап підставляє, Back закриває", run: async (h) => {
       await ready(h);
       await h.type("#prompt", "a lighthouse in a storm"); await h.click("[data-go]"); await h.wait(500);
@@ -130,7 +121,6 @@ export default [
     },
   },
   {
-    // Make → Edit hand-off: the picture in view becomes the source, and the mode follows it.
     name: "«Оновити це» передає картинку в Онови як джерело", run: async (h) => {
       await ready(h);
       const pic = await h.attr("[data-result]", "src");
@@ -217,8 +207,6 @@ export default [
     },
   },
   {
-    // The gate seeds both slots and a fixed "last picture": clearing a slot brings its compact chooser back and
-    // disables the action; the chooser refills it; a blend re-seeds four variants with the hand-off to Rework.
     name: "поєднай: прибрати слот → вибір, заповнити знову, інструкція → 4 варіанти", run: async (h) => {
       await mode(h, "blend");
       h.expect((await h.count("[data-slot=a] img")) === 1 && (await h.count("[data-slot=b] img")) === 1, "обидва слоти мають бути заповнені");
@@ -237,8 +225,6 @@ export default [
     },
   },
   {
-    // Style is the same two slots as Blend, but the two are NOT peers: `a` is the picture, `b` is the look.
-    // The labels are the whole difference on screen, so they are asserted, not the slot count.
     name: "стиль: підписані слоти, свій каталог моделей, фото+стиль → 4 варіанти", run: async (h) => {
       await mode(h, "style");
       h.expect((await h.count("[data-slot=a] img")) === 1 && (await h.count("[data-slot=b] img")) === 1, "обидва слоти мають бути заповнені");
@@ -262,8 +248,6 @@ export default [
     },
   },
   {
-    // Картки стилів у Творенні: перша — власний матеріал ферми («Сяйво»), вибір тримається в опціях і
-    // підмішується до промпту (state.js), Back закриває шит.
     name: "стиль-картки: Сяйво перша, вибір позначається, Back закриває", run: async (h) => {
       await mode(h, "make");
       await h.click("[data-styles]"); await h.wait(250);

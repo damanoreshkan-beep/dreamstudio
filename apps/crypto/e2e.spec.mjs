@@ -1,5 +1,3 @@
-// Live crypto ticker (Binance WebSocket). On localhost the stream is synthetic (Binance geo-blocks CI
-// IPs), so the gate reviews a real, moving market. It's a plain list app — search + sort are systemic.
 const seed = async (h) => { for (let i = 0; i < 24; i++) { if (/BTC/.test(await h.bodyText())) break; await h.wait(300); } };
 
 export default [

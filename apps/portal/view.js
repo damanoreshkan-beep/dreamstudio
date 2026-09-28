@@ -1,12 +1,3 @@
-// portal — the camera as art at 60 fps on a READY system. ONE fit screen with TWO stages, chosen by where the
-// page runs (docs/research/portal-godot.md):
-//   · inside the shell's `godot` flavour (the APK) the stage is the kit's GodotStage — the Godot project in
-//     godot/portal/ renders the camera and the materials under the page, the page is the UI (owner, 2026-09-05:
-//     "тачдизайнер хочу … не окремий застосунок, у нас вже є механізм збірки apk");
-//   · in a browser the stage is the kit's CamStage + the pixi graph (graph.js — the TD-style TOP network on
-//     pixi's machinery: trace, hatch, feedback, the camera as is).
-// Either way: the strip picks the material, the theme picks light or dark, the knobs behind one icon are the
-// material's own set (presets.js KNOBS, remembered per material), SAVE writes the frame. State map: RESEARCH.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
@@ -26,47 +17,42 @@ const tool = "btn btn-ghost btn-sm btn-circle text-base-content/70";
 const thumb = (id) => new URL(`assets/style-${id}.webp`, import.meta.url).href;
 const texUrl = (id) => new URL(`assets/tex-${id}.webp`, import.meta.url).href;
 const mockURL = new URL("assets/mock.webp", import.meta.url).href;
-const packURL = new URL("assets/portal.pck", import.meta.url).href;   // the Godot project, exported by CI
+const packURL = new URL("assets/portal.pck", import.meta.url).href;
 const KEY = "portal:preset";
 const TUNE = (id) => `portal:tune:${id}`;
 const docMaterial = () => document.documentElement.getAttribute("data-material") || "lum";
 const docLight = () => (document.documentElement.getAttribute("data-theme") || "").includes("light");
-// probe-guarded like GlStage: preflight's canvas stub answers null and the system is never loaded there
 const hasGL = () => { try { return !!document.createElement("canvas").getContext("webgl2"); } catch { return false; } };
-// the wordmark sits on foreign content whose ground the theme cannot know — a theme-aware gradient keeps it
-// legible; in the stage's fullscreen there is no wordmark and the scrim goes with it
 const CSS = `.pt-scrim{height:calc(var(--hdr-h,3.5rem) * 1.9);background:linear-gradient(to bottom,light-dark(rgba(246,244,238,.72),rgba(0,0,0,.62)) 0%,light-dark(rgba(246,244,238,.36),rgba(0,0,0,.32)) 35%,light-dark(rgba(246,244,238,.08),rgba(0,0,0,.07)) 75%,transparent 100%)}
 [data-fullscreen] .pt-scrim{display:none}
 .pt-swatch{background:radial-gradient(circle at 35% 35%,color-mix(in oklch,var(--app-accent) 55%,white) 0%,var(--app-accent) 45%,color-mix(in oklch,var(--app-accent) 40%,black) 100%)}`;
 
-const firstPreset = () => { try { const v = localStorage.getItem(KEY); if (v && PRESETS[v]) return v; } catch { /* */ } return PRESETS[docMaterial()] ? docMaterial() : "lum"; };
+const firstPreset = () => { try { const v = localStorage.getItem(KEY); if (v && PRESETS[v]) return v; } catch { } return PRESETS[docMaterial()] ? docMaterial() : "lum"; };
 const loadTune = (id) => { try { const v = JSON.parse(localStorage.getItem(TUNE(id)) || "null"); return v && typeof v === "object" ? v : {}; } catch { return {}; } };
-const saveTune = (id, over) => { try { if (Object.keys(over).length) localStorage.setItem(TUNE(id), JSON.stringify(over)); else localStorage.removeItem(TUNE(id)); } catch { /* */ } };
+const saveTune = (id, over) => { try { if (Object.keys(over).length) localStorage.setItem(TUNE(id), JSON.stringify(over)); else localStorage.removeItem(TUNE(id)); } catch { } };
 const fmt = (v, step) => (step >= 1 ? String(Math.round(v)) : v.toFixed(step >= 0.01 ? 2 : 3).replace(/\.?0+$/, ""));
 
 export function portal({ S, toast, screen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale);
-  const engine = godotAvailable();                // the APK with the engine, or a browser
-  const [ready, setReady] = useState(false);      // a picture is on the stage
-  const [caps, setCaps] = useState(null);         // what the track declares: torch · zoom · focus (web stage)
+  const engine = godotAvailable();
+  const [ready, setReady] = useState(false);
+  const [caps, setCaps] = useState(null);
   const [torch, setTorch] = useState(false);
   const [preset, setPreset] = useState(firstPreset);
   const [light, setLight] = useState(docLight);
   const [facing, setFacing] = useState("environment");
   const [busy, setBusy] = useState(false);
-  const [over, setOver] = useState(() => loadTune(firstPreset()));   // the knobs of the current material
-  const [fps, setFps] = useState(0);              // what the engine reports
+  const [over, setOver] = useState(() => loadTune(firstPreset()));
+  const [fps, setFps] = useState(0);
   const canvasRef = useRef();
   const px = useRef({ P: null, F: null, app: null, graph: null, filters: [], source: null, pending: null }).current;
 
-  // the document's theme, observed — the view does not re-render on a toggle
   useEffect(() => {
     const mo = new MutationObserver(() => setLight(docLight()));
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
     return () => mo.disconnect();
   }, []);
 
-  // ---- the web stage: the pixi graph on the element CamStage hands over ------------------------------
   const presetRef = useRef(preset); presetRef.current = preset;
   const lightRef = useRef(light); lightRef.current = light;
   const overRef = useRef(over); overRef.current = over;
@@ -90,8 +76,6 @@ export function portal({ S, toast, screen, closeScreen }) {
     let alive = true;
     (async () => {
       let P, F;
-      // the preflight (linkedom) answers a stub context to the probe and has no import map for the system: the
-      // import throws there, and a portal without its system simply never lifts a picture — nothing else breaks
       try { [P, F] = await Promise.all([import("pixi.js"), import("pixi-filters")]); }
       catch (e) { if (canvasRef.current) canvasRef.current.dataset.err = String(e?.message || e).slice(0, 120); return; }
       if (!alive) return;
@@ -104,29 +88,24 @@ export function portal({ S, toast, screen, closeScreen }) {
       px.P = P; px.F = F; px.app = app; px.graph = graph;
       canvasRef.current.dataset.render = "pixi";
       app.ticker.add((tk) => { const dt = tk.deltaMS / 1000; for (const f of px.filters) if (typeof f.time === "number") f.time += dt; graph.tick(dt); });
-      if (px.pending) onVideo(px.pending.el, px.pending);   // the stage was faster than the system
+      if (px.pending) onVideo(px.pending.el, px.pending);
     })();
-    return () => { alive = false; try { px.graph?.destroy(); px.app?.destroy(); } catch { /* gone */ } px.app = null; px.graph = null; };
+    return () => { alive = false; try { px.graph?.destroy(); px.app?.destroy(); } catch { } px.app = null; px.graph = null; };
   }, [engine]);
 
-  // ---- the engine stage: what the project is told, and what it says back ------------------------------
-  // one object per change: GodotStage diffs it by key and sends only what moved
   const params = { facing, preset, light, knobs: over, mark: gate };
   const onEngineState = (f) => {
     if (f.state === "running") {
       setReady(true);
       if (typeof f.fps === "number") setFps(Math.round(f.fps));
-      // the engine's own notes (camera bound / saved / a switch that failed) reach the client log, where a
-      // phone's picture can be read from the VPS — a green, frozen frame has a reason there
       if (typeof f.detail === "string" && /^(camera|saved|save:)/.test(f.detail)) report("engine.note", { detail: f.detail });
     } else if (f.state === "stopped" || f.state === "failed") {
       setReady(false);
-      // the reason goes to our client log — a phone's toast says nothing to the log reader (vps/logs.sh portal)
       if (f.state === "failed") { report("engine.fail", { detail: f.detail || "" }); toast?.(T(t, "eEngine")); }
     }
   };
 
-  const pick = (id) => { setPreset(id); setOver(loadTune(id)); try { localStorage.setItem(KEY, id); } catch { /* */ } };
+  const pick = (id) => { setPreset(id); setOver(loadTune(id)); try { localStorage.setItem(KEY, id); } catch { } };
   const turn = (path, v) => { const o = { ...overRef.current, [path]: v }; setOver(o); saveTune(preset, o); };
   const resetTune = () => { setOver({}); saveTune(preset, {}); };
   const flip = () => { setTorch(false); setFacing((f) => f === "user" ? "environment" : "user"); };
@@ -147,7 +126,7 @@ export function portal({ S, toast, screen, closeScreen }) {
     finally { setBusy(false); }
   };
 
-  const knobs = [...(KNOBS[preset] || KNOBS.plain), ...(engine ? ENGINE_KNOBS : [])];   // the engine's own knobs only where the engine is
+  const knobs = [...(KNOBS[preset] || KNOBS.plain), ...(engine ? ENGINE_KNOBS : [])];
   return html`<${Fragment}>
     <style>${CSS}</style>
     <div data-live="1" data-preset=${preset} data-mode=${light ? "light" : "dark"} data-facing=${facing} data-stage=${engine ? "godot" : "web"} data-tuned=${Object.keys(over).length ? "1" : null} class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
@@ -165,7 +144,7 @@ export function portal({ S, toast, screen, closeScreen }) {
       <//>
       <div class="shrink-0 relative z-[2]">
       <${Island} className="w-full max-w-xl mx-auto flex flex-col gap-[var(--ms-gap)]">
-        ${/* THE STRIP — the twelve themes as material cards, on the screen; a tap re-builds the graph in one frame */""}
+        ${""}
         <div data-strip role="group" aria-label=${T(t, "material")} class="overflow-x-auto flex items-start gap-1 -mx-1 px-1">
           ${IDS.map((id) => { const p = PRESETS[id], active = preset === id; return html`<button key=${id} data-mat=${id} aria-pressed=${active} aria-label=${T(t, p.key)}
               class="shrink-0 w-[3.7rem] h-[4.2rem] flex flex-col items-center justify-start gap-1 rounded-[var(--ms-r-in)] pt-1" onClick=${() => pick(id)}>
@@ -174,8 +153,7 @@ export function portal({ S, toast, screen, closeScreen }) {
             <span class=${`font-mono uppercase tracking-wide text-[0.58rem] leading-none truncate max-w-full ${active ? "text-base-content" : "text-base-content/70"}`}>${T(t, p.key)}</span>
           </button>`; })}
         </div>
-        ${/* THE ROW — one verb: SAVE, big, centred; the knobs icon (and the torch, when the track has one) at the
-             left, the flip at the right. Nothing else. */""}
+        ${""}
         <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 min-h-[3.9rem]">
           <div class="flex items-center justify-start gap-1">
             <button data-tune class=${`${tool} ${Object.keys(over).length ? "text-[var(--app-accent)]" : ""}`} aria-label=${T(t, "tune")} title=${T(t, "tune")} onClick=${() => S.screen.set("tune")}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
@@ -190,7 +168,7 @@ export function portal({ S, toast, screen, closeScreen }) {
       </div>
     </div>
 
-    ${/* THE KNOBS — the material's own set of fine settings, live on the picture behind the frost, remembered per material */""}
+    ${""}
     <${Sheet} id="tune" open=${screen === "tune"} onClose=${closeScreen} title=${T(t, "tune")} subtitle=${T(t, PRESETS[preset].key)} icon="lucide:sliders-horizontal" tone="frost" locale=${loc}>
       <div data-knobs class="flex flex-col gap-3">
         ${knobs.map((k) => { const v = knobValue(preset, light, over, k); return html`<label key=${k.path} class="flex flex-col gap-1">

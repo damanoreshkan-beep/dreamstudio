@@ -1,6 +1,3 @@
-// Three tabs, one module-scope engine (dry + a shared reverb wash, built once). The pan is a circular field
-// of struck voices (the 1:2:3 handpan timbre); Flow = the unit-tested /_rt/melody.js scored search. Settings
-// (voice, scale, space, shimmer, drone) live in a history-backed sheet (system Back closes it).
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-field]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -35,8 +32,6 @@ export default [
     name: "Flow генерує лінію", run: async (h) => {
       await ready(h);
       await h.tap("#flow");
-      // The write-on sweep is a ~480ms setInterval that THROTTLES under CI load, so a fixed wait races it —
-      // poll for auto-play (up to ~6s) instead of guessing a duration. This is what made the test flaky.
       let flowing = false;
       for (let i = 0; i < 20; i++) { await h.wait(300); if ((await h.attr("#play", "data-playing")) === "true") { flowing = true; break; } }
       h.expect(flowing, "Flow не почав грати");

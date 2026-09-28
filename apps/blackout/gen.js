@@ -1,8 +1,3 @@
-// blackout — A RUNNER OF YOUR OWN: the sheet behind the Create card on the skins tab. Words go the afterdark way
-// (rt/genchar.js: a picture, then a rigged body); a PHOTO is first read by /feed/vision into the English look the
-// picture model needs — the face never reaches the mesh Space. The edge charges GEN_PRICE from the farm wallet when
-// the body job is queued and gives it back when the job fails (2026-09-15); this side only reads the balance.
-// Runs at module level: a tab switch does not kill it, a reload resumes it.
 import { html } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -18,9 +13,9 @@ const gen = makeGenerator({
   $loading: $genLoading, $pct: $genPct, $error: $genError,
   onDone: (c) => { addMyChar(c); $skin.set(c.id); $newChar.set(c.id); wallet.refresh(); },
   onCharged: wallet.refresh,
-  onFail: () => setTimeout(wallet.refresh, 1500),   // the edge refunds as the job fails; look once it has
+  onFail: () => setTimeout(wallet.refresh, 1500),
 });
-setTimeout(gen.resumeGeneration, 0);   // after /_rt/index.js has installed the sealed fetch
+setTimeout(gen.resumeGeneration, 0);
 
 const STAGE_KEY = { look: "gLook", picture: "gPicture", queued: "gQueued", mesh: "gMesh", rig: "gRig", store: "gStore" };
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
@@ -39,7 +34,7 @@ export function GenSheet({ t, loc, open, onClose }) {
   const go = async () => {
     if (!canGo || stage || gate) return;
     const w = $wallet.get();
-    if (w.signedIn && w.balance < GEN_PRICE) { $genError.set("ePoor"); return; }   // the edge would refuse it too (402) — spare the picture
+    if (w.signedIn && w.balance < GEN_PRICE) { $genError.set("ePoor"); return; }
     let image = "";
     if (mode === "photo") { try { image = (await toDataURL(photo, 1024)).data; } catch { $genError.set("eFailed"); return; } }
     const nm = (name.trim() || (mode === "words" ? nameFrom(p) : "") || "—").slice(0, 40);

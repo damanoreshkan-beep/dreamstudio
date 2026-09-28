@@ -1,5 +1,3 @@
-// The gate seeds the room itself (view.js listens on mount), so these poll on a message rather than on a
-// network settle. Text regexes read the seeded MESSAGES, which are the same in both locales.
 export default [
   {
     name: "the room is a chat, and every line says who spoke",
@@ -9,7 +7,6 @@ export default [
       h.expect(lines >= 5, `очікував засіяну кімнату, знайшов ${lines}`);
       const field = await h.text("[data-field]");
       h.expect(/a{22}/.test(field), "найдовше легальне повідомлення обрізане на екрані");
-      // A sender is a name you can read aloud, not a serial number — the same one on every line they send.
       h.expect(/[bdfgklmnprstvz][aeiou]{1}/.test(field), "у повідомленнях немає позивного відправника");
     },
   },
@@ -18,11 +15,9 @@ export default [
     async run(h) {
       await h.waitFor(/привіт усім/);
       h.expect((await h.text("[data-left]")) === "22", "порожнє поле має показувати весь бюджет");
-      // 11 Cyrillic characters is 22 bytes — the budget the whole product rests on.
       await h.type("[data-say]", "абвгдежзийк");
       await h.wait(150);
       h.expect((await h.text("[data-left]")) === "0", "11 кириличних символів мають зʼїсти весь бюджет");
-      // A 12th is refused at the encoder, so the counter never goes negative.
       await h.type("[data-say]", "абвгдежзийкл");
       await h.wait(150);
       h.expect((await h.text("[data-left]")) === "0", "лічильник пішов у мінус");

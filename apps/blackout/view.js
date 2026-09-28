@@ -1,12 +1,3 @@
-// blackout — a lane runner in Gotham's night: she runs by herself, a swipe moves her a lane, up jumps, down slides, a TAP
-// fires her weapon down the lane; coins and energy cans on the way, walkers in the lanes, the horde at her heels. ONE
-// fit screen: the Three.js stage (stage.js) under a thin DOM layer that is the truth the gate/e2e read
-// (data-state/dist/coins/lane/near/acts/shots/ammo/boost). Before the run the same stage is the MENU's backdrop —
-// she idles under the moon while the camera circles — with the runner, the weapon and the wallet as cards that
-// lead to the shop. The stage is probe-guarded and SKIPPED under the headless gate (Draco and GLBs over CDNs flake
-// CI) — the HUD then shows a fixed mid-run frame and the verbs still move the mirrored lane. The second tab spends
-// the coins: the armoury (rendered pictures, not glyphs), a runner of your own, the cast — and tops the wallet up
-// in Telegram Stars (rt/coins.js).
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
@@ -21,12 +12,11 @@ import { SKINS, WEAPONS, GEN_PRICE, skinById, weaponById, avatarUrl, myChars, pi
 import { GenSheet } from "./gen.js";
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-const SWIPE_PX = 40;   // neon-rush inputManager: one action per touch, the first axis past the threshold wins; a touch that never gets there is a TAP = a shot
+const SWIPE_PX = 40;
 const KEYS = { ArrowLeft: "left", KeyA: "left", ArrowRight: "right", KeyD: "right", ArrowUp: "jump", KeyW: "jump", ArrowDown: "slide", KeyS: "slide" };
 const WEAPON_ICON = { pistol: "lucide:crosshair", shotgun: "lucide:flame", smg: "lucide:zap" };
 const armUrl = (id) => new URL(`assets/arm-${id}.webp`, import.meta.url).href;
 
-// ── the sound: one switch over the whole game, then four levels; dragging the effects or the city plays a sample of it ──
 const MIX_KEY = { master: "mixMaster", music: "mixMusic", sfx: "mixSfx", city: "mixCity" };
 function SoundSheet({ t, loc, onClose, preview }) {
   useStore($mix);
@@ -51,10 +41,9 @@ export function blackout({ S, openScreen, closeScreen }) {
   const [acts, setActs] = useState(0), [shots, setShots] = useState(0), [moodNow, setMood] = useState("");
   const canvasRef = useRef(null), hud = useRef(null);
   const engine = useRef(null);
-  const touch = useRef(null);   // { id, x, y, done, t0 }
+  const touch = useRef(null);
   const moodTimer = useRef(0);
 
-  // one verb: the engine moves her; under the gate the mirrored lane moves so the DOM still tells the truth
   const act = useCallback((what) => {
     if ($state.get() !== "run") return;
     setActs((n) => n + 1);
@@ -63,7 +52,6 @@ export function blackout({ S, openScreen, closeScreen }) {
     const r = $run.get(), lane = what === "left" ? Math.max(0, r.lane - 1) : what === "right" ? Math.min(3, r.lane + 1) : r.lane;
     $run.set({ ...r, lane });
   }, []);
-  // a tap: one round; under the gate the mirrored magazine empties one by one
   const fire = useCallback(() => {
     if ($state.get() !== "run") return;
     setShots((n) => n + 1);
@@ -78,7 +66,6 @@ export function blackout({ S, openScreen, closeScreen }) {
     engine.current?.start((Math.random() * 0xffffffff) >>> 0);
   }, []);
 
-  // the stage: created once, skipped under the gate; the skin and the weapon follow the store
   useEffect(() => {
     if (gate) return () => {};
     let eng = null, gone = false;
@@ -106,10 +93,8 @@ export function blackout({ S, openScreen, closeScreen }) {
   }, []);
   useEffect(() => { engine.current?.setSkin(skin); }, [skin]);
   useEffect(() => { engine.current?.setWeapon(weapon); }, [weapon]);
-  // the screen stays awake for the run only
   useEffect(() => { if (state !== "run" || gate) return () => {}; const wl = wakeLock.acquire(); return () => wl?.release?.(); }, [state]);
 
-  // keyboard: arrows / WASD are the four verbs, Space fires, Enter starts
   useEffect(() => {
     const typing = (el) => el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
     const dn = (e) => {
@@ -123,7 +108,6 @@ export function blackout({ S, openScreen, closeScreen }) {
     return () => removeEventListener("keydown", dn);
   }, [start, act, fire]);
 
-  // the touch: the whole stage listens; the first axis past SWIPE_PX decides, once per touch; a touch that lifts short of it is a shot
   const swDown = (e) => { if (touch.current) return; touch.current = { id: e.pointerId, x: e.clientX, y: e.clientY, done: false, t0: performance.now() }; };
   const swMove = (e) => {
     const s = touch.current; if (!s || e.pointerId !== s.id || s.done) return;
@@ -147,7 +131,7 @@ export function blackout({ S, openScreen, closeScreen }) {
     <div ref=${hud} data-game data-state=${state} data-phys=${phys} data-why=${why} data-dist=${m} data-coins=${run.coins} data-lane=${run.lane}
       data-near=${near.toFixed(2)} data-frame=${run.frame} data-best=${best} data-skin=${skin} data-acts=${acts} data-shots=${shots} data-ammo=${run.ammo} data-boost=${boost} data-weapon=${weapon} data-kills=${run.kills || 0}
       class="relative z-10 h-full min-h-0 flex flex-col select-none">
-      ${/* the HUD: the distance and the coins; the sound key; the weapon and its magazine; the energy — on the run only */""}
+      ${""}
       ${state !== "idle" ? html`<div class="flex items-start justify-between px-1 pt-1 pointer-events-none">
         <div class="bo-chip flex flex-col items-start leading-none">
           <span class="font-mono tabular-nums text-3xl font-bold">${m}<span class="text-base font-normal opacity-70 ml-1">${T(t, "unitM")}</span></span>
@@ -165,14 +149,14 @@ export function blackout({ S, openScreen, closeScreen }) {
           <iconify-icon icon=${WEAPON_ICON[W.id] || "lucide:crosshair"}></iconify-icon><span class=${run.reload ? "opacity-50" : ""}>${run.reload ? "···" : `${run.ammo}/${W.mag}`}</span>
         </div>
       </div>` : null}
-      ${/* the selfie ring sits over the stage's second viewport (stage.js FACE_PX at 16,150); the mood tints its rim */""}
+      ${""}
       ${state === "run" && !gate ? html`<div data-face data-mood=${moodNow} class="bo-face" aria-hidden="true"></div>` : null}
 
-      ${/* the control layer: the whole stage takes the swipe, a tap fires */""}
+      ${""}
       <div class="flex-1 min-h-0 relative">
         <div data-swipe class="absolute inset-0 touch-none" onPointerDown=${swDown} onPointerMove=${swMove} onPointerUp=${swUp} onPointerCancel=${swUp} aria-hidden="true"></div>
 
-        ${/* THE MENU: her on the stage behind, the title, three cards to the shop, the run key, the last run */""}
+        ${""}
         ${state === "idle" ? html`<div data-cover class="absolute inset-0 flex flex-col justify-between px-4 pt-3 pb-3 bo-menu">
           <div class="flex items-start justify-between">
             <div class="flex flex-col leading-none">
@@ -222,15 +206,12 @@ export function blackout({ S, openScreen, closeScreen }) {
         </div>` : null}
       </div>
     </div>
-    ${/* mounted only while open: a closed dialog on the fit screen still widened the page by 42 px (CI, 2026-09-13) */""}
+    ${""}
     ${screen === "topup" ? html`<${CoinSheet} t=${t} loc=${loc} open=${true} onClose=${closeScreen} wallet=${wallet} coinClass="bo-gold" />` : null}
     ${screen === "sound" ? html`<${SoundSheet} t=${t} loc=${loc} onClose=${closeScreen} preview=${(bus) => engine.current?.preview(bus)} />` : null}
   </${Fragment}>`;
 }
 
-// the shop: the armoury (rendered pictures), a runner of your own (made from words or a photo, GEN_PRICE coins), the
-// cast, priced in the coins the runs earn — and the wallet's top-up in Telegram Stars; a tap buys and wears (or
-// wields), or wears what is owned
 export function skins({ S, openScreen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale), screen = useStore(S.screen);
   const coins = useStore($wallet).balance, skin = wornSkin(useStore($skin)), best = useStore($best), fresh = useStore($newChar), weapon = wieldedArm(useStore($weapon)), bought = useStore($bought);

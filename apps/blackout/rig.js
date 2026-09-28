@@ -1,6 +1,3 @@
-// blackout — the rig helpers the runner (stage.js) and the street NPCs (world.js) share: find the hips, fit a
-// Mixamo model to a height with a one-time bind-pose offset, retarget a clip onto another rig (afterdark's
-// prefix rename + hips translation scaled by bind height; IN PLACE pins the hips' x/z to frame 0).
 import * as THREE from "three";
 
 export const hipsOf = (obj) => { let h = null; obj.traverse((o) => { if (!h && /hips$/i.test(o.name)) h = o; }); return h ? { bone: h, y: h.position.y, prefix: h.name.replace(/hips$/i, "") } : { bone: null, y: 0, prefix: "" }; };

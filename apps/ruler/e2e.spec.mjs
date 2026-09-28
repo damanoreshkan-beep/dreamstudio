@@ -1,4 +1,3 @@
-// GPS ruler — the gate seeds a sample path (headless has no GPS), so the canvas + readouts render.
 const ready = async (h) => { for (let i = 0; i < 12; i++) { if ((await h.count("#add")) > 0) break; await h.wait(200); } };
 
 export default [
@@ -12,8 +11,6 @@ export default [
     },
   },
   {
-    // A GPS instrument that never tells you WHERE you are shipped for months — nobody noticed, because
-    // every gate only ever checked the derived numbers (distance, area, accuracy), never the position itself.
     name: "показує координати позиції", run: async (h) => {
       await ready(h); await h.wait(200);
       h.expect((await h.count("[data-coords]")) === 1, "немає читача координат");
@@ -22,9 +19,6 @@ export default [
     },
   },
   {
-    // A ruler that prints a distance and hides its error is the failure this app shipped with for months:
-    // every number was ±8 m at each end and the screen said so nowhere. The ± is not decoration, it is
-    // the measurement — so the gate holds it to the total, not just to the live fix readout.
     name: "загальна відстань несе свою похибку", run: async (h) => {
       await ready(h); await h.wait(200);
       h.expect((await h.count("[data-err]")) === 1, "загальна відстань без ± — число виглядає точнішим, ніж воно є");
@@ -50,9 +44,6 @@ export default [
     },
   },
   {
-    // The point of the feature: you measure a field by WALKING it, the OS evicts the backgrounded tab, and
-    // without this every vertex is gone. "Saved" and "silently dropped" look identical until you come back —
-    // which is why this reloads for real rather than trusting that a put() was called.
     name: "точки переживають перезавантаження", run: async (h) => {
       await ready(h);
       await h.click("#clear"); await h.wait(200);

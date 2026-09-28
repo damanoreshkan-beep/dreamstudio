@@ -1,13 +1,3 @@
-// What is listening on a port — classification from EVIDENCE, never from the port number.
-//
-// The shell returns raw observations (which probe ran, the bytes it got, the TLS verdict) and this file
-// turns them into a claim with a confidence attached. The split matters: a guess made in Java is a guess
-// no gate can test, and CI never runs the APK.
-//
-// Confidence is the whole point. `protocol` means the service identified itself by a grammar defined in an
-// RFC; `conventional` means a table said 8080 is usually HTTP, which is not evidence about THIS socket.
-// docs/research/localhost-ports.md carries the citations for every shape matched here.
-
 /** Ports that are open and silent get a hint from this table — a HINT, never an identification. */
 export const PORT_HINTS = {
   21: "ftp", 22: "ssh", 23: "telnet", 25: "smtp", 53: "dns", 80: "http", 110: "pop3", 143: "imap",
@@ -18,9 +8,6 @@ export const PORT_HINTS = {
   9100: "printer", 27017: "mongodb", 62078: "usbmux",
 };
 
-// IANA's three ranges (RFC 6335 §6). NOT the kernel's ephemeral range — /proc/sys/net/ipv4/
-// ip_local_port_range is unreadable to an app, so claiming "this is an ephemeral port" would be a guess
-// dressed as a measurement. A port that refuses the second connection is what proves it was transient.
 export const portRange = (port) => (port < 1024 ? "system" : port < 49152 ? "user" : "dynamic");
 
 export const bytesOf = (hex) => {
@@ -69,8 +56,6 @@ export function tlsRecord(hex) {
   return null;
 }
 
-// Protocols that speak first, each conclusive on its own grammar. `220 ` is deliberately absent: SMTP and
-// FTP share the code (RFC 5321 §4.2, RFC 959 §4.2) and resolving it to either one would be a coin toss.
 const BANNERS = [
   { re: /^SSH-(\d+\.\d+)-(.*)$/, service: "ssh", detail: (m) => m[2] },
   { re: /^\+OK\b ?(.*)$/, service: "pop3", detail: (m) => m[1] },
@@ -97,8 +82,6 @@ export function classify(obs = {}) {
   if (obs.probe === "tls" || tlsRecord(obs.hex)) {
     const rec = tlsRecord(obs.hex);
     if (obs.tls === "handshake_ok" || rec?.serverHello) {
-      // The certificate is what the service CLAIMS to be — a trust-all handshake authenticates nothing,
-      // so this is `product` (self-reported), never a level above it.
       const name = [obs.cert, obs.proto].filter(Boolean).join(" · ");
       return out("tls", obs.cert ? "product" : "protocol", name);
     }
@@ -118,13 +101,10 @@ export function classify(obs = {}) {
     return out("http", http.server || http.title ? "product" : "protocol", detail);
   }
 
-  // Redis answers the HTTP probe with a RESP error naming the command it could not parse — an
-  // identification we get for free, without ever writing Redis bytes at a socket we cannot identify.
   if (/^-(?:ERR|NOAUTH|DENIED)\b/.test(line)) {
     return out(/unknown command/i.test(line) ? "redis" : "unknown", "protocol", line.slice(0, 60));
   }
 
-  // Shared by SMTP and FTP. Named as both, never as one.
   if (/^220[ -]/.test(line)) return out("smtp-or-ftp", "ambiguous", line.slice(4, 64).trim());
 
   if (line && obs.probe === "passive") return out("unknown", "unknown", line.slice(0, 60));

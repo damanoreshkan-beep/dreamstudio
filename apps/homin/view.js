@@ -1,17 +1,3 @@
-// homin — the 433 MHz band as one dial you can read.
-//
-// The angle is FREQUENCY, never direction. One antenna cannot give a bearing, so a radar that scattered
-// blips around a compass would be beautiful and false; here a full circle is 433.05–434.79 MHz, the 69
-// LPD channels are 69 fixed spokes, and every device therefore keeps a permanent place you can learn — your
-// doorbell is always at two o'clock. Radius is time: an event is born at the rim and drifts inward as it
-// ages, so a sensor that beacons every 48 s draws a ray and the band's RHYTHM becomes visible.
-//
-// The one place a real bearing exists is hunt mode, where the angle is the magnetometer's and the strength
-// is measured while you sweep. With the stock omnidirectional whip the petal comes out CIRCULAR and no
-// arrow is offered — the instrument shows its own limit by its shape instead of by a caption.
-//
-// The radio, the stores and the audio are radio.js — shared with the live list, so both are one source.
-// The DSP is /_rt/scan433.js, unit-tested. This file draws.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -33,11 +19,6 @@ const R_OUT = 92, R_IN = 34, AGE_MS = 60_000;
 const angleOf = (ch) => ((ch - 1) / LPD433.count) * 360 - 90;
 const pol = (deg, r) => [100 + r * Math.cos(deg * Math.PI / 180), 100 + r * Math.sin(deg * Math.PI / 180)];
 
-// ---- the dial ----
-// Two layers over one map. The canvas is the PICTURE (viz.js, three.js, lazy and probe-guarded); the SVG is
-// the MEANING — it always renders, always owns data-mark / the aria label / the tap targets, so e2e, axe and
-// preflight never depend on WebGL existing. When the 3D does come up the SVG's own ink steps aside and its
-// marks stay as invisible, comfortably-wide hit lines over the spikes they correspond to.
 function Dial({ events, t, onPick, now, webgl }) {
   const spokes = [];
   if (!webgl) {
@@ -73,15 +54,12 @@ function Dial({ events, t, onPick, now, webgl }) {
     </svg>`;
 }
 
-// ---- hunt: the one honest bearing ----
 function Hunt({ t, target, onClose, open }) {
   const [rose] = useState(() => newRose(72));
   const [stats, setStats] = useState(() => roseStats(rose));
   useEffect(() => {
     if (!open) return;
     if (gate || !compass.supported) {
-      // No magnetometer here, and no directional antenna either: a full sweep at even strength, which is
-      // exactly what the stock whip produces and must read as "no bearing".
       for (let h = 0; h < 360; h += 5) addSample(rose, h, 0.6);
       setStats(roseStats(rose));
       return;
@@ -124,9 +102,6 @@ function Hunt({ t, target, onClose, open }) {
 }
 
 export function band({ t, S, toast }) {
-  // The `screen` prop is a SNAPSHOT — render.js:985 passes A.S.screen.get(), not the atom — so a view that
-  // trusts it never re-renders when the screen changes and its sheet can never open. Subscribe, as apps/code
-  // does, and drive the atom directly.
   const scr = useStore(S.screen);
   useEffect(() => { ensureWorker(); }, []);
   const events = useStore($events);
@@ -143,17 +118,11 @@ export function band({ t, S, toast }) {
   const sorted = [...events].sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
   const pick = (e) => { setTarget(e); S.screen.set("hunt"); };
 
-  // The scene reads this once per frame and must never make the renderer wait on a re-render, so the live
-  // values go through a ref rather than props.
   const canvasRef = useRef();
   const stateRef = useRef({ events: sorted, now, freshAt: 0 });
   stateRef.current = { events: sorted, now: Date.now(), freshAt: $freshAt.get() };
   const webgl = useDial(canvasRef, () => stateRef.current);
 
-  // You can listen to ANY channel, not only one the classifier called a voice. Gating the transport on
-  // kind==="voice" made the whole control — and hunt with it — vanish the moment the classifier disagreed,
-  // which is exactly what happened in CI: every event came back "burst" and the app lost its player. The
-  // classifier's opinion belongs in the label, never in whether the radio can be tuned.
   const tuned = listening != null ? sorted.find((e) => e.channel === listening) : sorted[0];
   const row = tuned ? describe(tuned, t) : null;
 
@@ -182,10 +151,7 @@ export function band({ t, S, toast }) {
               subtitle=${row.toneLabel || row.kindLabel}
               size="sm"
             />
-            ${/* A real, always-present HTML button. Hanging this off a Transport action meant it depended on
-                 how the kit spreads `attr`, and hanging it off the dial meant tapping an SVG <line> — which
-                 has no .click(). Both cost CI rounds. One plain button cannot fail either way, and an
-                 explicit control beats a hidden one anyway. */""}
+            ${""}
             <button data-pick class="btn btn-sm btn-ghost gap-1.5 self-center"
                     onClick=${() => pick(tuned)}>
               ${Icon("lucide:compass")}${T(t, "huntTitle")}

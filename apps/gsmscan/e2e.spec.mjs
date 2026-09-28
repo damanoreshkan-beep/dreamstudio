@@ -1,6 +1,3 @@
-// GSM band scanner for a HackRF over WebUSB. Headless has no device, so the view runs in demo mode (gate): it
-// seeds a band spectrum + a list of active carriers (ARFCNs). These cases exercise the band selector, the
-// spectrum, the carrier list, the control island (settings sheet, history-backed Back), i18n and the PWA modal.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-carriers]")) > 0) break; await h.wait(300); } };
 
 export default [

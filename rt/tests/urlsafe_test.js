@@ -1,6 +1,3 @@
-// microspec runtime — urlsafe unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { analyzeQR } from "../urlsafe.js";
 
@@ -24,7 +21,6 @@ Deno.test("urlsafe: shorteners flag as caution (destination hidden)", () => {
 });
 
 Deno.test("urlsafe: Cyrillic homograph host is DANGER (mixed-script)", () => {
-  // "аpple.com" — the first а is Cyrillic U+0430, the rest Latin: identical to the eye, points elsewhere.
   const r = analyzeQR("https://аpple.com/login");
   assertEquals(r.verdict, "danger");
   assert(r.flags.some((f) => f.code === "mixed-script"));

@@ -1,6 +1,3 @@
-// The gate has no camera, so the view seeds a decoded string (a link shortener) and runs the real
-// urlsafe.js on it — the safe-preview panel renders populated and deterministically: host + verdict + flags.
-// `data-readout` is the preview's own mark: CamStage stamps `data-live` on the stage, so the readout carries its own.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-readout]")) > 0) break; await h.wait(400); } };
 
 export default [
@@ -19,7 +16,6 @@ export default [
   {
     name: "нічого не відкривається саме — Open лише за наміром", run: async (h) => {
       await ready(h);
-      // the whole philosophy: a decoded link is PREVIEWED, never auto-navigated. Open is an explicit control.
       h.expect((await h.count("[data-open]")) === 1, "кнопка Open має бути присутня, але не спрацьовувати сама");
       await h.click("[data-again]"); await h.wait(150);
       h.expect((await h.count("[data-open]")) === 0, "після 'сканувати ще' прев'ю не очистилось");
@@ -47,8 +43,6 @@ export default [
     },
   },
   {
-    // The systemic desktop "open on phone": a QR of THIS page. The trigger is desktop-only (hidden lg:) but
-    // stays in the DOM, so a JS click opens it even in the mobile gate. History-backed like every overlay.
     name: "desktop self-QR: модалка з QR сторінки, Back закриває", run: async (h) => {
       await h.click("#qr-open"); await h.wait(200);
       h.expect((await h.prop("#qr-invite", "open")) === true, "QR-модалка не відкрилась");

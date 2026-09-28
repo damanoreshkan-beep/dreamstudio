@@ -1,10 +1,3 @@
-// hunt — the host: load the wasm, keep the clock honest, paint the canvas, make the noises.
-//
-// Structurally brick's host, and deliberately: the wasm is a zero-import reactor either way, the
-// timestep argument is the same one, and the painter abstraction exists for the same reason (the
-// offline preview must draw through the code that ships). What differs is the palette — a cell is
-// a table of indices, so a baked cell is RGBA from the palette rather than one ink at N alphas.
-
 import { SCRW, SCRH, WORLD, S, SFX } from "/_rt/hunt.js";
 import { renderFrame, glyphRects } from "./render.js";
 import { FULL, TRANSPARENT, WORLD_INDEX } from "./atlas.js";
@@ -14,8 +7,6 @@ export const WASM_URL = new URL("./assets/hunt.wasm", import.meta.url).href;
 export const GATE_SEED = 0xA17C;
 
 const rgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-/* Mutable on purpose: the WORLD half of the palette is a function of distance now (worldAt),
-   and setWorld() rewrites those entries in place. The character half never changes. */
 const PAL = FULL.map(rgb);
 
 export async function loadEngine(url = WASM_URL) {
@@ -28,26 +19,16 @@ export async function loadEngine(url = WASM_URL) {
     step: (mask) => E.game_step(mask >>> 0),
     state: () => new Int32Array(E.memory.buffer, E.game_state(), S.COUNT),
     list: () => ({ dl: new Int16Array(E.memory.buffer, E.game_dl(), E.game_dl_count() * 4), n: E.game_dl_count() }),
-    // Asked for, never assumed: the renderer stands sprites on the box the simulation collides with.
     box: (kind) => { const v = E.game_box(kind | 0); return { w: (v >> 16) & 0xffff, h: v & 0xffff }; },
   };
 }
 
-/* ── the painter ──────────────────────────────────────────────────────────────────────────
-   Cells are baked once into their own canvases: a frame is a hundred drawImage calls rather than
-   a hundred thousand per-pixel writes, and flipped variants are baked too because a per-sprite
-   ctx.scale(-1,1) costs a state change on every draw. */
-/* `rim` lights the pixels whose upper or left neighbour is transparent — the silhouette edges
-   that face the farm's 45° lamp — mixed toward the phase's rim colour. It is how the huntress
-   stays the densest mark on the plate at every hour without repainting her art. */
 function bake(cell, flip, rim) {
   const c = document.createElement("canvas");
   c.width = Math.max(1, cell.w); c.height = Math.max(1, cell.h);
   if (!cell.w) return c;
   const g = c.getContext("2d");
   const img = g?.createImageData?.(cell.w, cell.h);
-  // The browser-free preflight mounts this against a stub canvas that answers to the method names
-  // and returns nothing useful. Baking is an optimisation, not the app.
   if (!img?.data || !g.putImageData) return c;
   const R = rim ? rgb(rim.hex) : null;
   const src = (x, y) => (x < 0 || y < 0 || x >= cell.w || y >= cell.h)
@@ -69,8 +50,6 @@ function bake(cell, flip, rim) {
 }
 
 export function canvasPainter(ctx) {
-  /* The whole cache dies when the palette generation changes: the day advances in 6-column
-     steps, so a generation lives ~2.5s of running and a rebake is a couple dozen small cells. */
   let cache = new Map(), gen = null;
   const baked = (cell, flip, rim) => {
     let m = cache.get(cell);
@@ -125,9 +104,6 @@ export function canvasPainter(ctx) {
   };
 }
 
-/* ── the clock ────────────────────────────────────────────────────────────────────────────
-   One step is 1/60 s and nothing else; the clamp matters more than the loop, because returning
-   from a backgrounded tab with a minute of unspent time would otherwise teleport the player. */
 export const STEP_MS = 1000 / 60;
 export const MAX_CATCHUP = 5;
 
@@ -147,10 +123,6 @@ export function makeClock(step) {
   };
 }
 
-/* ── sound ────────────────────────────────────────────────────────────────────────────────
-   The engine reports what happened; the noises are made here, on top of /_rt/audio.js. The
-   context is created inside a real press and NOTHING is sequenced behind resume(): a suspended
-   context with no user activation leaves that promise pending rather than rejecting. */
 export function makeSound() {
   let eng = null, on = true;
   const ensure = () => {
@@ -185,8 +157,8 @@ export function makeSound() {
     set enabled(v) { on = v; },
     play(bits) {
       if (!on || !eng) return;
-      if (bits & SFX.SHOOT) noise(0.09, 0.16, 2600);                       // the release
-      if (bits & SFX.EMPTY) tone(180, 0.06, "square", 0.07);               // a dry click, not silence
+      if (bits & SFX.SHOOT) noise(0.09, 0.16, 2600);
+      if (bits & SFX.EMPTY) tone(180, 0.06, "square", 0.07);
       if (bits & SFX.STOMP) { noise(0.12, 0.2, 900); tone(160, 0.14, "square", 0.1, -60); }
       if (bits & SFX.PICK) { tone(880, 0.05, "triangle", 0.13); setTimeout(() => tone(1320, 0.1, "triangle", 0.11), 50); }
       if (bits & SFX.COIN) tone(1046, 0.09, "triangle", 0.1);

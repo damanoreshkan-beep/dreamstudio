@@ -1,5 +1,3 @@
-// Prompt history — one per section (make / edit / read), the last 30 lines you actually ran, newest first,
-// no duplicates. Kept in localStorage; a tap in the sheet puts the line back into the field, nothing more.
 import { html } from "htm/preact";
 import { useState } from "preact/hooks";
 import { Sheet } from "/_rt/ui.js";
@@ -10,22 +8,19 @@ const KEY = (ns) => `ms:imagine:hist:${ns}`;
 const MAX = 30;
 const read = (ns) => { if (gate) return []; try { const v = JSON.parse(localStorage.getItem(KEY(ns)) || "[]"); return Array.isArray(v) ? v.filter((x) => typeof x === "string") : []; } catch { return []; } };
 
-// [items, remember] — remember(text) moves the line to the top (or adds it) and persists.
 export function usePromptHistory(ns) {
   const [items, setItems] = useState(() => read(ns));
   const remember = (text) => {
     const line = String(text || "").trim(); if (!line) return;
     const next = [line, ...items.filter((x) => x !== line)].slice(0, MAX);
     setItems(next);
-    if (!gate) { try { localStorage.setItem(KEY(ns), JSON.stringify(next)); } catch { /* quota / private mode */ } }
+    if (!gate) { try { localStorage.setItem(KEY(ns), JSON.stringify(next)); } catch { } }
   };
   return [items, remember];
 }
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-// The sheet: history-backed by the caller (S.screen), per the routing invariant. Empty = the one line that IS
-// the screen; otherwise a list of the lines, newest first, each a button that hands the line back.
 export function HistorySheet({ id = "hist-sheet", open, onClose, items, onPick, t, locale }) {
   return html`<${Sheet} id=${id} open=${open} onClose=${onClose} title=${T(t, "history")} icon="lucide:history" locale=${locale}>
     ${items.length

@@ -1,8 +1,3 @@
-// Sun compass — point the phone and the marker shows where the sun is (now or at any hour), plus golden
-// hour and sunrise/sunset. Built on the SYSTEMIC celestial toolkit — /_rt/astro (bodies + math), /_rt/skydial
-// (the wheel) and /_rt/timescale (the day/night scrubber) — plus the shared globe location picker. So this
-// view is thin composition. Degrades gracefully: no GPS → Kyiv (renders in the headless gate too); no
-// compass → north-up map.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect } from "preact/hooks";
@@ -18,14 +13,8 @@ import { Sheet } from "/_rt/ui.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the farm's mono micro-label (`length:` — the bare var form is a colour to Tailwind v4)
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
-/* A NAME is not a label: `uppercase` is a CSS transform, and innerText returns the transformed string, so
-   "Полярна"/"Tokyo" reached the gate as "ПОЛЯРНА"/"TOKYO" and two e2e assertions failed on their own copy
-   (CI, 2026-09-04). Proper nouns keep their case and take the label's SIZE only. */
 const NAME_LABEL = "font-mono text-[length:var(--ms-label)] tracking-wide";
-// on localhost (the gate) render the compass in a ROTATED, located state so the overflow gate + shot see the
-// live layout (headless has no GPS/compass → 0°, which used to hide a rotated-container overflow).
 const KYIV = { lat: 50.45, lng: 30.52, approx: true };
 const PRESETS = [["Kyiv", 50.45, 30.52], ["London", 51.5, -0.13], ["Tokyo", 35.68, 139.69], ["New York", 40.71, -74.0], ["Sydney", -33.87, 151.21]];
 const DIRS = ["Пн", "Пн-Сх", "Сх", "Пд-Сх", "Пд", "Пд-Зх", "Зх", "Пн-Зх"];
@@ -33,20 +22,13 @@ const dirName = (b) => DIRS[Math.round((b % 360) / 45) % 8];
 const hhmm = (d) => d instanceof Date && !isNaN(d) ? `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}` : "—";
 const minOfDay = (d) => d instanceof Date && !isNaN(d) ? d.getHours() * 60 + d.getMinutes() : null;
 const bodyLabel = (t, k) => T(t, "b" + k[0].toUpperCase() + k.slice(1));
-// N/E/S/W hug the rim; N is red like a compass needle.
 const CARDINALS = [{ label: "Пн", angle: 0, cls: "text-sm font-bold text-error" }, { label: "Сх", angle: 90 }, { label: "Пд", angle: 180 }, { label: "Зх", angle: 270 }];
 
-// Polaris — a crafted 4-point star with a soft glow. It wears the farm's COOL pole (--app-accent-2, the
-// second mark) so it reads as a star beside the amber sun, not a shaded planet sphere; a faint ink outline
-// (currentColor, so it flips with the theme) defines it on paper.
 const PoleStar = ({ size = 15 }) => html`<span class="relative inline-block align-middle text-base-content" style=${`width:${size}px;height:${size}px`}>
   <span class="absolute inset-0" style="background:radial-gradient(circle,color-mix(in oklch,var(--app-accent-2) 55%,transparent),transparent 66%)"></span>
   <svg viewBox="0 0 24 24" class="relative block" style=${`width:${size}px;height:${size}px`}><path d="M12 1.4l1.95 8.15L22 12l-8.05 2.45L12 22.6l-1.95-8.15L2 12l8.05-2.45z" style="fill:var(--app-accent-2)" stroke="currentColor" stroke-opacity="0.35" stroke-width="0.6"/></svg>
 </span>`;
 
-// The dial's cosmic frame: a horizon ring + dashed altitude circles (30° / 60°) + a zenith point, and a
-// faint inward vignette for sky depth. Decorative (aria-hidden), theme-aware via currentColor. Makes the
-// planets' altitude (radius) legible instead of floating in a blank disc.
 const SKY_RINGS = html`<svg viewBox="0 0 100 100" class="absolute inset-0 w-full h-full pointer-events-none text-base-content" fill="none" aria-hidden="true">
   <defs><radialGradient id="sundial-sky" cx="50%" cy="50%" r="50%"><stop offset="52%" stop-color="currentColor" stop-opacity="0"></stop><stop offset="100%" stop-color="currentColor" stop-opacity="0.05"></stop></radialGradient></defs>
   <circle cx="50" cy="50" r="40" fill="url(#sundial-sky)"></circle>
@@ -61,33 +43,25 @@ export function sun({ S, openScreen, closeScreen }) {
   const [pos, setPos] = useState(MOCK || isGate ? KYIV : null);
   const [heading, setHeading] = useState(MOCK || isGate ? 300 : null);
   const [needPerm, setNeedPerm] = useState(compass.needsPermission && !MOCK);
-  const [scrub, setScrub] = useState(null); // minutes-of-day, or null = now
-  const [picked, setPicked] = useState(null); // a location chosen on the globe (overrides GPS)
-  const [tmp, setTmp] = useState(null);       // the point being chosen inside the globe screen
-  const [focus, setFocus] = useState(null);   // one-shot fly-to when the picker opens
+  const [scrub, setScrub] = useState(null);
+  const [picked, setPicked] = useState(null);
+  const [tmp, setTmp] = useState(null);
+  const [focus, setFocus] = useState(null);
   const [, tick] = useState(0);
 
-  // location — real GPS, else fall back to Kyiv after a short wait (also covers the headless gate)
   useEffect(() => {
-    if (MOCK || isGate) return; // gate/mock: render the compass immediately so the overflow check + shot see it
+    if (MOCK || isGate) return;
     if (!geo.supported) { setPos(KYIV); return; }
     const stop = geo.watch((p) => setPos(p), () => setPos(KYIV));
     const to = setTimeout(() => setPos((cur) => cur || KYIV), 4000);
     return () => { stop(); clearTimeout(to); };
   }, []);
-  // compass (after any iOS permission)
   useEffect(() => { if (MOCK || needPerm) return; return compass.start(setHeading); }, [needPerm]);
-  // re-render every 30s so "now" stays fresh
   useEffect(() => { const id = setInterval(() => tick((x) => x + 1), 30000); return () => clearInterval(id); }, []);
 
   const grant = async () => { if (await compass.request()) setNeedPerm(false); };
   const openGlobe = () => { const l = picked || pos || KYIV; setTmp({ lat: l.lat, lng: l.lng }); setFocus({ lat: l.lat, lon: l.lng }); openScreen("globe"); };
 
-  // Location picker on the globe — the kit's Sheet, opened from the SAME history-backed S.screen atom the
-  // hand-rolled full-screen dialog used, so the system Back button still closes it. The shell (backdrop,
-  // grip/drag-dismiss, title row, close, 88dvh + inner scroll) is the kit's; the globe, the city presets and
-  // the confirm stay the app's. The Globe itself mounts only while the sheet is open — its canvas runs a rAF
-  // loop for the idle spin, and a globe turning behind a closed dialog is a battery bill with no viewer.
   const globeSheet = html`<${Sheet} id="globesheet" open=${screen === "globe"} onClose=${closeScreen}
     title=${T(t, "pickTitle")} icon="lucide:globe">
     <div class="flex flex-col items-center gap-4">
@@ -96,16 +70,12 @@ export function sun({ S, openScreen, closeScreen }) {
         <div class="font-semibold">${tmp?.name || T(t, "tapGlobe")}</div>
         <div class=${`${LABEL} text-muted tabular-nums`}>${tmp ? `${tmp.lat.toFixed(2)}°, ${tmp.lng.toFixed(2)}°` : ""}</div>
       </div>
-      ${/* NOT a Segmented: these are JUMPS, not a one-of-N choice. The picked value is any point on the
-           globe, so most of the time none of the five is the value — a strip whose active pill is usually
-           nowhere is a strip lying about its own state. They stay a wrapping palette of raised chips. */""}
+      ${""}
       <div class="flex flex-wrap gap-1.5 justify-center">${PRESETS.map(([n, la, lo]) => html`<button class="btn btn-xs rounded-full" data-city=${n} key=${n} onClick=${() => { setTmp({ lat: la, lng: lo, name: n }); setFocus({ lat: la, lon: lo }); }}>${n}</button>`)}</div>
       <button id="pick-here" class="btn btn-primary gap-2" disabled=${!tmp} onClick=${() => { setPicked(tmp); closeScreen(); }}>${Icon("lucide:map-pin")}${T(t, "pickHere")}</button>
     </div>
   <//>`;
 
-  // No spinner: the dial renders IMMEDIATELY; the centre readout + scrubber are atomic skeletons until a
-  // location is known (GPS, a globe pick, or the Kyiv fallback). loc may be null for a moment on a real device.
   const loc = picked || pos;
   const ready = !!loc;
   const now = new Date();
@@ -120,9 +90,6 @@ export function sun({ S, openScreen, closeScreen }) {
       key: m.key, body: m.key, angle: m.az, value: m.alt, label: bodyLabel(t, m.key),
       attrs: m.key === "sun" ? { "data-sun": true } : null,
     }));
-    // Polaris — STATIC: at true north (az 0), altitude ≈ latitude. It does not depend on `date`, so it
-    // stays put while the sun/planets sweep with the time scrubber — the still point the sky turns around.
-    // (Only the northern celestial pole star; below the horizon south of the equator.)
     if (loc.lat > 0.5) marks.push({ key: "polaris", node: html`<${PoleStar} />`, angle: 0, value: loc.lat, label: T(t, "bPolaris"), opacity: 1, title: "Polaris", attrs: { "data-polaris": true } });
   }
   const polarisAlt = ready && loc.lat > 0.5 ? Math.round(loc.lat) : null;
@@ -149,8 +116,7 @@ export function sun({ S, openScreen, closeScreen }) {
         overlay=${html`<${Fragment}>${SKY_RINGS}<div class="absolute left-1/2 -top-1 -translate-x-1/2 text-muted">${Icon("lucide:chevron-up", "text-xl")}</div></${Fragment}>`} />
     </div>
 
-    ${/* the status lines under the dial are mono micro-labels — one idiom, both themes (text-muted is the
-         designed muted ink; base-content/50-65 failed on paper) */""}
+    ${""}
     ${heading == null ? html`<div class=${`${LABEL} text-muted flex items-center gap-1.5`}>${Icon("lucide:compass")}${needPerm ? "" : T(t, "noCompass")}</div>` : null}
     ${needPerm ? html`<button id="grant" class="btn btn-primary btn-sm gap-2" onClick=${grant}>${Icon("lucide:compass")}${T(t, "enableCompass")}</button>` : null}
     <div class="flex flex-col items-center gap-1.5">

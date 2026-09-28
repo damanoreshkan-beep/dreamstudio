@@ -1,9 +1,3 @@
-// afterdark — the CAST tab: who dances and what they dance (owner, 2026-09-12: «окремий таб: персонажі сіткою
-// аватарів, окремо танці»). Two sections behind one strip: the CHARACTER GRID — every Mixamo character as a
-// round avatar, tap to put on / take off the stage (up to MAX_CAST) — and the MOVE LIBRARY: the 36 curated
-// dances and the library's dances in the open, the other ~2100 motions (walks, fights, idles…) behind one
-// «Ще +» key (owner: «другорядні рухи сховай за кнопкою ще+»), with a search that cuts through all of it.
-// This tab only edits the persisted working set (state.js); the stage view listens and drives the engine.
 import { html } from "htm/preact";
 import { useEffect, useState } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -19,14 +13,12 @@ import { generateCharacter, cancelGenerate, genElapsed } from "./genchar.js";
 
 const $section = persistentAtom("afterdark:castTab", "chars");
 const TIER_TINT = { light: "#8B5CF6", groove: "#39FF6A", drive: "#FF3EB5" };
-const SHOW_MAX = 400;                          // the long tail renders this many at once; the search reaches the rest
+const SHOW_MAX = 400;
 const norm = (s) => String(s || "").toLowerCase();
 const chip = (on) => `btn btn-sm rounded-full h-auto min-h-0 py-1.5 gap-1.5 normal-case font-normal ${on ? "btn-primary" : "btn-ghost border border-base-content/15"}`;
 const mmss = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 const STAGE_KEY = { picture: "gPicture", queued: "gQueued", mesh: "gMesh", rig: "gRig", store: "gStore" };
 
-// ── a new character from words: the sheet behind «Створити» (genchar.js does the work, at module level); it costs
-// GEN_PRICE from the farm wallet — short of it, the sheet hands over to the top-up ──
 function GenSheet({ t, loc, open, onClose, onTopUp }) {
   const stage = useStore($genCharLoading), pct = useStore($genCharPct), error = useStore($genCharError), w = useStore(wallet.$wallet);
   const [prompt, setPrompt] = useState("");
@@ -36,7 +28,7 @@ function GenSheet({ t, loc, open, onClose, onTopUp }) {
   useEffect(() => { if (!stage) return; const id = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(id); }, [stage]);
   const go = () => {
     const p = prompt.trim(); if (!p || stage || gate) return;
-    if (w.signedIn && w.balance < GEN_PRICE) { $genCharError.set("ePoor"); return; }   // the edge would refuse it too (402) — spare the picture
+    if (w.signedIn && w.balance < GEN_PRICE) { $genCharError.set("ePoor"); return; }
     const nm = name.trim() || p.split(/\s+/).slice(0, 2).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
     generateCharacter({ prompt: p, name: nm.slice(0, 40), kind }).then((c) => { if (c) onClose(); });
   };
@@ -68,7 +60,6 @@ function GenSheet({ t, loc, open, onClose, onTopUp }) {
 
 function MoveChip({ m, on, name }) {
   const tint = TIER_TINT[m.tier] || TIER_TINT.groove;
-  // a library name can run to 60 characters: the chip wraps its text (never wider than the column)
   return html`<button key=${m.id} data-move=${m.id} type="button" aria-pressed=${on ? "true" : "false"} title=${name} onClick=${() => toggleMove(m.id)} class=${chip(on) + " pl-2 pr-3 max-w-full text-left"}>
     <span class="w-2 h-2 rounded-full shrink-0" style=${`background:${tint};box-shadow:${on ? `0 0 6px ${tint}` : "none"}`}></span>
     <span class="font-mono text-[0.78rem] tracking-wide leading-tight min-w-0 [overflow-wrap:anywhere]">${name}</span>
@@ -92,7 +83,7 @@ export function castView({ S }) {
   useEffect(() => { if (!capHint) return; const id = setTimeout(() => setCapHint(false), 2200); return () => clearTimeout(id); }, [capHint]);
 
   const byKind = (g) => kind === "all" || (kind === "creature" ? g.kind === "creature" : g.kind !== "creature");
-  const chars = [...mine.filter(byKind), ...CHARACTERS.filter(byKind)];   // mine first, newest first
+  const chars = [...mine.filter(byKind), ...CHARACTERS.filter(byKind)];
   const tap = (id) => { if (!toggleChar(id)) setCapHint(true); };
   const isTopCast = cast.length === DEFAULT_CAST.length && DEFAULT_CAST.every((id) => onStage.has(id));
 
@@ -107,13 +98,8 @@ export function castView({ S }) {
   const isStars = moves.length === DEFAULT_MOVES.length && DEFAULT_MOVES.every((id) => onFloor.has(id));
   const allDancesOn = allDanceIds.length > 0 && allDanceIds.every((id) => onFloor.has(id));
 
-  // a DOCUMENT, not a scroll container: a non-fit tab scrolls with the page. An own `overflow-y:auto` box here
-  // (with the farm's `overscroll-behavior: contain` on every such box) swallowed the touch swipe on the phone
-  // when its content was taller than the viewport — the owner could not scroll the grid at all (2026-09-12);
-  // and the header's negative side margins made the page wider than the viewport (a horizontal scroll).
   return html`<div data-cast-tab class="pb-[calc(var(--dock-h)+env(safe-area-inset-bottom)+1rem)] overflow-x-clip">
-    ${/* the section strip scrolls away with the list — nothing floats over the content (owner, 2026-09-12:
-         «нічого не має плавати») */""}
+    ${""}
     <div class="py-2">
       <${Segmented} attr="data-cast-section" size="sm" label=${T(t, "tabCast")} value=${section} onChange=${(v) => $section.set(v)}
         items=${[{ id: "chars", label: T(t, "dancers"), icon: "lucide:users", meta: String(cast.length) }, { id: "moves", label: T(t, "moves"), icon: "lucide:footprints", meta: String(moves.length) }]} />

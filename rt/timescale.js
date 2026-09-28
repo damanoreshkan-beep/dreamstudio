@@ -1,17 +1,9 @@
-// microspec runtime — TimeScale: a day/night scrubber over a 24h scale (SYSTEMIC).
-//
-// A "sky ribbon" (night → sunrise → bright midday → sunset → night, placed at the real sun times) with
-// hour ticks, a "now" marker, a range slider and clickable time-anchor tiles. `value` is a minute-of-day,
-// or null = live "now". Anchors let each app declare its own jump targets (rise / golden / set / …). Any
-// time-driven app reuses it; the sun compass is the reference consumer.
 import { html } from "htm/preact";
 import { T } from "@microspec/core/runtime/i18n.js";
 
 const hhmm = (m) => m == null ? "—" : `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const pct = (m) => m == null ? null : (m / 1439) * 100;
 
-// props: value (min|null) · now (min) · onChange(min|null) · t (i18n dict) · sunrise/sunset (min|null) ·
-//   anchors [{ label (i18n key), min (min|null), accent?, live? }] · aria (i18n key for the slider)
 export function TimeScale({ value, now, onChange, t, sunrise = null, sunset = null, anchors = [], aria = "timeAria" }) {
   const selMin = value == null ? now : value;
   const srP = pct(sunrise), ssP = pct(sunset);

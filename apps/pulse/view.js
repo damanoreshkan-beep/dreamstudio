@@ -1,15 +1,3 @@
-// Пульс Вікіпедії — a live view over Wikimedia EventStreams (every edit to every Wikimedia wiki, in
-// real time). SSE (server-push) over CORS, no auth. The runtime is request/response; this tool view owns
-// the whole streaming lifecycle: open the stream, buffer high-frequency events, and flush stats + feed on
-// a steady cadence (never re-render per event — it's hundreds/sec). Auto-reconnect is EventSource's job.
-//
-// Filters (Wikipedia is organised by LANGUAGE/project, not country — en spans many countries — so the
-// scope is language/project): a scope select narrows the whole stream (so "uk" makes it the pulse of the
-// Ukrainian Wikipedia), plus humans-only / articles-only toggles. Search spotlights the live feed by
-// title/editor. Scope/toggle changes reset the accumulated view; search is a pure display filter.
-//
-// CI/dev: the real stream is nondeterministic (and may be blocked from a CI IP), so under the gate we feed
-// a synthetic stream — the gate sees a live, populated view. Same env-double idea as crypto.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -20,11 +8,9 @@ import { Scramble } from "/_rt/skeleton.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const STREAM = "https://stream.wikimedia.org/v2/stream/recentchange";
-const WINDOW_MS = 60000; // rolling window for the per-minute rate + ratios
+const WINDOW_MS = 60000;
 const LBL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
-// Curated scope list. Language names are endonyms (same in any UI locale) — self-identifying, so no flags:
-// emoji are banned farm-wide (a flag in a native <option> can't be a vector anyway, and endonyms read cleaner).
 const LANGS = [
   ["uk", "Українська"], ["en", "English"], ["de", "Deutsch"], ["fr", "Français"],
   ["es", "Español"], ["ru", "Русский"], ["it", "Italiano"], ["pl", "Polski"],
@@ -35,7 +21,6 @@ const LANGS = [
 const PROJECTS = [["wd", "Wikidata"], ["commons", "Wikimedia Commons"], ["meta", "Meta-Wiki"]];
 const SCOPE_NAME = Object.fromEntries([...LANGS, ...PROJECTS].map(([c, n]) => [c, n]));
 
-// server_name → short, human wiki code (language for the sister projects; wd/commons/meta for the rest)
 function wikiCode(ev) {
   const s = ev.server_name || "";
   if (s === "www.wikidata.org") return "wd";
@@ -52,19 +37,17 @@ export function pulse({ S }) {
   const [q, setQ] = useState("");
   const [humansOnly, setHumansOnly] = useState(false);
   const [articlesOnly, setArticlesOnly] = useState(false);
-  const buf = useRef([]);        // events since the last flush (arrival order)
-  const win = useRef([]);        // { t, bot, code } inside the rolling window (drives the stats)
-  const total = useRef(0);       // session counter (for the active scope/filters)
-  // latest filter values read inside the stream closure (so we never re-open the connection)
+  const buf = useRef([]);
+  const win = useRef([]);
+  const total = useRef(0);
   const f = useRef({}); f.current = { scope, humansOnly, articlesOnly };
 
-  // stream lifecycle — opened once
   useEffect(() => {
     const onEvent = (ev) => {
-      if (ev.type !== "edit" && ev.type !== "new") return;              // content changes only
+      if (ev.type !== "edit" && ev.type !== "new") return;
       const { scope, humansOnly, articlesOnly } = f.current;
       if (humansOnly && ev.bot) return;
-      if (articlesOnly && ev.namespace !== 0) return;                   // ns 0 = articles
+      if (articlesOnly && ev.namespace !== 0) return;
       const code = wikiCode(ev);
       if (scope !== "all" && code !== scope) return;
       const now = Date.now();
@@ -89,9 +72,9 @@ export function pulse({ S }) {
       }, 250);
     } else {
       src = new EventSource(STREAM);
-      src.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch { /* skip malformed */ } };
+      src.onmessage = (m) => { try { onEvent(JSON.parse(m.data)); } catch { } };
       src.onopen = () => setS((p) => ({ ...p, live: true }));
-      src.onerror = () => setS((p) => ({ ...p, live: false })); // EventSource auto-reconnects
+      src.onerror = () => setS((p) => ({ ...p, live: false }));
     }
 
     const flush = setInterval(() => {
@@ -117,7 +100,6 @@ export function pulse({ S }) {
     return () => { src?.close(); clearInterval(mock); clearInterval(flush); };
   }, []);
 
-  // scope/humans/articles change the stream membership → clear the accumulated view (session total too)
   useEffect(() => {
     buf.current = []; win.current = []; total.current = 0;
     setS((p) => ({ ...p, feed: [], perMin: 0, humanPct: 100, top: [], total: 0, big: null }));
@@ -127,16 +109,13 @@ export function pulse({ S }) {
   const signed = (d) => (d >= 0 ? "+" : "") + num(d);
   const ql = q.trim().toLowerCase();
   const shown = ql ? s.feed.filter((it) => (it.title + " " + it.user).toLowerCase().includes(ql)) : s.feed;
-  // A filter toggle is an OBJECT in both states (two independent switches, not a one-of-N strip), so off is
-  // a plain raised `.btn` and on is the ink pill; aria-pressed carries the state.
   const toggleBtn = (id, on, set, icon, label) => html`<button data-filter=${id} aria-pressed=${on} class=${`btn btn-sm flex-1 min-w-0 rounded-full gap-1 ${on ? "btn-primary" : ""}`} onClick=${() => set(!on)}>${Icon(icon)}<span class="truncate">${label}</span></button>`;
-  const filled = s.live && (s.total > 0 || s.feed.length > 0);   // the first flush has landed: numbers are real, not zero
+  const filled = s.live && (s.total > 0 || s.feed.length > 0);
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-live=${s.live ? "true" : "false"} data-scope=${scope} data-filters=${[humansOnly && "humans", articlesOnly && "articles"].filter(Boolean).join(" ") || null}>
     <${Panel} className="items-center text-center gap-1">
       <div class=${`flex items-center gap-1.5 ${LBL}`}>
-        ${/* An 8px status LED is too small for the pair; unlit takes --sf-track-face, the sanctioned tone.
-             Lit, it breathes (head.html .pl-live) — the one animated thing on a screen about a heartbeat. */""}
+        ${""}
         <span class=${`inline-block w-2 h-2 rounded-full ${s.live ? "bg-success pl-live" : ""}`} style=${s.live ? "" : "background:var(--sf-track-face)"}></span>${s.live ? T(t, "live") : T(t, "connecting")}
         ${scope !== "all" ? html`<span class="text-muted">·</span><span class="normal-case tracking-normal font-sans text-base-content">${SCOPE_NAME[scope] || scope}</span>` : null}
       </div>
@@ -144,8 +123,7 @@ export function pulse({ S }) {
       <div class="text-sm text-base-content/80">${T(t, "perMin")}</div>
       <div class="w-full mt-2">
         <div class=${`flex justify-between mb-1 ${LBL}`}><span class="flex items-center gap-1">${Icon("lucide:user", "text-primary")}${T(t, "humans")} ${s.humanPct}%</span><span class="flex items-center gap-1 text-muted">${T(t, "bots")} ${100 - s.humanPct}% ${Icon("lucide:bot")}</span></div>
-        ${/* base-300 and base-100 are the SAME colour under this material, so a bg-base-300 trough paints
-             nothing. An 8px rail cannot hold the pair either — it takes --sf-track-face. */""}
+        ${""}
         <div class="h-2 rounded-full overflow-hidden" style="background:var(--sf-track-face)"><div class="h-full bg-primary transition-[width] duration-500" style=${`width:${s.humanPct}%`}></div></div>
       </div>
       ${scope === "all" && s.top.length ? html`<div class="flex flex-wrap gap-1 justify-center mt-2">${s.top.map((c) => html`<button data-top=${c} class="badge gap-1 cursor-pointer hover:badge-primary" key=${c} onClick=${() => setScope(c)}>${Icon("lucide:globe", "text-[0.85em]")}${c}</button>`)}</div>` : null}
@@ -169,8 +147,7 @@ export function pulse({ S }) {
       <div class="flex items-center gap-2"><span class="font-semibold truncate flex-1">${s.big.title}</span><span class=${`font-bold tabular-nums shrink-0 ${s.big.delta >= 0 ? "text-success" : "text-error"}`}>${signed(s.big.delta)}</span></div>
     <//>` : null}
 
-    ${/* A feed row is a card in a long list — the material's shallow pair (which `.card` already carries)
-         is the edge; the hairline that used to outline every row is gone. */""}
+    ${""}
     <div class="flex flex-col gap-2" data-feed>
       ${shown.length === 0
         ? html`<div class="text-center text-muted py-10 text-sm flex flex-col items-center gap-2">${Icon(ql ? "lucide:search-x" : "lucide:radio", "text-3xl")}${T(t, ql ? "noMatch" : "waiting")}</div>`

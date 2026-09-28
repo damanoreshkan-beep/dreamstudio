@@ -1,5 +1,3 @@
-// IPTV — live channel list from iptv-org (CORS *, loads in CI). We never assert video PLAYS (headless has
-// no working streams); we assert the browse UI + that the runtime Player opens/closes.
 const load = async (h) => { for (let i = 0; i < 24; i++) { if ((await h.count("[data-ch]")) > 0) break; await h.wait(500); } };
 
 export default [

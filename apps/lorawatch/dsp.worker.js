@@ -1,7 +1,3 @@
-// LoRa Watch DSP worker. Tunes the HackRF to a LoRa channel, decimates 2 Msps → BW, and off the decimated
-// complex stream drives: a WATERFALL (FFT rows — chirps show as diagonals), and the full LoRa RECEIVER
-// (/_rt/lora.js decodeLoraSignal: preamble sync → CFO/STO → symbol extraction → codec → payload bytes + CRC).
-// The receiver runs over a ~1.5 s ring so a whole packet (SF11 ≈ 350 ms) fits. See docs/research/lora-detect.md.
 import { HackRF } from "/_rt/hackrf.js";
 import { iqFromBytes, powerSpectrum, firLowpass } from "/_rt/fmradio.js";
 import { decodeLoraSignal } from "/_rt/lora.js";
@@ -15,7 +11,7 @@ async function run(cfg) {
   if (!rx) { post({ type: "error", message: "device-gone" }); return; }
   const decim = Math.max(1, Math.round(SR / cfg.bw)), bwRate = SR / decim;
   const taps = firLowpass(33, cfg.bw * 0.5, SR);
-  const RING = Math.round(bwRate * 1.5);                  // ~1.5 s of decimated IQ (fits one packet)
+  const RING = Math.round(bwRate * 1.5);
   try {
     await rx.open(); await rx.setSampleRate(SR); await rx.setBasebandFilter(1_750_000);
     await rx.setAmp(false); await rx.setLnaGain(32); await rx.setVgaGain(30);
@@ -32,7 +28,6 @@ async function run(cfg) {
     if (!running) break; q.push(rx.read());
     if (!bytes.length) continue;
     const { i, q: qq } = iqFromBytes(bytes);
-    // decimate 2 Msps → BW, straight into the ring (complex FIR, only kept samples evaluated)
     const first = wr;
     for (let n = 0; n < i.length; n++) {
       hi[hp] = i[n]; hq[hp] = qq[n]; hp = (hp + 1) % hlen;
@@ -42,7 +37,6 @@ async function run(cfg) {
         ri[wr] = ai; rq[wr] = aq; wr = (wr + 1) % RING; if (filled < RING) filled++;
       }
     }
-    // --- waterfall: FFT magnitude rows over this block's freshly-written decimated samples ---
     const wrote = (wr - first + RING) % RING || RING, nRows = Math.floor(wrote / WF_FFT), pick = Math.max(1, Math.ceil(nRows / WF_KEEP));
     const rows = [];
     for (let r = 0; r < nRows; r += pick) {
@@ -52,24 +46,23 @@ async function run(cfg) {
     }
     if (rows.length) { const flat = new Float32Array(rows.length * WF_FFT); for (let r = 0; r < rows.length; r++) flat.set(rows[r], r * WF_FFT); post({ type: "waterfall", cols: WF_FFT, nrows: rows.length, buf: flat.buffer }, [flat.buffer]); }
 
-    // --- LoRa receiver: every DECODE_EVERY blocks, run the full decode over the linearized ring ---
     if (++blk % DECODE_EVERY === 0 && filled >= WF_FFT) {
       const lin = new Float32Array(filled), liq = new Float32Array(filled), start = (wr - filled + RING) % RING;
       for (let n = 0; n < filled; n++) { const idx = (start + n) % RING; lin[n] = ri[idx]; liq[n] = rq[idx]; }
-      let res = null; try { res = decodeLoraSignal(lin, liq, { sf: cfg.sf, hasHeader: true }); } catch { /* */ }
+      let res = null; try { res = decodeLoraSignal(lin, liq, { sf: cfg.sf, hasHeader: true }); } catch { }
       const found = !!(res && res.found);
       post({ type: "level", active: found });
       if (found) post({ type: "detect", sf: cfg.sf, bw: cfg.bw, count: packets });
       if (found && res.bytes && res.bytes.length) {
         const hex = Array.from(res.bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-        if (hex !== lastHex || blk - lastAt > 24) {       // debounce the same packet across overlapping rings
+        if (hex !== lastHex || blk - lastAt > 24) {
           lastHex = hex; lastAt = blk; packets++;
           post({ type: "packet", bytes: Array.from(res.bytes), crcOk: !!res.crcOk, sf: cfg.sf, cfo: res.cfo, count: packets });
         }
       }
     }
   }
-  try { await rx.stop(); } catch { /* */ }
+  try { await rx.stop(); } catch { }
   post({ type: "stopped" });
 }
 

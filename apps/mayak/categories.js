@@ -1,7 +1,3 @@
-// categories — what a person actually looks for, not "a host". Mirrors damanoreshkan-beep/shodan-lite
-// (web/src/lib/categories.ts + src/query.mjs): six human categories, each opening a few named kinds, every
-// kind a Shodan query the edge sends when there are query credits. Emoji in the source repo → lucide glyphs
-// (the farm renders no emoji). Labels live in i18n as cat.<id> and cat.<id>.<preset>.
 export const PRESETS = {
   camera: "port:554,5554,8554",
   cam_dahua: "product:Dahua",
@@ -35,7 +31,6 @@ export const PRESETS = {
   vuln_log4shell: "vuln:CVE-2021-44228",
 };
 
-// Ordered; each category's first preset is its "all" default. icon = lucide name for the chip.
 export const CATEGORIES = [
   { id: "cameras", icon: "lucide:cctv", presets: ["camera", "cam_dahua", "cam_hik", "cam_axis", "cam_onvif", "cam_screenshot"] },
   { id: "databases", icon: "lucide:database", presets: ["databases", "db_mongo", "mongo_open", "db_redis", "db_mysql", "db_postgres", "elastic"] },
@@ -52,13 +47,6 @@ export function presetQuery(preset, cc) {
   return cc && cc !== "all" ? `${base} country:${cc}` : base;
 }
 
-// FREE — a plain-text term per preset, for the LIVE map on the edu plan. Measured 2026-09-26 against the
-// deployed route with a signed-in session: Shodan serves the first ~100 hosts of an UNFILTERED text query
-// for zero query credits, but ANY filter (port:, product:, country:, vuln:) returns no_query_credits. So the
-// live map searches by the plain word a banner carries; country and the vulnerable toggle then filter that
-// loaded set CLIENT-SIDE (instant, free). The precise filter queries above stay for a credit-holding user
-// and the advanced box. The vulnerable category has no honest free term (a CVE needs the vuln: filter), so
-// it falls back to its filter and says so.
 export const FREE = {
   camera: "webcam", cam_dahua: "dahua", cam_hik: "hikvision", cam_axis: "axis", cam_onvif: "onvif", cam_screenshot: "webcam",
   databases: "mongodb", db_mongo: "mongodb", mongo_open: "mongodb", db_redis: "redis", db_mysql: "mysql", db_postgres: "postgresql", elastic: "elastic",
@@ -70,9 +58,6 @@ export const FREE = {
 /** The plain-text term a preset searches by on the free tier, or "" when it has none (needs credits). Pure. */
 export function freeTerm(preset) { return FREE[preset] || ""; }
 
-// parseQuery — the "simple Shodan" brain, so the advanced box understands what a person types (mirrors
-// shodan-lite src/query.mjs). An IP → a host lookup, a domain → a hostname search, a raw Shodan filter
-// passes through, a bare word → a text search. Pure. Returns { query, mode }.
 const FILTER_TOKENS = ["port:", "product:", "http.title:", "http.html:", "hostname:", "net:", "org:", "asn:", "country:", "city:", "ssl:", "vuln:", "os:", "tag:", "has_screenshot:", "screenshot.label:"];
 const isIPv4 = (s) => { const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s); return !!m && m.slice(1).every((o) => Number(o) >= 0 && Number(o) <= 255 && String(Number(o)) === o.replace(/^0+(?=\d)/, "")); };
 const isIPv6 = (s) => s.indexOf(":") !== -1 && /^[0-9a-fA-F:]+$/.test(s) && (s.split(":").length >= 3 || s.includes("::"));
@@ -88,8 +73,6 @@ export function parseQuery(input, cc) {
   return { query: country ? `${raw} country:${country}` : raw, mode: "text" };
 }
 
-// What a result IS, in a word — from the category a preset belongs to, so a match reads "Камера", "База",
-// "Пристрій", not a raw banner. A live search carries the preset that produced it.
 export const KIND_OF = (() => {
   const m = {};
   const kind = { cameras: "camera", databases: "database", access: "access", files: "files", devices: "device", vulnerable: "vuln" };

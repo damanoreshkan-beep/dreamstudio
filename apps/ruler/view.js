@@ -1,16 +1,3 @@
-// GPS ruler — measure real distances/areas by walking and dropping coordinate vertices; the polyline of
-// segments is drawn to scale on a canvas with per-segment + total distance (haversine), a live dashed
-// segment to your current position, the coordinate readout, the GPS accuracy circle, a scale bar and a
-// north arrow. Metres–km, works on any device with a GPS fix. The structure renders immediately; the
-// readout is an atomic skeleton until a fix arrives.
-//
-// On precision, since a ruler invites the question: the web platform gives a page seven numbers and no
-// satellite count, no fix type, no HDOP, no raw GNSS — centimetres would need carrier-phase RTK, which
-// lives in Android's native GnssMeasurement API and is not reachable from here. The ceiling is metres.
-// What IS available is statistics, so we take all of it (/_rt/geofix.js): every vertex is the mean of
-// the fixes taken while you stood at that spot, and every distance is printed with the ± it inherits
-// from its endpoints. Standing still visibly buys accuracy; it stops buying it at the correlated bias,
-// and the readout stops too rather than converging on a flattering lie.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -23,45 +10,27 @@ import { Panel } from "/_rt/ui.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
-// The vertex dots are painted --app-accent — one amber in both themes — so the number on a dot is a fixed
-// ink too: black on amber reads on either page. The only colour draw() does not read off the element.
 const DOT_INK = "#000";
-// a deterministic sample path so the gate/mock sees the live layout (headless has no GPS)
 const SAMPLE = [{ lat: 50.4501, lng: 30.5234, accuracy: 8 }, { lat: 50.4509, lng: 30.5240, accuracy: 8 }, { lat: 50.4512, lng: 30.5258, accuracy: 8 }, { lat: 50.4506, lng: 30.5266, accuracy: 8 }];
 const SAMPLE_CUR = { lat: 50.4500, lng: 30.5270, accuracy: 6, t: 0 };
-// A stationary burst around SAMPLE_CUR, so the gate renders the AVERAGED readout rather than the bare
-// one. Without it `depth` is 0 in headless, the "12×" never mounts, and the widest string this line can
-// ever produce is the one string no gate measures — which is how a phone-only overflow ships green.
 const SAMPLE_FIXES = Array.from({ length: 12 }, (_, i) => ({
   lat: SAMPLE_CUR.lat + ((i % 4) - 1.5) * 2e-5, lng: SAMPLE_CUR.lng + ((i % 3) - 1) * 2e-5, accuracy: 6, t: 0,
 }));
 
 const R = 6371000;
 const hav = (a, b) => { const p = Math.PI / 180, dφ = (b.lat - a.lat) * p, dλ = (b.lng - a.lng) * p, s = Math.sin(dφ / 2) ** 2 + Math.cos(a.lat * p) * Math.cos(b.lat * p) * Math.sin(dλ / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(s)); };
-// local equirectangular metres from the first point (small-area planar approx — fine for a ruler)
 const proj = (a, p) => ({ x: (p.lng - a.lng) * Math.cos(a.lat * Math.PI / 180) * 111320, y: -(p.lat - a.lat) * 110540 });
 const shoelace = (pts) => { const o = pts[0]; const q = pts.map((p) => proj(o, p)); let s = 0; for (let i = 0; i < q.length; i++) { const j = (i + 1) % q.length; s += q[i].x * q[j].y - q[j].x * q[i].y; } return Math.abs(s) / 2; };
 
-// fitCanvas — size the plot from its BOX (its parent), never from itself, and hand back the CSS box it now
-// occupies. A canvas's own `clientWidth` reports its INTRINSIC size — the `width` attribute — for as long as
-// no CSS width applies, and this farm generates its utility sheet in the browser, so on a cold open there is
-// a window where none does. Measuring the canvas inside that window and writing back clientWidth×DPR made
-// this plot intrinsically 900px wide (the 300px default × dpr 3) inside a 384px page; the `|| 320` fallback
-// this replaces covered a ZERO box, which is not the case that bites. (lorawatch failed exactly that way, at
-// 384px and at the 200px glance — and the parent's `overflow-hidden` has not applied in that window either,
-// so nothing clips it.) The box is a plain block carrying the height, so it is the right size in that window
-// too, and its height never comes back from the canvas it sizes.
-//   Both halves of the HiDPI pair are set here: the CSS box in px, the backing store in device px.
 function fitCanvas(cv) {
   const box = cv.parentElement; if (!box) return null;
   const r = box.getBoundingClientRect(), W = Math.round(r.width), H = Math.round(r.height);
-  if (!W || !H) return null;                                      // not laid out yet — the observer redraws
+  if (!W || !H) return null;
   const dpr = Math.min(3, (typeof devicePixelRatio !== "undefined" ? devicePixelRatio : 1) || 1);
   cv.style.display = "block"; cv.style.width = `${W}px`; cv.style.height = `${H}px`;
   const ww = W * dpr, hh = H * dpr;
-  if (cv.width !== ww || cv.height !== hh) { cv.width = ww; cv.height = hh; }   // resizing the store clears it
+  if (cv.width !== ww || cv.height !== hh) { cv.width = ww; cv.height = hh; }
   return { W, H, dpr };
 }
 
@@ -70,10 +39,6 @@ function draw(cv, pts, cur) {
   const fit = fitCanvas(cv); if (!fit) return;
   const { W, H, dpr } = fit;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-  // Every colour comes off the canvas's computed style — the page's own tokens, read at draw time, so the
-  // plot is right in both themes: the ink for the trace and labels, --app-accent for the marks (the trace's
-  // points, the live segment, the accuracy disc), base-100 as the halo behind a label (the well the canvas
-  // sits in is transparent, so its own background is nothing to halo with), the theme's mono for the type.
   const cs = getComputedStyle(cv), tok = (n) => cs.getPropertyValue(n).trim();
   const ink = cs.color, accent = tok("--app-accent") || ink, halo = tok("--color-base-100") || "transparent";
   const mono = tok("--font-mono") || "ui-monospace,monospace";
@@ -85,12 +50,9 @@ function draw(cv, pts, cur) {
   const cx = (W - s * (minX + maxX)) / 2, cy = (H - s * (minY + maxY)) / 2;
   const X = (p) => proj(o, p).x * s + cx, Y = (p) => proj(o, p).y * s + cy;
 
-  // the area fill and the accuracy disc are the accent at a low alpha — globalAlpha, so the token's format never matters
   if (pts.length >= 3) { ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = accent; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)))); ctx.closePath(); ctx.fill(); ctx.restore(); }
   if (pts.length >= 2) { ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.lineJoin = "round"; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(X(p), Y(p)) : ctx.moveTo(X(p), Y(p)))); ctx.stroke(); }
   if (pts.length && cur) { ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = accent; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(X(pts[pts.length - 1]), Y(pts[pts.length - 1])); ctx.lineTo(X(cur), Y(cur)); ctx.stroke(); ctx.restore(); }
-  // Segment labels: pushed off the segment along its NORMAL and haloed. Centred on the midpoint they sat
-  // right on the line they measure — unreadable exactly where it matters, and worse over the area fill.
   ctx.font = `600 11px ${mono}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   for (let i = 1; i < pts.length; i++) {
     const d = hav(pts[i - 1], pts[i]);
@@ -101,31 +63,19 @@ function draw(cv, pts, cur) {
     ctx.fillStyle = ink; ctx.fillText(fmt(d), lx, ly);
   }
   pts.forEach((p, i) => { ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(X(p), Y(p), 5, 0, 7); ctx.fill(); ctx.font = `700 9px ${mono}`; ctx.textBaseline = "middle"; ctx.fillStyle = DOT_INK; ctx.fillText(String(i + 1), X(p), Y(p) + 0.5); });
-  // the live position: the accuracy disc, the dot, and a page-coloured ring that lifts the dot off the disc
   if (cur) { const ar = Math.max(4, (cur.accuracy || 0) * s); ctx.save(); ctx.globalAlpha = 0.15; ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(X(cur), Y(cur), ar, 0, 7); ctx.fill(); ctx.restore(); ctx.fillStyle = accent; ctx.beginPath(); ctx.arc(X(cur), Y(cur), 5.5, 0, 7); ctx.fill(); ctx.strokeStyle = halo; ctx.lineWidth = 1.5; ctx.stroke(); }
-  // scale bar (bottom-left) — a round metre value ≈70px wide
   const perPx = 1 / s; let target = 70 * perPx, mag = 10 ** Math.floor(Math.log10(target)), n = [1, 2, 5, 10].find((k) => k * mag >= target) * mag; const barPx = n / perPx;
   ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(12, H - 14); ctx.lineTo(12 + barPx, H - 14); ctx.moveTo(12, H - 18); ctx.lineTo(12, H - 10); ctx.moveTo(12 + barPx, H - 18); ctx.lineTo(12 + barPx, H - 10); ctx.stroke();
   ctx.fillStyle = ink; ctx.textAlign = "left"; ctx.textBaseline = "bottom"; ctx.font = `600 10px ${mono}`; ctx.fillText(fmt(n), 16, H - 18);
-  // north arrow (top-right)
   ctx.save(); ctx.translate(W - 20, 22); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(0, 8); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -13); ctx.lineTo(-4, -6); ctx.lineTo(4, -6); ctx.closePath(); ctx.fill(); ctx.font = `700 9px ${mono}`; ctx.textAlign = "center"; ctx.textBaseline = "top"; ctx.fillText("N", 0, 9); ctx.restore();
 }
 
-let _t;   // set inside the component so fmt can reach the dict (kept module-level for draw())
+let _t;
 const fmt = (m) => m < 1000 ? `${Math.round(m < 10 ? m * 10 : m) / (m < 10 ? 10 : 1)} ${T(_t, "uM")}` : `${(m / 1000).toFixed(2)} ${T(_t, "uKm")}`;
 const fmtArea = (a) => a < 10000 ? `${Math.round(a)} ${T(_t, "uM2")}` : `${(a / 10000).toFixed(2)} ${T(_t, "uHa")}`;
-// Where you actually are. A GPS instrument that never shows a coordinate is half an instrument — this app
-// measured distances, drew the polyline and reported accuracy, but never once answered "where am I?".
-// 5 decimals ≈ 1.1 m, already finer than any phone fix; more digits would be fiction dressed as precision.
 const coordStr = (p) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`;
-// A measurement without its doubt is not a measurement. This app printed "127 м" for months with a ±8 m
-// fix at each end — the number was never that good, and nothing on screen said so. Sub-metre gets a
-// decimal because at that size rounding to "±0 м" would claim the one thing we are certain is false.
 const fmtErr = (m) => `± ${m < 10 ? Math.round(m * 10) / 10 : Math.round(m)} ${T(_t, "uM")}`;
 
-// The walk survives the session. You measure a field by WALKING it — ten minutes outdoors, screen off,
-// the OS evicts the backgrounded tab, and every vertex is gone with no way to recover them but to walk it
-// again. Points live in IndexedDB from the moment they are dropped.
 const CUR = collection("rulerWalk");
 const okPt = (p) => p && typeof p.lat === "number" && typeof p.lng === "number" && isFinite(p.lat) && isFinite(p.lng);
 export function ruler({ S, toast }) {
@@ -133,44 +83,30 @@ export function ruler({ S, toast }) {
   const [pts, setPts] = useState([]);
   const [cur, setCur] = useState(isGate || MOCK ? SAMPLE_CUR : null);
   const [err, setErr] = useState(null);
-  const [depth, setDepth] = useState(0);                  // fixes currently averageable into a vertex
+  const [depth, setDepth] = useState(0);
   const cv = useRef(), hydrated = useRef(false), buf = useRef([]);
 
-  // Every fix is kept, not just the latest. Standing still for a few seconds before dropping a vertex is
-  // free static occupation: the receiver hands us a fresh sample every second, they scatter around one
-  // true spot, and their mean is a better answer than any one of them. `maximumAge: 0` because a cached
-  // fix repeated back to us is not a new sample — averaging the same number ten times learns nothing
-  // while looking exactly like progress.
   useEffect(() => {
     if (isGate || MOCK) { buf.current = SAMPLE_FIXES.slice(); setDepth(stationaryTail(buf.current, { now: 0 }).length); return; }
     if (!geo.supported) { setErr("unsupported"); return; }
     return geo.watch((p) => {
       const fix = { ...p, t: p.t || Date.now() };
-      buf.current = [...buf.current, fix].slice(-180);     // ~3 min at 1 Hz; older fixes carry a stale bias
+      buf.current = [...buf.current, fix].slice(-180);
       setDepth(stationaryTail(buf.current, { now: fix.t }).length);
       setCur(fix); setErr(null);
     }, (e) => setErr(e), { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
   }, []);
-  // Restore the walk, then start saving — never the other way round. The save effect also runs on mount,
-  // and if it fired before the read resolved it would write the initial [] straight over the stored walk:
-  // the app would "persist" perfectly and lose your data on every single launch. `hydrated` gates it.
-  // The sample seeds ONLY when nothing is stored, so the gate exercises the real persistence path instead
-  // of a branch that skips it — a reload in the e2e must see the saved point, not a re-seeded fixture.
   useEffect(() => {
     let ok = true;
     const seed = () => { if (ok && (isGate || MOCK)) setPts(SAMPLE.slice()); };
     CUR.get("walk")
       .then((v) => { if (!ok) return; const saved = (v?.pts || []).filter(okPt); saved.length ? setPts(saved) : seed(); })
-      .catch(seed)                                        // no IndexedDB (private mode / preflight) → in-memory only
+      .catch(seed)
       .finally(() => { if (ok) hydrated.current = true; });
     return () => { ok = false; };
   }, []);
-  useEffect(() => { if (hydrated.current) CUR.put("walk", { pts }).catch(() => { /* quota / no idb */ }); }, [pts]);
+  useEffect(() => { if (hydrated.current) CUR.put("walk", { pts }).catch(() => { }); }, [pts]);
   useEffect(() => { draw(cv.current, pts, cur); }, [pts, cur, t]);
-  // The plot is sized in `svh`, so a rotate changes its box — redraw or the polyline stays at the old scale.
-  // The observer watches the BOX rather than the window: that catches the rotate, and also the two moments a
-  // resize event never fires — the generated utility sheet landing after first paint, and the view being
-  // narrowed around it. `last` keeps the newest walk without re-registering the observer on every fix.
   const last = useRef({ pts, cur });
   last.current = { pts, cur };
   useEffect(() => {
@@ -180,9 +116,7 @@ export function ruler({ S, toast }) {
     return () => ro && ro.disconnect();
   }, []);
 
-  const copyCoords = async () => { if (!cur) return; try { await navigator.clipboard.writeText(coordStr(cur)); toast?.(T(t, "copied")); } catch { /* no clipboard permission → the value is on screen anyway */ } };
-  // Drop a vertex — the averaged one where we have it. The tail is the fixes taken while you stood at
-  // THIS spot; below two of them there is nothing to average and the live fix is the honest answer.
+  const copyCoords = async () => { if (!cur) return; try { await navigator.clipboard.writeText(coordStr(cur)); toast?.(T(t, "copied")); } catch { } };
   const add = () => {
     if (!usableFix(cur)) return;
     const tail = stationaryTail(buf.current, { now: Date.now() });
@@ -191,37 +125,22 @@ export function ruler({ S, toast }) {
   const undo = () => setPts((p) => p.slice(0, -1));
   const clear = () => setPts([]);
 
-  // The canvas is sized in `svh`, deliberately. `vh` is defined as the LARGE viewport — the height the page
-  // would have if the browser's address bar were already retracted — so on a phone with the bar showing,
-  // 52vh is more than 52% of what you can actually see and the readout gets pushed under the fold on load.
-  // `svh` is the small viewport: it fits from the first paint. Not `dvh` either — that one tracks the bar
-  // live, and draw() is wired to the box's size, so scrolling would repaint the polyline on every gesture.
   const total = pts.reduce((s, p, i) => (i ? s + hav(pts[i - 1], p) : 0), 0);
   const live = pts.length && cur ? hav(pts[pts.length - 1], cur) : null;
   const area = pts.length >= 3 ? shoelace(pts) : null;
   const ready = !!cur;
   const canAdd = usableFix(cur);
-  // What the NEXT vertex would be worth if you dropped it now. Standing still makes this number visibly
-  // fall (±8 → ±4) and then stop falling once averaging has spent itself against the bias — which is the
-  // whole technique, shown rather than explained. `pend`, not `proj`: that name is the map projection.
   const pend = depth >= 2 ? meanFix(stationaryTail(buf.current, { now: cur?.t || 0 })) : null;
   const shownAcc = pend?.accuracy ?? cur?.accuracy ?? 0;
   const tErr = pts.length >= 2 ? totalErr(pts.slice(1).map((p, i) => segErr(pts[i], p))) : null;
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-points=${pts.length} data-ready=${ready} data-fixed=${canAdd}>
-      ${/* The plot is something you look INTO — the page pressed in, with the polyline lying at the bottom
-           of it. It used to be `border border-base-300 bg-base-200/40`, which is now literally nothing:
-           base-200 IS base-100 in this material, so the only thing left drawing the frame was the hairline.
-           `sf-inset` is the farm's word for a well, and the canvas is transparent so the sink reads
-           through it. */""}
-      ${/* The height lives on the WELL, not on the canvas: this box is what the plot is measured against, so
-           it has to be the right size from the first frame — before the generated sheet exists — and it must
-           not take its height from the thing it sizes. `clamp()` is the same flexible height the canvas used
-           to carry as `h-[52svh] min-h-[280px] max-h-[460px]`, in one property that needs no sheet. */""}
+      ${""}
+      ${""}
       <div class="rounded-[var(--ms-r)] sf-inset overflow-hidden" style="height:clamp(280px,52svh,460px)">
         <canvas ref=${cv} aria-hidden="true" class="w-full h-full block text-base-content"></canvas>
       </div>
-      ${/* the readout, the fix line and the verbs are one raised surface: the instrument's panel under its plot */""}
+      ${""}
       <${Panel} data-readout>
       <div class="flex items-end justify-between gap-3">
         <div class="min-w-0">

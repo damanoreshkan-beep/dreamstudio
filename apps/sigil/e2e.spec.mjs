@@ -1,13 +1,7 @@
-// Sigil — the gate forges a seeded intent (DEFAULT_INTENT) so the shot shows a real sigil. Flow covered:
-// forge renders a full-bleed 3D stage + attribution; Keep writes to the grimoire (IndexedDB); a grimoire item
-// opens a history-backed detail sheet that system Back closes (the routing invariant); i18n + PWA install.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-intent]")) > 0) break; await h.wait(300); } };
 
 export default [
   {
-    // regression guard: the whole point of this app is the forged 3D. If the gate has WebGL, the three.js
-    // scene MUST build — a silent fall to the 2D path (a throw in makeScene, or the data not reaching the
-    // renderer) means the hero feature is invisible on real devices too. This catches exactly that.
     name: "3D: WebGL-шлях активний у гейті", run: async (h) => {
       await ready(h); await h.wait(1500);
       const hw = await h.attr("[data-sigil]", "data-haswebgl");

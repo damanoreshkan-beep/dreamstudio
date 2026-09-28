@@ -1,10 +1,3 @@
-// Synesthesia (Синестезія) — "hear the colours". The rear camera's dominant palette becomes a sustained
-// chord (each colour's HUE → a note in a consonant scale, /_rt/chroma.js) and the scene's BRIGHTNESS opens
-// a low-pass filter; pan the camera and the pad evolves. Two runtime capabilities meet here — the kit's
-// `CamStage` (/_rt/camstage.js, which owns the whole camera lifecycle) and the synth (/_rt/audio.js) — with
-// the colour→music mapping unit-tested in chroma.js.
-// The gate has no camera and no audio gesture, so it seeds the palette (real chroma maths) and shows the
-// glowing note-orbs; sound only starts on a tap. Colour is never the only channel — every orb names its note.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -36,15 +29,13 @@ export function synesth({ S }) {
   const [lum, setLum] = useState(seed ? seed.lum : 0.5);
   const [scale, setScale] = useState("penta");
   const [playing, setPlaying] = useState(false);
-  const [ready, setReady] = useState(false);      // the stage says when the picture exists (in the gate: at once)
-  const [vid, setVid] = useState(null);           // the playing element the stage hands out
+  const [ready, setReady] = useState(false);
+  const [vid, setVid] = useState(null);
   const canvasRef = useRef();
   const engRef = useRef(null), filterRef = useRef(null), voicesRef = useRef(new Map());
 
   const notes = useMemo(() => paletteToChord(pal, SCALES[scale]), [pal, scale]);
 
-  // the stage's picture → palette + brightness (like the eyedropper, but we keep the whole-frame reading,
-  // not the centre). In the gate the stage stands aside, `vid` stays null and the seeded palette is the shot.
   useEffect(() => {
     const v = vid, cv = canvasRef.current;
     if (!v || !cv) return;
@@ -57,35 +48,33 @@ export function synesth({ S }) {
         ctx.drawImage(v, 0, 0, W, H);
         const data = ctx.getImageData(0, 0, W, H).data;
         setPal(palette(data, 5)); setLum(luminance(avgColor(data)));
-      } catch { /* transient */ }
+      } catch { }
     };
-    const timer = setInterval(sample, 400);   // slow, contemplative — the pad drifts, it doesn't strobe
+    const timer = setInterval(sample, 400);
     return () => clearInterval(timer);
   }, [vid]);
 
-  // audio graph: sustained triangle voices through one brightness-driven low-pass. Defensive — every node
-  // op is guarded, and the whole engine only exists after a tap (autoplay is blocked on mobile).
   useEffect(() => {
     const eng = engRef.current, f = filterRef.current;
     if (!playing || !eng || !f) return;
     const ctx = eng.ctx, now = ctx.currentTime, voices = voicesRef.current, want = new Set(notes);
-    try { f.frequency.setTargetAtTime(brightnessToCutoff(lum), now, 0.4); } catch { /* */ }
+    try { f.frequency.setTargetAtTime(brightnessToCutoff(lum), now, 0.4); } catch { }
     for (const n of notes) if (!voices.has(n)) {
       try {
         const osc = ctx.createOscillator(); osc.type = "triangle"; osc.frequency.value = midiToFreq(n);
         const g = ctx.createGain(); g.gain.value = 0; osc.connect(g); g.connect(f); osc.start();
         g.gain.setTargetAtTime(0.13, now, 0.6); voices.set(n, { osc, g });
-      } catch { /* */ }
+      } catch { }
     }
     for (const [n, v] of voices) if (!want.has(n)) {
-      try { v.g.gain.setTargetAtTime(0, now, 0.4); v.osc.stop(now + 1.4); } catch { /* */ }
+      try { v.g.gain.setTargetAtTime(0, now, 0.4); v.osc.stop(now + 1.4); } catch { }
       voices.delete(n);
     }
   }, [notes, lum, playing]);
 
   const silence = () => {
     const ctx = engRef.current?.ctx, now = ctx?.currentTime || 0;
-    for (const [, v] of voicesRef.current) { try { v.g.gain.setTargetAtTime(0, now, 0.2); v.osc.stop(now + 0.6); } catch { /* */ } }
+    for (const [, v] of voicesRef.current) { try { v.g.gain.setTargetAtTime(0, now, 0.2); v.osc.stop(now + 0.6); } catch { } }
     voicesRef.current.clear();
   };
   const toggle = () => {
@@ -93,20 +82,18 @@ export function synesth({ S }) {
     try {
       if (!engRef.current) {
         const eng = createEngine({ noise: false });
-        if (!eng) return;                          // no audio here: the transport simply does not latch
+        if (!eng) return;
         engRef.current = eng;
         const f = filter(eng.ctx, "lowpass", brightnessToCutoff(lum), 0.8); f.connect(eng.master); filterRef.current = f;
       }
       engRef.current.resume(); setPlaying(true);
-    } catch { /* no audio here */ }
+    } catch { }
   };
-  useEffect(() => () => { try { silence(); engRef.current?.close(); } catch { /* */ } }, []);
+  useEffect(() => () => { try { silence(); engRef.current?.close(); } catch { } }, []);
 
   return html`<div class="ms-stage z-20 bg-base-100 flex flex-col" data-enabled=${ready ? "yes" : "no"} data-playing=${playing ? "on" : "off"} data-scale-id=${scale}>
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
-      ${/* The kit's ONE camera owns the picture; the app owns the dimming — the frame is the backdrop and
-           the orbs are the subject, so the picture itself is dimmed (`picClassName`), not a scrim over it.
-           `primeFull`: the stage is only the picture box here, the prime belongs over the whole screen. */""}
+      ${""}
       <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")}
           show=${true} picClassName="opacity-35" primeFull=${true} fullscreen=${false} gestures=${false}
           onVideo=${(el) => setVid(el)} onState=${(s) => setReady(!!s.ready)}>
@@ -121,15 +108,12 @@ export function synesth({ S }) {
       <//>
     </div>
 
-    ${/* The controls are the kit's Island (the dock's material), not a bar welded to the stage's foot with a
-         hairline: the scale strip and the transport float at the bottom of the stage with the runtime's gap
-         as their air. */""}
+    ${""}
     <div class="shrink-0 px-[var(--ms-gap)] pb-[var(--ms-gap)] pt-[var(--ms-gap)]">
       <${Island} className="max-w-md w-full mx-auto flex flex-col gap-[var(--ms-gap)]">
         <${Segmented} attr="data-scale" scroll size="sm"
           items=${SCALE_KEYS.map(([s, k]) => ({ id: s, label: T(t, k) }))} value=${scale} onChange=${setScale} />
-        ${/* The chord the camera is currently seeing IS the now-playing line — so it belongs in the transport's
-             title slot, not in a bespoke row beside a bespoke play button. */""}
+        ${""}
         <${Transport} locale=${loc} size="sm" playing=${playing} onToggle=${toggle}
           subtitle=${notes.length ? notes.map(noteName).join(" · ") : "—"} />
       <//>

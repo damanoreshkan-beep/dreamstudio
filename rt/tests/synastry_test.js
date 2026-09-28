@@ -1,10 +1,6 @@
-// microspec runtime — synastry unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { signOf, contacts, score, band, ELEMENT, MODALITY, MOIETY, SYN_BODIES } from "../synastry.js";
 
-// A person is just [{key, lon}] — built here by hand so every test states its own chart.
 const at = (m) => SYN_BODIES.map((k) => ({ key: k, lon: m[k] ?? null }));
 
 Deno.test("synastry signOf: longitude → sign, wraps negatives", () => {
@@ -27,10 +23,8 @@ Deno.test("synastry MOIETY: Dariot's table, and no guessed modern orbs", () => {
 });
 
 Deno.test("synastry contacts: the orb is the SUM of the two moieties, not an aspect-wide number", () => {
-  // Sun–Moon reaches 13.5°; a 13° square is in orb.
   assertEquals(contacts(at({ sun: 0 }), at({ moon: 103 })).length, 1, "13° off a square, inside 7.5+6");
   assertEquals(contacts(at({ sun: 0 }), at({ moon: 104 })).length, 0, "14° off is outside it");
-  // Mercury–Venus reaches only 7°.
   assertEquals(contacts(at({ mercury: 0 }), at({ venus: 96 })).length, 1, "6° off a square, inside 3.5+3.5");
   assertEquals(contacts(at({ mercury: 0 }), at({ venus: 98 })).length, 0, "8° off is outside it");
 });
@@ -42,7 +36,6 @@ Deno.test("synastry contacts: strength measures closeness to exact inside the pa
   const wide = contacts(at({ venus: 10 }), at({ mars: 126 }))[0];
   assertEquals(wide.orb, 4);
   assert(wide.strength < exact.strength, "a 4° trine is weaker than an exact one");
-  // The pair the old sign model could not tell apart: both are "4 signs apart".
   assert(contacts(at({ venus: 0 }), at({ mars: 120 }))[0].strength >
     contacts(at({ venus: 29 }), at({ mars: 120 }))[0].strength, "degree within the sign now matters");
 });
@@ -55,7 +48,6 @@ Deno.test("synastry contacts: it is a CROSS product — both directions and same
 });
 
 Deno.test("synastry contacts: the aspect windows stay disjoint at the widest possible limit", () => {
-  // Sun–Moon (13.5°) is the widest pair there is; no separation may match two aspects.
   for (let s = 0; s <= 180; s += 0.25) {
     assert(contacts(at({ sun: 0 }), at({ moon: s })).length <= 1, `${s}° matched more than one aspect`);
   }
@@ -84,8 +76,6 @@ Deno.test("synastry score: all-trine beats all-square, and aversion sits between
 });
 
 Deno.test("synastry score: an absent pair gets no vote — silence cannot dilute a real contact", () => {
-  // `mind` reads Mercury against Mercury/Sun/Moon. One exact Mercury–Mercury trine and nothing else must
-  // read as a trine, not as a trine averaged with four neutrals. This is the measured dead-band bug.
   const s = score(contacts(at({ mercury: 0 }), at({ mercury: 120 })));
   assertEquals(s.mind, 90, "one EXACT trine and four absent pairs is a trine at full strength");
 });

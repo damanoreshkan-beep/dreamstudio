@@ -1,12 +1,7 @@
-// Interactive globe (canvas + d3-geo, runtime component). The world topology loads from /_rt/, then the
-// canvas renders; search flies to a country and shows its facts.
 const seed = async (h) => { for (let i = 0; i < 26; i++) { if ((await h.count("canvas")) > 0) break; await h.wait(300); } };
 
 export default [
   {
-    // The bell is per-TAB, and this app is the reason it is: Земля has nothing to watch, МКС has the station
-    // passing overhead and Землетруси has the ground moving. A bell that offered one rule for the whole app
-    // could only ever offer the wrong one on two screens out of three.
     name: "дзвінок іде за вкладкою: МКС і землетруси — різні правила", run: async (h) => {
       await seed(h);
       h.expect((await h.count("#watch-btn")) === 0, "на Землі нема чого сповіщати, а дзвінок є");
@@ -26,7 +21,7 @@ export default [
     name: "глобус рендериться (canvas)", run: async (h) => {
       await seed(h);
       h.expect((await h.count("canvas")) === 1, "немає глобуса");
-      h.expect((await h.count("#country-search")) === 1, "немає пошуку країни");   // the globe carries no caption; the search is the chrome
+      h.expect((await h.count("#country-search")) === 1, "немає пошуку країни");
     },
   },
   {
@@ -38,7 +33,7 @@ export default [
       const t = await h.bodyText();
       h.expect(/Ukraine/.test(t), "немає назви країни");
       h.expect(/Kyiv/.test(t), "немає столиці");
-      h.expect(/Столиця|Capital/i.test(t) && /Населення|Population/i.test(t), "немає полів фактів"); // labels uppercased by CSS
+      h.expect(/Столиця|Capital/i.test(t) && /Населення|Population/i.test(t), "немає полів фактів");
     },
   },
   {
@@ -62,17 +57,12 @@ export default [
     },
   },
 
-  // ── ISS + Quakes layers (were apps/iss and apps/quakes, merged in as tabs) ─────────────────────────
-  // Their own e2e files went with the folders. These keep the coverage: each layer mounts, and each one
-  // renders its own readout rather than an empty globe.
   {
     name: "шар МКС: глобус + телеметрія", run: async (h) => {
       await h.click('[data-tab="track"]'); await h.wait(600);
       h.expect((await h.count("canvas")) >= 1, "немає глобуса у вкладці МКС");
       const txt = await h.bodyText();
       h.expect(/км|km|\d/.test(txt), "немає читання позиції/висоти МКС");
-      // «і показати на глобусі де я» — правило про відстань від мене нечитабельне на глобусі, який не
-      // каже, де я. Під воротами точка фіксована (Київ), тому кнопки запиту місця тут бути не повинно.
       h.expect((await h.count("[data-me]")) === 1, "не видно, де я");
       h.expect((await h.count("[data-me-ask]")) === 0, "під воротами місце вже відоме, а кнопка запиту є");
     },

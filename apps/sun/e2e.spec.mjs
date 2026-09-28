@@ -1,6 +1,3 @@
-// Headless has no GPS/compass → the view falls back to Kyiv after ~4s and renders the full compass
-// (SunCalc is pure math). So the gate reviews the real compass. The live heading/permission path is
-// covered on-device via ?mock.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-sun]")) > 0) break; await h.wait(500); } };
 
 export default [
@@ -19,7 +16,6 @@ export default [
       h.expect((await h.count("[data-polaris]")) === 1, "немає маркера Полярної зорі");
       h.expect((await h.count("[data-polaris-info]")) === 1, "немає виведення Полярної");
       h.expect(/Polaris|Полярна/.test(await h.text("[data-polaris-info]")), "виведення без назви Полярної");
-      // static: сонце реагує на скрабер, Полярна — ні (її висота = широта, не залежить від часу)
       await h.type("#scrub", "60"); await h.wait(150);
       const a = await h.text("[data-polaris-info]");
       await h.type("#scrub", "800"); await h.wait(150);
@@ -39,7 +35,7 @@ export default [
   {
     name: "тайли часу: стрибок на схід/захід і ресет на «зараз»", run: async (h) => {
       await ready(h);
-      await h.click("#now-tile"); await h.wait(150); // establish live "now" regardless of prior test state
+      await h.click("#now-tile"); await h.wait(150);
       const nowB = await h.text("[data-bearing]");
       await h.click('[data-tile="sunset"]'); await h.wait(200);
       const setB = await h.text("[data-bearing]");
@@ -54,9 +50,7 @@ export default [
       await ready(h);
       const kyiv = await h.text("[data-bearing]");
       await h.click("#open-globe"); await h.wait(300);
-      // стан, не класи: пікер тепер — Sheet із /_rt/ui.js, тож перевіряємо відкритість <dialog>
       h.expect((await h.prop("#globesheet", "open")) === true, "пікер не відкрився");
-      // інваріант маршрутизації: аркуш живе на S.screen, тож системний Back закриває його
       await h.back(); await h.wait(250);
       h.expect((await h.prop("#globesheet", "open")) !== true, "Back не закрив пікер");
       await h.click("#open-globe"); await h.wait(300);
@@ -67,7 +61,7 @@ export default [
       h.expect((await h.prop("#globesheet", "open")) !== true, "пікер не закрився");
       h.expect((await h.count("#clear-pick")) === 1 && /Tokyo/.test(await h.text("#clear-pick")), "немає індикатора обраної точки");
       h.expect(kyiv !== (await h.text("[data-bearing]")), "азимут сонця не перерахувався для іншої точки");
-      await h.click("#clear-pick"); await h.wait(200); // назад до GPS/Києва
+      await h.click("#clear-pick"); await h.wait(200);
     },
   },
   {

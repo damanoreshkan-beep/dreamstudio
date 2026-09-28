@@ -1,8 +1,3 @@
-// IPTV — browse and watch public live-TV channels from the iptv-org index. This app owns only the
-// IPTV-specific parts: the per-country M3U playlist (name + logo + category + stream URL), a country
-// picker, a channel grid, search and category filters. Everything about actually PLAYING a stream —
-// HLS vs progressive, hls.js, buffering, errors, a11y — lives in the runtime (/_rt/video.js Player), so
-// the next video app reuses it. Data source: iptv-org.github.io (CORS *, MIT).
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect } from "preact/hooks";
@@ -15,8 +10,6 @@ import { Pixels } from "/_rt/skeleton.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-// Curated countries with the most / most-watchable channels (iptv-org country codes, lowercase).
-// Country names carry the identity — no flag emoji (banned farm-wide, and unrenderable as a vector in <option>).
 const COUNTRIES = [
   ["us", "United States"], ["uk", "United Kingdom"], ["ca", "Canada"], ["ua", "Ukraine"],
   ["pl", "Poland"], ["de", "Germany"], ["fr", "France"], ["es", "Spain"], ["it", "Italy"],
@@ -24,7 +17,7 @@ const COUNTRIES = [
   ["in", "India"], ["tr", "Türkiye"], ["jp", "Japan"], ["kr", "South Korea"],
   ["au", "Australia"], ["ae", "UAE"], ["sa", "Saudi Arabia"],
 ];
-const CAP = 120;   // render at most this many tiles; search/filter narrows to reach the rest
+const CAP = 120;
 
 const $country = atom("us"), $channels = atom([]), $loading = atom(true), $err = atom(false);
 const $cat = atom(""), $query = atom(""), $sel = atom(null);
@@ -55,8 +48,7 @@ async function loadCountry(code) {
 }
 
 const Tile = ({ ch, onPlay }) => html`<button data-ch class="flex flex-col gap-1 min-w-0 active:scale-95 transition-transform" aria-label=${ch.name} onClick=${() => onPlay(ch)}>
-  ${/* A logo tile is a WELL the station's mark drops into — `sf-inset`, not a tinted box with a hairline
-       around it. The tint was already a no-op under the neutral palette; the outline was the whole tile. */""}
+  ${""}
   <div class="aspect-video rounded-lg sf-inset overflow-hidden relative flex items-center justify-center">
     ${Icon("lucide:tv", "text-2xl text-base-content/25 absolute")}
     ${ch.logo ? html`<img src=${ch.logo} alt="" loading="lazy" class="relative w-full h-full object-contain p-1" onError=${(e) => e.currentTarget.remove()} />` : null}
@@ -88,10 +80,7 @@ export function iptv({ S }) {
         </label>
       </div></div>
 
-      ${/* A REAL one-of-N strip: the list is filtered by exactly one category at a time, and "All" is that
-           choice's zero — so it is the kit's Segmented, scrolling rail variant, and not a row of chips the
-           app draws itself. Tapping the active pill still clears back to All, which is the behaviour the
-           chips had. */""}
+      ${""}
       ${cats.length > 1 ? html`<${Segmented} scroll size="sm" attr="data-cat" label=${T(t, "aCats")}
         items=${[{ id: "", label: T(t, "allCats") }, ...cats.map((c) => ({ id: c, label: c }))]}
         value=${cat} onChange=${(id) => $cat.set(id === cat ? "" : id)} />` : null}

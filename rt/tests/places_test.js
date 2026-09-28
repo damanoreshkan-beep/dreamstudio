@@ -1,12 +1,7 @@
-// microspec runtime — places unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { translit, isCyrillic, toPlace, placeLabel, formatCoords } from "../places.js";
 
 Deno.test("places/translit: official Ukrainian romanisation reaches the English geocoder index", () => {
-  // The geocoder holds no Ukrainian names, so Cyrillic input is romanised with the scheme that produced the
-  // English names in the first place (KMU 1996/2010). Every pair below was confirmed to be a live hit.
   const pairs = [["Київ", "Kyiv"], ["Львів", "Lviv"], ["Одеса", "Odesa"], ["Харків", "Kharkiv"],
     ["Дніпро", "Dnipro"], ["Чернівці", "Chernivtsi"], ["Запоріжжя", "Zaporizhzhia"], ["Ужгород", "Uzhhorod"],
     ["Івано-Франківськ", "Ivano-Frankivsk"], ["Тернопіль", "Ternopil"], ["Вінниця", "Vinnytsia"]];

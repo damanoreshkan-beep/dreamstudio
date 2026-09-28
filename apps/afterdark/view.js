@@ -1,19 +1,3 @@
-// afterdark — a one-track techno rave. ONE fit screen: the afterdark.frag rave field (lasers/haze/strobe) on
-// /_rt/glstage.js behind a Three.js stage of THREE rigged characters dancing to the beat, under a thin dark-glass
-// DOM layer — the Enter cover (the audio gesture), a top status label, and ONE island holding play/pause + a
-// filmstrip picker of the 11 dancers. DOM is the truth the gate/axe/e2e see; both canvases are aria-hidden and
-// probe-guarded (WebGL only; skipped under the headless gate, where the DOM alone must carry every meaning).
-//
-// The audio path (recipe): ONE <audio crossOrigin="anonymous"> (set BEFORE src; the source is the edge's HLS DVR
-// via hls.js, or the direct Icecast stream on iOS / as the fallback — see LIVE) → MediaElementSource →
-// AnalyserNode → destination; the AudioContext is resumed from the Enter tap (autoplay policy). TWO readings
-// per frame: the kick-band energy becomes a single `pulse` (rt/afterdark.js) — the punch; and a second,
-// unsmoothed analyser feeds the BEAT CLOCK (rt/afterbeat.js) — tempo + phase-locked beat/bar, so the characters
-// and the lights move IN TIME, not just on loudness. Accents are anticipated by the output latency (predict,
-// never react). No audio → an idle groove at 126 BPM, never a freeze. Stream drops port tide's reconnect.
-// The stage is DARK-COMMITTED (theme-independent) so both farm-theme shots stay coherent and the dark-glass
-// controls pass axe in both. A maximize key in the transport toggles real Fullscreen (owner: never automatic).
-
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -37,76 +21,43 @@ export { castView } from "./cast.js";
 import { readPalette, isDay, SLOTS } from "./palette.js";
 
 const STREAM = "https://streams.rautemusik.fm/techno/mp3-192";
-// THE DVR (edge live.js): the same stream, pulled ONCE by the server into a 6-min HLS window. The client sits
-// ~285 s behind live and rides a five-minute outage from its own buffer — no reconnect churn. Variant B
-// (owner, 2026-09-11): iOS keeps the DIRECT Icecast <audio> — Safari's native HLS feeds the AnalyserNode
-// silence (WebKit 231656) and the beat would die; everyone else gets hls.js over MSE. If the DVR itself is
-// unreachable (three manifest failures) this session falls back to the direct stream: a DVR outage is never silence.
-// master.m3u8 lists the edge's TWO pullers as redundant streams — hls.js swaps pods on load errors (live.js)
 const LIVE = VPS_PROXY + "/live/master.m3u8";
 const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
-// THE SYNC CONTRACT with the edge DVR (live.js: 8 s segments, a 20-min window), thought through 2026-09-11
-// after a phone «зависає і різко грає свіжий блок»:
-//  · start 300 s behind the edge and NEVER re-sync on our own — no liveMaxLatency (the only thing that makes
-//    hls.js jump to the edge), no playback-rate catch-up, no stall-driven latency creep;
-//  · liveSyncMode stays 'edge' — measured 2026-09-11: 'buffered' put the START at the playlist's first segment
-//    (the window's tail, 570 s behind), 'edge' starts exactly liveSyncDuration behind; neither re-syncs
-//    without a liveMaxLatency;
-//  · the edge serves TWO pods as pathways (live.js): a playlist that errors (dead or stuck pod → 503) falls
-//    back to the other pod after a SHORT retry budget — the runway on the phone covers the switch;
-//  · pull the whole play-behind forward (up to 15 min) so the runway is ON the phone, and keep 2 min behind;
-//  · the window's tail is 15 min behind the play head, so a sleep/pause/stall shorter than that never falls out;
-//  · the element is never torn down for a stall (play()): hls.js retries the playlist itself.
 const HLS_CFG = {
-  // THE SERVICE WORKER TRAP (found 2026-09-11 in the hls.js log: every playlist reload "MISSED" with the same
-  // last sn, and even cache:"no-store" fetches answered with a playlist dated minutes ago): the app's worker
-  // (/_rt/sw-core.js) caches every same-origin GET except the bare "/feed" — so "/feed/live/…" playlists and
-  // segments came back from the app cache, the playlist froze, the runway drained, silence. sw-core leaves
-  // requests carrying a Range header untouched ("media streams itself"), so every DVR request carries
-  // "Range: bytes=0-": CORS-safelisted (no preflight), the edge ignores it and answers 200 in full, and the
-  // worker never sees it. The framework fix (any /feed/* is live data) ships with the next core release.
-  // hls.js calls xhrSetup BEFORE xhr.open() (1.5+), so a header can only be set after opening it ourselves —
-  // hls.js then skips its own open(). (The first cut set the header blind and the try/catch hid the throw.)
   xhrSetup: (xhr, url) => { xhr.open("GET", url, true); xhr.setRequestHeader("Range", "bytes=0-"); },
-  lowLatencyMode: false,                        // default true — MUST be off for a DVR
-  liveSyncDuration: 300,                        // start 5 min behind the edge …
-  liveSyncMode: "edge",                         // see the contract above — never re-syncs without a max latency
-  liveSyncOnStallIncrease: 0,                   // a stall must not creep the target
-  maxLiveSyncPlaybackRate: 1,                   // never speed up to "catch up" — there is nothing to catch
-  maxBufferLength: 330, maxMaxBufferLength: 900, maxBufferSize: 120 * 1024 * 1024,   // the runway lives on the phone
+  lowLatencyMode: false,
+  liveSyncDuration: 300,
+  liveSyncMode: "edge",
+  liveSyncOnStallIncrease: 0,
+  maxLiveSyncPlaybackRate: 1,
+  maxBufferLength: 330, maxMaxBufferLength: 900, maxBufferSize: 120 * 1024 * 1024,
   backBufferLength: 120,
   fragLoadPolicy: { default: { maxTimeToFirstByteMs: 12000, maxLoadTimeMs: 30000, timeoutRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 }, errorRetry: { maxNumRetry: 12, retryDelayMs: 1000, maxRetryDelayMs: 8000 } } },
-  playlistLoadPolicy: { default: { maxTimeToFirstByteMs: 8000, maxLoadTimeMs: 12000, timeoutRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 4000 }, errorRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 4000 } } },   // short: a failing pod should hand over to the other within ~15 s
+  playlistLoadPolicy: { default: { maxTimeToFirstByteMs: 8000, maxLoadTimeMs: 12000, timeoutRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 4000 }, errorRetry: { maxNumRetry: 3, retryDelayMs: 1000, maxRetryDelayMs: 4000 } } },
 };
 const AC = typeof AudioContext !== "undefined" ? AudioContext : (typeof globalThis !== "undefined" && globalThis.webkitAudioContext) || null;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const frac = (x) => x - Math.floor(x);
-const IDLE_BPM = 126;                                               // the groove when there is no audio
+const IDLE_BPM = 126;
 
-// ---- persisted working set: who is on stage and what they dance — state.js (the cast tab edits, we follow) ----
 const $muted = persistentAtom("afterdark:muted", "0");
-const $dock = persistentAtom("afterdark:dock", "1");             // "1" = the island is open; "0" = folded to one key (owner, 2026-09-11)
-// the Enter cover is dismissed once the audio gesture happened; under the gate the shot is the live rave, so
-// we seed past the gesture (like tide seeds past the real stream) and the mock owns the state machine.
+const $dock = persistentAtom("afterdark:dock", "1");
 const $entered = atom(gate);
 const $playing = atom(false);
-const $state = atom("idle");                                     // idle | connecting | live | buffering | reconnecting | offline
-const $buffer = atom(0);                                         // seconds of audio the client holds AHEAD of the play head (the DVR, downloaded)
-const $stage3d = atom(gate ? "skipped" : "loading");             // the 3D stage's readout: loading | ready | failed | skipped
+const $state = atom("idle");
+const $buffer = atom(0);
+const $stage3d = atom(gate ? "skipped" : "loading");
 const $stage3dWhy = atom("");
-const $bpm = atom(0);                                            // the locked tempo (0 = not confident yet), for the pill
-const $fs = atom(false);                                         // in real Fullscreen (the transport's maximize key)
+const $bpm = atom(0);
+const $fs = atom(false);
 const muted = () => $muted.get() === "1";
 
-// ---- the engine (module scope: survives tab switches, shared with the lock screen) ----
 let el = null, ctx = null, src = null, analyser = null, freq = null, np = null, wl = null;
-let beatAn = null, fdb = null, mag = null, magPrev = null;      // the beat clock's own unsmoothed analyser
+let beatAn = null, fdb = null, mag = null, magPrev = null;
 let attempt = 0, retryTimer = null, stallTimer = null, connectTimer = null, liveTimer = null, mark = null;
-let hls = null, hlsMod = null, dvrDead = false;                  // the hls.js instance for the CURRENT element; module cached; DVR given up this session
+let hls = null, hlsMod = null, dvrDead = false;
 async function loadHls() { if (hlsMod !== null) return hlsMod; try { hlsMod = (await import("hls.js")).default || false; } catch { hlsMod = false; } return hlsMod; }
-function killHls() { if (hls) { try { hls.destroy(); } catch { /* */ } hls = null; } }
-// hls.js on the element: manifest → play; a fatal network error restarts loading (a long outage exhausts the
-// retries, #5488), a media error is recovered once, anything else drops the link like a direct stream would.
+function killHls() { if (hls) { try { hls.destroy(); } catch { } hls = null; } }
 function attachHls(a, H) {
   let manifestFails = 0;
   const h = new H(HLS_CFG);
@@ -125,14 +76,13 @@ function attachHls(a, H) {
 }
 
 function attach(a) {
-  if (src) { try { src.disconnect(); } catch { /* */ } src = null; }
+  if (src) { try { src.disconnect(); } catch { } src = null; }
   if (!AC) return;
   try {
     ctx ||= new AC();
     ctx.resume();
     src = ctx.createMediaElementSource(a);
     if (!analyser) { analyser = ctx.createAnalyser(); analyser.fftSize = 1024; analyser.smoothingTimeConstant = 0.4; freq = new Uint8Array(analyser.frequencyBinCount); analyser.connect(ctx.destination); }
-    // smoothing 0 + float dB: onsets stay sharp for the beat clock (the pulse analyser is smoothed for the eye)
     if (!beatAn) { beatAn = ctx.createAnalyser(); beatAn.fftSize = 1024; beatAn.smoothingTimeConstant = 0; fdb = new Float32Array(beatAn.frequencyBinCount); mag = new Float32Array(beatAn.frequencyBinCount); magPrev = new Float32Array(beatAn.frequencyBinCount); }
     src.connect(analyser);
     src.connect(beatAn);
@@ -145,17 +95,15 @@ function hold() {
 }
 
 async function play({ reconnect = false } = {}) {
-  // the gate has no audio: the mock owns the machine, and the session is still held (the APK's background
-  // service is only visible to CI in Chromium, so short-circuiting before it would leave that half untested).
   if (gate || typeof Audio === "undefined") { $playing.set(true); $state.set("live"); hold(); return; }
   if (!reconnect) attempt = 0;
   clearTimeout(retryTimer); clearTimeout(stallTimer); clearTimeout(connectTimer);
   const old = el;
   killHls();
-  if (old) { try { old.pause(); old.removeAttribute("src"); old.load(); } catch { /* */ } }
+  if (old) { try { old.pause(); old.removeAttribute("src"); old.load(); } catch { } }
   const a = document.createElement("audio");
   a.preload = "none";
-  a.crossOrigin = "anonymous";                                   // BEFORE src, per the CORS recipe
+  a.crossOrigin = "anonymous";
   a.volume = muted() ? 0 : 1;
   el = a;
 
@@ -167,15 +115,10 @@ async function play({ reconnect = false } = {}) {
   a.onerror = () => { if (el === a) lost(a); };
   connectTimer = setTimeout(() => { if (el === a && $state.get() !== "live") lost(a); }, 12000);
   attach(a);
-  // the source: the DVR through hls.js where it can work (not iOS, MSE present, DVR alive), else the direct stream
   const H = (!IOS && !dvrDead) ? await loadHls() : false;
-  if (el !== a) return;                                          // superseded while the module loaded
+  if (el !== a) return;
   const dvr = !!(H && H.isSupported());
   if (dvr) {
-    // MSE: the element's `stalled` is noise (Chrome fires it on a fed SourceBuffer) and `waiting` is the
-    // buffer running dry — which, with ~285 s downloaded, means the outage is already minutes long. NEITHER
-    // tears the element down (that was the "перез'єднання → тиша" bug, 2026-09-11): hls.js keeps retrying
-    // the playlist by itself and the same element resumes where it stopped. `playing` clears the label.
     a.onstalled = null;
     a.onwaiting = () => { if (el === a && hadAudio) $state.set("buffering"); };
     attachHls(a, H);
@@ -193,28 +136,20 @@ async function play({ reconnect = false } = {}) {
   if (!liveTimer) liveTimer = setInterval(probe, 2000);
 }
 
-// A dropped link holds the ONE station and reconnects with backoff — a live Icecast stream cannot resume, so
-// each retry is a fresh element. `online`/connection-change short-circuit the wait (tide's proven logic).
 function lost(a) {
   if (el !== a || !$playing.get()) return;
   const online = typeof navigator === "undefined" || navigator.onLine !== false;
   $state.set(online ? "reconnecting" : "offline");
-  el = null; killHls(); try { a.pause(); a.removeAttribute("src"); a.load(); } catch { /* */ }
+  el = null; killHls(); try { a.pause(); a.removeAttribute("src"); a.load(); } catch { }
   clearTimeout(connectTimer); clearTimeout(stallTimer); clearTimeout(retryTimer);
   const wait = retryDelay(attempt); attempt += 1;
   retryTimer = setTimeout(() => { retryTimer = null; if ($playing.get()) play({ reconnect: true }); }, wait);
 }
 function probe() {
   if (gate || !$playing.get() || !el) return;
-  // what the client HOLDS: the DVR is downloaded ahead of the play head (the owner's ask: the buffer lives on
-  // the phone, not only on the server) — shown in the pill so an outage's runway is visible
-  try { const b = el.buffered; let ahead = 0; for (let i = 0; i < b.length; i++) if (b.start(i) <= el.currentTime + 0.5 && b.end(i) > el.currentTime) ahead = Math.max(ahead, b.end(i) - el.currentTime); const s = Math.floor(ahead); if (s !== $buffer.get()) $buffer.set(s); } catch { /* */ }
-  // a play head that LEAPS (more than the probe interval + slack, with no seek of ours) is a re-sync we did not
-  // ask for — the owner's "різко грає свіжий блок". Counted in telemetry so the DVR contract can be audited.
+  try { const b = el.buffered; let ahead = 0; for (let i = 0; i < b.length; i++) if (b.start(i) <= el.currentTime + 0.5 && b.end(i) > el.currentTime) ahead = Math.max(ahead, b.end(i) - el.currentTime); const s = Math.floor(ahead); if (s !== $buffer.get()) $buffer.set(s); } catch { }
   if (mark && el.dvr) { const wall = (performance.now() - mark.at) / 1000, moved = el.currentTime - mark.time; if (moved > wall + 15 || moved < -15) report("dvr.jump", { moved: Math.round(moved), wall: Math.round(wall) }); }
   if ($state.get() !== "live") return;
-  // a play head that stops moving: 8 s is a dead direct stream; on the DVR only a wedged hls.js (2 min — its
-  // own retries come first, and a dry buffer means the outage already outlived four minutes of runway)
   const r = progressCheck({ time: el.currentTime, mark, now: performance.now(), budget: el.dvr ? 120000 : 8000 });
   mark = r.mark;
   if (r.dead) lost(el);
@@ -226,7 +161,7 @@ function relink() {
 }
 if (typeof addEventListener !== "undefined") {
   addEventListener("online", relink);
-  try { navigator.connection?.addEventListener?.("change", relink); } catch { /* the probe still covers it */ }
+  try { navigator.connection?.addEventListener?.("change", relink); } catch { }
 }
 
 function stop() {
@@ -234,7 +169,7 @@ function stop() {
   clearTimeout(connectTimer); clearTimeout(retryTimer); clearTimeout(stallTimer);
   attempt = 0;
   killHls();
-  if (el) { const o = el; el = null; try { o.pause(); o.removeAttribute("src"); o.load(); } catch { /* */ } }
+  if (el) { const o = el; el = null; try { o.pause(); o.removeAttribute("src"); o.load(); } catch { } }
   if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
   mark = null; $buffer.set(0);
   if (wl) { wl.release(); wl = null; }
@@ -242,29 +177,20 @@ function stop() {
 }
 const start = () => play({});
 const toggle = () => { $playing.get() ? stop() : start(); };
-function setMuted(m) { $muted.set(m ? "1" : "0"); if (el) { try { el.volume = m ? 0 : 1; } catch { /* iOS */ } } }
+function setMuted(m) { $muted.set(m ? "1" : "0"); if (el) { try { el.volume = m ? 0 : 1; } catch { } } }
 
-// ---- the field's live channels: a plain object the shader + the 3D stage read every frame, never state ----
 const env = {
   last: 0, tick: 0, pulseState: { pulse: 0, baseline: 0 }, pulse: 0, energy: 0, dph: 0, sph: 0, tiltX: 0, tiltY: 0, ttx: 0, tty: 0, mode: "auto",
-  // the beat clock (rt/afterbeat.js): bpm · beatPhase 0..1 (0 = on the beat) · barPhase · beatIndex · confidence 0..1.
-  // `beatA`/`barA` are the ANTICIPATED phases (led by the audio output latency + a frame) — what the eye should
-  // move to, so an accent lands WITH the kick, not after it. Idle (no audio) free-runs at IDLE_BPM, confidence 0.
   beatState: null, bpm: IDLE_BPM, beatPhase: 0, barPhase: 0, beatIndex: 0, confidence: 0, beatA: 0, barA: 0, lead: 0.08, drive: 0,
-  // THE PALETTE (palette.js): the theme's colours packed as 8 vec4s, eased toward `palTarget` so a theme toggle
-  // cross-fades; `day` 0..1 = a light theme (the floor is lit as DAY). The shader gets `pal` as points[8] and
-  // day as env.x (the runtime's own channel); the 3D rig reads both off env.
   pal: null, palTarget: null, day: 0, themeKey: "", frame: 0,
-  // THE CAMERA (owner, 2026-09-11): a finger drag orbits (yaw/pitch), a pinch zooms, a double tap resets;
-  // `cam` is the eased value the 3D stage reads, `camT` the gesture's target; yaw is unbounded (a full walk-around)
   cam: { yaw: 0, pitch: 0, zoom: 1 }, camT: { yaw: 0, pitch: 0, zoom: 1 },
 };
-const CAM = { pitchMin: -0.12, pitchMax: 0.62, zoomMin: 0.55, zoomMax: 1.8 };   // yaw is free: walk all the way round (owner: «зі спини бачити»)
-const ptrs = new Map();                                            // active pointers on the stage: id → {x, y}
+const CAM = { pitchMin: -0.12, pitchMax: 0.62, zoomMin: 0.55, zoomMax: 1.8 };
+const ptrs = new Map();
 let pinchDist = 0, lastTapAt = 0;
 function camDown(e) {
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch { }
   if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinchDist = Math.hypot(a.x - b.x, a.y - b.y); }
   if (ptrs.size === 1) { const now = performance.now(); if (now - lastTapAt < 300) { env.camT = { yaw: 0, pitch: 0, zoom: 1 }; } lastTapAt = now; }
 }
@@ -284,10 +210,7 @@ function camUp(e) { ptrs.delete(e.pointerId); pinchDist = 0; }
 function camWheel(e) { env.camT.zoom = clamp(env.camT.zoom * (1 + e.deltaY * 0.0012), CAM.zoomMin, CAM.zoomMax); e.preventDefault(); }
 const camHandlers = { onPointerDown: camDown, onPointerMove: camMove, onPointerUp: camUp, onPointerCancel: camUp, onWheel: camWheel };
 function retheme() { env.palTarget = readPalette(); if (!env.pal) env.pal = new Float32Array(env.palTarget); }
-if (typeof globalThis !== "undefined") globalThis.__afterdark = env;   // a device debug handle: bpm/confidence/day/palette in the console
-// The theme has TWO axes — the mode (html[data-theme] = signal | signal-light) and the MATERIAL
-// (html[data-material], whose stylesheet arrives LATER than the attribute) — so no attribute observer can
-// catch the moment the tokens actually change. A cheap fingerprint of the tokens, checked twice a second, can.
+if (typeof globalThis !== "undefined") globalThis.__afterdark = env;
 function themeKey() {
   try { const r = document.documentElement, cs = getComputedStyle(r); return `${r.getAttribute("data-theme")}|${r.getAttribute("data-material")}|${cs.getPropertyValue("--color-base-100")}|${cs.getPropertyValue("--app-accent")}|${cs.getPropertyValue("--color-accent")}`; } catch { return ""; }
 }
@@ -301,7 +224,6 @@ function vary() {
     energy = bassEnergy(freq);
     env.pulseState = stepPulse(env.pulseState, energy);
     pulse = env.pulseState.pulse;
-    // the beat clock: float dB → 0..1 magnitude (−100..−30 dB is the useful range), flux vs the last frame
     beatAn.getFloatFrequencyData(fdb);
     for (let i = 0; i < fdb.length; i++) { const v = (fdb[i] + 100) / 70; mag[i] = v > 0 ? (v < 1 ? v : 1) : 0; }
     const b = stepBeat(env.beatState, spectralFlux(mag, magPrev), now / 1000);
@@ -310,12 +232,10 @@ function vary() {
     env.lead = (ctx ? (ctx.outputLatency || 0) + (ctx.baseLatency || 0) : 0.06) + 1 / 60;
   } else {
     env.tick += dt; pulse = idleGroove(env.tick); energy = pulse;
-    // no audio: the clock free-runs at the idle groove so every consumer still has a beat to breathe on
     env.bpm = IDLE_BPM; env.confidence = 0;
     const beats = env.tick * IDLE_BPM / 60;
     env.beatPhase = frac(beats); env.beatIndex = Math.floor(beats); env.barPhase = frac(beats / 4); env.lead = 0;
   }
-  // the theme: ease the palette + day toward the applied theme (a toggle cross-fades in ~0.4 s)
   if ((env.frame++ % 30) === 0) { const key = themeKey(); if (key !== env.themeKey) { env.themeKey = key; retheme(); } }
   if (!env.palTarget) retheme();
   const k = clamp(dt * 6, 0, 1);
@@ -328,20 +248,16 @@ function vary() {
   const shown = env.confidence > 0.35 ? Math.round(env.bpm) : 0;
   if (shown !== $bpm.get()) $bpm.set(shown);
   env.pulse = pulse; env.energy = energy;
-  env.playing = $playing.get();                                 // paused → the 3D characters ease into a calm idle sway
-  env.dph += dt * env.bpm / 60;                                  // the groove phase now follows the locked tempo
+  env.playing = $playing.get();
+  env.dph += dt * env.bpm / 60;
   env.sph = integratePhase(env.sph, dt, pulse);
-  // vary.w = the shader's STROBE amount: only with a confident clock, and only as the passage drives (a
-  // smoothed energy) — a breakdown or the idle groove never flashes
   env.drive += (clamp((energy - 0.14) / 0.3, 0, 1) - env.drive) * clamp(dt * 2, 0, 1);
   return [pulse, env.dph, env.sph, env.confidence * env.drive];
 }
-// parallax: DeviceOrientation tilt (permission asked on the Enter tap) → pointer → a slow auto-sway; eased.
 function ink() {
   if (env.mode === "auto") { const t = env.tick; env.ttx = Math.sin(t * 0.5) * 0.5; env.tty = Math.sin(t * 0.33) * 0.3; }
   env.tiltX += (env.ttx - env.tiltX) * 0.06;
   env.tiltY += (env.tty - env.tiltY) * 0.06;
-  // ink.z/w carry the ANTICIPATED beat + bar phase to the shader (env.y/z/w are the runtime's, not ours)
   return [env.tiltX, env.tiltY, env.beatA, env.barA];
 }
 function armOrient() {
@@ -356,10 +272,6 @@ function requestTilt() {
     else env.mode = "pointer";
   } catch { env.mode = "pointer"; }
 }
-// Fullscreen is asked ON the key's gesture (a browser refuses it after an await/timeout) — mirrors the
-// camstage.js idiom. iOS Safari (no element fullscreen for non-video) simply keeps the PWA viewport; Telegram
-// gets its own fullscreen from tma.js at boot. While in fullscreen the runtime's navbar/dock hide (CSS on
-// :root[data-immersive]) so the rave fills the glass; our island stays, with the minimize key on it.
 function toggleFullscreen() {
   try {
     if (typeof document === "undefined") return;
@@ -367,12 +279,12 @@ function toggleFullscreen() {
     const el = document.documentElement;
     const r = el.requestFullscreen?.({ navigationUI: "hide" }) || el.webkitRequestFullscreen?.();
     r?.catch?.(() => {});
-  } catch { /* denied: nothing changes */ }
+  } catch { }
 }
 if (typeof document !== "undefined") document.addEventListener("fullscreenchange", () => $fs.set(!!document.fullscreenElement));
 async function enter() {
   $entered.set(true);
-  try { if (AC) { ctx ||= new AC(); await ctx.resume(); } } catch { /* */ }
+  try { if (AC) { ctx ||= new AC(); await ctx.resume(); } } catch { }
   requestTilt();
   start();
 }
@@ -432,11 +344,10 @@ const CSS = `
 :root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock],:root[data-immersive] [data-dock-fade]{opacity:0;pointer-events:none;transition:opacity .5s ease}
 @media(prefers-reduced-motion:reduce){[data-enter] .dk-enter-ring{animation:none!important}:root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock]{transition:none}}`;
 
-// ================= the rave =================
 export function afterdark({ S }) {
   const t = useStore(S.t);
   const loc = useStore(S.locale);
-  useStore($cast);                                                // re-render when the cast changes
+  useStore($cast);
   useStore($moves);
   const cast = getCast();
   const moves = getMoves();
@@ -452,15 +363,12 @@ export function afterdark({ S }) {
   const stageRef = useRef();
   const engineRef = useRef(null);
 
-  // fullscreen: stamp the root so the runtime's navbar/dock hide; leaving the view restores everything
   useEffect(() => {
     if (typeof document === "undefined") return () => {};
     if (fs) document.documentElement.dataset.immersive = ""; else delete document.documentElement.dataset.immersive;
     return () => { delete document.documentElement.dataset.immersive; };
   }, [fs]);
 
-  // the 3D dance stage: probe-guarded (WebGL only) and skipped under the headless gate (Draco/addons/GLBs over
-  // CDNs flake CI, and the DOM carries all meaning there). Created once; the picker drives its trio.
   useEffect(() => {
     if (gate) { start(); return () => {}; }
     let engine = null;
@@ -477,8 +385,6 @@ export function afterdark({ S }) {
   }, []);
 
   const onToggle = () => (entered ? toggle() : enter());
-  // the working set is edited on the cast tab; a change lands on the engine here (a library move needs its
-  // tier from the catalog first, so the floor never has to guess)
   useEffect(() => { engineRef.current?.setCast?.(cast); }, [cast.join()]);
   useEffect(() => {
     if (moves.some((id) => !MOVE_IDS.includes(id))) loadCatalog().then(() => engineRef.current?.setMoves?.(getMoves()));
@@ -488,24 +394,20 @@ export function afterdark({ S }) {
 
   return html`<${Fragment}>
     <style>${CSS}</style>
-    ${/* the fixed night stage — z-0 (NOT negative: a negative z hides behind the light farm-theme body, and the
-         rave is dark-committed). The opaque gradient is the first-paint/offline floor; GlStage paints the rave
-         over it; the transparent dancers canvas sits over that; the DOM chrome (z-10) over all. */""}
+    ${""}
     <div class="dk-bg fixed inset-0 z-0"></div>
     <${GlStage} shader=${new URL("afterdark.frag", import.meta.url)} seed=${((cast[0] || "a").charCodeAt(0) % 13) / 13}
       vary=${vary} ink=${ink} points=${() => env.pal} zClass="z-0" />
-    ${/* the 3D dancers, over the rave field, under the DOM chrome */""}
+    ${""}
     <canvas ref=${stageRef} data-dancers aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>
 
     <div data-rave data-state=${state} data-cast=${cast.length} data-entered=${entered ? "yes" : "no"} data-3d=${stage3d} data-3d-why=${stage3dWhy}
       data-fs=${fs ? "yes" : "no"} data-bpm=${bpm || ""} data-buffer=${buffer}
       class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]">
-      ${/* no top label (owner, 2026-09-11: «занадто технічний і зайвий») — the link's state, tempo and the
-           downloaded runway live on [data-rave] as data-state / data-bpm / data-buffer for the eye and the tests */""}
-      ${/* the void: where the dancers perform (in the canvas behind) — pointer parallax lives here */""}
+      ${""}
+      ${""}
       <div class="dk-void flex-1 min-h-0 relative" onPointerMove=${onPointer} ...${camHandlers}>
-        ${/* the Enter cover sits in the UPPER third of the void, over the beams — never over the dancers, who
-             stand mid-frame (the centred ring printed «УВІЙТИ» across the lead character, measured 2026-09-11) */""}
+        ${""}
         ${!entered ? html`<div class="absolute inset-0 flex flex-col items-center justify-start pt-[6%] gap-4 pointer-events-none">
           <button data-enter aria-label=${T(t, "enter")} onClick=${enter}
             class="pointer-events-auto flex flex-col items-center gap-3 select-none group">
@@ -517,8 +419,7 @@ export function afterdark({ S }) {
         </div>` : null}
       </div>
 
-      ${/* ONE island: the transport — and a fold key that collapses the whole thing SMOOTHLY into that one key
-           (grid-rows + max-width transitions, see CSS). The pickers live on the cast tab. */""}
+      ${""}
       <${Island} tone="dark" className="dk-isle dk-dock shrink-0 flex flex-col gap-[var(--ms-gap)] w-full mx-auto" data-dock=${dockOpen ? "open" : "folded"}>
         <div class="dk-fold"><div class="dk-fold-in flex flex-col gap-[var(--ms-gap)]">
         <${Transport} locale=${loc} playing=${playing} onToggle=${onToggle} stopIcon=${true}

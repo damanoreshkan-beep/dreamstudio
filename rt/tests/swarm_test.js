@@ -1,12 +1,7 @@
-// microspec runtime — swarm reactor + math tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { S, SFX, packInput, decodeEntry, wrapT, project, lockOn, betterRun, radarPoint } from "../swarm.js";
 
 const WASM = new URL("../../../apps/swarm/assets/swarm.wasm", import.meta.url);
-// The engine suite exercises the PRODUCT app's wasm — absent in the public framework tree (the dreamstudio
-// split); the product repo's CI runs it in full. The math suite below needs no app and always runs.
 const HAVE_APP = await Deno.stat(WASM).then(() => true).catch(() => false);
 const etest = (name, fn) => Deno.test({ name, fn, ignore: !HAVE_APP });
 
@@ -21,9 +16,6 @@ async function engine() {
   };
 }
 
-/* one scripted-bot frame: aim with the JS lockOn mirror, fire on a free trigger. This is the
-   cross-check that keeps swarm.js and game.c's hit formulas from drifting: if either side
-   changes alone, the bot goes blind and the solvability assertions below collapse. */
 function botStep(g) {
   const st = g.st(), dl = g.dl(), n = g.n();
   let az = st[S.NAZ] >= 0 ? st[S.NAZ] : 0, el = 0;
@@ -46,9 +38,6 @@ etest("swarm engine · deterministic: same seed, same 300 frames, same state", a
 });
 
 etest("swarm engine · the ring attacks from every quadrant — turning is the game", async () => {
-  // Not a distribution nicety: with a 60° FOV, a swarm that clusters in one quadrant is a
-  // shooting gallery you never turn for. The spawn spread is even-with-jitter by construction;
-  // assert the construction holds across seeds.
   for (const seed of [1, 0xB33F, 0xA17C7]) {
     const g = await engine();
     g.E.game_init(seed);
@@ -128,7 +117,6 @@ Deno.test("swarm math · wrapT takes the short way round", () => {
 });
 
 Deno.test("swarm math · input packing round-trips through the wasm's unpacking", () => {
-  // mirror of game.c: az = input & 0xFFF (mod 3600), el = ((input>>12)&0x7F)-64, fire = bit 19
   for (const [az, el, fire] of [[0, 0, 0], [3599, 63, 1], [1800, -64, 1], [7200 + 90, 5, 0]]) {
     const p = packInput(az, el, fire);
     assertEquals((p & 0xfff) % 3600, ((az % 3600) + 3600) % 3600);
@@ -140,21 +128,17 @@ Deno.test("swarm math · input packing round-trips through the wasm's unpacking"
 Deno.test("swarm math · projection centres what you face and mirrors the wrap", () => {
   const w = 384, h = 700;
   assertEquals(project(2100, 0, 2100, 0, w, h).x, w / 2);
-  // 5° right of heading is 5° right of centre, at w/600 px per tenth
   assertEquals(project(2150, 0, 2100, 0, w, h).x, w / 2 + 50 * (w / 600));
-  // the seam: 359° seen from 1° is 2° LEFT, never 358° right
   assert(project(3590, 0, 10, 0, w, h).x < w / 2, "the 0/360 seam projected the long way round");
-  // up is up
   assert(project(0, 100, 0, 0, w, h).y < h / 2);
 });
 
 Deno.test("swarm math · lockOn picks the nearest covered target, and only a covered one", () => {
-  // entries: kind, azT, elT, attr(distQ | pose<<11 | flash<<13)
   const mk = (kind, azT, elT, distCm) => [0x100 + kind, azT, elT, (distCm >> 1) & 0x7ff];
   const dl = Int16Array.from([
-    ...mk(0, 100, 0, 800),     // covered at aim 100 (tol ≈ 25+25)
-    ...mk(0, 100, 0, 400),     // covered and NEARER — must win
-    ...mk(0, 900, 0, 200),     // far off-axis: never
+    ...mk(0, 100, 0, 800),
+    ...mk(0, 100, 0, 400),
+    ...mk(0, 900, 0, 200),
   ]);
   assertEquals(lockOn(dl, 3, 100, 0), 1, "did not prefer the nearer covered target");
   assertEquals(lockOn(dl, 3, 2700, 0), -1, "locked with the crosshair on empty sky");

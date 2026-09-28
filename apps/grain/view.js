@@ -1,13 +1,3 @@
-// Grain — record two seconds of the world and play it. The take is granulated: a cloud of short windowed
-// slices of YOUR recording, pitched to a scale, so a door, a cup or a voice becomes an instrument. Three
-// tabs: Play (the fields you strike + Flow, the auto-generated phrase), Shape (the head: where in the sample
-// it reads, how long each grain is, how far they scatter) and Takes (saved recordings, exported as WAV).
-//
-// Every number that decides HOW grains are scheduled lives in /_rt/grain.js — pure, unit-tested, and shared
-// by the live scheduler and the offline export, which is the only reason the exported file is what you heard.
-// The recipe and its sources are in RESEARCH.md; the two facts that shape this file:
-//   · getUserMedia can neither resolve nor reject if the prompt is ignored, so nothing waits on the mic;
-//   · ctx.resume() can stay pending forever without activation, so nothing is sequenced behind it.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef, useMemo } from "preact/hooks";
@@ -28,15 +18,13 @@ import { MicPrime } from "/_rt/camprime.js";
 import { holdAudio } from "/_rt/mediasession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const randSeed = () => (Math.random() * 0xffffffff) >>> 0;
 const N = 16, STEPS = [...Array(N).keys()];
-const LOOKAHEAD = 0.1, TICK = 25, LEAD = 0.08;              // "A tale of two clocks", the farm's numbers
+const LOOKAHEAD = 0.1, TICK = 25, LEAD = 0.08;
 const TAKE_SECONDS = 2;
 
-// Fields are semitone offsets from the take's own pitch — the recording IS the root, so an unpitched slam
-// works exactly like a struck bowl; only the LABEL differs (a note name is claimed for neither).
 const SCALES = [
   { id: "pent", name: "scPent", offs: [0, 3, 5, 7, 10, 12, 15, 17] },
   { id: "minor", name: "scMinor", offs: [0, 2, 3, 5, 7, 8, 10, 12] },
@@ -47,8 +35,7 @@ const scaleById = (id) => SCALES.find((s) => s.id === id) || SCALES[0];
 const PC = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const noteName = (hz) => { const m = Math.round(69 + 12 * Math.log2(hz / 440)); return PC[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1); };
 
-// ---- state ----
-const $take = atom(null);                                   // { pcm, sr, dur, hz, pitched, name, id? }
+const $take = atom(null);
 const $grainMs = atom(70), $spray = atom(60), $density = atom(4), $pos = atom(0.25), $drift = atom(0.35);
 const $scale = atom("pent"), $tilted = atom(false), $tone = atom(1);
 const $playing = atom(false), $cur = atom(-1), $lit = atom(new Set()), $loop = atom(Array.from({ length: N }, () => -1));
@@ -56,10 +43,9 @@ const $bpm = atom(84), $capture = atom("idle"), $err = atom(null), $level = atom
 const TAKES = collection("grainTakes");
 const emptyLoop = () => Array.from({ length: N }, () => -1);
 
-// ---- engine (module scope: a cloud ringing and a loop playing survive a tab switch) ----
 let eng = null, busIn = null, toneFilter = null, buf = null, sched = null, raf = null;
 let nextT = 0, stepN = 0, q = [], voices = new Set(), wl = null, np = null, _dict = {};
-const HANN = hannCurve();                                   // ONE curve, reused by every grain — no per-grain allocation
+const HANN = hannCurve();
 const spb = () => 60 / $bpm.get() / 2;
 
 function ensure() {
@@ -67,18 +53,17 @@ function ensure() {
   if (!eng) {
     const e = createEngine({ master: 0.9, noise: false }); if (!e) return null;
     const ctx = e.ctx;
-    const comp = ctx.createDynamicsCompressor();            // overlap sums fast; without this a dense cloud clips
+    const comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -16; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.25;
     toneFilter = ctx.createBiquadFilter(); toneFilter.type = "lowpass"; toneFilter.frequency.value = 12000; toneFilter.Q.value = 0.6;
     busIn = ctx.createGain(); busIn.gain.value = 0.9;
     busIn.connect(toneFilter); toneFilter.connect(comp); comp.connect(e.master);
     eng = e;
   }
-  eng.resume();                                             // never awaited: it can stay pending forever
+  eng.resume();
   syncBuffer();
   return eng;
 }
-// the decoded take as an AudioBuffer, rebuilt only when the take changes
 let bufFor = null;
 function syncBuffer() {
   const tk = $take.get();
@@ -88,8 +73,6 @@ function syncBuffer() {
   buf = b; bufFor = tk;
 }
 
-// fireGrain — one windowed slice. The gain node carries the SHARED Hann curve (0..1) and the voice node
-// carries the level, so the curve is never scaled and never reallocated.
 function fireGrain(ctx, dest, srcBuf, g, when) {
   const s = ctx.createBufferSource(); s.buffer = srcBuf; s.playbackRate.value = g.rate;
   const gn = ctx.createGain(); gn.gain.value = 0;
@@ -97,11 +80,9 @@ function fireGrain(ctx, dest, srcBuf, g, when) {
   s.connect(gn); gn.connect(dest);
   s.start(when, g.offset, g.dur * g.rate + 0.02);
   s.stop(when + g.dur + 0.02);
-  s.onended = () => { try { s.disconnect(); gn.disconnect(); } catch { /* */ } };
+  s.onended = () => { try { s.disconnect(); gn.disconnect(); } catch { } };
 }
 
-// A voice is a precomputed PLAN plus a cursor. Precomputing (rather than drawing jitter per tick) is what
-// makes the offline export identical to the live pass — same seed, same grains.
 function makeVoice({ semis, vel = 1, seed, span = 8 }) {
   const tk = $take.get(); if (!tk) return null;
   return {
@@ -118,23 +99,19 @@ function startVoice(v, when, vel = 1) {
 function releaseVoice(v) {
   if (!v || v.release) return;
   v.release = eng.ctx.currentTime + 0.05;
-  try { v.node?.gain.setTargetAtTime(0, v.release, 0.25); } catch { /* */ }
-  setTimeout(() => { voices.delete(v); try { v.node?.disconnect(); } catch { /* */ } }, 2200);
+  try { v.node?.gain.setTargetAtTime(0, v.release, 0.25); } catch { }
+  setTimeout(() => { voices.delete(v); try { v.node?.disconnect(); } catch { } }, 2200);
 }
 
-// tilt macro: SIZE on the front/back axis, TONE on the roll. Tone is a bus filter rather than the spray of
-// RESEARCH.md §7 — spray is baked into a voice's plan at trigger time, so twisting it mid-note would have to
-// re-plan (and break export parity), while a filter is one live param and just as expressive under the hand.
 const tiltMacro = { size: 1, tone: 1 };
 function applyTone() {
   if (!toneFilter || !eng) return;
   const v = clamp($tone.get() * tiltMacro.tone, 0.05, 1.6);
-  try { toneFilter.frequency.setTargetAtTime(clamp(400 * Math.pow(30, v), 300, 16000), eng.ctx.currentTime, 0.08); } catch { /* */ }
+  try { toneFilter.frequency.setTargetAtTime(clamp(400 * Math.pow(30, v), 300, 16000), eng.ctx.currentTime, 0.08); } catch { }
 }
 
 const flash = (i) => { const s = new Set($lit.get()); s.add(i); $lit.set(s); setTimeout(() => { const n = new Set($lit.get()); n.delete(i); $lit.set(n); }, 420); };
 
-// strike a field: hold = a sustaining cloud released on lift, else a short burst.
 function strike(idx, { hold = false, vel = 0.9, when = 0 } = {}) {
   const e = ensure(); if (!e || !buf) return null;
   const offs = scaleById($scale.get()).offs; if (idx < 0 || idx >= offs.length) return null;
@@ -161,8 +138,8 @@ function tick() {
   }
   if (!$playing.get()) return;
   const dt = spb();
-  if (nextT < e.ctx.currentTime) nextT = e.ctx.currentTime;   // returning from background: drop what was missed,
-  while (nextT < until) {                                     // never replay it as a burst
+  if (nextT < e.ctx.currentTime) nextT = e.ctx.currentTime;
+  while (nextT < until) {
     const idx = $loop.get()[stepN];
     if (idx >= 0) { const v = strike(idx, { vel: 0.85, when: nextT }); if (v) setTimeout(() => releaseVoice(v), dt * 1400); }
     if (q.length < 128) q.push({ time: nextT, step: stepN });
@@ -190,7 +167,6 @@ function stop() {
 const toggle = () => { buzz(12); $playing.get() ? stop() : start(); };
 const takeTitle = () => { const tk = $take.get(); return tk ? tk.name : "Grain"; };
 
-// Flow — the same scored search the rest of the farm's instruments use (consonance, voice-leading, cadence).
 function flow(seed = randSeed(), { play = true } = {}) {
   const offs = scaleById($scale.get()).offs;
   const g = generateMelody(offs, { seed, len: N, restP: 0.3, tries: 240 });
@@ -200,13 +176,8 @@ function flow(seed = randSeed(), { play = true } = {}) {
   if (play && !$playing.get()) start();
 }
 
-// ================= capture =================
-// Nothing is sequenced behind the mic: the promise may never settle (MDN), so the UI drives the state and
-// `record()` owns the timeout and the teardown.
 let live = null;
 async function capture(onDone) {
-  // …and a WRITTEN loop with it: an empty 8×16 grid is a wall of identical slots, so the shot, the a11y
-  // sweep and the fit measurements would all be taken on a screen no user with a phrase ever sees.
   if (gate) { adopt(syntheticSample(48000, 1.6), 48000, true); flow(20260731, { play: false }); onDone?.(); return; }
   $err.set(null); $capture.set("arming");
   const h = mic.record({
@@ -224,7 +195,7 @@ async function capture(onDone) {
     const decoded = await ctx.decodeAudioData(await res.blob.arrayBuffer());
     const chans = []; for (let c = 0; c < decoded.numberOfChannels; c++) chans.push(decoded.getChannelData(c));
     adopt(chans, decoded.sampleRate, false, ctx);
-    try { ctx.close(); } catch { /* */ }
+    try { ctx.close(); } catch { }
   } catch { $err.set("decode"); }
   $capture.set("idle"); onDone?.();
 }
@@ -235,7 +206,6 @@ function adopt(chans, sr, synthetic) {
     name: p.pitched ? noteName(p.hz) : "", synthetic });
   bufFor = null; if (eng) syncBuffer();
 }
-// live input level, for the record ring — an AnalyserNode on the capture stream, never on the output bus
 let meterCtx = null, meterRaf = 0;
 function meter(stream) {
   try {
@@ -245,13 +215,10 @@ function meter(stream) {
     const d = new Uint8Array(an.frequencyBinCount);
     const loop = () => { an.getByteFrequencyData(d); let s = 0; for (let i = 0; i < d.length; i++) s += d[i]; $level.set(clamp(s / d.length / 90, 0, 1)); meterRaf = requestAnimationFrame(loop); };
     meterRaf = requestAnimationFrame(loop);
-  } catch { /* a meter is a nicety; never let it break the take */ }
+  } catch { }
 }
-function stopMeter() { if (meterRaf) cancelAnimationFrame(meterRaf); meterRaf = 0; $level.set(0); try { meterCtx?.close(); } catch { /* */ } meterCtx = null; }
+function stopMeter() { if (meterRaf) cancelAnimationFrame(meterRaf); meterRaf = 0; $level.set(0); try { meterCtx?.close(); } catch { } meterCtx = null; }
 
-// ================= offline export =================
-// The loop rendered through the same plans, so the file IS the performance. OfflineAudioContext needs no
-// hardware and no user activation, which is also why the gate can run this path.
 async function renderWav(take, loopArr, bpm) {
   const OAC = typeof OfflineAudioContext !== "undefined" ? OfflineAudioContext : null;
   if (!OAC || !take) return null;
@@ -280,16 +247,11 @@ async function shareWav(bytes, name, t) {
   const blob = new Blob([bytes], { type: "audio/wav" }), file = new File([blob], `${name}.wav`, { type: "audio/wav" });
   try {
     if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: name }); return "shared"; }
-  } catch { return "cancel"; }                                // AbortError = the user closed the sheet; not an error
-  downloadBlob(blob, `${name}.wav`);   // shell-aware: a bare <a download> saves nothing inside the APK
+  } catch { return "cancel"; }
+  downloadBlob(blob, `${name}.wav`);
   return "saved";
 }
 
-// ---- waveform: peaks as flex bars. No canvas — linkedom has none and the headless gate would measure a
-// blank box, so the shape of the sound must be real DOM. ----
-// Amplitude is displayed on a SQUARE ROOT, not linearly: a struck sample decays exponentially, so a linear
-// bar chart puts ~90% of the take on the 6px floor and the tail reads as a dotted line rather than a sound
-// (measured on the takes row — the 1.6 s fixture rendered as five bars and a row of dots).
 function peaks(pcm, n) {
   const out = new Array(n).fill(0); if (!pcm?.length) return out;
   const w = Math.floor(pcm.length / n) || 1;
@@ -297,8 +259,6 @@ function peaks(pcm, n) {
   const mx = Math.max(0.001, ...out);
   return out.map((v) => Math.sqrt(v / mx));
 }
-// `dim` = a portrait of the take with no read head: in a list the split would claim a playing position that
-// list has no concept of.
 function Wave({ take, pos = 0, onSeek, bars = 56, dim = false, className = "" }) {
   const p = useMemo(() => peaks(take?.pcm, bars), [take, bars]);
   const hit = (e) => { if (!onSeek) return; const r = e.currentTarget.getBoundingClientRect(); onSeek(clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1)); };
@@ -308,7 +268,6 @@ function Wave({ take, pos = 0, onSeek, bars = 56, dim = false, className = "" })
   </div>`;
 }
 
-// ================= Play =================
 export function grain({ S, screen, openScreen, closeScreen, toast }) {
   const t = useStore(S.t); _dict = t;
   const loc = useStore(S.locale);
@@ -321,8 +280,6 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
   useEffect(() => () => { for (const v of voices) releaseVoice(v); }, []);
   useEffect(() => { setDenied(err === "denied"); }, [err]);
 
-  // tilt → size + tone, smoothed by the runtime's Parallax (EMA 0.1, clamped ±20°) so the hand does not
-  // make it seasick. Writes the macro only; the sound reads it when the next grain is planned.
   const tilted = useStore($tilted);
   useEffect(() => {
     if (!tilted || !tilt.supported) { tiltMacro.size = 1; tiltMacro.tone = 1; applyTone(); return; }
@@ -341,7 +298,7 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
   const fieldAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest && el.closest("[data-field]"); return b ? Number(b.getAttribute("data-field")) : null; };
   const down = (e) => {
     const i = fieldAt(e.clientX, e.clientY); if (i == null || !take) return;
-    e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ }
+    e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { }
     const v = strike(i, { hold: true }); pump(); if (v) held.current.set(e.pointerId, v);
   };
   const up = (e) => { const v = held.current.get(e.pointerId); if (v) { releaseVoice(v); held.current.delete(e.pointerId); } };
@@ -364,51 +321,33 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
   };
 
   const recording = cap === "recording", arming = cap === "arming", working = cap === "working";
-  // A fixed stage escapes #view's padding, so it consumes the chrome contract itself — and both numbers are
-  // MEASURED by render.js, never guessed here: a hardcoded 3.5rem ignores a header that compacts, and on a
-  // watch the dock is a right-hand RAIL (--dock-h collapses to 0, --dock-w appears), which a `right-0` stage
-  // runs straight underneath. 137px of this column sat under that rail, and the magnitude never moved while
-  // I compacted the content — the overlap was horizontal all along.
   return html`<div class="ms-stage z-20 flex flex-col">
     ${!take && !gate ? html`<${MicPrime} loc=${loc} reason=${T(t, "primeWhy")} denied=${denied}
       unavailable=${err === "unavailable" || err === "unsupported" || !mic.supported}
       onEnable=${rec} onSettings=${() => S.screen.set("perms")} />` : null}
 
-    ${/* A fit screen has ONE void that absorbs the height — here the field grid — and everything else is
-         shrink-0 sized off the density tokens. The grid earns that role only because its buttons carry
-         `min-h-0` and no intrinsic padding floor: with `p-2` and a text line they refused to compress and
-         pushed themselves under the dock (17px landscape, 137px on a watch — the gate named the button). */""}
+    ${""}
     <div class="flex flex-col flex-1 min-h-0 gap-[var(--ms-gap)]" style="padding:var(--ms-gap) var(--ms-pad)">
       <div class="shrink-0 flex items-center gap-[var(--ms-gap)]">
         <${Segmented} attr="data-scale" scroll variant="outline" label=${T(t, "scale")}
           items=${SCALES.map((s) => ({ id: s.id, label: T(t, s.name) }))} value=${scaleId} onChange=${(id) => { buzz(); $scale.set(id); }} />
       </div>
 
-      ${/* The take itself is the stage: its shape is the only thing on screen that is genuinely YOURS, so it
-           gets the width, and tapping it moves the read head. The readout sits INSIDE it — a separate line
-           costs a row plus a gap on every screen, to say two short words. */""}
+      ${""}
       <div class="shrink-0 relative rounded-[var(--ms-r)] sf-inset px-2 flex items-center h-[clamp(1.75rem,9vh,3.75rem)] overflow-hidden">
         <${Wave} take=${take} pos=${pos} onSeek=${(v) => $pos.set(v)} className="h-[70%]" />
         <span class="absolute right-2 top-0 bottom-0 flex items-center gap-1.5 pl-2 font-mono text-[length:var(--ms-label)] text-base-content/70 pointer-events-none">
           <span class="tabular-nums">${take ? `${take.dur.toFixed(1)}s` : "—"}</span>
           <span data-pitch class="font-semibold text-base-content">${take ? (take.pitched ? take.name : T(t, "unpitched")) : T(t, "noTake")}</span>
         </span>
-        ${/* The input level belongs to the RECORDING, so it lives on the take's own box — as a sibling of the
-             transport it was a flex-1 next to a shrink-0 widget, and the widget spilled out of the island
-             and off the left edge of the screen. Every gate passed that; the screenshot did not. */""}
+        ${""}
         ${recording ? html`<span data-level class="absolute left-0 bottom-0 h-1 bg-error transition-[width] duration-100" style=${`width:${Math.round(level * 100)}%`}></span>` : null}
       </div>
 
-      ${/* Two columns, and the rows take whatever height is left — auto-rows-fr plus min-h-0 pads is what
-           makes the grid the absorbing void. A `[@media…]` Tailwind variant was here to lay the fields down
-           at short heights; it was the only arbitrary media variant in the farm, i.e. an unproven mechanism
-           carrying a fix, so it is gone until something needs it enough to prove it. */""}
+      ${""}
       <div ref=${padRef} class="flex-1 min-h-0 grid grid-cols-2 auto-rows-fr gap-[var(--ms-gap)]" style="touch-action:none"
         onPointerDown=${down} onPointerUp=${up} onPointerCancel=${up} onPointerLeave=${up}>
-        ${/* A field is the one object on this screen you actually strike, so it carries a NAME at title size
-             and its interval as a mono micro-label — eight identical boxes with a 0.68rem grey caption read
-             as unfinished placeholders, which is exactly what the first shot showed. The accent is a dot:
-             a mark, never the text, never a fill behind it. */""}
+        ${""}
         ${offs.map((o, i) => html`<button key=${i} data-field=${i} disabled=${!take}
           aria-label=${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${T(t, "field")} ${i + 1}`}
           class=${`relative min-h-0 overflow-hidden rounded-[var(--ms-r)] sf-raised flex flex-col justify-end items-start gap-0.5 p-[var(--ms-pad)] transition-transform duration-150 ${lit.has(i) ? "outline-2 outline-secondary scale-[1.02]" : ""} ${take ? "" : "opacity-40"}`}>
@@ -419,10 +358,7 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
       </div>
 
       <div class="shrink-0 flex justify-center">
-        ${/* The transport is an @container: it compacts by ITS OWN width, and its keys are shrink-0. So it
-             needs a box with a real width and no siblings — a `shrink-0` transport beside a flex-1 meter
-             spilled off the screen, and an island hugging its content starved it below the 230px step and
-             demoted every action into "…". Same shape as the Shape tab, which never looked wrong. */""}
+        ${""}
         <${Island} className="w-full max-w-md">
           <${Transport} locale=${loc} stopIcon playing=${playing} disabled=${!take} onToggle=${toggle} keep=${2}
             moreOpen=${screen === "more"} onMore=${() => openScreen("more")} onMoreClose=${closeScreen}
@@ -441,7 +377,6 @@ export function grain({ S, screen, openScreen, closeScreen, toast }) {
   </div>`;
 }
 
-// ================= Shape =================
 export function grainShape({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t); _dict = t;
   const take = useStore($take), grainMs = useStore($grainMs), spray = useStore($spray), density = useStore($density);
@@ -470,12 +405,11 @@ export function grainShape({ S, screen, openScreen, closeScreen }) {
         <${Slider} id="gr-bpm" attr="data-bpm" label=${T(t, "tempo")} min=${52} max=${132} step=${1} value=${bpm} onInput=${(v) => $bpm.set(v)} />
       </div>
 
-      ${/* a toggle, not a strip: pressed = the ink pill (the dock's language), released = ghost — no hairline
-           standing in for a state */""}
+      ${""}
       ${tilt.supported ? html`<button data-tilt aria-pressed=${tilted} onClick=${() => { buzz(); $tilted.set(!tilted); }}
         class=${`btn btn-sm rounded-full gap-2 ${tilted ? "btn-primary" : "btn-ghost sf-raised"}`}>${Icon("lucide:orbit", "text-base")}${T(t, "tiltMacro")}</button>` : null}
 
-      ${/* the loop as a grid: rows are fields, columns are the 16 eighths */""}
+      ${""}
       <div class="flex flex-col gap-[3px]">
         ${offs.map((o, i) => html`<div class="flex items-center gap-[3px]" key=${i}>
           <div class="w-8 shrink-0 text-center font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70">${take?.pitched ? noteName(take.hz * semisToRate(o)) : `${o > 0 ? "+" : ""}${o}`}</div>
@@ -498,8 +432,7 @@ export function grainShape({ S, screen, openScreen, closeScreen }) {
 
     <${Sheet} id="presetsheet" open=${screen === "preset"} onClose=${closeScreen} title=${T(t, "preset")} icon="lucide:sliders-horizontal">
       <div class="grid grid-cols-1 gap-2">
-        ${/* a preset is a raised object inside the sheet: the material says "tap me", not a hairline; the
-             radius is the sheet's inner one (concentric with the box around it) */""}
+        ${""}
         ${PRESETS.map((p) => html`<button key=${p.id} data-preset=${p.id} class="btn btn-ghost sf-raised sf-e2 h-auto min-h-[var(--ms-ctl)] py-2 justify-start gap-3 rounded-[var(--ms-r-in)]"
           onClick=${() => { buzz(); $grainMs.set(p.size); $spray.set(p.spray); $density.set(p.density); $drift.set(p.drift); closeScreen(); }}>
           ${Icon(p.icon, "text-[length:var(--ms-icon)]")}<span class="flex flex-col items-start"><span class="font-semibold">${T(t, p.name)}</span><span class="font-mono text-[length:var(--ms-label)] text-base-content/70 font-normal">${T(t, p.hint)}</span></span>
@@ -509,8 +442,6 @@ export function grainShape({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// Presets are the shortcut past the "most of the slider does nothing" problem: four points in the space that
-// each sound like a different instrument built from the same two seconds.
 const PRESETS = [
   { id: "tone", name: "psTone", hint: "psToneHint", icon: "lucide:audio-waveform", size: 60, spray: 20, density: 4, drift: 0.2 },
   { id: "cloud", name: "psCloud", hint: "psCloudHint", icon: "lucide:cloudy", size: 240, spray: 180, density: 6, drift: 0.05 },
@@ -518,7 +449,6 @@ const PRESETS = [
   { id: "freeze", name: "psFreeze", hint: "psFreezeHint", icon: "lucide:snowflake", size: 120, spray: 8, density: 7, drift: 0 },
 ];
 
-// ================= Takes =================
 function gateTake() {
   const sr = 48000, pcm = syntheticSample(sr, 1.6);
   const loop = emptyLoop(); [0, 3, 5, 7, 10, 12].forEach((s, k) => { loop[s] = [0, 2, 4, 1, 5, 3][k]; });
@@ -529,8 +459,6 @@ export function grainTakes({ S, undo, toast }) {
   const t = useStore(S.t); _dict = t;
   const [list, setList] = useState(null);
   const take = useStore($take), busy = useStore($busy);
-  // The gate has no microphone AND an empty database, so the takes list would be its empty state — and the
-  // a11y / overflow / watch checks would sign off on a screen no user with takes ever sees. Seed one.
   const load = () => TAKES.all().then((l) => setList(gate ? [gateTake(), ...l] : l)).catch(() => setList(gate ? [gateTake()] : []));
   useEffect(() => { load(); }, []);
 
@@ -545,9 +473,9 @@ export function grainTakes({ S, undo, toast }) {
   };
   const del = async (it) => {
     const { id, _ts, ...rec } = it;
-    try { await TAKES.remove(id); } catch { /* */ }
+    try { await TAKES.remove(id); } catch { }
     load();
-    undo?.(async () => { try { await TAKES.put(id, rec); } catch { /* */ } load(); }, it.name);
+    undo?.(async () => { try { await TAKES.put(id, rec); } catch { } load(); }, it.name);
   };
   const share = async (it) => {
     if (busy) return; $busy.set(true);
@@ -556,20 +484,15 @@ export function grainTakes({ S, undo, toast }) {
     $busy.set(false);
   };
 
-  // A take is a Panel (the page extruded) — the flat `card bg-base-100` it was is invisible on a black
-  // page where base-100 IS the page. The skeleton is the same Panel with decoding slots, so nothing shifts
-  // when the list lands.
   if (!useReveal(list !== null)) {
     return html`<div data-takes data-ready="0" class="flex flex-col gap-[var(--ms-gap)]">${[0, 1, 2].map((i) => html`<${Panel} data-skel key=${i}><div class="flex items-center gap-[var(--ms-gap)] text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${10} /></div><div class="h-5"><${Scramble} len=${18} /></div></div></div><//>`)}</div>`;
   }
-  // the runtime's own empty-state shape (render.js Empty): mascot hook + glyph + the one line
   if (!list.length) return html`<div data-takes data-ready="1" data-empty class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6"><span data-mascot aria-hidden="true"></span>${Icon("lucide:mic", "text-4xl")}<span class="font-medium">${T(t, "takesEmpty")}</span></div>`;
 
   return html`<div data-takes data-ready="1" class="flex flex-col gap-[var(--ms-gap)]">
     ${list.map((it) => html`<${Panel} data-take key=${it.id}>
       <div class="flex items-center gap-[var(--ms-gap)]">
-        ${/* the open button LOADS the take into Play; it is the primary verb of the row, the ink pill, and
-             the current take's is the warm pole — a mark on a button, never on text */""}
+        ${""}
         <button data-open aria-label=${T(t, "aPlay")} class=${`btn btn-circle btn-sm shrink-0 ${take?.name === it.name ? "btn-secondary" : "btn-primary"}`} onClick=${() => open(it)}>${Icon("lucide:play", "text-base")}</button>
         <button class="flex-1 min-w-0 text-left flex flex-col gap-1.5" onClick=${() => open(it)}>
           <span class="flex items-baseline justify-between gap-2"><span class="font-semibold truncate">${it.name}</span><span class="font-mono text-[length:var(--ms-label)] text-base-content/70 tabular-nums shrink-0">${(it.dur || 0).toFixed(1)} s</span></span>

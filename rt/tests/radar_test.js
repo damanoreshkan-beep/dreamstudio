@@ -1,39 +1,29 @@
-// microspec runtime — radar unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { parseAd as rdParseAd, classify as rdClassify, addrKind as rdAddrKind, rotates as rdRotates, band as rdBand, bandFraction as rdBandFraction, smooth as rdSmooth, estimateDistance as rdEstimateDistance, guardScore as rdGuardScore, GUARD as rdGUARD, signalPercent as rdSignalPercent, orderDevices as rdOrderDevices, hexSpiral as rdHexSpiral, hexToXY as rdHexToXY, hexDistance as rdHexDistance, combSize as rdCombSize, unwrapDeg as rdUnwrapDeg, sightTrend as rdSightTrend } from "../radar.js";
 
 Deno.test("radar: hot/cold needs 6 dB of median shift — noise and thin data both answer null", () => {
   const now = 1_000_000;
   const walk = (rssis, stepMs = 1500) => rssis.map((rssi, i) => ({ at: now - (rssis.length - 1 - i) * stepMs, rssi }));
-  // Walking closer: prior window ~-80, recent window ~-70. One body-shadow dropout must not flip it.
   assertEquals(rdSightTrend(walk([-80, -81, -79, -80, -95, -71, -70, -69]), now), "up");
   assertEquals(rdSightTrend(walk([-70, -69, -71, -70, -55, -79, -80, -81]), now), "down");
-  // A stationary trace wandering 5 dB is not movement.
   assertEquals(rdSightTrend(walk([-75, -72, -76, -73, -75, -74, -72, -76]), now), null);
-  // Too few samples in a window is no evidence at all — and junk input never throws.
   assertEquals(rdSightTrend(walk([-80, -70]), now), null);
   assertEquals(rdSightTrend(null, now), null);
   assertEquals(rdSightTrend([{ at: now, rssi: NaN }, {}, null], now), null);
 });
 
 Deno.test("radar: an animated bearing takes the short arc across the wrap, both ways", () => {
-  assertEquals(rdUnwrapDeg(359, 1), 361);        // +2, never −358
-  assertEquals(rdUnwrapDeg(1, 359), -1);         // −2, never +358
-  assertEquals(rdUnwrapDeg(0, 180), 180);        // the tie resolves forward, deterministically
-  assertEquals(rdUnwrapDeg(90, 90), 90);         // no reading change, no motion
-  // The value is unbounded on purpose: after full laps it stays the nearest equivalent, so a dial that
-  // has turned twice does not snap back through 720°.
+  assertEquals(rdUnwrapDeg(359, 1), 361);
+  assertEquals(rdUnwrapDeg(1, 359), -1);
+  assertEquals(rdUnwrapDeg(0, 180), 180);
+  assertEquals(rdUnwrapDeg(90, 90), 90);
   assertEquals(rdUnwrapDeg(725, 10), 730);
   assertEquals(rdUnwrapDeg(-350, 5), -355);
-  // Feeding the result back as prev is stable: a second identical reading moves nothing.
   const once = rdUnwrapDeg(178, -178);
   assertEquals(rdUnwrapDeg(once, -178 + 360), once);
 });
 
 Deno.test("radar: an AD walk stops at a structure that would read past the end", () => {
-  // The catalogue's own gate mock: flags, complete 16-bit UUID 0xFCB2, service data for 0xFCB2.
   const ok = rdParseAd("0201060303b2fc0716b2fc41424344");
   assertEquals(ok.truncated, false);
   assertEquals(ok.error, null);
@@ -41,8 +31,6 @@ Deno.test("radar: an AD walk stops at a structure that would read past the end",
   assertEquals(ok.structures[0].type, 0x01);
   assertEquals(ok.structures[2].value.length, 6, "service data keeps its UUID plus 4 payload bytes");
 
-  // The off-by-one that silently shortens a value instead of reporting it: the last structure claims one
-  // more byte than the frame holds. slice() would clamp and hand back a short value with no complaint.
   const short = rdParseAd("0201060303b2fc0816b2fc41424344");
   assertEquals(short.truncated, true, "a structure running past the end is truncated, never quietly clipped");
   assertEquals(short.structures.length, 2, "the overrunning structure is dropped, not half-parsed");
@@ -53,8 +41,6 @@ Deno.test("radar: an AD walk stops at a structure that would read past the end",
 });
 
 Deno.test("radar: a DULT accessory announces that it is separated from its owner", () => {
-  // Draft Table 1: after the 2-byte service UUID come the Network ID, then a byte whose LEAST significant
-  // bit is the near-owner bit. 0 means separated — the state that justifies telling the user anything.
   const sep = rdClassify({ addr: "4C:11:22:33:44:55", raw: "0201060516b2fc0700" });
   assertEquals(sep.tracker, "separated");
   assertEquals(sep.separated, true);
@@ -66,12 +52,10 @@ Deno.test("radar: a DULT accessory announces that it is separated from its owner
 });
 
 Deno.test("radar: a vendor is not a device class, and a pairing protocol is not a tracker", () => {
-  // Apple company data covers phones, watches and earbuds. Classifying on it is a false-positive machine.
   const airpods = rdClassify({ addr: "5A:00:00:00:00:01", raw: "05ff4c00070f" });
   assertEquals(airpods.vendor, "Apple");
   assertEquals(airpods.tracker, "none", "a company ID alone must never read as a tracker");
 
-  // Fast Pair is how headphones pair; Eddystone is a generic beacon protocol. Neither is evidence.
   for (const uuid of ["03032cfe", "0303aafe"]) {
     const c = rdClassify({ addr: "5A:00:00:00:00:02", raw: "020106" + uuid });
     assertEquals(c.tracker, "none", `${uuid} is an ordinary accessory protocol, not a tracker marker`);
@@ -83,9 +67,9 @@ Deno.test("radar: a vendor is not a device class, and a pairing protocol is not 
 });
 
 Deno.test("radar: an address says whether it can be followed at all", () => {
-  assertEquals(rdAddrKind("4C:11:22:33:44:55"), "resolvable");   // 0x4C -> 0b01
-  assertEquals(rdAddrKind("0A:11:22:33:44:55"), "nonResolvable"); // 0x0A -> 0b00
-  assertEquals(rdAddrKind("C3:11:22:33:44:55"), "staticRandom");  // 0xC3 -> 0b11
+  assertEquals(rdAddrKind("4C:11:22:33:44:55"), "resolvable");
+  assertEquals(rdAddrKind("0A:11:22:33:44:55"), "nonResolvable");
+  assertEquals(rdAddrKind("C3:11:22:33:44:55"), "staticRandom");
   assertEquals(rdAddrKind("8F:11:22:33:44:55"), "reserved");
   assertEquals(rdAddrKind("zz"), "unknown");
   assert(rdRotates("4C:11:22:33:44:55"), "a resolvable private address rotates, so a trail must end at it");
@@ -98,14 +82,11 @@ Deno.test("radar: strength is a band in dBm, and metres need calibration the cal
   assertEquals(rdBand(-95), "faint");
   assertEquals(rdBand(NaN), "unknown");
 
-  // The whole point: no default calibration exists, so an uncalibrated call returns null rather than a
-  // confident number. -59/2 is a beacon profile, not a Bluetooth constant.
   assertEquals(rdEstimateDistance({ rssi: -70 }), null);
   assertEquals(rdEstimateDistance({ rssi: -70, referenceRssi: -59 }), null);
   const d = rdEstimateDistance({ rssi: -70, referenceRssi: -59, pathLossExponent: 2 });
   assert(Math.abs(d - 10 ** (11 / 20)) < 1e-9);
 
-  // A 10 dB reference error at n=2 is a x3.16 distance error — the number that makes metres indefensible.
   const off = rdEstimateDistance({ rssi: -70, referenceRssi: -49, pathLossExponent: 2 });
   assert(Math.abs(off / d - 3.1622776) < 1e-4, "10 dB of reference error is a 3.16x distance error");
 
@@ -116,8 +97,6 @@ Deno.test("radar: strength is a band in dBm, and metres need calibration the cal
 
 Deno.test("radar: smoothing is time-based, because advertising intervals are not constant", () => {
   assertEquals(rdSmooth(NaN, -60, 500), -60, "the first sample IS the estimate");
-  // The same alpha applied to a slower stream would mean a different memory. Twice the gap must move the
-  // estimate further, which a fixed per-sample alpha cannot express.
   const fast = rdSmooth(-60, -80, 500);
   const slow = rdSmooth(-60, -80, 3000);
   assert(slow < fast, "a longer gap trusts the new sample more");
@@ -127,7 +106,7 @@ Deno.test("radar: smoothing is time-based, because advertising intervals are not
 
 Deno.test("radar: guard needs every criterion, and says which one is missing", () => {
   const near = { lat: 50.45, lon: 30.52 };
-  const far = { lat: 50.47, lon: 30.52 };          // ~2.2 km north
+  const far = { lat: 50.47, lon: 30.52 };
   const t0 = 1_700_000_000_000;
   const sightings = [
     { at: t0, rssi: -60, fix: near },
@@ -143,20 +122,16 @@ Deno.test("radar: guard needs every criterion, and says which one is missing", (
   assert(good.displacement > 1500, "displacement is real metres, not a degree delta");
   assert(good.segments >= 2);
 
-  // A device whose owner is nearby is the commonest false positive of all — it must never alert.
   const owned = rdGuardScore({ sightings, separated: false, classifiable: true });
   assertEquals(owned.meets, false);
   assert(owned.reasons.includes("notSeparated"));
 
-  // Standing still with a neighbour's beacon: plenty of sightings, no journey.
   const still = rdGuardScore({
     sightings: sightings.map((s) => ({ ...s, fix: near })), separated: true, classifiable: true,
   });
   assertEquals(still.meets, false);
   assert(still.reasons.includes("noDisplacement"));
 
-  // A pre-24 shell sends no payload, so nothing is classifiable and Guard must stay silent rather than
-  // guess from co-motion alone.
   const blind = rdGuardScore({ sightings, separated: true, classifiable: false });
   assertEquals(blind.meets, false);
   assert(blind.reasons.includes("noPayload"));
@@ -165,17 +140,12 @@ Deno.test("radar: guard needs every criterion, and says which one is missing", (
 });
 
 Deno.test("radar: the guard thresholds are ours, and are not DULT's accessory constants", () => {
-  // The draft's 30 minutes is when an ACCESSORY switches to separated mode. Reusing it as an alert
-  // threshold would be inventing standards compliance the draft explicitly does not provide: its §6
-  // "Platform Support for Unwanted Tracking" reads "TODO".
   assert(rdGUARD.minSpanMs !== 30 * 60_000, "do not borrow the accessory's state constant as a policy");
   assert(rdGUARD.minDisplacementM >= 100, "a GPS accuracy radius is 5-30 m; the floor must clear jitter");
   assert(rdGUARD.minSegments >= 2);
 });
 
 Deno.test("radar: a percentage is per-RADIO, because the three are not one quantity", () => {
-  // RSRP runs ~40 dB below a BLE advertisement. One shared scale pins every cell at 0% and pretends -104
-  // and -120 are the same place — the mistake apps/os documents for its radius function.
   assertEquals(rdSignalPercent(-120, "lte"), 0);
   assertEquals(rdSignalPercent(-70, "lte"), 100);
   assert(rdSignalPercent(-95, "lte") > rdSignalPercent(-95, "ble"), "a cell at -95 is healthy where a beacon is nearly gone");
@@ -183,7 +153,6 @@ Deno.test("radar: a percentage is per-RADIO, because the three are not one quant
   assertEquals(rdSignalPercent(-45, "ble"), 100);
   assertEquals(rdSignalPercent(-90, "wifi"), 0);
   assertEquals(rdSignalPercent(-35, "wifi"), 100);
-  // Clamped at both ends, and monotonic in between — a percentage that can exceed 100 is not a percentage.
   for (const kind of ["ble", "wifi", "lte"]) {
     assertEquals(rdSignalPercent(0, kind), 100);
     assertEquals(rdSignalPercent(-200, kind), 0);
@@ -203,35 +172,25 @@ Deno.test("radar: ordering does not move a row unless something changed that mea
   const list = [
     mk("a", -80, "ble", 100), mk("b", -50, "wifi", 200), mk("c", -52, "ble", 300), mk("d", -95, "lte", 400),
   ];
-  // First-seen is the only order that cannot move at all.
   assertEquals(rdOrderDevices(list, "seen").map((d) => d.addr), ["a", "b", "c", "d"]);
 
-  // By signal: sorted on the BAND, so ordinary fading does not reshuffle the screen. -50 and -52 are both
-  // "immediate", so they keep their first-seen order even though b is stronger than c.
   assertEquals(rdOrderDevices(list, "signal").map((d) => d.addr), ["b", "c", "a", "d"]);
   const faded = list.map((d) => (d.addr === "b" ? { ...d, smooth: -54 } : d));
   assertEquals(rdOrderDevices(faded, "signal").map((d) => d.addr), ["b", "c", "a", "d"],
     "4 dB of ordinary fading must not move a row");
-  // Crossing a band boundary is a real change and IS allowed to move it. b falls out of "immediate" into
-  // the same band as a, so the tie resolves on first-seen and b lands AFTER a — the stability holding even
-  // as the row moves.
   const dropped = list.map((d) => (d.addr === "b" ? { ...d, smooth: -72 } : d));
   assertEquals(rdOrderDevices(dropped, "signal").map((d) => d.addr), ["c", "a", "b", "d"]);
 
   assertEquals(rdOrderDevices(list, "kind").map((d) => d.addr), ["c", "a", "b", "d"]);
-  // Pure: the caller's array is never sorted in place, or the atom mutates behind preact's back.
   assertEquals(list.map((d) => d.addr), ["a", "b", "c", "d"]);
 });
 
 Deno.test("radar: the hex spiral tiles without a gap or a collision", () => {
-  // A duplicate coordinate stacks two devices in one cell and reads as a rendering glitch, not a maths
-  // bug — so uniqueness is asserted rather than eyeballed.
   for (const n of [1, 7, 19, 37, 61]) {
     const s = rdHexSpiral(n);
     assertEquals(s.length, n);
     assertEquals(new Set(s.map((c) => `${c.q},${c.r}`)).size, n, `duplicate cell at n=${n}`);
   }
-  // Ring k holds exactly 6k cells, which is what makes rank read as distance from the centre.
   const rings = {};
   for (const c of rdHexSpiral(61)) rings[rdHexDistance(c)] = (rings[rdHexDistance(c)] || 0) + 1;
   assertEquals(rings, { 0: 1, 1: 6, 2: 12, 3: 18, 4: 24 });
@@ -247,7 +206,6 @@ Deno.test("radar: the comb rounds up to a COMPLETE ring, never a lopsided spiral
   for (const n of [2, 5, 7]) assertEquals(rdCombSize(n), 7, `${n} should fill the first ring`);
   for (const n of [8, 12, 19]) assertEquals(rdCombSize(n), 19, `${n} should fill the second ring`);
   assertEquals(rdCombSize(20), 37);
-  // Every answer is a real centred-hexagonal number, so the drawn shape is always symmetric.
   for (let n = 0; n <= 60; n++) {
     const s = rdCombSize(n);
     assert(s >= Math.max(1, n), `comb ${s} cannot hold ${n}`);

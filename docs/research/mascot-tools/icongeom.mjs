@@ -1,14 +1,5 @@
-// icongeom — the luminous icon contract as NUMBERS (docs/research/luminous-icons.md): a generated 1024² PNG is
-// accepted only when its ground is true black, its subject spans 60–92 % of the frame and sits within ±30 px of
-// the centre. The eye still picks the take; this says whether a take is even a candidate.
-//   deno run -A docs/research/mascot-tools/icongeom.mjs <png>… → one line per file + OK/NO
 import { decode } from "npm:@jsquash/png@3.0.1";
 
-// Two extents: the GLOW (luminance > 30 — everything the tile shows, the doc's original geom) and the CORE
-// (luminance > 110 — the filaments and nodes, the subject the eye reads). Z-Image keeps painting a faint
-// reflective floor under a subject even with the round-3 block (measured 2026-09-02: 7 of 7 vidlunnia takes),
-// and that band drags the glow centre 60–130 px low while the subject sits dead centre — so the CORE decides
-// centring and the floor is reported as its own number (glow bottom below core bottom).
 const GLOW = 30, CORE = 110, STRIDE = 2;
 export function measure({ width: w, height: h, data }) {
   const lum = (i) => 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];

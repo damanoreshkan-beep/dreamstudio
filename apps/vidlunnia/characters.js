@@ -1,7 +1,3 @@
-// Відлуння — the character STYLE presets: a caricature recipe from OmniVoice's own vocabulary applied over the
-// chosen clone-able voice (yours, or a preset clip). Fictional characters only. Names and the one-line voice
-// descriptions live in i18n (ch_<id>, chd_<id>); the micro-picture is assets/ch-<id>.webp. Recipes were chosen
-// by the catalogue agent from the measured vocabulary (RESEARCH.md); adding one = a row + two i18n keys + a card.
 /** The presets in strip order; `recipe` is what /feed/voice receives as `instruct`. */
 export const CHARACTERS = [
   { id: "spongebob", group: "cartoon", recipe: "Male, Young Adult, Very High Pitch, American Accent" },

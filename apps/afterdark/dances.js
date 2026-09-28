@@ -1,10 +1,3 @@
-// afterdark — the MOVE LIBRARY: every rave dance the stage can play, curated from Mixamo's Dance genre
-// (36 that read as techno; salsa/samba/twerk/break-freezes were left out). Any move retargets onto any
-// character (one Mixamo skeleton), so this list is independent of the cast. Each ships as a clip-only,
-// Draco-free .glb (skeleton + one animation, ~60–500 KB) at assets/move-<id>.glb, loaded ON DEMAND: only the
-// moves the user has switched on are fetched. `tier` is the director's intensity bucket (light → groove →
-// drive; afro joins groove); `star` = the owner's top picks, the default selection. `name` is the dance's
-// proper name (untranslated, like the characters'). `id` = the Mixamo product id — the one truth where names repeat.
 export const MOVES = [
   { id: "108850901", name: "Robot v1",        tier: "drive",  star: true },
   { id: "108860901", name: "Robot v2",        tier: "drive",  star: true },
@@ -47,13 +40,10 @@ export const MOVES = [
 export const MOVE_IDS = MOVES.map((m) => m.id);
 export const DEFAULT_MOVES = MOVES.filter((m) => m.star).map((m) => m.id);
 export const moveById = (id) => MOVES.find((m) => m.id === id) || null;
-// The LIBRARY: every other Mixamo motion (moves.json — id, name, dance flag, tier), clips on the VPS. The 36
-// curated moves ship in assets/; a library id is any Mixamo numeric product id. Loaded once, lazily (the cast
-// tab's «Ще +», or the stage when a saved selection holds library ids).
 export const LIB_URL = "https://dreamstudio.mooo.com/geo/mx";
 const BUNDLED = new Set(MOVE_IDS);
 export const isMoveId = (id) => /^\d{6,}$/.test(String(id));
-export const moveUrl = (id) => (BUNDLED.has(id) ? new URL(`assets/move-${id}.glb`, import.meta.url).href : (isMoveId(id) ? `${LIB_URL}/move/${id}.glb` : null));   // top-level: the build copies files in assets/, not subdirs
+export const moveUrl = (id) => (BUNDLED.has(id) ? new URL(`assets/move-${id}.glb`, import.meta.url).href : (isMoveId(id) ? `${LIB_URL}/move/${id}.glb` : null));
 let catalog = null, catalogP = null;
 const libTier = new Map();
 export function loadCatalog() {
@@ -67,8 +57,6 @@ export function loadCatalog() {
 export const getCatalog = () => catalog;
 export const libTierOf = (id) => libTier.get(id) || "groove";
 
-// The director's tiers for a selection: every tier holds only switched-on moves; a tier left empty borrows
-// the whole selection so the floor never freezes (the calm tier is the breathing idle, always).
 export function tiersFor(ids) {
   const on = ids.map((id) => moveById(id) || { id, tier: libTierOf(id) });
   const pick = (t) => on.filter((m) => m.tier === t).map((m) => m.id);

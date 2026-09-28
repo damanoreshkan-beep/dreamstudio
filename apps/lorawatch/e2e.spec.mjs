@@ -1,7 +1,3 @@
-// LoRa band watcher + decoder for a HackRF over WebUSB. Headless has no device, so the view runs in demo mode
-// (gate): it seeds connected + a band waterfall + an activity indicator + a few decoded packets. Real RX/decode
-// needs the device; these cases exercise the UI surface: preset selector, waterfall canvas, activity panel,
-// decoded-packet list (hex/ASCII + CRC), i18n, and the PWA modal.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-waterfall]")) > 0) break; await h.wait(300); } };
 
 export default [

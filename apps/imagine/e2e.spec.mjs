@@ -1,6 +1,3 @@
-// The gate has no key and must never spend credits, so the view seeds a local mesh-gradient "image" and
-// never calls the proxy. Generate re-seeds it, so the flow (prompt → generate → result → save) is exercised
-// end-to-end without a single API call.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-result]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -66,8 +63,6 @@ export default [
     },
   },
   {
-    // The gate finishes a run in ~90ms, so this races it: tap generate and, on the very next tick, expect the
-    // cancel button — then whichever state follows, the surface must be back to something you can act on.
     name: "під час генерації є «Скасувати»; після нього — можна генерувати знову", run: async (h) => {
       await ready(h);
       await h.type("#prompt", "a lighthouse in a storm");
@@ -79,8 +74,6 @@ export default [
     },
   },
   {
-    // The history sheet is a kit Sheet (children stay mounted while closed), so the assertion is the dialog's
-    // own `open`, never a count. Runs after a generation, so the list carries what was typed.
     name: "історія промптів: іконка → sheet, тап підставляє, Back закриває", run: async (h) => {
       await ready(h);
       await h.type("#prompt", "a lighthouse in a storm"); await h.click("[data-go]"); await h.wait(500);
@@ -104,15 +97,7 @@ export default [
       h.expect((await h.count("[data-go][disabled]")) === 1 || (await h.count("[data-go]:disabled")) === 1, "кнопка не задизейблена на порожньому описі");
     },
   },
-  // ── the edit mode (was apps/retouch, merged in as a second tab) ──────────────────────────────────────
-  // Its own e2e file went with the folder, so these carry the coverage over. Same discipline as the
-  // generator's: the gate has no camera and no network, so edit.js seeds a local mesh-gradient source and
-  // a differently-seeded result — the whole source → instruction → edit → keep/revert flow runs offline.
   {
-    // Under the gate edit.js starts at phase "ready" with a seeded source already loaded, so the source
-    // CHOOSER (data-source / data-src-*) is deliberately absent — asserting on it was checking a screen
-    // this app never shows a gate. What must be true is the working surface: a source on stage, an
-    // instruction field, and something to press.
     name: "редактор: готове джерело, інструкція, кнопка редагування", run: async (h) => {
       await h.click('[data-tab="edit"]'); await h.wait(400);
       h.expect((await h.count("[data-result]")) === 1, "немає зображення на сцені редактора");
@@ -121,8 +106,6 @@ export default [
     },
   },
   {
-    // data-save only appears once the edit is DONE, so waiting on data-result proves nothing here — it is
-    // already on screen as the source. Wait for the image to actually change.
     name: "редагування змінює зображення і дає збереження (гейт: без мережі)", run: async (h) => {
       await h.click('[data-tab="edit"]'); await h.wait(400);
       const before = await h.attr("[data-result]", "src");
@@ -143,10 +126,6 @@ export default [
       h.expect((await h.count("[data-lightbox]")) === 0, "Back не закрив повний розмір у редакторі");
     },
   },
-  // ── the read mode (image → text) ─────────────────────────────────────────────────────────────────────
-  // Under the gate describe.js starts at "done": a seeded source on stage and a fixed description already
-  // read, so the words, the tags and the two actions are the surface to assert on; "ask more" returns to the
-  // question composer, and reading again (no network) lands back on words.
   {
     name: "читання: фото на сцені, текст, теги, копіювати / спитати ще", run: async (h) => {
       await h.click('[data-tab="read"]'); await h.wait(400);

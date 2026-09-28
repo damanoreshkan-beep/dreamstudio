@@ -1,5 +1,3 @@
-// rt/ai-tarot.js — the grounded block for one card and its signature. Pure: no browser, no network.
-//   deno test -A rt/rt_test.js   (the barrel imports this file)
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { groundCard, cardLine, CORPUS } from "../ai-tarot.js";
 import { DECK } from "../tarotdeck.js";

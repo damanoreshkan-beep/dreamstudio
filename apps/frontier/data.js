@@ -1,7 +1,3 @@
-// Frontier — fresh breakthrough OSS from the GitHub Search API. GitHub sends CORS *, so viaProxy fetches
-// it directly (own IP → the generous per-user rate limit) and only falls back to a proxy if that 403s.
-// "Frontier" = recently-created repos ranked by stars within a time window → what's breaking out now.
-// Descriptions are English prose; translate.js decodes them into the active locale. Returns { items, meta }.
 import { viaProxy, fetchJson } from "/_rt/feed.js";
 
 const compact = (n) => {
@@ -15,10 +11,10 @@ const WINDOWS = { week: 7, month: 30, quarter: 90 };
 
 export async function load(filters = {}) {
   const days = WINDOWS[filters.period] || 30;
-  const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10); // YYYY-MM-DD
+  const since = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10);
   const topic = (filters.category || "").trim();
   const q = (filters.q || "").trim();
-  const parts = ["stars:>10", `created:>${since}`];   // >10★ trims noise; created window = "frontier"
+  const parts = ["stars:>10", `created:>${since}`];
   if (topic) parts.push(`topic:${topic}`);
   if (q) parts.push(q);
   const url = `https://api.github.com/search/repositories?q=${encodeURIComponent(parts.join(" "))}&sort=stars&order=desc&per_page=40`;

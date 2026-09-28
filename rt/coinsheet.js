@@ -1,8 +1,3 @@
-// coinsheet.js — THE TOP-UP SHEET, the farm wallet's one way in for bought coins (promoted from blackout 2026-09-15,
-// when afterdark's characters started costing coins too). The packs (rt/coins.js), paid in Telegram Stars; the edge
-// credits the account and the app's wallet (rt/wallet.js) reads the new balance — `wallet.purchasing()` makes it
-// look while the payment lands. The strings are the app's own i18n keys: topUpTitle · topUpSub · topUpHint ·
-// bestValue · opened · payCancel · payFailed · eSignIn.
 import { html } from "htm/preact";
 import { useState } from "preact/hooks";
 import { Sheet } from "@microspec/core/runtime/ui.js";

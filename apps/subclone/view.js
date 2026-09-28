@@ -1,7 +1,3 @@
-// Sub-GHz remote cloner — records your OWN fixed-code OOK remotes (433.92/315/868 MHz) with a HackRF over
-// WebUSB and replays them (first TX in the farm). Capture → save → transmit. Rolling-code (car keys, modern
-// garages) is detected and replay is refused — it can't be replayed and defeating it is out of scope. The
-// OOK DSP is /_rt/ook.js; a Web Worker does the RX/TX. See docs/research/subghz-ook-clone.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -16,9 +12,7 @@ import { usbSupported, USB_FILTERS } from "/_rt/hackrf.js";
 import { createUsbSession } from "/_rt/usbsession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
-// mono meta line at the micro-label size (`length:` — the bare form is a colour to Tailwind v4); no uppercase,
-// because these lines carry units ("MHz") that must keep their case
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const META = "font-mono text-[length:var(--ms-label)] tracking-wide tabular-nums";
 const fMhz = (hz) => (hz / 1e6).toFixed(2);
 const JC = (init) => ({ encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return init; } } });
@@ -28,9 +22,8 @@ const $rec = atom({ state: "idle", cap: null }), $tx = atom(null);
 const $freq = persistentAtom("subclone:freq", 433_920_000, { encode: String, decode: Number });
 const $saved = persistentAtom("subclone:saved", [], JC([]));
 const $txGain = persistentAtom("subclone:txg", 30, { encode: String, decode: Number });
-const $repeats = persistentAtom("subclone:reps", 5, { encode: String, decode: Number });   // manual repeats per send
+const $repeats = persistentAtom("subclone:reps", 5, { encode: String, decode: Number });
 
-// The USB + worker lifecycle is /_rt/usbsession.js — five apps carried a byte-identical copy of it.
 const rf = createUsbSession({
   atom,
   spawn: () => new Worker(new URL("./dsp.worker.js", import.meta.url), { type: "module" }),
@@ -51,7 +44,7 @@ const connect = () => { buzz(12); return rf.connect(); };
 const disconnect = () => { buzz(); rf.disconnect(); };
 function record() {
   buzz(12); if (gate || !rf.running()) return;
-  if ($rec.get().state === "recording") rf.post({ type: "stopRecord" });   // toggle: stop → worker processes → "captured"
+  if ($rec.get().state === "recording") rf.post({ type: "stopRecord" });
   else { $rec.set({ state: "recording", cap: null }); rf.post({ type: "record", freq: $freq.get() }); }
 }
 function discard() { buzz(); $rec.set({ state: "idle", cap: null }); }
@@ -152,9 +145,6 @@ function del(s, undo) {
 
 function SettingsSheet({ open, onClose, t, demo }) {
   const g = useStore($txGain), reps = useStore($repeats);
-  // Both ranges are the kit's Slider; the value rides the caption as a mono count ("REPEATS · ×5") because the
-  // kit prints no value of its own. The caption under the repeats slider was hint text on a working control
-  // (copy.md) and is gone — a toggle device is set to 1 by moving the slider, which the slider already says.
   return html`<${Sheet} id="rfsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
     <${Slider} id="reps" attr="data-repeats" label=${`${T(t, "txRepeats")} · ×${reps}`} min=${1} max=${16} step=${1} value=${reps} onInput=${(v) => $repeats.set(v)} />
     <${Slider} id="gain" attr="data-gain" label=${`${T(t, "txGain")} · ${g} dB`} min=${0} max=${47} step=${1} value=${g} onInput=${(v) => $txGain.set(v)} />

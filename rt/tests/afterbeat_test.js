@@ -1,16 +1,9 @@
-// afterbeat — beat-clock unit tests. Pure logic: no browser, no import map. A synthetic click track (an
-// onset impulse every beat at a known tempo) fed through the same 60 Hz frame cadence the app uses must
-// lock BPM, phase and the next-beat prediction; a breakdown must HOLD the tempo and free-run the phase.
-//   deno test -A rt/rt_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { spectralFlux, createBeatState, stepBeat, estimateTempo, BPM_MIN, BPM_MAX, FR, NOV_LEN } from "../afterbeat.js";
 
 const frac = (x) => x - Math.floor(x);
-const circDist = (a, b) => { const d = frac(a - b); return Math.min(d, 1 - d); };   // distance on the unit circle
+const circDist = (a, b) => { const d = frac(a - b); return Math.min(d, 1 - d); };
 
-// Drive the clock with an impulse train at `bpm` for `seconds` at a 60 Hz frame rate (rAF), with a little
-// frame jitter like a real browser. Returns the final readout plus the click times so phase can be checked.
 function clickTrack({ bpm, seconds, fps = 60, jitter = 0.002, noise = 0, start = 0, state = null, t0 = 0 }) {
   const period = 60 / bpm;
   let s = state, t = t0, out = null, nextClick = start;
@@ -32,7 +25,7 @@ Deno.test("spectralFlux: only positive bin increases count, empty/mismatched fra
   assertEquals(spectralFlux(new Float32Array(8), new Float32Array(4)), 0);
   const prev = new Float32Array(512), mag = new Float32Array(512);
   assertEquals(spectralFlux(mag, prev), 0, "no change → no flux");
-  mag[3] = 1;                                                           // one kick bin rises
+  mag[3] = 1;
   const kick = spectralFlux(mag, prev);
   assert(kick > 0, "a rising bin makes flux");
   assertEquals(spectralFlux(prev, mag), 0, "a FALLING bin does not (half-wave rectified)");
@@ -50,15 +43,12 @@ Deno.test("click track at 130 BPM: locks bpm within ±1, phase ≈ 0 on the clic
   const r = clickTrack({ bpm: 130, seconds: 14 });
   assert(Math.abs(r.bpm - 130) < 1, `bpm ${r.bpm}`);
   assert(r.confidence > 0.5, `confidence ${r.confidence}`);
-  // the phase must read ~0 at the instant of a click: step once more exactly onto the next click
   const period = 60 / 130;
   const next = r.clicks[r.clicks.length - 1] + period;
   const on = stepBeat(r.state, 1, next);
   assert(circDist(on.beatPhase, 0) < 0.08, `beatPhase at the click ${on.beatPhase}`);
-  // mid-beat, the predicted next beat is the next click (±40 ms)
   const mid = stepBeat(on.state, 0, next + period / 2);
   assert(Math.abs(mid.nextBeatAt - (next + period)) < 0.04, `nextBeatAt off by ${mid.nextBeatAt - (next + period)}`);
-  // beats were counted: ~14 s × 130/60 ≈ 30
   assert(Math.abs(r.beatIndex - 14 * 130 / 60) < 4, `beatIndex ${r.beatIndex}`);
   assert(r.barPhase >= 0 && r.barPhase < 1);
 });
@@ -70,8 +60,6 @@ Deno.test("click track at 124 BPM with noise: still locks", () => {
 });
 
 Deno.test("half-tempo clicks (65 BPM) can never drag the clock out of the techno band", () => {
-  // a bare 65 BPM impulse train has NO autocorrelation at the half period, so the band-limited search
-  // finds nothing to chase: the tempo stays inside 118–140 whatever the input does
   const r = clickTrack({ bpm: 65, seconds: 14 });
   assert(r.bpm >= BPM_MIN && r.bpm <= BPM_MAX, `bpm ${r.bpm} escaped the band`);
   const fast = clickTrack({ bpm: 170, seconds: 14 });
@@ -92,14 +80,14 @@ Deno.test("stepBeat: null state is safe, outputs bounded, a huge dt never leaps 
   const a = stepBeat(null, 0.5, 1);
   assert(a.beatPhase >= 0 && a.beatPhase < 1);
   assert(a.confidence >= 0 && a.confidence <= 1);
-  const b = stepBeat(a.state, 0, 100);                                   // a backgrounded tab: 99 s gap
+  const b = stepBeat(a.state, 0, 100);
   assert(b.beatIndex - a.beatIndex <= 1, "dt is clamped so a gap adds at most one beat");
   assert(Number.isFinite(b.nextBeatAt) && b.nextBeatAt > 100);
 });
 
 Deno.test(`novelty grid runs at ${FR} Hz: 1 s of frames fills ~${FR} samples regardless of fps`, () => {
   let s = null, t = 0, out = null;
-  out = stepBeat(s, 0, 0); s = out.state;                                // seed the grid at t=0
+  out = stepBeat(s, 0, 0); s = out.state;
   for (let i = 0; i < 30; i++) { t += 1 / 30; out = stepBeat(s, 0, t); s = out.state; }
   assert(Math.abs(s.count - FR) <= 2, `30 fps: ${s.count}`);
   s = null; t = 0; out = stepBeat(s, 0, 0); s = out.state;

@@ -1,8 +1,3 @@
-// DOU data adapter. Returns { items (tagged bron), meta:{bron,rest,categories} }.
-//
-// DOU sends NO CORS, so it routes through a proxy we control: the dev `/feed` on localhost, and our own
-// hardened proxy on the VPS in production (its source lives in the private microspec-edge repo). The URL comes from the
-// runtime so there is one place to change it, not one per app.
 import { VPS_PROXY } from "/_rt/feed.js";
 const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 const proxied = (u) => (isLocal ? "/feed" : VPS_PROXY) + "?url=" + encodeURIComponent(u);
@@ -34,9 +29,6 @@ function parse(xml, bron) {
   return [...d.querySelectorAll("item")].map((it) => {
     const g = (s) => it.querySelector(s)?.textContent?.trim() || "";
     const tmp = document.createElement("div"); tmp.innerHTML = g("description");
-    // Block elements carry no text of their own, so textContent concatenates their contents with nothing
-    // between them: "<b>Роль</b><p>Завдання…</p>" came out as "РольЗавдання", and a <ul> of technologies as
-    // "ReactTypeScript". Insert a space at every block boundary first; the \s+ collapse below tidies the rest.
     for (const el of tmp.querySelectorAll("p,div,br,li,tr,h1,h2,h3,h4,h5,h6,section,article,blockquote")) {
       el.parentNode?.insertBefore(document.createTextNode(" "), el);
     }

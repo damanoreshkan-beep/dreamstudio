@@ -1,7 +1,3 @@
-// rt/wav.js — a reference clip the voice pool can read. The phone records webm/opus (MediaRecorder), decodes
-// it (decodeAudioData), conditions it (grain.js conditionSample) and sends mono PCM16 WAV — `audio/wav` is
-// first in OmniVoice's accept list and needs no codec on the GPU box. The encoder is grain.js's; this file
-// adds the rate, the resampler, the data: URL and the gate's voice-shaped take.
 import { encodeWav } from "./grain.js";
 
 /** 24 kHz — half the body of a 48 kHz take with nothing a clone can hear (the model resamples anyway). */
@@ -64,8 +60,6 @@ export function envelope(pcm, n = 48) {
   return out;
 }
 
-// A voice-shaped take for the gate (headless Chromium has no microphone) and the mock echo: a low fundamental
-// under a harmonic stack, a 5.5 Hz vibrato and a syllable-like envelope. Deterministic per seed, peak 0.8.
 /** A synthetic "voice" of `seconds` at `sr`, deterministic per `seed`. */
 export function mockVoice(seconds = 2, sr = REF_RATE, seed = 1) {
   const n = Math.round(seconds * sr), out = new Float32Array(n);

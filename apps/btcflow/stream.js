@@ -1,23 +1,13 @@
-// Потік біткоїна — a live feed of every unconfirmed Bitcoin transaction, over the Blockchain.com
-// WebSocket (`op:unconfirmed_sub`). Real WS, no auth. This is a plain `list` + `detail` app: it declares
-// search + sort + the drill-down in spec.json and gets them for free; this module is just the live data
-// source — it builds each tx row (how much, from/to, fee, size) and pushes the recent set to the runtime.
-//
-// All strings here are language-neutral (BTC, $, sat/vB, →, addresses) — the runtime supplies the
-// localized labels. USD is best-effort from a CORS-friendly price ticker (omitted if it fails).
-//
-// CI/dev: on localhost we synthesize a live tx stream (a raw WS from a CI IP is nondeterministic), so the
-// gate reviews a real, moving feed. Same env-double idea as pulse/crypto.
 const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 const PRICE_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT";
 const WHALE_BTC = 5;
-const CAP = 1000; // retain a deep history so the chart has a stable window (doesn't jump)
+const CAP = 1000;
 const trunc = (a) => (a ? a.slice(0, 10) + "…" + a.slice(-6) : "—");
 
 export function stream(push) {
   let price = isLocal ? 62000 : 0;
   if (!isLocal) {
-    const loadPrice = async () => { try { price = +(await (await fetch(PRICE_URL)).json()).price || price; } catch { /* keep last */ } };
+    const loadPrice = async () => { try { price = +(await (await fetch(PRICE_URL)).json()).price || price; } catch { } };
     loadPrice(); setInterval(loadPrice, 60000);
   }
   const usd = (btc) => (price ? "$" + Math.round(btc * price).toLocaleString("en-US") : "");
@@ -73,8 +63,8 @@ export function stream(push) {
     if (!alive) return;
     ws = new WebSocket("wss://ws.blockchain.info/inv");
     ws.onopen = () => ws.send(JSON.stringify({ op: "unconfirmed_sub" }));
-    ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.op === "utx" && d.x) add(d.x); } catch { /* skip */ } };
-    ws.onclose = () => { if (alive) retry = setTimeout(connect, 2000); }; // WS has no auto-reconnect
+    ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.op === "utx" && d.x) add(d.x); } catch { } };
+    ws.onclose = () => { if (alive) retry = setTimeout(connect, 2000); };
     ws.onerror = () => ws.close();
   };
   connect();

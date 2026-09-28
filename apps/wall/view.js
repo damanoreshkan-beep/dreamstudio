@@ -1,14 +1,3 @@
-// wall — one phrase, filling every screen in the room.
-//
-// The phone becomes a station on the Wi-Fi (capability "server") and hands out ONE page: a black poster
-// that shows the phrase at the largest size that still fits, and re-polls a tiny /feed as the owner types.
-// The owner's screen IS that poster, so what you type is what the room already sees.
-//
-// Two facts from apps/wall/RESEARCH.md decide the shape of this file:
-//   · The station serves one connection at a time with a 5s socket timeout, so the room polls (no SSE, no
-//     long-poll) and every served resource stays small.
-//   · `hits` counts REQUESTS. At a 700ms poll one viewer makes ~86 a minute, so the head count is derived
-//     from the request RATE (/_rt/audience.js), never printed raw.
 import { html } from "htm/preact";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -24,15 +13,12 @@ import { wakeLock } from "/_rt/sensors.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-const PORT = 8080;          // memorable enough to type by hand; port 0 is the fallback when it is taken
+const PORT = 8080;
 const FEED = "/feed";
-const POLL_MS = 700;        // the room's poll period — the constant the audience estimate is derived from
+const POLL_MS = 700;
 const STATUS_MS = 4000;
 const PUBLISH_MS = 200;
 
-// The page the room receives. Self-contained by necessity: it is served off a socket on a phone, with no
-// network behind it, so no font, no CDN, no import. It inlines fitText's own source (the one algorithm,
-// shared with the preview below) rather than keeping a second copy that could drift.
 const VIEWER_PAGE = (title) => `<!doctype html><html><head><meta charset="utf-8">`
   + `<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">`
   + `<title>${title}</title><style>`
@@ -47,15 +33,10 @@ const VIEWER_PAGE = (title) => `<!doctype html><html><head><meta charset="utf-8"
   + `function tick(){fetch(${JSON.stringify(FEED)},{cache:"no-store"})`
   + `.then(function(r){return r.text()}).then(paint).catch(function(){})}`
   + `setInterval(tick,${POLL_MS});tick();addEventListener("resize",fit);`
-  // Wake Lock is [SecureContext] and this page is plain http on a private IP, so the screen will sleep on
-  // the room's own timeout and nothing here can stop it. Fullscreen carries no such annotation: one tap
-  // drops the URL bar and gives the poster the whole panel, which is the only lever that survives.
   + `addEventListener("click",function(){var e=document.documentElement;`
   + `if(!document.fullscreenElement&&e.requestFullscreen)e.requestFullscreen().catch(function(){})});`
   + `</script></body></html>`;
 
-// btoa takes a binary string: Cyrillic must be UTF-8 bytes first. Measured in V8: a single spread of
-// 130,000 bytes throws RangeError, so the fallback chunks. toBase64() is the standard path where it exists.
 const b64 = (s) => {
   const bytes = new TextEncoder().encode(s);
   if (typeof bytes.toBase64 === "function") return bytes.toBase64();
@@ -96,8 +77,6 @@ async function start(t) {
   if (gate) { $on.set(true); $url.set("http://192.168.1.42:8080/"); $viewers.set(3); $busy.set(false); return; }
   try {
     let st;
-    // A busy 8080 throws BindException out of `new ServerSocket(want)` — the schema's "0 lets the OS
-    // choose" is the retry, and the address goes into the QR anyway so the number never has to be typed.
     try { st = await shell.call("server.start", { port: PORT }); }
     catch { st = await shell.call("server.start", { port: 0 }); }
     await shell.call("server.put", {
@@ -135,8 +114,6 @@ export function wallView({ t, S, openScreen, closeScreen }) {
   const textRef = useRef(null);
 
   useEffect(() => {
-    // The gate has no socket, so seed the LIVE screen — an address, an audience and a phrase on the wall.
-    // A reviewer must never be handed the off-state; the populated screen is the one that can be wrong.
     if (gate && !$on.get()) {
       $on.set(true); $url.set("http://192.168.1.42:8080/"); $viewers.set(3);
       $text.set("Починаємо за 5 хвилин");
@@ -150,14 +127,12 @@ export function wallView({ t, S, openScreen, closeScreen }) {
           $on.set(!!st.running);
           if (st.url) $url.set(st.url);
           $viewers.set(audience.push(st.hits ?? 0, Date.now()));
-        } catch { /* a transient bridge failure is not a state change */ }
+        } catch { }
       }, STATUS_MS);
     }
     return () => { clearInterval(timer); clearTimeout(pubTimer); };
   }, []);
 
-  // The preview is the poster: same algorithm, same wrap contract, so the owner is looking at the room's
-  // screen rather than at an approximation of it.
   useLayoutEffect(() => {
     const el = textRef.current, box = boxRef.current;
     if (!el || !box) return;
@@ -171,15 +146,6 @@ export function wallView({ t, S, openScreen, closeScreen }) {
   const missing = !gate && !shell.has("server.start");
   const why = missing ? (shell.why("server.start") === ERR.staleBridge ? "needsUpdate" : "needsApp") : null;
 
-  // The owner's screen IS the room's screen: one black stage fills the view, and the phrase gets it all.
-  // Everything else is an overlay in the stage's own corners — a broadcast OSD (live dot + head count),
-  // two icon buttons, the input floating at the foot. Grid rows, not absolute positioning: the fit box is
-  // the row that is left, so it is MEASURED between the overlays and never has to know their heights.
-  // Fixed black and fixed white on purpose: this is a window onto other people's displays, not a farm
-  // surface, and it must read the same whatever theme the owner runs (so the go-live key cannot be
-  // btn-primary — light-theme ink is #0A0A0C, invisible on this stage). The stage is the room's own
-  // `#000` (VIEWER_PAGE above), so the preview is the poster and not a near-black approximation of it.
-  // `length:` on the OSD size is load-bearing — the bare var form is a colour to Tailwind v4.
   const osd = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-white/70";
   const key = "btn btn-ghost btn-sm btn-circle text-white hover:bg-white/10";
   return html`<div class="h-full min-h-0 px-[var(--ms-pad)] pb-[var(--ms-pad)]">

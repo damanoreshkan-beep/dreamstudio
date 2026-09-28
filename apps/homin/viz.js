@@ -1,18 +1,3 @@
-// homin — the dial as a lit plate in space.
-//
-// Same map as the SVG it sits behind, so nothing new has to be learned to read it: the angle around the
-// plate is FREQUENCY (a full turn is the 69 LPD channels), the radius is TIME (an event is born at the rim
-// and drifts inward as it ages), and the height of a spike is how strong the signal was. Voice takes the
-// accent colour, devices take ink. Nothing here is placed anywhere it was not measured.
-//
-// Follows reference_webgl_threejs_in_farm exactly as handpan and rave do: three is LAZY-imported inside the
-// effect and init is PROBE-guarded on getContext('webgl') — NOT gate-guarded — so CI's headless Chrome
-// renders the real 3D into the shots, while preflight's linkedom simply fails the probe and the SVG dial in
-// view.js stays the whole picture. The SVG always renders and always owns data-mark, the aria label and the
-// tap targets, so e2e and a11y never depend on WebGL existing.
-//
-// Colours are READ FROM CSS (getComputedStyle) and re-read by a MutationObserver on data-theme, per sigil:
-// a WebGL scene cannot use a DaisyUI class, but it must still flip with the theme rather than bake one.
 import { useState, useEffect } from "preact/hooks";
 import { LPD433 } from "/_rt/chan433.js";
 import { Parallax } from "/_rt/spectrum.js";
@@ -45,7 +30,7 @@ export function makeDial(canvas, THREE) {
   renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   const cam = new THREE.PerspectiveCamera(38, 1, 0.1, 40);
-  const rig = new THREE.Group();                 // parallax rides the rig, never the camera's own target
+  const rig = new THREE.Group();
   rig.add(cam);
   cam.position.set(0, 2.05, 2.35);
   cam.lookAt(0, 0, 0);
@@ -54,7 +39,6 @@ export function makeDial(canvas, THREE) {
   let col = readTheme();
   const inkC = new THREE.Color(col.ink), accC = new THREE.Color(col.accent);
 
-  // ---- static structure: 69 channel spokes + two rings, one geometry, never rebuilt ----
   const pts = [];
   for (let n = 1; n <= LPD433.count; n++) {
     const a = angleOf(n), major = (n - 1) % 5 === 0;
@@ -73,7 +57,6 @@ export function makeDial(canvas, THREE) {
   const gridMat = new THREE.LineBasicMaterial({ color: inkC, transparent: true, opacity: col.dark ? 0.22 : 0.3 });
   scene.add(new THREE.LineSegments(gridGeo, gridMat));
 
-  // ---- dynamic spikes: ONE geometry, positions + colours rewritten per frame, draw range trimmed ----
   const spikePos = new Float32Array(MAX_SPIKES * 6);
   const spikeCol = new Float32Array(MAX_SPIKES * 6);
   const spikeGeo = new THREE.BufferGeometry();
@@ -83,7 +66,6 @@ export function makeDial(canvas, THREE) {
   const spikes = new THREE.LineSegments(spikeGeo, spikeMat);
   scene.add(spikes);
 
-  // ---- sonar ring: the radar GESTURE, expanding from the centre on a fresh detection ----
   const pulseGeo = new THREE.RingGeometry(0.98, 1.0, 96);
   pulseGeo.rotateX(-Math.PI / 2);
   const pulseMat = new THREE.MeshBasicMaterial({ color: accC, transparent: true, opacity: 0, side: THREE.DoubleSide });
@@ -112,7 +94,7 @@ export function makeDial(canvas, THREE) {
         if (v >= MAX_SPIKES * 6) break;
         const a = angleOf(e.channel);
         const age = Math.min(1, Math.max(0, (now - (e.lastSeen || now)) / AGE_MS));
-        const r = R_OUT - age * (R_OUT - R_IN);          // radius is TIME: born at the rim, drifts inward
+        const r = R_OUT - age * (R_OUT - R_IN);
         const h = 0.06 + (e.strength || 0.3) * 0.62;
         const x = r * Math.cos(a), z = r * Math.sin(a);
         spikePos[v] = x; spikePos[v + 1] = 0; spikePos[v + 2] = z;
@@ -134,7 +116,6 @@ export function makeDial(canvas, THREE) {
         pulseMat.opacity = 0.32 * (1 - since);
       } else pulseMat.opacity = 0;
 
-      // Calm parallax only — the plate tips a little with the phone, it never spins.
       rig.rotation.x = (p?.y ?? 0) * 0.16;
       rig.rotation.y = (p?.x ?? 0) * 0.16;
       renderer.render(scene, cam);
@@ -154,8 +135,6 @@ export function makeDial(canvas, THREE) {
   };
 }
 
-// Mount: probe → lazy three → rAF. Returns whether WebGL actually came up, so the view can decide how much
-// of the SVG to show. `getState()` is called once per frame and must be cheap.
 export function useDial(ref, getState) {
   const [webgl, setWebgl] = useState(false);
   useEffect(() => {
@@ -172,17 +151,17 @@ export function useDial(ref, getState) {
     };
     (async () => {
       let THREE;
-      try { THREE = await import("three"); } catch { return; }       // offline / blocked → SVG stays the picture
+      try { THREE = await import("three"); } catch { return; }
       if (dead) return;
       try { scene = makeDial(canvas, THREE); } catch { scene = null; return; }
       setWebgl(true);
       size();
       if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(size); ro.observe(canvas); }
-      if (tilt?.supported) { try { stopTilt = tilt.start((t) => { beta = t.beta ?? 0; gamma = t.gamma ?? 0; }); } catch { /* */ } }
+      if (tilt?.supported) { try { stopTilt = tilt.start((t) => { beta = t.beta ?? 0; gamma = t.gamma ?? 0; }); } catch { } }
       let last = 0;
       const loop = (ts) => {
         raf = requestAnimationFrame(loop);
-        if (ts - last < 33) return;                                   // ~30 fps: the DSP worker owns the CPU
+        if (ts - last < 33) return;
         last = ts;
         if (typeof document !== "undefined" && document.hidden) return;
         scene.frame(getState(), parallax.update(beta, gamma));
@@ -194,7 +173,7 @@ export function useDial(ref, getState) {
       cancelAnimationFrame(raf);
       ro?.disconnect();
       stopTilt?.();
-      try { scene?.dispose(); } catch { /* */ }
+      try { scene?.dispose(); } catch { }
     };
   }, []);
   return webgl;

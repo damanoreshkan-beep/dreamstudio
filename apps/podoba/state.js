@@ -1,6 +1,3 @@
-// podoba — state outside the mount (the runtime mounts one tab at a time). The LIVE layer is the shader's
-// (view.js hands GlStage the camera); this file owns what the KEEPER needs: the material, the frozen frame,
-// the job on /feed/image/edit, the result and its failures. Contract and the state map: RESEARCH.md.
 import { atom } from "nanostores";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
@@ -20,22 +17,17 @@ const savedMat = () => { try { const m = localStorage.getItem(MAT_KEY); return S
 /** The gate's camera: a still of our own (assets/mock.webp) — the shot, the store's captures, the keeper's stand-in. */
 export const mockURL = new URL("assets/mock.webp", import.meta.url).href;
 
-// phase: live → working (the frame is frozen, the pods paint) → done | error; done → enhancing → done (×4,
-// `out.hd`); `again` returns to live from any of them
 export const $st = atom({ phase: "live", mat: gate ? "lum" : savedMat(), facing: "environment", frame: null, out: null, error: null, t0: 0, live: null });
 export const patch = (p) => $st.set({ ...$st.get(), ...p });
 let run = 0, job = null, jobBase = EDIT, hold = null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const revoke = (u) => { if (u && u.startsWith("blob:")) URL.revokeObjectURL(u); };
 
-// One-shot operations (owner, 2026-09-05: "перемикаю стиль — має відкритись знову камера, проявлене зникає"): a
-// material is chosen for the LIVE mirror, so choosing one from any other state returns to it — a running keeper is
-// cancelled, a developed one is let go.
 export function setMat(id) {
   if (!styleOf(id)) return;
   if ($st.get().phase !== "live") again();
   patch({ mat: id });
-  try { localStorage.setItem(MAT_KEY, id); } catch { /* private mode */ }
+  try { localStorage.setItem(MAT_KEY, id); } catch { }
 }
 /** The same frozen frame once more — the keeper failed, the shot is still worth developing. */
 export function retry(ctx) { const st = $st.get(); if (st.phase === "error" && st.frame) return shoot(st.frame, ctx); }
@@ -47,13 +39,6 @@ export const liveOf = (live) => {
   return { key: /queue|waiting/i.test(s) ? "queued" : "working" };
 };
 
-// The keeper: the frozen frame (a capped, mirrored JPEG data URL from the view) reimagined in the material by
-// the pods' edit race (/feed/image/edit, k = 1 → the BYTES on the status URL, `followOne`). THE PROMPT IS THE
-// VERY FIRST ONE, word for word — the owner, four rewrites later (2026-09-05): "самий найперший варіант було
-// дуже якісні промпти". What was tried and lost the same day, so nobody tries it again: naming the subject
-// ("keep every object, person…", "no people, faces") put a person into a photo with none; the STYLE route with
-// the material's card as a reference (assets/style-<id>.webp, the fox) painted the FOX into the scene — a
-// reference that has a subject transfers the subject. Only the block, after the photo, nothing else.
 export async function shoot(frame, ctx) {
   const st = $st.get();
   if (!frame || st.phase === "working") return;
@@ -63,10 +48,6 @@ export async function shoot(frame, ctx) {
   if (gate) { await sleep(120); if (r === run) patch({ phase: "done", out: { url: mockURL, w: 768, h: 1024, ext: "webp", by: "" }, live: null }); return; }
   if (frame.length > 9_000_000) return fail(r, "eBig");
   notifyAsk();
-  // THE MATERIAL API (owner, 2026-09-05: "окреме апі яке прийме наше зображення і сервер порішає… промпти мають
-  // бути на сервері"): the frame and the material's id, nothing else — the scene prompt, the one quality Space
-  // and its fallbacks live on the edge (edge/image.js MATERIAL_PROMPTS / MATERIAL_SPACES), measured on a
-  // landscape across all eleven materials. The client never phrases anything.
   jobBase = MATERIAL;
   try { job = await startJob(MATERIAL, { image: frame, material: st.mat, seed }); }
   catch (e) { return fail(r, e.code || "eNetwork"); }
@@ -76,7 +57,7 @@ export async function shoot(frame, ctx) {
   if (res.status === "stale") return;
   hold?.(); hold = null; job = null;
   if (res.status !== "done") return fail(r, res.status === "timeout" ? "eTimeout" : res.status === "busy" ? "eBusy" : "eFailed");
-  const size = await sizeOf(res.blob);   // measured, never assumed (naturalWidth lies on a scaled <img>)
+  const size = await sizeOf(res.blob);
   if (r !== run) { revoke(res.url); return; }
   patch({ phase: "done", out: { url: res.url, w: size?.w || 0, h: size?.h || 0, by: res.by, ext: extOf(res.blob) }, live: null });
   if (document.visibilityState === "hidden") notify({ id: "podoba-done", title: T(ctx.t, "title"), body: T(ctx.t, "notifDone"), url: "./" }).catch(() => {});
@@ -86,11 +67,9 @@ function fail(r, code) {
   if (r !== run) return;
   hold?.(); hold = null; job = null;
   patch({ phase: "error", error: code, live: null });
-  report("keeper.fail", { reason: code, mat: $st.get().mat });   // the clients' own log (/feed/log)
+  report("keeper.fail", { reason: code, mat: $st.get().mat });
 }
 
-// The enlargement: the keeper through /feed/image/upscale (zir's route — the hd race + the quota-free CPU row),
-// the same 1024 cap on the way in, `followOne` out, the size MEASURED. A failure keeps the keeper as it is.
 export async function enhance(ctx) {
   const st = $st.get();
   if (st.phase !== "done" || !st.out || st.out.hd) return;

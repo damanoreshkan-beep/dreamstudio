@@ -1,6 +1,3 @@
-// Компас — headless has no magnetometer and no GPS, so the gate seeds Kyiv and heading 0 (see isGate).
-// What IS assertable: that the rose renders, that the declination is computed and non-zero for Kyiv, and
-// that the app never claims "true" north when it has no position to derive one from.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-rose]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -12,7 +9,6 @@ export default [
     },
   },
   {
-    // The whole point of the app: a real declination from the WMM, not a decorative zero.
     name: "схилення пораховано і воно НЕ нуль", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-dec]")) === 1, "схилення не показане");
@@ -28,7 +24,6 @@ export default [
     name: "курс підписаний істинним лише коли є позиція", run: async (h) => {
       await ready(h);
       const t = await h.bodyText();
-      // the gate has a seeded position, so it must say TRUE — and never both
       h.expect(/Істинний|True/i.test(t), "з позицією курс має бути істинним");
       h.expect(!/Магнітний курс|Magnetic heading/i.test(t), "не можна одночасно заявляти істинний і магнітний");
     },

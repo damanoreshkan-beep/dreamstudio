@@ -1,5 +1,3 @@
-// tide — live currents behind a WebGL field. Under the gate the player is a mock state machine (no third-party
-// stream is fetched from CI), so transport/state are asserted through the data-* atoms mirrored into the DOM.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-current]")) > 0) break; await h.wait(300); } };
 const wrap = "[data-cat]";
 
@@ -16,7 +14,6 @@ export default [
       h.expect((await h.attr("#play", "data-playing")) === "true", "не почав грати");
       h.expect((await h.attr(wrap, "data-state")) === "live", "стан не live");
       h.expect((await h.attr("[data-now]", "data-now")) === "yes", "трек із фікстури не показано");
-      // медіасесія (в APK — фоновий сервіс + нотіфікація): без неї процес засинає і стрім не оживає
       h.expect((await h.attr(wrap, "data-bg")) === "on", "медіасесію не взято під час гри");
       await h.tap("#play"); await h.wait(300);
       h.expect((await h.attr("#play", "data-playing")) !== "true", "не зупинився");
@@ -90,7 +87,6 @@ export default [
     },
   },
   {
-    // тести ділять одну сторінку: i18n-тест перед цим лишає вкладку «Я» — повертаємось на listen
     name: "звук: аркуш відкривається, слайдер гучності є, Back закриває", run: async (h) => {
       await h.click('[data-tab="listen"]'); await h.wait(200);
       await ready(h);
@@ -102,8 +98,6 @@ export default [
     },
   },
   {
-    // під гейтом сесія — мок (auth.js MOCK_SESSION) і синк — мок (/_rt/sync.js): 2 пристрої, пір грає
-    // groovesalad. Аркуш мусить показати ЗАПОВНЕНИЙ стан — кімнату і рядок піра з кнопкою паузи.
     name: "синк: мок-кімната з піром, дзеркала data-sync/data-peers", run: async (h) => {
       await h.click('[data-tab="listen"]'); await h.wait(200);
       await ready(h);
@@ -119,7 +113,6 @@ export default [
   {
     name: "профіль: картка акаунта присутня (вхід — системний)", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(200);
-      // картка лінива (AccountSlot імпортує account.js) — чекаємо на неї, не на таймер
       for (let i = 0; i < 20; i++) { if ((await h.count("[data-account]")) === 1) break; await h.wait(200); }
       h.expect((await h.count("[data-account]")) === 1, "немає картки акаунта у профілі");
     },

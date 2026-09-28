@@ -1,57 +1,7 @@
-// microspec runtime — SIGNIFICATIONS: what the tradition says the pieces of a chart mean.
-//
-// The chart itself is arithmetic (natal.js + astro.js) and verifiable to the arcsecond. This file is a
-// different kind of claim and the difference is worth stating plainly: **astrology is not an empirically
-// validated causal system, and nothing here asserts that a planet does anything to anyone.** What can be
-// true or false is FIDELITY TO THE TRADITION — whether "Mars rules Aries", "the sixth house signifies
-// sickness and service" and "a square is read as friction" are what the tradition actually says.
-//
-// That is the sense in which this module is meant to be correct, and it is why the meanings ship as DATA
-// rather than living inside a prompt:
-//
-//   • the UI renders them directly, so a model outage costs the prose and never the substance;
-//   • the same entries are handed to the model as grounding, with instructions to synthesise them and add
-//     nothing — the corpus is the authority, the model is only the language;
-//   • they are unit-tested, reviewable and citable, which a sentence buried in a system prompt is not.
-//
-// Sourcing, per table, is written up in apps/transit/RESEARCH.md §8. Two rules held throughout:
-//
-//   DERIVED, NEVER DUPLICATED. Detriment is the sign opposite the domicile and fall the sign opposite the
-//   exaltation, so 14 facts are stored instead of 4 tables that can drift apart. There is exactly ONE
-//   rulership table in the farm and it is RULERS below — it used to live in zodiac.js, which draws glyphs
-//   and therefore imports htm/preact, which would have made this whole module unreachable from a bare
-//   `deno test`. Data that has to be unit-tested cannot live behind a component import.
-//
-//   CONTESTED IS LABELLED, NEVER ASSERTED. The outer planets have modern sign rulerships but no agreed
-//   exaltation, so they have no dignity here rather than a guessed one. Placidus and whole-sign disagree
-//   about which house a planet is in, so every grounding block names the system in force. Retrograde is
-//   review in modern practice and a debility in traditional practice, and says so.
-//
-// Every entry is a [en, uk] pair so the translation sits against its source and cannot silently go missing
-// (runtime_test.js walks the whole tree and fails on any leaf that is not two non-empty strings). Grounding
-// blocks are always built in English — the model renders the reader's locale from them.
 import { signOf, ELEMENT, MODALITY } from "./synastry.js";
 
-// Bump when a MEANING changes — or when the VOICE does. It rides in every reading's cache signature, so an
-// edit expires the readings built on the old wording instead of serving them forever.
-//
-// 3: the astrology prompts were rewritten (microspec-edge ai-prompts.js). The old rules mandated hedges
-// («традиційно читається як», «схиляє до») and bought gender-neutrality with verbal nouns («є схильність»),
-// which together produced the flat, could-be-anyone register the owner called out. Nothing about the corpus
-// or the facts changed, so the signature inputs would not have moved on their own — and every reading
-// already cached in a browser would have kept its old voice forever.
-//
-// 4: the SKY reading gained a corpus (`groundSky` below). It had never had one — it was the only mode sent
-// bare coordinates — and it was also the only mode whose signature was hand-built at the call site without
-// this constant in it, so nothing about the fix would have expired a single cached reading. The two facts
-// are the same oversight seen from two ends, and the same edit closes both.
 export const CORPUS = 4;
 
-// Planetary rulership, index 0=Aries..11=Pisces: the traditional ruler FIRST, then the modern outer
-// co-ruler where one is assigned — Scorpio = Mars & Pluto, Aquarius = Saturn & Uranus, Pisces = Jupiter &
-// Neptune. A planet can rule two signs (Mercury → Gemini + Virgo, Venus → Taurus + Libra). The ordering is
-// load-bearing: `RULERS[s][0]` is the traditional ruler everywhere, so dignity never has to ask which
-// school it is in, and the modern co-ruler is opt-in at the call site rather than baked in.
 export const RULERS = [
   ["mars"], ["venus"], ["mercury"], ["moon"], ["sun"], ["mercury"],
   ["venus"], ["mars", "pluto"], ["jupiter"], ["saturn"], ["saturn", "uranus"], ["jupiter", "neptune"],
@@ -60,12 +10,6 @@ export const RULERS = [
 const en = 0, uk = 1;
 export const say = (pair, loc) => (pair ? (loc === "uk" ? pair[uk] : pair[en]) : "");
 
-// ── the ten bodies ───────────────────────────────────────────────────────────────────────────────────────
-// role   — what the body is, as a principle
-// act    — what it does when it transits something (the verb, not the verdict)
-// strain — the same principle at cost; every entry has one, so no reading can come out one-sided
-// tempo  — astronomy, not doctrine: how long this actually lasts. The single most load-bearing field here,
-//          because it is what stops a fourteen-year Neptune transit being written up as a passing mood.
 export const BODY = {
   sun: {
     role: ["identity, vitality and conscious purpose", "суть, життєва сила і свідома мета"],
@@ -188,9 +132,6 @@ export const BODY = {
   },
 };
 
-// ── the twelve signs ─────────────────────────────────────────────────────────────────────────────────────
-// Element, modality and ruler are not repeated here — ELEMENT/MODALITY (synastry.js) and RULERS (zodiac.js)
-// already own them, and a second copy is a second thing to get wrong.
 export const SIGN = [
   { mode: ["starts, directly and without waiting for permission", "починає — прямо й не чекаючи дозволу"],
     gift: ["courage, initiative, honesty of impulse", "відвага, ініціатива, чесність пориву"],
@@ -230,9 +171,6 @@ export const SIGN = [
     excess: ["evasion, drift, absorbing what is not yours", "ухиляння, дрейф, вбирання чужого"] },
 ];
 
-// ── the twelve houses ────────────────────────────────────────────────────────────────────────────────────
-// `topic` is the modern field-of-life formulation; `trad` is Lilly's own 1647 wording, kept because it is
-// the concrete, checkable version of the same house and it shows where the modern one came from.
 export const HOUSE = [
   { topic: ["the body, the self one presents, how life is approached and begun",
     "тіло, себе-на-показ, спосіб підходити до життя і починати"],
@@ -279,8 +217,6 @@ export const HOUSE = [
       "таємні вороги, смуток, поневіряння, увʼязнення"] },
 ];
 
-// ── the five Ptolemaic aspects ───────────────────────────────────────────────────────────────────────────
-// The angles and their soft/hard/neutral natures are TRANSIT_ASPECTS in natal.js; only the reading is here.
 export const ASPECT = {
   conjunction: ["fuses the two — they act as one, and neither is easy to see on its own",
     "зливає двох — вони діють як одне, і жодного вже не видно окремо"],
@@ -294,7 +230,6 @@ export const ASPECT = {
     "тяжіння у два боки, і зустрічається воно зазвичай через іншу людину"],
 };
 
-// ── the angles ───────────────────────────────────────────────────────────────────────────────────────────
 export const ANGLE = {
   asc: { topic: ["the body, the first impression, and the way life is met",
     "тіло, перше враження і те, як зустрічається життя"],
@@ -307,11 +242,6 @@ export const ANGLE = {
     axis: ["a modern convention, not a classical angle", "сучасна умовність, а не класичний кут"] },
 };
 
-// ── essential dignity ────────────────────────────────────────────────────────────────────────────────────
-// Domicile comes from RULERS (traditional ruler = first entry). Exaltation is the classical table. Detriment
-// and fall are DERIVED as the opposite sign, so they cannot disagree with the two facts they come from.
-// The three modern bodies have rulerships but no agreed exaltation, so they have no dignity here at all —
-// "Uranus exalted in Scorpio" is a 20th-century proposal with no consensus behind it.
 export const EXALTATION = { sun: 0, moon: 1, mercury: 5, venus: 11, mars: 9, jupiter: 3, saturn: 6 };
 const CLASSICAL = ["sun", "moon", "mercury", "venus", "mars", "jupiter", "saturn"];
 const opposite = (s) => (s + 6) % 12;
@@ -328,8 +258,6 @@ export const DIGNITY = {
   none: ["neither dignified nor debilitated in this sign", "у цьому знаку ні піднесений, ні ослаблений"],
 };
 
-// dignityOf(body, sign) → "domicile" | "exaltation" | "detriment" | "fall" | "none" | null
-// null means the question does not apply: essential dignity is a doctrine about the seven classical bodies.
 export function dignityOf(body, sign) {
   if (!CLASSICAL.includes(body)) return null;
   const s = ((sign % 12) + 12) % 12;
@@ -340,7 +268,6 @@ export function dignityOf(body, sign) {
   return "none";
 }
 
-// ── elements, modalities, and the retrograde caveat ──────────────────────────────────────────────────────
 export const ELEMENT_NAME = [["fire", "вогонь"], ["earth", "земля"], ["air", "повітря"], ["water", "вода"]];
 export const ELEMENT_MEANS = [
   ["assertion, drive, willpower", "наполегливість, порив, воля"],
@@ -359,24 +286,12 @@ export const RETRO_NOTE = [
   "видимий зворотний рух; сучасна практика читає це як перегляд і повернення, традиційна — як ослаблення",
 ];
 
-// ── derived chart indicators ─────────────────────────────────────────────────────────────────────────────
-
-// rulerOf(lon, { modern }) → the planet that rules the sign a longitude falls in. Which convention is in
-// force is the caller's choice and must be SHOWN, never assumed: traditional gives Aquarius to Saturn,
-// modern to Uranus. `modern: true` falls back to the traditional ruler for the nine signs that never
-// acquired an outer co-ruler, and reports `modern: false` when it does — a claim about a convention has to
-// be true of the specific answer, not of the request.
 export function rulerOf(lon, { modern = false } = {}) {
   const s = signOf(lon), r = RULERS[s];
   return { sign: s, body: modern && r[1] ? r[1] : r[0], modern: !!(modern && r[1]) };
 }
-// The ruler of the rising sign is just the ruler of a particular longitude; the name is kept because that
-// is what an astrologer calls it, and because "chart ruler" appears in the portrait as a heading.
 export const chartRuler = rulerOf;
 
-// balance(lons) → { elements: [4], modalities: [3], topElement, topModality } — a plain count over the
-// bodies the user has switched on. Deliberately unweighted: schemes that weight the luminaries double are
-// one school among several, and an unweighted count is the one nobody has to argue about.
 export function balance(lons) {
   const elements = [0, 0, 0, 0], modalities = [0, 0, 0];
   for (const lon of lons) { const s = signOf(lon); elements[ELEMENT(s)]++; modalities[MODALITY(s)]++; }
@@ -384,40 +299,6 @@ export function balance(lons) {
   return { elements, modalities, topElement: top(elements), topModality: top(modalities) };
 }
 
-// ── the fixed question catalogue ─────────────────────────────────────────────────────────────────────────
-//
-// The eleven things people actually bring to an astrologer, as a CLOSED list. Closed is the whole design:
-//
-//   • it is the only honest way to be grounded. Each question declares exactly which houses, bodies and
-//     angles it may be answered from — the significators a competent astrologer would read for it — so the
-//     app computes those and nothing else reaches the model. A free-text box has no such set, which is why
-//     it would be a wishing well with a language model at the bottom.
-//   • it removes the injection surface entirely. There is no user text, so there is nothing to smuggle
-//     instructions in. Compare `ask` in ai-books.js, which takes free text and needs a whole prompt section
-//     to defend itself.
-//   • it caches. Eleven questions × one chart = eleven answers, forever.
-//
-// WHAT IS NOT HERE, AND WHY. The most-asked list also contains "will I have children", "am I pregnant",
-// "what is wrong with my health", "when will I die", "will I win the case", "should I invest". Every one is
-// a claim about a real outcome that a birth chart does not establish, and no reframing rescues them — the
-// person wants the outcome, and a symbolic answer to "when will I die" is a worse answer, not a safer one.
-// They are dropped rather than softened. Better eight honest questions than ten with two that promise.
-//
-// `focus` is an instruction to the model, not UI, so it is English-only. It states the technique for that
-// question — which factor leads and what an answer may NOT contain — because "answer using the facts below"
-// leaves the model to guess whether the seventh house or Venus is the point.
-//
-// LABEL vs ASK, and why they are two fields. The catalogue used to show the full question — "Who am I drawn
-// to, and what draws them to me?" — and eleven of those is a wall of sentences you have to READ before you
-// can choose. What a person arrives with is a topic, not a phrasing: work, love, sex, money. So `label` is
-// the topic, in the two locales, blunt enough to be scanned in a glance; `ask` is the precise English
-// question the MODEL is handed, where the phrasing is the difference between an answer and an essay. The
-// unit gate pins both shapes — a label that grows back into a sentence fails, and so does an `ask` that is
-// not a question.
-//
-//   houses  — read as: cusp sign + its ruler + where that ruler lives + the planets tenanting it
-//   bodies  — read as: sign, house, dignity, retrograde
-//   transit — true → the question is about "now", so the current contacts to those points come too
 export const QUESTIONS = [
   { id: "work", houses: [10, 6, 2], bodies: ["sun", "saturn"], angles: ["mc"], transit: false, fields: ["work"],
     label: ["Work", "Робота"],
@@ -466,30 +347,12 @@ export const QUESTIONS = [
 ];
 export const questionById = (id) => QUESTIONS.find((q) => q.id === id) || null;
 
-// ── grounding blocks ─────────────────────────────────────────────────────────────────────────────────────
-//
-// Each builder returns { text, sig }: the closed-world block the model may use, and the cache signature for
-// it. They are returned TOGETHER on purpose — a signature that misses a fact the block contains serves a
-// stale reading forever, and pairing them here is the only way a caller cannot get that wrong.
-//
-// The blocks are always English. The model writes in the reader's locale from them, which keeps one cache
-// signature valid across both and keeps the corpus's English wording as the single source of meaning.
-
 const SIGN_EN = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-// Bare names, no articles: these are slotted into "transiting Saturn square natal Sun", where "natal the
-// Sun" would be the kind of small wrongness a model happily copies into its answer.
 const NAME_EN = { sun: "Sun", moon: "Moon", mercury: "Mercury", venus: "Venus", mars: "Mars", jupiter: "Jupiter", saturn: "Saturn", uranus: "Uranus", neptune: "Neptune", pluto: "Pluto", asc: "Ascendant", mc: "Midheaven", vertex: "Vertex" };
 export const nameEN = (k) => NAME_EN[k] || k;
 const deg = (lon) => `${SIGN_EN[signOf(lon)]} ${Math.floor((((lon % 360) + 360) % 360) % 30)}°`;
 const HEAD = "Use ONLY the facts and meanings below. Add no body, sign, house, aspect or event that is not here.";
 
-// How long a multi-pass contact runs, in words, from the first exact instant to the last.
-//
-// This exists because of a measured failure, not a hunch. Given three dates and no span, the live model
-// added a fourth number of its own — it called 3 Aug 2026 → 2 May 2027 "about a year and a half" — and a
-// derived number is the one kind of invention a closed-world prompt does not catch, because every input it
-// used really was in the block. So the span is COMPUTED here and stated, and the prompt forbids deriving
-// figures at all: the reading may only quote numbers it was given.
 export function spanLabel(fromMs, toMs) {
   const days = Math.round((toMs - fromMs) / 86400000);
   if (days < 45) return `${days} days`;
@@ -499,36 +362,6 @@ export function spanLabel(fromMs, toMs) {
   return `about ${years} years`;
 }
 
-// THE WHOLE SKY on a date, read against the chart — the wheel tab's one-paragraph reading.
-//
-// This builder exists because of a measured failure, and it is worth writing down what the failure WAS. The
-// sky reading was the only one of the six sending the model bare coordinates and no corpus: a list of natal
-// placements and a list of contacts, with the meanings left for the model to supply from whatever it had
-// absorbed. Three live probes against the deployed route, same chart, 7 Aug 2026:
-//
-//   gemini-2.5-flash       — named ZERO of the three contacts. "Сьогодні ви відчуваєте внутрішню потребу
-//                            переглянути свій публічний імідж…"  (house 10, paraphrased, unattributed)
-//   gemini-2.5-flash-lite  — named all three, correctly.
-//   gemini-2.5-flash       — named ZERO. "Цього дня ти відчуваєш напругу між особистими амбіціями…"
-//
-// So the primary provider was the one that drifted, and it drifted in the one direction that cannot be
-// caught by a closed-world rule: it added no false fact, it simply declined to use the true ones. Every
-// sentence was defensible and none of them was about this chart. The fix is the same as everywhere else in
-// this file — hand the model the MEANING of each factor next to the factor, so that writing about the
-// contact is easier than writing around it, and (in the prompt) require each sentence to name what it reads.
-//
-//   contacts  [{ c, transitLon, retro, natalHouse }] — `c` from natal.js `transits()`; `natalHouse` is the
-//             house the NATAL point falls in, or null when that point IS an angle. Sorted here, tightest
-//             first, and capped — the count is stated so the model knows it is not seeing the whole sky.
-//   moon      { lon, house, retro } — the transiting Moon. Always supplied when it is on the wheel, contact
-//             or no contact: it is the day's tempo, and on a day with nothing else in orb it is the only
-//             honest thing the reading has to stand on.
-// FOUR, and the number is measured rather than chosen. A real chart on an ordinary day had 17 contacts
-// inside the 3° range; at six the block came to 5 988 characters against the mode's 6 000-character cap —
-// twelve characters from silently losing its own composition rules off the end, which is the failure this
-// registry's header warns about and the one that looks exactly like a model ignoring instructions. Four
-// contacts is also all a 3–4 sentence reading can name, so the cap that matters is the reading's, not the
-// transport's. (The mode's cap was raised to 8 000 in the same edit, so the margin is now real either way.)
 const SKY_MAX = 4;
 export function groundSky({ dateEN, houseSystem, contacts = [], moon = null, max = SKY_MAX }) {
   const sorted = [...contacts].sort((a, b) => a.c.orb - b.c.orb);
@@ -543,9 +376,6 @@ export function groundSky({ dateEN, houseSystem, contacts = [], moon = null, max
     ${na ? `${nameEN(c.n)} is the point touched: ${na.topic[en]} (${na.axis[en]}).` : `Natal ${nameEN(c.n)} is the function touched: ${nb.role[en]}.`}${H ? ` House ${natalHouse} is the field of life it happens in (${houseSystem} houses): ${H.topic[en]}; traditionally "${H.trad[en]}".` : ""}${retro ? ` ${nameEN(c.t)} is retrograde: ${RETRO_NOTE[en]}.` : ""}`;
   });
   const moonLine = moon
-    // `tempo` is a noun phrase in the corpus ("27 days round the chart, …"), so it reads as a LABEL and not
-    // as a predicate. Every other builder uses it after a colon for that reason; splicing it into a clause
-    // ("and it 27 days round the chart") produced the one sentence in the block that was not English.
     ? `THE DAY'S FASTEST HAND: the transiting Moon is at ${deg(moon.lon)}${moon.house ? `, crossing natal house ${moon.house} (${HOUSE[moon.house - 1].topic[en]})` : ""}. The Moon ${BODY.moon.act[en]}. Its tempo: ${BODY.moon.tempo[en]}. This colours the day itself, not the period.`
     : "";
   const head = shown.length
@@ -561,10 +391,6 @@ sentence would read the same for a different chart, it does not belong in this r
   return { text, sig };
 }
 
-// One transit contact. `c` is a contact from natal.js `transits()`. `hits` are the resolved exact instants
-// as `{ label, ms }` — the caller formats the label, because only it knows how finely the body's speed lets
-// the instant be quoted (§5), and the ms is what the span is measured from. `natalHouse` may be null when
-// the natal point IS an angle.
 export function groundTransit({ c, transitLon, natalHouse, houseSystem, retro, dateEN, hits = [] }) {
   const labels = hits.map((h) => (typeof h === "string" ? h : h.label));
   const span = (hits.length > 1 && typeof hits[0] === "object")
@@ -594,7 +420,6 @@ ${lines.join("\n")}`;
   return { text, sig };
 }
 
-// One natal placement — a body in a sign and a house, or one of the angles.
 export function groundPlacement({ key, lon, house, houseSystem, retro }) {
   const b = BODY[key], a = ANGLE[key], s = signOf(lon);
   const dig = b ? dignityOf(key, s) : null;
@@ -616,19 +441,6 @@ Read this as ONE behaviour in ONE arena, not as two separate paragraphs about th
   return { text, sig };
 }
 
-// One HOUSE, read from its cusp. This is the reading with the most actual technique in it, and the least
-// obvious to someone looking at a table of twelve degrees: a house is not only its own topic, it is
-// coloured by the sign on its cusp, and — the part that carries most of the meaning — it is DELEGATED to
-// the ruler of that sign, which lives somewhere else in the chart entirely. "Your second house is in
-// Sagittarius, and Jupiter, which rules it, sits in the eighth" is a real statement about money and other
-// people's resources, and it is the one thing a degree column can never tell you.
-//
-//   ruler   { key, lon, house, retro } — the traditional ruler of the sign on the cusp, and where it lives.
-//           null only if the caller could not resolve it (never expected: all twelve signs have one).
-//   coRuler the modern outer co-ruler's key, or null. Passed separately and LABELLED, never merged in.
-//   tenants [{ key, lon, retro }] — natal bodies that fall inside the house. Often empty, and an empty
-//           house is not a silent house: the tradition reads it through the ruler, which is why the prompt
-//           is told so explicitly rather than left to infer it from an absent list.
 export function groundCusp({ house, cuspLon, houseSystem, ruler, coRuler = null, tenants = [] }) {
   const s = signOf(cuspLon), H = HOUSE[house - 1];
   const rSign = ruler ? signOf(ruler.lon) : null;
@@ -653,17 +465,6 @@ Write about this ONE area of life: what it is, the manner the sign brings to it,
   return { text, sig };
 }
 
-// One catalogue question, answered from ONLY the factors it declares.
-//
-// The block is assembled from the question's own `houses`/`bodies`/`angles` lists rather than from the whole
-// chart, and that is the point: a model handed an entire chart and asked about money will find something to
-// say about the Moon, because there is always something to say. Handed the second house, its ruler, the
-// eighth, Venus and Jupiter, it has to answer from those or say less.
-//
-//   chart  { cusps, houseSystem, points: [{key, lon, house, retro}], asc, mc }
-//   timing null, or { dateEN, contacts: [{ c, transitLon, retro, hits: [label] }] } for a transit question.
-//          The caller filters the contacts to the ones touching this question's points — the builder does
-//          not, because only the caller knows what "touching" cost to compute.
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 export function groundQuestion({ q, chart, timing = null }) {
   const { cusps, houseSystem, points, asc, mc } = chart;
@@ -692,8 +493,6 @@ export function groundQuestion({ q, chart, timing = null }) {
   const tLines = (timing?.contacts || []).map(({ c, transitLon, retro, hits = [] }) =>
     `- transiting ${nameEN(c.t)}${retro ? " (retrograde)" : ""} in ${SIGN_EN[signOf(transitLon)]} ${c.type} natal ${nameEN(c.n)}, orb ${c.orb.toFixed(2)}°${c.applying == null ? "" : c.applying ? ", applying" : ", separating"}. ${nameEN(c.t)} as a transit ${BODY[c.t].act[en]}; it lasts ${BODY[c.t].tempo[en]}.${hits.length ? ` Exact: ${hits.join("; ")}.` : ""}`);
 
-  // The model gets the full question (`ask`), never the topic word the catalogue shows: "Sex" as a prompt is
-  // an invitation to write about whatever it likes, and the phrasing is what holds the answer to the chart.
   const text = `${HEAD}
 QUESTION: ${q.ask || q.label[en]}
 HOW TO READ IT: ${q.focus}
@@ -704,8 +503,6 @@ Answer the question directly, in 4–6 sentences. Do not restate the placements 
   return { text, sig };
 }
 
-// The whole chart. `points` are the natal bodies [{key, lon, house, retro}]; the angles come separately
-// because they are places, not bodies, and only the bodies count toward the balances.
 export function groundPortrait({ points, asc, mc, houseSystem, modernRulers = false, aspects = [] }) {
   const bal = balance(points.map((p) => p.lon));
   const ruler = chartRuler(asc, { modern: modernRulers });
@@ -727,27 +524,6 @@ Synthesise in this order: the luminaries and the Ascendant first, then the chart
   return { text, sig };
 }
 
-// TWO PEOPLE, read against each other — the compatibility tab's reading.
-//
-// This block differs from its five siblings in one structural way, and the prompt leans on it: the chart is
-// only PARTLY known. A birth date without a time and place has no Ascendant, no Midheaven, no houses and
-// therefore no house overlays, which is a whole standard layer of synastry that simply is not available —
-// so the block says so in its own words rather than leaving the model to fill the silence. The reference
-// instant is stated for the same reason: "noon" is a named convention for an unknown time, not a recovered
-// one, and a reading that calls a noon position "your birth position" is making a claim the data cannot
-// carry.
-//
-// The Moon gets its own line whenever the app reports it as time-sensitive. Measured on this ephemeris: the
-// Moon moves 13.2° in a mean day (15.3° at its fastest), so a date-only Moon carries ±6.6° and it changes
-// SIGN inside the birth day 43.8% of the time. That is not a footnote — it is the difference between a
-// reading built on a Moon that is there and one built on a Moon that is a coin toss, and the model is told
-// which of the two it has.
-//
-//   people   [{ label, points: [{ key, lon }] }] — exactly two, `label` being A/B as the app names them.
-//   list     contacts() output, strongest first. Capped here; the total is stated so the model knows it is
-//            not seeing all of them.
-//   scores   score() output — supplied so the prose and the ring cannot disagree about which axis is high.
-//   moonOpen true when either Moon changes sign inside the ±window the user can still move.
 const MATCH_MAX = 5;
 export function groundSynastry({ people, list = [], scores = null, refEN, moonOpen = false, max = MATCH_MAX }) {
   const [A, B] = people;

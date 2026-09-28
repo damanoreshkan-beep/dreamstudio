@@ -1,6 +1,3 @@
-// Поголос — the two rooms of an off-grid mesh. Pure UI over mesh.js (the bridge + its honest mock). The
-// modern shape: a scrolling feed between two glass ISLANDS — presence on top, the composer at the bottom —
-// with tailed bubbles. All depth comes from the kit's Island/surfaces, nothing hand-rolled.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -15,32 +12,20 @@ import { GlStage } from "/_rt/glstage.js";
 import { start, rescan, sendPublic, sendPrivate, setNick, diagnose, report, field, sites, placeOf, fieldGeom, fieldBox, bump, $state, $peers, $room, $threads, $queued, $fault, $log } from "./mesh.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// A timestamp the transport did not send is nothing, never "Invalid Date": a bubble that shows the string
-// the Date constructor produced is the app printing its own bug at the user.
 const clock = (ts, loc) => Number.isFinite(ts) ? new Date(ts).toLocaleTimeString(loc === "uk" ? "uk-UA" : "en-US", { hour: "2-digit", minute: "2-digit" }) : "";
 const near = (t, n) => n === 0 ? T(t, "nearNone") : n === 1 ? T(t, "nearOne") : T(t, "nearMany", { n });
 const RCPT = { sent: "rcptSent", delivered: "rcptDelivered", read: "rcptRead", queued: "rcptQueued" };
 
-const $peer = atom(null);   // the open private thread, or null for the peer list
+const $peer = atom(null);
 
-// ── identity + unread, both the PAGE's own copy (persisted here; the native side is told via setNick) ──
-// The nick the owner chose, remembered on THIS device. The native mesh persists its own copy too, but the
-// page needs one so the map's «me» node reads right on a cold open before the bridge has answered.
 const $nick = persistentAtom("poholos:nick", "", { encode: String, decode: String });
-// peerID → the ts we last OPENED that thread at. A private line newer than that is unread — the answer to
-// "who is writing to me". Persisted so the badge survives a reload; a plain object through JSON.
 const JC = (init) => ({ encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return init; } } });
 const $seen = persistentAtom("poholos:seen", {}, JC({}));
 const lastIn = (msgs) => { let t = 0; for (const m of msgs || []) if (!m.mine && Number.isFinite(m.ts) && m.ts > t) t = m.ts; return t; };
 const isUnread = (peerID, threads, seen) => lastIn(threads[peerID]) > (seen[peerID] || 0);
 const markSeen = (peerID) => { const cur = $seen.get(); if ((cur[peerID] || 0) < Date.now()) $seen.set({ ...cur, [peerID]: Date.now() }); };
-// push the remembered nick to the native side once the transport is up (idempotent; no-op under the mock)
 const ensureNick = () => { const n = $nick.get(); if (n && n !== $state.get().nick) setNick(n); };
 
-// The field's colour is the THEME's accent, read from the cascade rather than written here twice: a hex
-// copied into JS is right until the material changes and then quietly wrong. getComputedStyle resolves
-// whatever colour space the token is in, so this survives oklch. Cached — it is read every frame, and the
-// theme can only change on a toggle, so a re-read twice a second is plenty.
 const acc = { rgb: [0.35, 0.84, 0.88, 1], at: 0, probe: null };
 function accent() {
   const now = performance.now();
@@ -54,11 +39,10 @@ function accent() {
     }
     const m = getComputedStyle(acc.probe).color.match(/[\d.]+/g);
     if (m && m.length >= 3) acc.rgb = [+m[0] / 255, +m[1] / 255, +m[2] / 255, 1];
-  } catch { /* no DOM (preflight) — the fallback above is the accent's own value */ }
+  } catch { }
   return acc.rgb;
 }
 
-// ── presence: the one honest number, a glass chip that floats atop the feed ────────────────────────
 function Presence({ t, tone = "glass" }) {
   const s = useStore($state);
   const alone = s.peerCount === 0;
@@ -76,29 +60,16 @@ function Presence({ t, tone = "glass" }) {
   <//>`;
 }
 
-// ── the field of who is within earshot ─────────────────────────────────────────────────────────────
-// A node's point comes from the hash of its peerID, so the same person is always the same place on the
-// screen — and that place says NOTHING about distance or direction. The bridge sends { peerID, nick }
-// and no geometry at all, so a radar with range rings would be invented; the caption says as much.
-// The shader draws the sweep and a well per node; these chips are the same nodes in the DOM, because
-// the DOM is the only thing axe, e2e and a screen reader can see.
-// The stage is `fixed inset-0` by contract — it is the SCREEN's background, not a panel inside one. Mounted
-// with the kit's own default it sits UNDER in-flow content; `z-0` put it over the glass islands, which then
-// rendered into the DOM and were invisible in the shot.
 function Field({ t, peers, onPeer }) {
   const s = useStore($state);
   const nick = useStore($nick);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const myName = nick || s.nick || "";
-  // the owner's name, edited in place ON the map (M5 parity): the «me» node IS the field's identity, so it
-  // is where the nick is set — no separate settings screen. Persisted here + pushed to the native mesh.
   const openEdit = () => { setDraft(myName); setEditing(true); };
   const commit = () => { const v = draft.trim().slice(0, 24); if (v) { $nick.set(v); setNick(v); } setEditing(false); };
   const ref = useRef(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
-  // The box is MEASURED, and re-measured whenever it moves: the chrome above and below it changes with
-  // the density step and the split shapes, and a chip placed from an assumed box lands under the composer.
   useEffect(() => {
     const el = ref.current; if (!el) return;
     const read = () => {
@@ -143,12 +114,11 @@ function Field({ t, peers, onPeer }) {
         </span>
       </div>
     </div>
-    ${/* one line while the field is empty — the kit's Empty shape; once people are here the field is self-evident and carries no caption */""}
+    ${""}
     ${s.peerCount === 0 && html`<p class="ph-field-note">${T(t, "fieldSearching")}</p>`}
   </div>`;
 }
 
-// ── the composer, a floating island at the bottom ──────────────────────────────────────────────────
 function Composer({ t, placeholder, onSend, tone = "glass" }) {
   const [text, setText] = useState("");
   const send = () => { const v = text.trim(); if (!v) return; onSend(v); setText(""); };
@@ -169,23 +139,16 @@ function autoscroll(dep) {
   return ref;
 }
 
-// The empty state is a HERO, centred on the whole area (no presence chip competing): a soft accent glyph
-// and the line. Its own flex-1 column, so it sits dead-centre above whatever the screen keeps below it.
 const Hero = (icon, text) => html`<div class="ph-hero">
   <div class="ph-hero-glyph">${Icon(icon)}</div>
   <p class="ph-hero-text">${text}</p>
 </div>`;
 
-// group flag: a message is the "first" of a run when the previous one was a different sender/side
 const firstOfRun = (list, i) => i === 0 || list[i - 1].mine !== list[i].mine || (!list[i].mine && list[i - 1].from !== list[i].from);
 
-// A fault outranks everything: "no one nearby" / "quiet" is a lie when the radio was never allowed to speak.
 const FaultBanner = (t, fault) => fault && html`<div class="ph-banner" data-fault="1">
   ${Icon("lucide:alert-triangle", "opacity-80")} ${T(t, "faultBanner")}</div>`;
 
-// ── «Поруч» — the MAP: who is within earshot, and a tap opens a private line ────────────────────────
-// Discovery only. The public broadcast lives in its own «Публічний» tab now; this screen is the field, the
-// presence chip and the owner's own «me» node (where the nick is set). Tapping a device point → their DM.
 export function room({ S }) {
   const t = useStore(S.t);
   const s = useStore($state);
@@ -195,9 +158,7 @@ export function room({ S }) {
 
   return html`<${Fragment}>
     <div class="ph-wrap h-full" data-near data-peers=${s.peerCount}>
-      ${/* html and body paint an OPAQUE ground (measured rgb(0,0,0)), so a stage under it is invisible and a
-           stage over it buries the static chrome. It sits at z-0 above the ground; .ph-wrap's other children
-           are lifted to z-1 in head.html, which is the layer the glass islands need to stay readable. */""}
+      ${""}
       <${GlStage} shader=${new URL("near.frag", import.meta.url)} zClass="z-0"
         seed=${0.37} ink=${accent} vary=${field} points=${sites} />
       <${Presence} t=${t} tone="frost" />
@@ -207,7 +168,6 @@ export function room({ S }) {
   <//>`;
 }
 
-// ── «Публічний» — the public broadcast feed: a clean chat, no map, no stage ─────────────────────────
 export function pub({ S }) {
   const t = useStore(S.t);
   const loc = useStore(S.locale);
@@ -218,7 +178,6 @@ export function pub({ S }) {
   useEffect(() => { start().then(ensureNick); }, []);
   const feed = autoscroll(msgs.length);
 
-  // Nothing broadcast yet — a hero that orients (quiet if alone, "say the first word" once neighbours are here).
   if (msgs.length === 0) return html`<${Fragment}>
     <div class="ph-wrap h-full">
       ${Hero("lucide:megaphone", T(t, s.peerCount === 0 ? "roomEmptyAlone" : "roomEmptyPeers", { n: s.peerCount }))}
@@ -246,7 +205,6 @@ export function pub({ S }) {
   <//>`;
 }
 
-// ── «Особисті» — the peer list, then a thread ──────────────────────────────────────────────────────
 export function dm({ S }) {
   const t = useStore(S.t);
   const loc = useStore(S.locale);
@@ -280,15 +238,8 @@ export function dm({ S }) {
   <//>`;
 }
 
-// ── «Логи» — the one screen that can tell a quiet room from a broken radio ─────────────────────────
-// A mesh fails silently: nothing throws, nobody answers, and an empty room looks exactly like a refused
-// BLUETOOTH_ADVERTISE. So this tab reads every gate between the page and the air, in the order they fail,
-// and hands the whole thing over as one block of text — the only artifact a two-device test produces.
 const VERDICT = { Ok: "ok", Perm: "err", Location: "warn", BtOff: "warn", BtNone: "err", NeedsApp: "warn", Stale: "warn", WrongApk: "err", Fault: "err" };
 
-// The caps the INSTALLED apk grants, which is a different question from the one the catalogue answers:
-// `shell.hasCapability` is derived from the catalogue and the bridge version alone and never reads them,
-// so it says "granted" while the Java side refuses the very same action. This is the deciding half.
 const apkLacksMesh = (d) => typeof d.caps === "string" && !d.caps.split(",").map((c) => c.trim()).includes("mesh");
 
 function verdictOf(d) {
@@ -307,7 +258,7 @@ function verdictOf(d) {
 export function logs({ S }) {
   const t = useStore(S.t);
   const lines = useStore($log);
-  useStore($fault);                                  // a fault must repaint the verdict, not wait for a tap
+  useStore($fault);
   const [d, setD] = useState(null);
   const [copied, setCopied] = useState(false);
   const refresh = () => diagnose().then(setD);
@@ -317,7 +268,7 @@ export function logs({ S }) {
   const tone = v ? VERDICT[v.key] : "warn";
   const copy = async () => {
     try { await navigator.clipboard.writeText(report(d)); setCopied(true); setTimeout(() => setCopied(false), 2000); }
-    catch { /* no clipboard in this WebView — the text below is selectable, which is the fallback */ }
+    catch { }
   };
   const held = d && d.held && typeof d.held === "object";
 

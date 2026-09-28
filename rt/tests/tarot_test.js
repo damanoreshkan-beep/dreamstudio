@@ -1,6 +1,3 @@
-// microspec runtime — tarot unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { SPREADS, spreadById, hashSeed, draw } from "../tarot.js";
 

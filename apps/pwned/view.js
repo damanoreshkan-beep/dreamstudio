@@ -1,8 +1,3 @@
-// pwned — k-anonymity password-breach check. Pure pipeline is systemic + unit-tested (/_rt/pwned.js); this
-// view owns the transport + the taste. Hero screen (2027, motion): the check plays as an animated
-// k-anonymity PIPELINE — the SHA-1 is shown split (the 5 chars that leave vs the 35 that stay), a beam
-// travels the timeline, nodes activate in sequence, and the verdict springs in with a counting odometer.
-// The password is never stored, never logged. (Other tabs untouched — profile is runtime-rendered.)
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -13,10 +8,9 @@ import { sha1hex, splitHash, lookup } from "/_rt/pwned.js";
 import { Panel } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the micro-label at the ladder's size (`length:` — a bare var() in text-[…] is a colour to Tailwind v4)
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const RANGE = "https://api.pwnedpasswords.com/range/";
-const SAMPLE_HEX = "5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8";   // SHA-1("password") — the gate fixture
+const SAMPLE_HEX = "5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8";
 const SAMPLE_COUNT = 3861493;
 const NODES = [["lucide:fingerprint", "step1"], ["lucide:scissors", "step2"], ["lucide:cloud-upload", "step3"], ["lucide:list-checks", "step4"]];
 
@@ -32,7 +26,6 @@ export function check({ S }) {
 
   const beamRef = useRef(), glowRef = useRef(), pipeRef = useRef(), verdictRef = useRef();
 
-  // live, on-device hash as you type — nothing leaves here
   useEffect(() => {
     let alive = true;
     if (!pw) { setHex(""); setRes(null); setStatus("idle"); return; }
@@ -41,7 +34,6 @@ export function check({ S }) {
     return () => { alive = false; };
   }, [pw]);
 
-  // ambient motion: a beam travels the timeline; the verdict aura breathes
   useEffect(() => {
     const stops = [];
     if (beamRef.current) stops.push(animate(beamRef.current, { top: ["4%", "96%"], opacity: [0, 1, 1, 0] }, { duration: 2.6, repeat: Infinity, ease: "easeInOut" }));
@@ -53,14 +45,12 @@ export function check({ S }) {
     return () => a.stop();
   }, [res && res.pwned]);
 
-  // pipeline nodes stagger in when the hash appears
   useEffect(() => {
     if (!pipeRef.current) return;
     const nodes = pipeRef.current.querySelectorAll("[data-node]");
     if (nodes.length) animate(nodes, { opacity: [0, 1], x: [-10, 0] }, { delay: stagger(0.09), duration: 0.45, ease: "easeOut" });
   }, [hex ? 1 : 0]);
 
-  // verdict springs in + the count odometer runs
   useEffect(() => {
     if (status !== "done" || !res) return;
     if (verdictRef.current) animate(verdictRef.current, { opacity: [0, 1], scale: [0.88, 1], y: [14, 0] }, { duration: 0.55, ease: [0.2, 0.9, 0.2, 1] });
@@ -92,12 +82,10 @@ export function check({ S }) {
     </div>
 
     <!-- the hash, split: the 5 that leave vs the 35 that stay -->
-    ${/* The hash is a Panel (the page raised, the kit's mono micro-label as its title) — it was the same
-         surface assembled by hand, which is the tell design.md names. */""}
+    ${""}
     ${hex ? html`<${Panel} className="min-w-0" title=${html`<span class="inline-flex items-center gap-1.5">${Icon("lucide:hash", "text-sm")}SHA-1</span>`}>
       <div data-hash class="font-mono text-sm break-all leading-relaxed min-w-0">
-        ${/* The 5 chars that leave are a CHIP — a small object lifted off the hash, on the shallow pair.
-             The ring it used to carry was an outline doing the shadow's job. */""}
+        ${""}
         <span class="inline-flex items-center rounded-full bg-primary/15 text-primary font-bold px-1.5 py-0.5 mr-0.5 sf-e2">${prefix}</span><span class="text-muted tracking-tight">${suffix}</span>
       </div>
       <div class="flex flex-wrap gap-x-4 gap-y-1 min-w-0">
@@ -111,9 +99,7 @@ export function check({ S }) {
     </button>
 
     <!-- the k-anonymity pipeline (the motion hero) -->
-    ${/* The beam is LIGHT travelling the timeline — the one gradient here is the light itself, in the
-         farm's warm pole, not a decoration. The line and the beam sit at the nodes' centre: the Panel's
-         own padding plus half a node, so the density ladder cannot move them apart. */""}
+    ${""}
     <${Panel} className="relative min-w-0 overflow-hidden">
       <div class="absolute top-6 bottom-6 w-px bg-base-content/12" style="left:calc(var(--ms-pad) + 1.125rem)"></div>
       <div ref=${beamRef} class="absolute -translate-x-1/2 w-1 h-10 rounded-full bg-gradient-to-b from-transparent via-[var(--app-accent)] to-transparent blur-[1px] pointer-events-none" style="top:4%;left:calc(var(--ms-pad) + 1.125rem)"></div>
@@ -126,10 +112,7 @@ export function check({ S }) {
     <//>
 
     <!-- verdict -->
-    ${/* The verdict is the page pushed OUT at the deepest rung the surface has (sf-e3) — it used to be a
-         tinted hairline, an outline standing in for the shadow pair. The meaning still reads in colour:
-         the aura, the icon well and the heading all carry error/success. The spring animates the wrapper
-         (a Panel is a function component; a ref would not reach its element). */""}
+    ${""}
     ${res && status === "done" ? html`<div ref=${verdictRef} data-verdict data-pwned=${String(res.pwned)} class="min-w-0">
       <${Panel} className="relative items-center gap-1.5 min-w-0 overflow-hidden sf-e3">
       <div ref=${glowRef} class=${`absolute -z-0 w-40 h-40 rounded-full blur-3xl ${res.pwned ? "bg-error/25" : "bg-success/25"}`} style="opacity:.35"></div>

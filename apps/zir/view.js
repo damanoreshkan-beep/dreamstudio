@@ -1,8 +1,3 @@
-// zir — sight for a picture. ONE fit screen: the Stage (the photo; the scan while it is enlarged; then the
-// COMPARE — the original and the enlarged one under a divider you drag) over the GL field, and ONE island
-// with the quality and the action. The result is the same picture at 4× the pixels, so the stage never
-// changes shape between before and after — only what is under the divider does. State and actions live in
-// state.js, outside the mount, because the runtime mounts one tab at a time.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
@@ -19,24 +14,12 @@ const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}><
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
 const tool = "btn btn-ghost btn-sm btn-circle text-base-content/70";
 const label = "font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70";
-// The scan: one bright line sweeps the photo top to bottom while the pods work — the upscaler's own idiom,
-// and it needs no picture of the result to exist. The working line shimmers like mirage's (a gradient clipped
-// to the glyphs); both are still under reduced motion and in the gate.
 const CSS = `.zr-scan{position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--app-accent),transparent);box-shadow:0 0 18px 4px color-mix(in oklch,var(--app-accent) 55%,transparent);animation:zrScan 2.6s ease-in-out infinite}
 @keyframes zrScan{0%{top:2%}50%{top:98%}100%{top:2%}}
 .zr-sh{background:linear-gradient(90deg,rgba(255,255,255,.45) 0%,#fff 50%,rgba(255,255,255,.45) 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:zrSweep 2.2s linear infinite}
 @keyframes zrSweep{from{background-position:200% 0}to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.zr-scan,.zr-sh{animation:none}}`;
 
-// The compare: both pictures fill the SAME box (identical aspect), the enlarged one on top clipped to the
-// left of the divider. Dragging moves the clip; the pictures never move, so the eye reads the difference at
-// one spot. Pointer capture keeps the drag alive past the divider's own 2px.
-// The box is SIZED to the picture: its stage is measured (ResizeObserver) and the picture's ratio fitted
-// into it in px — CSS alone cannot do it (an aspect-ratio box under a percentage max-height inside a flex
-// centre collapses or breaks the ratio), and object-contain on a full-size box left letterbox bands that
-// read as a frame on the shot (2026-09-02, both themes).
-// The full-size button and the readout are SIBLINGS of the slider, never children: axe's nested-interactive
-// failed the box in CI the first time (a button inside role="slider", 2026-09-02).
 const CAPTION_H = 22;
 function Compare({ before, after, ratio, caption, t, onOpen }) {
   const box = useRef(), stage = useRef(); const [x, setX] = useState(0.5); const [drag, setDrag] = useState(false);
@@ -44,8 +27,6 @@ function Compare({ before, after, ratio, caption, t, onOpen }) {
   useEffect(() => { if (ratio) setR(ratio); }, [ratio]);
   useEffect(() => {
     const el = stage.current; if (!el) return;
-    // narrow = the split column (360×340 showed the full "768×1024 → 3072×4096" clipped on the left): the
-    // readout demotes to the result alone, which is the number that matters
     const measure = () => { const b = el.getBoundingClientRect(); if (!b.width || !b.height || !r) return; const k = Math.min(b.width / r, Math.max(40, b.height - (caption ? CAPTION_H : 0))); setFit({ w: Math.round(k * r), h: Math.round(k), narrow: b.width < 300 }); };
     measure();
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null; ro?.observe(el);
@@ -82,11 +63,9 @@ export function zir({ S, toast }) {
   const working = st.phase === "working";
   const shown = st.out?.url || st.src || null;
   const ctx = { t, loc };
-  // a 1s tick only while something runs — the elapsed readout, nothing else re-renders for it
   const [, tick] = useState(0);
   useEffect(() => { if (!working) return; const id = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(id); }, [working]);
 
-  // the field's live channels: a plain object the shader reads every frame, never state
   const chan = useRef({ busy: 0, arrive: 0, ready: 0 }).current;
   useEffect(() => { chan.busy = working ? 1 : 0; }, [working]);
   useEffect(() => {
@@ -138,7 +117,7 @@ export function zir({ S, toast }) {
     <style>${CSS}</style>
     <${GlStage} shader=${new URL("zir.frag", import.meta.url)} seed=${0.37} tex=${shown} vary=${vary} texReady=${(r) => { chan.ready = r; }} zClass="z-0" />
 
-    ${/* the full-size look: the enlarged picture alone, pinch-zoomable by the browser, Back closes it */""}
+    ${""}
     ${screen === "view" && shown ? html`<div data-lightbox class="fixed inset-0 z-50 bg-black flex items-center justify-center" onClick=${() => S.screen.set(null)}>
       <img src=${shown} alt="" class="max-w-full max-h-full object-contain" />
       <button data-lightbox-close aria-label=${T(t, "view")} class="absolute top-3 right-3 btn btn-circle btn-sm bg-black/50 text-white border-0" onClick=${() => S.screen.set(null)}>${Icon("lucide:x", "text-base")}</button>
@@ -146,9 +125,7 @@ export function zir({ S, toast }) {
 
     <${Sheet} id="opts" open=${screen === "opts"} onClose=${() => S.screen.set(null)} title=${T(t, "options")} icon="lucide:sliders-horizontal" locale=${loc}>
       <div class="flex flex-col gap-[var(--ms-gap)]">
-        ${/* The model: the owner's choice, not the back end's. "Auto" is the measured cascade; every other pill is
-             a Space the edge can run NOW — green = HF says RUNNING, grey = HF could not say; a dead one is
-             never offered. Fetched when this sheet opens, re-probed on demand. */""}
+        ${""}
         <div class="flex items-center justify-between gap-2">
           <div class=${label}>${T(t, "model")}</div>
           <button data-models-check aria-label=${T(t, "modelCheck")} class="btn btn-ghost btn-xs btn-circle text-base-content/70" disabled=${models.loading} onClick=${() => M.loadModels(true)}>${Icon("lucide:refresh-cw", `text-base ${models.loading ? "animate-spin" : ""}`)}</button>
@@ -168,9 +145,7 @@ export function zir({ S, toast }) {
             items=${[{ id: "hd", label: T(t, "qHd"), icon: "lucide:gem" }, { id: "fast", label: T(t, "qFast"), icon: "lucide:zap" }]} />
           <button data-opts aria-label=${T(t, "options")} class=${`${tool} ${modelSel !== "auto" ? "ring-1 ring-[var(--app-accent)]" : ""}`} onClick=${() => { M.loadModels(); S.screen.set("opts"); }}>${Icon("lucide:sliders-horizontal", "text-lg")}</button>
         </div>
-        ${/* The action row: `.btn` never shrinks, so in the side-by-side shapes the island cannot fit four circles
-             AND a worded pill — the word demotes below 20rem of island (the icon is the eye, the same one the
-             tab wears), which is what the 412×430 and 360×340 shots showed clipped (2026-09-02). */""}
+        ${""}
         <div class="@container flex items-center gap-1.5 min-w-0">
           ${st.src ? html`<button data-new aria-label=${T(t, "newPhoto")} class=${tool} disabled=${working} onClick=${M.clearSource}>${Icon("lucide:image-plus", "text-lg")}</button>` : null}
           ${hasResult ? html`<${Fragment}>

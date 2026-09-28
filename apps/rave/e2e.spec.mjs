@@ -1,6 +1,3 @@
-// Three tabs, one lean engine (module scope). The FX rack + reverb are on the shared master bus (built once),
-// voices are light → no throttle. Generator = the unit-tested /_rt/groove.js search. FX settings live in a
-// history-backed sheet (system Back closes it).
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-style]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -21,13 +18,13 @@ export default [
       h.expect((await h.count("[data-viztick]")) === 10, "перемикач не має 10 варіантів");
       await h.tap('[data-viztick="4"]'); await h.wait(150);
       h.expect((await h.attr('[data-viztick="4"]', "aria-current")) === "true", "варіант спектра не перемкнувся");
-      await h.tap('[data-viztick="0"]'); await h.wait(120);                 // restore default scene for later shared-page cases
+      await h.tap('[data-viztick="0"]'); await h.wait(120);
     },
   },
   {
     name: "генератор пише біт", run: async (h) => {
       await ready(h);
-      await h.tap("#gen"); await h.wait(700);   // the write-on sweep is ~420ms
+      await h.tap("#gen"); await h.wait(700);
       h.expect((await h.count("[data-viz] > div")) === 16, "візуалізатор зник після генерації");
     },
   },
@@ -43,19 +40,16 @@ export default [
   {
     name: "налаштування переживають перезапуск", run: async (h) => {
       await ready(h);
-      await h.tap('[data-style="house"]'); await h.wait(200);              // house = 124 BPM, not the techno/132 default
+      await h.tap('[data-style="house"]'); await h.wait(200);
       h.expect((await h.attr('[data-style="house"]', "aria-pressed")) === "true", "house не обрався");
       await h.reload();
       await ready(h);
       h.expect((await h.attr('[data-style="house"]', "aria-pressed")) === "true", "стиль не зберігся після перезапуску");
       h.expect(/124\s*BPM/i.test(await h.bodyText()), "темп не зберігся після перезапуску");
-      await h.tap('[data-style="techno"]'); await h.wait(150);             // restore the default so later shared-page cases start clean
+      await h.tap('[data-style="techno"]'); await h.wait(150);
     },
   },
   {
-    // Same shape as the settings-sheet case: conditions, not clocks. A fixed 250ms after #save + 300ms after
-    // the tab switch was not always enough for the saved list to mount under CI load — "збережений біт не
-    // зʼявився" flaked on a farm-wide run (2026-08-18) with no rave change in the diff. Poll for each state.
     name: "матриця 22x16: редагування + збереження", run: async (h) => {
       const until = async (cond, ms = 4000) => { for (let i = 0; i < ms / 100; i++) { if (await cond()) return true; await h.wait(100); } return cond(); };
       await h.click('[data-tab="pads"]');
@@ -72,7 +66,7 @@ export default [
   {
     name: "збереження генерованого біта названо за жанром, не «Біт»", run: async (h) => {
       await ready(h);
-      await h.tap("#gen"); await h.wait(700);          // generate → archetype provenance is set
+      await h.tap("#gen"); await h.wait(700);
       await h.tap("#save"); await h.wait(250);
       await h.click('[data-tab="saved"]'); await h.wait(300);
       const name = (await h.text("[data-saved] .font-semibold")).trim();
@@ -81,9 +75,6 @@ export default [
     },
   },
   {
-    // No fixed sleeps here: the pads tab mounts a 22×16 matrix plus the transport, and under CI load 200ms
-    // was sometimes not enough for [data-settings] to exist — the tap landed on nothing and "sheet не
-    // відкрився" flaked (2026-08-18, twice on farm-wide runs). Wait for the element, then for the state.
     name: "налаштування: sheet, Back закриває", run: async (h) => {
       const until = async (cond, ms = 4000) => { for (let i = 0; i < ms / 100; i++) { if (await cond()) return true; await h.wait(100); } return cond(); };
       await h.click('[data-tab="pads"]');

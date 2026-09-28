@@ -1,16 +1,3 @@
-// microspec runtime — SIGIL: deterministic sigil geometry from a statement of intent (SYSTEMIC, pure math).
-//
-// Two authentic historical techniques, composed (see apps/sigil/RESEARCH.md for sources):
-//   • Spare distillation — strip vowels + repeated consonants from the intent (chaos-magic method, 1913).
-//   • Agrippa kamea trace — map the distilled letters to numbers, locate each on a planetary MAGIC SQUARE,
-//     and connect the cell-centres in order into one continuous line (the classical planetary-sigil method,
-//     De Occulta Philosophia II, 1533).
-// The intent's hash picks a PLANET (Saturn 3×3 … Moon 9×9 — the traditional orders), so geometry varies and
-// each sigil carries an attribution. Everything here is pure + deterministic + unit-tested — never in an app
-// (depth lives in the runtime, like groove.js / astro.js). The three.js forging (apps/sigil/viz.js) and the
-// Canvas2D fallback both consume `sigilPath()`.
-
-// ---- planets: order (kamea side) + the astro.js body key. The 7 classical, by their traditional number. ----
 export const PLANETS = [
   { key: "saturn", order: 3 },
   { key: "jupiter", order: 4 },
@@ -21,19 +8,17 @@ export const PLANETS = [
   { key: "moon", order: 9 },
 ];
 
-// ---- letters: Unicode-aware, Latin + Ukrainian. Vowels are struck (Spare); Й/Y count as consonants. ----
 const VOWELS = new Set([..."AEIOU", ..."АЕЄИІЇОУЮЯ"]);
-const UA = "АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ";           // rank table for Cyrillic
+const UA = "АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ";
 const isLetter = (ch) => /\p{L}/u.test(ch);
-function rank(ch) {                                        // a stable 0-based alphabet index for the value map
+function rank(ch) {
   const code = ch.codePointAt(0);
-  if (code >= 65 && code <= 90) return code - 65;          // A..Z → 0..25
+  if (code >= 65 && code <= 90) return code - 65;
   const ui = UA.indexOf(ch);
-  if (ui >= 0) return ui;                                  // Ukrainian
-  return code % 97;                                        // any other letter — deterministic fallback
+  if (ui >= 0) return ui;
+  return code % 97;
 }
 
-// FNV-1a 32-bit — a small deterministic string hash for planet attribution + a viz seed.
 export function hash32(str) {
   let h = 0x811c9dc5;
   for (const ch of str) { h ^= ch.codePointAt(0); h = Math.imul(h, 0x01000193); }
@@ -42,8 +27,6 @@ export function hash32(str) {
 
 export const normalize = (intent) => Array.from(String(intent || "").toUpperCase()).filter(isLetter);
 
-// Spare: keep first occurrence of each consonant, in order. Falls back to unique-of-all-letters if the intent
-// is all vowels, so we never return nothing for a real phrase.
 export function distill(intent) {
   const letters = normalize(intent);
   if (!letters.length) return [];
@@ -55,10 +38,9 @@ export function distill(intent) {
   return all.length ? all : letters.slice(0, 1);
 }
 
-// ---- magic squares (kameas) ----
 export const magicConstant = (n) => (n * (n * n + 1)) / 2;
 
-function siamese(n) {                                      // odd order (De la Loubère)
+function siamese(n) {
   const sq = Array.from({ length: n }, () => Array(n).fill(0));
   let r = 0, c = (n / 2) | 0;
   for (let k = 1; k <= n * n; k++) {
@@ -69,7 +51,7 @@ function siamese(n) {                                      // odd order (De la L
   }
   return sq;
 }
-function doublyEven(n) {                                   // order % 4 === 0 (diagonal-complement)
+function doublyEven(n) {
   const sq = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => i * n + j + 1));
   for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
     const a = i % 4, b = j % 4;
@@ -77,7 +59,6 @@ function doublyEven(n) {                                   // order % 4 === 0 (d
   }
   return sq;
 }
-// The canonical Agrippa Sun kamea (order 6 — the singly-even case; hard-coded to avoid a Strachey bug). Magic.
 const SUN6 = [
   [6, 32, 3, 34, 35, 1],
   [7, 11, 27, 28, 8, 30],
@@ -107,13 +88,11 @@ export function isMagic(sq) {
   }
   if (d1 !== want || d2 !== want) return false;
   if (cols.some((c) => c !== want)) return false;
-  return seen.size === n * n;                              // a permutation of 1..n²
+  return seen.size === n * n;
 }
 
-// value(letter) → a cell number in 1..order²  (alphabet rank, wrapped into the square)
 const letterValue = (ch, order) => (((rank(ch) % (order * order)) + order * order) % (order * order)) + 1;
 
-// ---- Catmull-Rom sampler (pure) — the 2D fallback + thumbnails share this; three.js has its own Curve3. ----
 export function smooth(pts, steps = 14) {
   if (pts.length < 3) return pts.slice();
   const out = [];
@@ -131,8 +110,6 @@ export function smooth(pts, steps = 14) {
   return out;
 }
 
-// Main entry. intent:string → the full sigil geometry, or null for an empty/letter-less intent.
-// Coordinates live in a [-1,1] plane, y up; the whole trace is normalized to fit within a centred box.
 export function sigilPath(intent) {
   const letters = distill(intent);
   if (!letters.length) return null;
@@ -142,11 +119,9 @@ export function sigilPath(intent) {
   const order = planet.order;
   const sq = squareFor(order);
 
-  // index each value → [row, col]
   const at = new Map();
   for (let i = 0; i < order; i++) for (let j = 0; j < order; j++) at.set(sq[i][j], [i, j]);
 
-  // cell centre in [-1,1], y up; a small inset so end-marks/nodes never rim-hug
   const span = 1.62, cell = span / order;
   const centre = (r, c) => ({ x: -span / 2 + (c + 0.5) * cell, y: span / 2 - (r + 0.5) * cell });
 
@@ -155,29 +130,24 @@ export function sigilPath(intent) {
     const [r, c] = at.get(letterValue(ch, order));
     const p = centre(r, c);
     const prev = raw[raw.length - 1];
-    if (prev && prev.x === p.x && prev.y === p.y) continue;  // dedupe consecutive identical cells (curve safety)
+    if (prev && prev.x === p.x && prev.y === p.y) continue;
     cells.push([r, c]); raw.push(p);
   }
   if (raw.length < 2) { raw.push({ x: 0, y: 0 }); cells.push([(order / 2) | 0, (order / 2) | 0]); }
 
-  // all cell centres — the faint kamea lattice the viz dims/flares; `on` marks a cell the trace strikes
   const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
   const nodes = [];
   for (let i = 0; i < order; i++) for (let j = 0; j < order; j++) nodes.push({ ...centre(i, j), v: sq[i][j], on: cellSet.has(`${i},${j}`) });
 
-  // FIT the composition: centre on the path's bounding box and scale it to fill the frame, so every sigil —
-  // whatever cells its intent happens to strike — sits centred and prominent (not tucked in a corner). The
-  // lattice + marks share the transform so visited nodes stay aligned; off-frame context dots simply clip.
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of raw) { minX = Math.min(minX, p.x); minY = Math.min(minY, p.y); maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y); }
   const cX = (minX + maxX) / 2, cY = (minY + maxY) / 2;
   const half = Math.max(0.18, (maxX - minX) / 2, (maxY - minY) / 2);
-  const scale = Math.min(1.7, 0.82 / half);                 // fill the box; cap so a 2-cell glyph doesn't over-zoom
+  const scale = Math.min(1.7, 0.82 / half);
   const fit = (p) => ({ ...p, x: (p.x - cX) * scale, y: (p.y - cY) * scale });
   const fRaw = raw.map(fit), fNodes = nodes.map(fit);
   const fCell = cell * scale;
 
-  // traditional marks: start ring + perpendicular end bar (in fitted space)
   const a = fRaw[fRaw.length - 2], b = fRaw[fRaw.length - 1];
   const endAngle = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2;
   return {

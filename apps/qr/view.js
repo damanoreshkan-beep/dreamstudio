@@ -1,11 +1,3 @@
-// QR Scanner — safe-link-preview philosophy. A QR hides where it points, and that is exactly how quishing
-// works. So this never auto-opens: it decodes, then holds the result in a preview DIRECTLY BELOW the camera
-// aperture — the host that matters, the full URL, and a colour-coded verdict — and lets YOU decide. The
-// safety logic (/_rt/urlsafe.js, unit-tested) runs the same on the phone and in the headless gate, where
-// there is no camera so we seed a decoded string and analyse it. Decode is native BarcodeDetector first;
-// jsQR (bundled, offline, same-origin) is the lazy fallback for browsers without it (iOS Safari, Firefox).
-// The stream itself is not ours: the kit's CamStage owns the priming, the lifecycle and the wake lock, and
-// hands the playing element to `onVideo` — we only sample it.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -18,14 +10,10 @@ import { MOCK, gate } from "/_rt/gate.js";
 import { Island } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
 const MONO = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider";
 const LABEL = `${MONO} text-base-content/70`;
-// Gate/mock seed: a real-world scary-but-common code — a shortener, which HIDES its destination → a caution.
-// ?mock=<raw> seeds any string, so the danger/wifi/safe states are all shootable.
 const seedRaw = MOCK && MOCK !== "1" && MOCK !== "" ? MOCK : "https://bit.ly/3xR2k9q";
 
-// decode(video, canvas) → the raw string in frame, or null. Draw once, try the native detector, else jsQR.
 let _detector, _jsQR, _noBD = false;
 async function decode(video, canvas) {
   const w = 360, h = Math.max(240, Math.round(360 * ((video.videoHeight || 4) / (video.videoWidth || 3))));
@@ -34,18 +22,16 @@ async function decode(video, canvas) {
   ctx.drawImage(video, 0, 0, w, h);
   if (!_noBD && "BarcodeDetector" in window) {
     try { _detector ||= new window.BarcodeDetector({ formats: ["qr_code"] }); const c = await _detector.detect(canvas); return c[0]?.rawValue || null; }
-    catch { _noBD = true; }                                            // detector unusable on this device → jsQR from here on
+    catch { _noBD = true; }
   }
   if (!_jsQR) _jsQR = (await import("./jsqr.js")).default;
   const res = _jsQR(ctx.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: "attemptBoth" });
   return res?.data || null;
 }
 
-const OPENABLE = new Set(["url", "scheme", "tel", "mailto", "sms", "geo"]);   // never "code" (would execute), text, wifi, contact
+const OPENABLE = new Set(["url", "scheme", "tel", "mailto", "sms", "geo"]);
 const KIND_KEY = { wifi: "kWifi", tel: "kTel", mailto: "kMailto", sms: "kSms", geo: "kGeo", contact: "kContact", text: "kText", code: "kCode", scheme: "kScheme" };
 const FLAG_KEY = { insecure: "fInsecure", shortener: "fShortener", "mixed-script": "fMixed", userinfo: "fUserinfo", "code-scheme": "fCode", punycode: "fPunycode", "ip-host": "fIp", "no-scheme": "fNoScheme", "non-web-scheme": "fNonWeb", "otp-secret": "fOtp" };
-// The frame's corners sit ON the camera feed — a picture, never the theme — so the idle frame is white in both
-// themes; a verdict re-inks them with the theme's meaning colour (success / warning / error).
 const EDGE_IDLE = "#fff";
 const VERDICT = {
   safe: { key: "vSafe", icon: "lucide:shield-check", chip: "bg-success/15 text-success", edge: "var(--color-success)" },
@@ -57,12 +43,11 @@ const VERDICT = {
 export function qr({ S, toast }) {
   const t = useStore(S.t), loc = useStore(S.locale);
   const [result, setResult] = useState(gate ? analyzeQR(seedRaw) : null);
-  const [source, setSource] = useState(null);                        // the playing element CamStage hands out
+  const [source, setSource] = useState(null);
   const [ready, setReady] = useState(false);
   const canvasRef = useRef(), scanRef = useRef(!gate);
-  useEffect(() => { scanRef.current = !result; }, [result]);          // a held result pauses sampling; "scan again" resumes
+  useEffect(() => { scanRef.current = !result; }, [result]);
 
-  // sampling: four frames a second off whatever CamStage plays; under the gate it never plays and the seed stands
   useEffect(() => {
     if (!source) return;
     let live = true, busy = false;
@@ -71,14 +56,14 @@ export function qr({ S, toast }) {
       if (!cv || source.readyState < 2 || !scanRef.current || busy) return;
       busy = true;
       try { const raw = await decode(source, cv); if (raw && live && scanRef.current) { scanRef.current = false; setResult(analyzeQR(raw)); haptic.bump?.(); } }
-      catch { /* transient decode */ } finally { busy = false; }
+      catch { } finally { busy = false; }
     };
     const timer = setInterval(tick, 250);
     return () => { live = false; clearInterval(timer); };
   }, [source]);
 
-  const openIt = () => { if (!result) return; try { if (result.kind === "url") window.open(result.url, "_blank", "noopener,noreferrer"); else location.href = result.raw; } catch { /* blocked */ } };
-  const copyIt = async () => { const v = result?.url || result?.value || result?.raw || ""; try { await navigator.clipboard.writeText(v); toast?.(T(t, "copied")); } catch { /* clipboard blocked */ } };
+  const openIt = () => { if (!result) return; try { if (result.kind === "url") window.open(result.url, "_blank", "noopener,noreferrer"); else location.href = result.raw; } catch { } };
+  const copyIt = async () => { const v = result?.url || result?.value || result?.raw || ""; try { await navigator.clipboard.writeText(v); toast?.(T(t, "copied")); } catch { } };
   const again = () => setResult(null);
 
   const V = result ? VERDICT[result.verdict] : null;
@@ -89,17 +74,13 @@ export function qr({ S, toast }) {
 
   return html`<div class="ms-stage z-20 flex flex-col" data-verdict=${result ? result.verdict : "idle"} data-kind=${result ? result.kind : ""}>
     <!-- camera aperture -->
-    ${/* Everything in the aperture sits on the FEED: the black ground, the half-black scrim around the frame
-         (a box-shadow spread, not a material shadow) and the corner marks are picture colours in both themes.
-         The stage takes the PINCH and not the tap (owner, 2026-09-07): bringing a far, small code close is
-         worth a gesture, while a focus ring drawn inside the aperture reads as "code caught" and would lie
-         about a scan that has not happened. */""}
+    ${""}
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
       <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")}
           show=${true} fullscreen=${false} gestures=${false} pinch=${true} primeFull=${true}
           onVideo=${(el) => setSource(el)} onState=${(s) => setReady(s.ready)}
           className="flex items-center justify-center">
-        ${/* the gate has no camera: a flat neutral frame stands in for the feed */""}
+        ${""}
         ${gate ? html`<div class="absolute inset-0 bg-neutral" aria-hidden="true"></div>` : null}
         ${ready ? html`<div class="relative z-[2]" data-aperture style="width:min(64vw,15rem);aspect-ratio:1">
           <div class="absolute inset-0 rounded-[var(--ms-r)]" style=${`box-shadow:0 0 0 100vmax rgba(0,0,0,.5)`}></div>

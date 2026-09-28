@@ -1,8 +1,3 @@
-// Поголос — a BLE mesh chat with no transport in a browser, so under the gate mesh.js runs its own
-// deterministic mock (gate ⇒ startMock): 2 neighbours nearby, a short PUBLIC thread, one PRIVATE thread.
-// The seeded MESSAGES are data, not UI, so their text is the same in both locales — the regexes read them.
-// Screen set: Поруч (map) · Публічний (public feed) · Особисті (DM list/thread) · Логи · Я.
-
 const mapReady = async (h) => { for (let i = 0; i < 25; i++) { if ((await h.count('[data-me]')) > 0) break; await h.wait(200); } };
 const nodesReady = async (h) => { for (let i = 0; i < 25; i++) { if ((await h.count('[data-node]')) > 0) break; await h.wait(200); } };
 const feedReady = async (h) => { for (let i = 0; i < 25; i++) { if ((await h.count('[data-mine]')) > 0) break; await h.wait(200); } };
@@ -17,7 +12,6 @@ export default [
       h.expect((await h.count('[data-me]')) === 1, "немає власного вузла на карті");
       await nodesReady(h);
       h.expect((await h.count('[data-node]')) >= 1, "на карті немає точок сусідів");
-      // the map is discovery, not the public feed — the broadcast composer lives in «Публічний» now
       h.expect((await h.count('[data-say]')) === 0, "публічне поле вводу не має бути на карті");
     },
   },
@@ -27,7 +21,6 @@ export default [
       await h.click('[data-tab="dm"]');
       await h.wait(400);
       h.expect((await h.count('[data-peer]')) === 2, "у списку не 2 сусіди");
-      // a454 has a seeded incoming private line and was never opened → exactly one unread row
       h.expect((await h.count('[data-unread="1"]')) === 1, "немає позначки непрочитаного на тому, хто написав");
       await h.tap('[data-peer][data-unread="1"]');
       await h.wait(300);

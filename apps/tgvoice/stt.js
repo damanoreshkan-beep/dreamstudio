@@ -1,38 +1,14 @@
-// apps/tgvoice — offline speech-to-text engine + model management.
-//
-// The heavy lifting is NOT here: transcription runs in the vendored sherpa-onnx WebAssembly runtime
-// (assets/sherpa-onnx-wasm-web.{js,wasm}, built by tools/wasm/tgvoice — a model-agnostic build that loads an
-// ONNX into its own filesystem at runtime). This module owns everything around it: the per-language model
-// registry, decoding a Telegram Ogg/Opus note to 16 kHz mono PCM, downloading+caching each model once, and
-// the auto-language flow (run the head of the clip through each downloaded model, then pick by orthography —
-// /_rt/langid.js). The math that can be wrong offline (language pick) lives in the runtime and is unit
-// tested; the browser glue (AudioContext, WASM, Cache) is exercised by the Chromium gate.
-//
-// Until the CI-built engine binary is committed, engineAvailable() is false and the UI degrades honestly —
-// exactly how a sensor app behaves without its hardware. Under the gate every path returns a fixture.
-
 import { detect } from "/_rt/langid.js";
 import { gate } from "/_rt/gate.js";
 import { log, mark } from "./log.js";
 
 const assetURL = (f) => new URL(`./assets/${f}`, import.meta.url).href;
 
-// One-time head window used for auto-language: enough speech to read the orthography, cheap to decode ×3.
 export const LID_HEAD_SEC = 8;
-export const MODEL_ROOT_FS = "/models";     // where models are written inside the WASM filesystem
+export const MODEL_ROOT_FS = "/models";
 
-// The three models. `type` selects the sherpa config shape; `files` are fetched once and cached. Every file
-// is served by Hugging Face, whose resolve/ endpoint answers ACAO for our origin (measured — GitHub release
-// assets send NO CORS, which is why the models are pulled from HF mirrors, not the sherpa releases). The
-// file KEYS are the config field names buildRecognizer() maps; `src` is the exact HF filename.
 const HF = "https://huggingface.co";
 export const MODELS = {
-  // uk model history, each step MEASURED (see RESEARCH.md): Yehor's Citrinet INT8 → no sherpa metadata,
-  // NULL recognizer, silent empty text. csukuangfj2's Moonshine v2 base-uk → .ort files ABORT session
-  // creation in our engine (repro'd byte-identically in Deno: throw ptr 18416256; the same graph as .onnx
-  // works, so the .ort loader path is the problem). Current: Moonshine v2 tiny-uk in plain .onnx
-  // (onnx-community), with the base-uk tokens.txt — same tokenizer family, PROVEN by a clean Ukrainian
-  // transcript with punctuation on the reference wav in the Deno repro.
   uk: {
     label: "Українська", type: "moonshine2", approxMB: 120,
     files: {
@@ -42,7 +18,6 @@ export const MODELS = {
     },
   },
   ru: {
-    // Zipformer transducer; the decoder ships un-quantized (decoder.onnx), the encoder/joiner are int8.
     label: "Русский", type: "transducer", approxMB: 71,
     files: {
       encoder: `${HF}/csukuangfj/sherpa-onnx-zipformer-ru-int8-2025-04-20/resolve/main/encoder.int8.onnx`,
@@ -65,15 +40,8 @@ export const MODELS = {
 
 export const LANGS = Object.keys(MODELS);
 
-// Every URL is already absolute (Hugging Face); kept as a seam so a future host swap is one function.
 const resolveUrl = (u) => u;
 
-// ---- decoding the voice note ------------------------------------------------
-
-// Telegram voice = Ogg/Opus, 48 kHz. decodeAudioData decodes the whole file and resamples to the context's
-// rate, so an AudioContext at 16 kHz gives 16 kHz frames directly; we down-mix to mono and, if a build
-// ignored the ctor rate, resample through an OfflineAudioContext. Accept .ogg/.oga/.opus and any/empty MIME
-// — Chromium sniffs the container; the declared type is only the sender's claim.
 export async function decodePcm16k(arrayBuffer, headSeconds = 0) {
   const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!AC) throw new Error("no AudioContext");
@@ -107,11 +75,8 @@ async function resampleTo16k(mono, srcRate) {
   return rendered.getChannelData(0);
 }
 
-// ---- model download + cache -------------------------------------------------
-
 const CACHE = "tgvoice-models-v1";
 
-// Fetch one file, streaming progress, cached forever after the first success. Returns the bytes.
 async function fetchCached(url, onProgress) {
   const abs = resolveUrl(url);
   const cache = await caches.open(CACHE);
@@ -119,8 +84,6 @@ async function fetchCached(url, onProgress) {
   if (hit) return new Uint8Array(await hit.arrayBuffer());
   const res = await fetch(abs);
   if (!res.ok) throw new Error(`fetch ${res.status}`);
-  // Stream so the UI shows real MB, not a spinner (no-spinner rule). Content-Length may be absent on a
-  // chunked response — then progress is byte count without a total, still honest.
   const total = Number(res.headers.get("content-length")) || 0;
   const reader = res.body.getReader();
   const chunks = []; let got = 0;
@@ -163,8 +126,6 @@ export async function ensureModel(lang, onFraction) {
   return bytes;
 }
 
-// ---- the engine (the guarded sherpa seam) -----------------------------------
-
 let enginePromise = null;
 
 /** Has the vendored WASM engine been built and committed? False until CI produces it. */
@@ -174,9 +135,6 @@ export async function engineAvailable() {
   catch { return false; }
 }
 
-// Two classic scripts, loaded once and read off the global: the Emscripten MODULARIZE factory
-// (`var SherpaOnnx`, EXPORT_NAME) and sherpa's high-level wrapper (which publishes `OfflineRecognizer` +
-// the `initSherpaOnnx*` helpers). locateFile points the factory at our asset dir so it finds the .wasm.
 function loadScript(src) {
   return new Promise((resolve, reject) => {
     const s = document.createElement("script");
@@ -189,14 +147,10 @@ function loadEngine() {
   if (enginePromise) return enginePromise;
   enginePromise = (async () => {
     log("engine: loading scripts");
-    await loadScript(assetURL("sherpa-onnx-asr.js"));            // globals: OfflineRecognizer + helpers
-    await loadScript(assetURL("sherpa-onnx-wasm-web.js"));       // global: SherpaOnnx (the wasm factory)
-    // THE heavy allocation: the wasm factory commits its whole INITIAL_MEMORY heap here. If the renderer
-    // dies at this point, the mark survives in localStorage and the next boot names this step.
+    await loadScript(assetURL("sherpa-onnx-asr.js"));
+    await loadScript(assetURL("sherpa-onnx-wasm-web.js"));
     mark("engine");
     log("engine: instantiating wasm");
-    // Route the engine's own stdout/stderr into the flight recorder: a model that fails to load says WHY
-    // only there (SHERPA_ONNX_LOGE), and on a phone there is no devtools console to see it in.
     const Module = await globalThis.SherpaOnnx({
       locateFile: (p) => assetURL(p),
       print: (s) => log(`wasm: ${s}`),
@@ -210,12 +164,9 @@ function loadEngine() {
   return enginePromise;
 }
 
-// Write one model's files into the WASM filesystem and build the matching offline recognizer. The config
-// shape is per model type (verified against sherpa's sherpa-onnx-asr.js at v1.13.6): a NeMo CTC names one
-// `nemoCtc.model`; a zipformer transducer names encoder/decoder/joiner; moonshine names its four parts.
 async function buildRecognizer(Module, lang, files) {
   const dir = `${MODEL_ROOT_FS}/${lang}`;
-  try { Module.FS.mkdirTree(dir); } catch { /* exists */ }
+  try { Module.FS.mkdirTree(dir); } catch { }
   const paths = {};
   for (const [key, bytes] of Object.entries(files)) {
     const p = `${dir}/${key}.bin`;
@@ -232,17 +183,10 @@ async function buildRecognizer(Module, lang, files) {
     featConfig: { sampleRate: 16000, featureDim: 80 },
     modelConfig, decodingMethod: "greedy_search",
   }, Module);
-  // A model sherpa refused (bad file, missing metadata) returns a NULL recognizer, and the wrapper does not
-  // check — every later call then "succeeds" with empty text. The uk Citrinet without sherpa metadata
-  // burned a whole device round on exactly this silent shape.
-  if (!rec.handle) { try { rec.free(); } catch { /* */ } throw new Error(`modelInit:${lang}`); }
+  if (!rec.handle) { try { rec.free(); } catch { } throw new Error(`modelInit:${lang}`); }
   return rec;
 }
 
-// ONE recognizer alive at a time, freed (and its MEMFS files unlinked) the moment its run ends. The first
-// version cached all three — 512MB heap + three ONNX sessions + 150MB of model files — and Android killed
-// the renderer for it: the page reloaded mid-share and the app read as "nothing happened". Rebuilding a
-// session per run costs seconds; being alive costs nothing.
 async function withRecognizer(lang, files, fn) {
   const Module = await loadEngine();
   mark(`recognizer-${lang}`);
@@ -254,18 +198,15 @@ async function withRecognizer(lang, files, fn) {
     mark(null);
     return out;
   } finally {
-    try { rec.free(); } catch { /* already gone */ }
+    try { rec.free(); } catch { }
     try {
       const dir = `${MODEL_ROOT_FS}/${lang}`;
       for (const f of Module.FS.readdir(dir)) if (f !== "." && f !== "..") Module.FS.unlink(`${dir}/${f}`);
-    } catch { /* MEMFS cleanup is best-effort */ }
+    } catch { }
     log(`recognizer ${lang}: freed`);
   }
 }
 
-// Offline models are built for SHORT utterances — Moonshine's envelope is ~1 minute, and a 9-minute
-// Telegram voice killed the decoder outright (measured: `run FAILED: <wasm abort ptr>` at 548s). Long audio
-// is transcribed in windows and joined; 45s sits comfortably inside every model's envelope.
 export const CHUNK_SEC = 45;
 async function runOne(rec, pcm, onChunk) {
   const win = CHUNK_SEC * 16000;
@@ -282,18 +223,12 @@ async function runOne(rec, pcm, onChunk) {
     onChunk?.(done / pcm.length);
     if (done < pcm.length) {
       log(`chunk ${(done / 16000) | 0}/${(pcm.length / 16000) | 0}s`);
-      // Yield between chunks: each chunk is one long synchronous WASM call, and without this the UI (and
-      // the bridge frames carrying the progress notification) freeze for the whole clip.
       await new Promise((r) => setTimeout(r, 0));
     }
   }
   return parts.join(" ").trim();
 }
 
-// ---- the two things the view calls ------------------------------------------
-
-// Gate fixtures: a deterministic Ukrainian transcript so preflight/e2e/shots see a populated result screen
-// without a WASM engine or a network. The words carry uk-only letters so the fixture is self-consistent.
 const FIXTURE = {
   uk: "привіт це тестове голосове повідомлення з телеграму все працює офлайн",
   ru: "привет это тестовое голосовое сообщение из телеграма всё работает офлайн",
@@ -327,15 +262,11 @@ export async function transcribe(arrayBuffer, lang, onStage) {
     return { text, lang, ambiguous: false };
   }
 
-  // AUTO: only the languages already downloaded take part — auto must not silently pull 126 MB. The caller
-  // is expected to have offered "download all" first; with one model cached this degenerates to that model.
   const avail = [];
   for (const l of LANGS) if (await isModelCached(l)) avail.push(l);
   if (!avail.length) throw new Error("noModels");
   log(`transcribe auto: start (${arrayBuffer.byteLength}b, models: ${avail.join(" ")})`);
 
-  // Decode ONCE; the LID head is a window into the same buffer. STRICTLY one recognizer alive at a time —
-  // probing all three concurrently is what used to OOM the renderer.
   onStage?.({ stage: "decodeHead" });
   mark("decode");
   const { pcm, durationSec } = await decodePcm16k(arrayBuffer);
@@ -349,13 +280,10 @@ export async function transcribe(arrayBuffer, lang, onStage) {
     onStage?.({ stage: "detect", lang: l });
     const files = await ensureModel(l);
     candidates[l] = await withRecognizer(l, files, (rec) => runOne(rec, head));
-    // Log SHAPE, never content: the flight recorder is meant to be copy-pasted for support, and a line
-    // quoting the transcript would carry the user's own words out with it.
     log(`detect ${l}: ${(candidates[l] || "").length} chars`);
   }
   const picked = detect(candidates);
   log(`detect: picked ${picked.lang} (conf ${picked.confidence.toFixed(2)}${picked.ambiguous ? ", ambiguous" : ""})`);
-  // If the head already covered the whole clip, its probe transcript IS the answer — no second run.
   if (wholeClip) return { text: candidates[picked.lang], lang: picked.lang, ambiguous: picked.ambiguous };
   onStage?.({ stage: "transcribe", lang: picked.lang });
   const files = await ensureModel(picked.lang);

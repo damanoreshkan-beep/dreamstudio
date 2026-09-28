@@ -1,7 +1,3 @@
-// microspec runtime — sync unit tests. The wire protocol is the contract both the client and the edge relay
-// hold (the edge keeps a mirror copy of these shapes — microspec-edge/edge/sync.js).
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { clampVol as syClampVol, packState as syPack, openState as syOpen, parseServer as syParse, syncDelay as syDelay, SYNC_URL as syUrl } from "../sync.js";
 

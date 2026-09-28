@@ -1,5 +1,3 @@
-// character cards: 1024 PNG master → 256 webp q80, opaque on its black ground, into <out-dir>/ch-<id>.webp
-//   deno run -A docs/research/mascot-tools/cards.mjs <png-dir> <out-dir>
 import { encode as encodeWebp } from "npm:@jsquash/webp@1.4.0";
 import { initWasm, Resvg } from "npm:@resvg/resvg-wasm@2.6.2";
 await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm"));

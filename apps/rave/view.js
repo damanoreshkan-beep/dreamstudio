@@ -1,11 +1,3 @@
-// Rave — a techno groove box over ONE shared pattern + engine (module scope, so playback and the pattern
-// survive tab switches). Three tabs: Beat (the simple player + a generator), Pads (the full editable matrix +
-// a settings sheet), Saved (IndexedDB beats). Everything is SYNTHESISED. The power without the stutter: voices
-// are LIGHT (1–3 nodes/hit, no per-hit waveshaper, no per-hit reverb), while the FULL FX rack — drive, crush,
-// feedback delay, a single shared convolution reverb, a master filter and swing — lives on the master bus,
-// built ONCE. That shared bus is what the old build got wrong by rebuilding heavy nodes per hit. The generator
-// is the research-backed one (/_rt/groove.js: Euclidean rhythms, LHL syncopation, Witek's inverted-U,
-// harmonicity) picking a genre archetype and searching for the most danceable bar. Refs: MDN · Chris Wilson.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -25,9 +17,7 @@ import { holdAudio } from "/_rt/mediasession.js";
 import { bindAudio, enableImmersion, disableImmersion, immersionState, immersionAvailable, SpectrumStage, VIZ, VIZ_COUNT } from "./viz.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
-// The farm's mono micro-label. `length:` is load-bearing — a bare `text-[var(--ms-label)]` is a COLOUR to
-// Tailwind v4 and the caption renders at body size.
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const N = 16, STEPS = [...Array(N).keys()], ROOT = 36;
 const RIFF = [0, 0, 12, 0, 0, 7, 0, 3, 0, 0, 12, 0, 5, 0, 7, 0];
@@ -74,8 +64,6 @@ const PLAYER = [["techno", 132], ["acid", 130], ["house", 124], ["minimal", 126]
 const presetById = (id) => PRESETS.find((p) => p.id === id);
 const presetName = (id) => (presetById(id) || {}).name;
 
-// ---- generator archetypes: the app owns the taste (which voices per genre, legal onset counts), the runtime
-// owns the science (Euclidean search + groove scoring). See /_rt/groove.js. ----
 const V = (id, band, ks, rots, p, extra) => ({ id, band, ks, rots, p, ...extra });
 const K4 = V("kick", "low", [4], [0], 1);
 const ARCHETYPES = [
@@ -88,7 +76,6 @@ const ARCHETYPES = [
 ];
 const lerp = (rng, [lo, hi]) => lo + rng() * (hi - lo);
 
-// ---- FX rack (all on the shared master bus, built ONCE) ----
 const FX = [
   { id: "mfilter", label: "fxFilter", min: 0, max: 1, step: 0.02 },
   { id: "drive", label: "fxDrive", min: 0, max: 1, step: 0.02 },
@@ -103,35 +90,25 @@ const driveCurve = (a) => curveOf((x) => { const k = a * a * 80; return (1 + k) 
 const crushCurve = (a) => { const s = Math.max(2, Math.round(64 * (1 - a) + 2)); return curveOf((x) => Math.round(x * s) / s); };
 function makeIR(ctx, seconds = 1.3, decay = 3) { const len = Math.floor(ctx.sampleRate * seconds), buf = ctx.createBuffer(2, len, ctx.sampleRate); for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); } return buf; }
 
-// ---- shared state ----
-// The working set (pattern, tempo, FX rack, riff, genre, sample pack) PERSISTS across restarts under `rave:*`
-// — reopen the app and your last groove is exactly where you left it. Playback/generator state stays ephemeral
-// (a reload must not auto-play, replay the sweep, or restore a mid-flight step). One JSON codec for all values.
 const NS = "rave:";
 const JC = (initial) => ({ encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return initial; } } });
 const persisted = (key, initial) => persistentAtom(NS + key, initial, JC(initial));
 const $tracks = persisted("tracks", parse(presetById("techno"))), $bpm = persisted("bpm", 132), $fx = persisted("fx", { ...DFX }), $riff = persisted("riff", RIFF);
 const $style = persisted("style", 0);
-const $viz = persisted("viz", 0);                                // which of the ten 3D spectrum scenes is on the stage
+const $viz = persisted("viz", 0);
 const vizKey = (id) => "viz" + id.charAt(0).toUpperCase() + id.slice(1);
 const $playing = atom(false), $cur = atom(-1), $sweep = atom(-1), $hist = atom({ seeds: [], idx: -1 });
-// The archetype id the current groove was generated from (techno/acid/…), so a saved generated beat is named
-// after its genre, not the generic «Біт». null once the provenance is a preset pick or a loaded save.
-// Persisted alongside the working set so a restored generated groove keeps its genre name across restarts.
 const $gen = persisted("gen", null);
 const SAVES = collection("ravePatterns");
 
-// ---- engine (module scope) ----
 let eng = null, bus = null, fxN = null, sched = null, raf = null, nextT = 0, stepN = 0, q = [], genT = null;
-let analyser = null, freqBuf = null;   // FFT tap off the master bus → the 3D spectrum (viz.js). A pure observer.
-// ---- keep-alive: hold the screen on + own an OS media session so the beat survives backgrounding (both
-// module-scope, like the engine, so they persist across tab switches). See /_rt/mediasession.js. ----
+let analyser = null, freqBuf = null;
 let wl = null, np = null;
 const npTitle = () => { const id = (PLAYER[$style.get()] || PLAYER[0])[0]; return `${id[0].toUpperCase()}${id.slice(1)} · ${$bpm.get()} BPM`; };
 const artUrl = () => { try { return new URL("icons/icon-512.png", location.href).href; } catch { return null; } };
 const syncNP = () => { if (np) np.meta(npTitle()); };
 const filtHz = (v) => 200 * Math.pow(90, Math.max(0, Math.min(1, v)));
-function applyFx() { if (!fxN) return; const f = $fx.get(), t = eng.ctx.currentTime; fxN.drive.curve = driveCurve(f.drive); fxN.crush.curve = crushCurve(f.crush); try { fxN.dsend.gain.setTargetAtTime(f.delay, t, 0.03); fxN.rsend.gain.setTargetAtTime(f.reverb, t, 0.03); fxN.mf.frequency.setTargetAtTime(filtHz(f.mfilter), t, 0.03); } catch { /* */ } fxN.delay.delayTime.value = 3 * (60 / $bpm.get() / 4); }
+function applyFx() { if (!fxN) return; const f = $fx.get(), t = eng.ctx.currentTime; fxN.drive.curve = driveCurve(f.drive); fxN.crush.curve = crushCurve(f.crush); try { fxN.dsend.gain.setTargetAtTime(f.delay, t, 0.03); fxN.rsend.gain.setTargetAtTime(f.reverb, t, 0.03); fxN.mf.frequency.setTargetAtTime(filtHz(f.mfilter), t, 0.03); } catch { } fxN.delay.delayTime.value = 3 * (60 / $bpm.get() / 4); }
 function ensure() {
   if (!audioSupported) return null;
   if (!eng) {
@@ -147,8 +124,6 @@ function ensure() {
     crush.connect(dsend); dsend.connect(delay); delay.connect(df); df.connect(dfb); dfb.connect(delay); df.connect(sum);
     const rsend = ctx.createGain(); rsend.gain.value = 0; const rev = ctx.createConvolver(); rev.buffer = makeIR(ctx); crush.connect(rsend); rsend.connect(rev); rev.connect(sum);
     eng = e; bus = drive; fxN = { drive, crush, dsend, rsend, mf, delay }; applyFx();
-    // Tap the final mix for the spectrum: master → analyser is an observer branch (no onward connection), so
-    // it can never alter what you hear. fftSize 2048 (1024 bins) + a snappy smoothing constant for a beat.
     analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.7;
     freqBuf = new Uint8Array(analyser.frequencyBinCount); e.master.connect(analyser);
     bindAudio(() => { if (!analyser || !$playing.get()) return null; analyser.getByteFrequencyData(freqBuf); return freqBuf; });
@@ -157,30 +132,29 @@ function ensure() {
 }
 const setFx = (id, v) => { $fx.set({ ...$fx.get(), [id]: v }); applyFx(); };
 
-// ---- voices (all light, self-freeing, into the shared bus) ----
 const env = (g, t, peak, dur, a = 0.004) => { g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); };
 const oscAt = (c, type, f, t) => { const o = c.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); return o; };
-function drum(c, t, { f0, f1, pf, peak, dur, type = "sine" }) { const o = oscAt(c, type, f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + pf); const g = c.createGain(); env(g, t, peak, dur); o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.02); o.onended = () => { try { o.disconnect(); g.disconnect(); } catch { /* */ } }; }
-function nz(c, t, buf, { type, freq, q: Q, peak, dur, bursts = 1 }) { const s = c.createBufferSource(); s.buffer = buf; const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (Q != null) f.Q.value = Q; const g = c.createGain(); if (bursts > 1) { let tt = t; for (let i = 0; i < bursts; i++) { g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(peak, tt + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.05); tt += 0.02; } } else env(g, t, peak, dur); s.connect(f); f.connect(g); g.connect(bus); s.start(t); s.stop(t + dur + bursts * 0.02 + 0.02); s.onended = () => { try { s.disconnect(); f.disconnect(); g.disconnect(); } catch { /* */ } }; }
-function saws(c, t, freqs, { peak, dur, lp }) { const g = c.createGain(); env(g, t, peak, dur, 0.008); let out = g, flt = null; if (lp) { flt = c.createBiquadFilter(); flt.type = "lowpass"; flt.frequency.setValueAtTime(lp * 4, t); flt.frequency.exponentialRampToValueAtTime(lp, t + dur * 0.6); flt.Q.value = 8; g.connect(flt); out = flt; } out.connect(bus); const os = freqs.map((fr) => { const o = oscAt(c, "sawtooth", fr, t); o.connect(g); o.start(t); o.stop(t + dur + 0.02); return o; }); os[0].onended = () => { for (const o of os) { try { o.disconnect(); } catch { /* */ } } try { g.disconnect(); flt && flt.disconnect(); } catch { /* */ } }; }
+function drum(c, t, { f0, f1, pf, peak, dur, type = "sine" }) { const o = oscAt(c, type, f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t + pf); const g = c.createGain(); env(g, t, peak, dur); o.connect(g); g.connect(bus); o.start(t); o.stop(t + dur + 0.02); o.onended = () => { try { o.disconnect(); g.disconnect(); } catch { } }; }
+function nz(c, t, buf, { type, freq, q: Q, peak, dur, bursts = 1 }) { const s = c.createBufferSource(); s.buffer = buf; const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; if (Q != null) f.Q.value = Q; const g = c.createGain(); if (bursts > 1) { let tt = t; for (let i = 0; i < bursts; i++) { g.gain.setValueAtTime(0.0001, tt); g.gain.linearRampToValueAtTime(peak, tt + 0.003); g.gain.exponentialRampToValueAtTime(0.0001, tt + 0.05); tt += 0.02; } } else env(g, t, peak, dur); s.connect(f); f.connect(g); g.connect(bus); s.start(t); s.stop(t + dur + bursts * 0.02 + 0.02); s.onended = () => { try { s.disconnect(); f.disconnect(); g.disconnect(); } catch { } }; }
+function saws(c, t, freqs, { peak, dur, lp }) { const g = c.createGain(); env(g, t, peak, dur, 0.008); let out = g, flt = null; if (lp) { flt = c.createBiquadFilter(); flt.type = "lowpass"; flt.frequency.setValueAtTime(lp * 4, t); flt.frequency.exponentialRampToValueAtTime(lp, t + dur * 0.6); flt.Q.value = 8; g.connect(flt); out = flt; } out.connect(bus); const os = freqs.map((fr) => { const o = oscAt(c, "sawtooth", fr, t); o.connect(g); o.start(t); o.stop(t + dur + 0.02); return o; }); os[0].onended = () => { for (const o of os) { try { o.disconnect(); } catch { } } try { g.disconnect(); flt && flt.disconnect(); } catch { } }; }
 const VOICES = {
   kick: (c, t) => drum(c, t, { f0: 130, f1: 48, pf: 0.11, peak: 0.9, dur: 0.32 }),
   hardkick: (c, t) => drum(c, t, { f0: 175, f1: 40, pf: 0.06, peak: 1.0, dur: 0.22 }),
   snare: (c, t, o) => { drum(c, t, { f0: 190, f1: 150, pf: 0.05, peak: 0.35, dur: 0.12, type: "triangle" }); nz(c, t, o.b.white, { type: "bandpass", freq: 1900, q: 1, peak: 0.5, dur: 0.16 }); },
   clap: (c, t, o) => nz(c, t, o.b.white, { type: "bandpass", freq: 1600, q: 1.4, peak: 0.5, dur: 0.12, bursts: 3 }),
   rim: (c, t, o) => nz(c, t, o.b.white, { type: "bandpass", freq: 2400, q: 3, peak: 0.5, dur: 0.05 }),
-  clave: (c, t) => { const o = oscAt(c, "square", 2500, t); const g = c.createGain(); env(g, t, 0.4, 0.035); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.05); o.onended = () => { try { o.disconnect(); g.disconnect(); } catch { /* */ } }; },
+  clave: (c, t) => { const o = oscAt(c, "square", 2500, t); const g = c.createGain(); env(g, t, 0.4, 0.035); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.05); o.onended = () => { try { o.disconnect(); g.disconnect(); } catch { } }; },
   hat: (c, t, o) => nz(c, t, o.b.white, { type: "highpass", freq: 8500, peak: 0.32, dur: 0.045 }),
   ohat: (c, t, o) => nz(c, t, o.b.white, { type: "highpass", freq: 7000, peak: 0.28, dur: 0.18 }),
   ride: (c, t, o) => nz(c, t, o.b.white, { type: "highpass", freq: 9500, peak: 0.22, dur: 0.35 }),
   crash: (c, t, o) => nz(c, t, o.b.white, { type: "highpass", freq: 6000, peak: 0.24, dur: 0.9 }),
   shaker: (c, t, o) => nz(c, t, o.b.white, { type: "bandpass", freq: 5500, q: 1, peak: 0.2, dur: 0.06 }),
-  cowbell: (c, t) => { [587, 845].forEach((f) => { const o = oscAt(c, "square", f, t); const g = c.createGain(); env(g, t, 0.16, 0.12); const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; o.connect(bp); bp.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.14); o.onended = () => { try { o.disconnect(); bp.disconnect(); g.disconnect(); } catch { /* */ } }; }); },
+  cowbell: (c, t) => { [587, 845].forEach((f) => { const o = oscAt(c, "square", f, t); const g = c.createGain(); env(g, t, 0.16, 0.12); const bp = c.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; o.connect(bp); bp.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.14); o.onended = () => { try { o.disconnect(); bp.disconnect(); g.disconnect(); } catch { } }; }); },
   tom: (c, t) => drum(c, t, { f0: 200, f1: 95, pf: 0.18, peak: 0.7, dur: 0.22 }),
   conga: (c, t) => drum(c, t, { f0: 260, f1: 180, pf: 0.09, peak: 0.6, dur: 0.2 }),
   hoover: (c, t, o) => { const f = o.note(48); saws(c, t, [f * 0.99, f, f * 1.01], { peak: 0.2, dur: 0.3, lp: 1200 }); },
   stab: (c, t, o) => { const f = o.note(48); saws(c, t, [f, f * 2 ** (7 / 12), f * 2], { peak: 0.18, dur: 0.18, lp: 3000 }); },
-  zap: (c, t) => { const o = oscAt(c, "sawtooth", 2000, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.15); const g = c.createGain(); env(g, t, 0.3, 0.18); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2); o.onended = () => { try { o.disconnect(); g.disconnect(); } catch { /* */ } }; },
+  zap: (c, t) => { const o = oscAt(c, "sawtooth", 2000, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.15); const g = c.createGain(); env(g, t, 0.3, 0.18); o.connect(g); g.connect(bus); o.start(t); o.stop(t + 0.2); o.onended = () => { try { o.disconnect(); g.disconnect(); } catch { } }; },
   pluck: (c, t, o) => saws(c, t, [o.note(48)], { peak: 0.3, dur: 0.16, lp: 2200 }),
   acid: (c, t, o) => saws(c, t, [o.note(36)], { peak: 0.5, dur: o.spb * 0.95, lp: 1200 }),
   reese: (c, t, o) => { const f = o.note(24); saws(c, t, [f * 0.99, f * 1.01], { peak: 0.4, dur: o.spb * 0.95, lp: 400 }); },
@@ -188,24 +162,19 @@ const VOICES = {
   rumble: (c, t, o) => nz(c, t, o.b.brown, { type: "lowpass", freq: 90, peak: 0.5, dur: o.spb * 0.95 }),
 };
 
-// ---- sample packs: open drum kits (Tone.js drum-samples, CORS) as ONLINE add-ons that swap the percussion
-// voices for real samples; bass/tonal voices stay synth. Loads lazily on select; until loaded (or offline, or
-// the headless gate) the synth voice plays — a seamless fallback, never a broken beat. ----
 const PBASE = "https://tonejs.github.io/audio/drum-samples";
 const SFILES = ["kick", "snare", "hihat", "tom1", "tom2", "tom3"];
 const SMAP = { kick: "kick", hardkick: "kick", snare: "snare", clap: "snare", rim: "snare", hat: "hihat", ohat: "hihat", shaker: "hihat", ride: "hihat", crash: "hihat", tom: "tom1", conga: "tom2", cowbell: "tom3", clave: "tom3" };
 const PACKS = [{ id: "LINN", label: "LinnDrum" }, { id: "R8", label: "R-8" }, { id: "CR78", label: "CR-78" }, { id: "KPR77", label: "KPR-77" }, { id: "Techno", label: "Techno" }, { id: "Stark", label: "Stark" }, { id: "Bongos", label: "Bongos" }, { id: "4OP-FM", label: "FM" }, { id: "Kit8", label: "Kit 8" }, { id: "acoustic-kit", label: "Acoustic" }];
 const BUF = new Map();
 const $pack = persisted("pack", "synth"), $loading = atom(null);
-function playSample(c, buf, t, peak = 0.92) { const s = c.createBufferSource(); s.buffer = buf; const g = c.createGain(); g.gain.value = peak; s.connect(g); g.connect(bus); s.start(t); s.onended = () => { try { s.disconnect(); g.disconnect(); } catch { /* */ } }; }
-// Fetch + decode a pack's samples into BUF (idempotent, gate-safe, fail-open to synth). Split out from
-// selectPack so a persisted pack can be re-loaded silently on mount (no buzz, no re-set) — see the Beat effect.
+function playSample(c, buf, t, peak = 0.92) { const s = c.createBufferSource(); s.buffer = buf; const g = c.createGain(); g.gain.value = peak; s.connect(g); g.connect(bus); s.start(t); s.onended = () => { try { s.disconnect(); g.disconnect(); } catch { } }; }
 async function loadPackSamples(id) {
-  if (id === "synth" || isGate) return;                          // gate never hits the network (deterministic e2e)
+  if (id === "synth" || isGate) return;
   if (SFILES.every((f) => BUF.has(`${id}:${f}`))) return;
   const e = ensure(); if (!e) return;
   $loading.set(id);
-  await Promise.all(SFILES.map(async (f) => { const k = `${id}:${f}`; if (BUF.has(k)) return; try { const r = await fetch(`${PBASE}/${id}/${f}.mp3`); if (!r.ok) return; BUF.set(k, await e.ctx.decodeAudioData(await r.arrayBuffer())); } catch { /* stays synth */ } }));
+  await Promise.all(SFILES.map(async (f) => { const k = `${id}:${f}`; if (BUF.has(k)) return; try { const r = await fetch(`${PBASE}/${id}/${f}.mp3`); if (!r.ok) return; BUF.set(k, await e.ctx.decodeAudioData(await r.arrayBuffer())); } catch { } }));
   $loading.set(null);
 }
 async function selectPack(id) { buzz(); $pack.set(id); await loadPackSamples(id); }
@@ -219,12 +188,12 @@ function fire(step, time) {
 const tick = () => { const e = eng; if (!e) return; const spb = 60 / $bpm.get() / 4, sw = $fx.get().swing; if (nextT < e.ctx.currentTime) nextT = e.ctx.currentTime; while (nextT < e.ctx.currentTime + 0.1) { const s = stepN; fire(s, nextT + (s % 2 ? sw * spb : 0)); nextT += spb; stepN = (s + 1) % N; } };
 const draw = () => { const e = eng; if (e) { const now = e.ctx.currentTime; while (q.length && q[0].time <= now) $cur.set(q.shift().step); } raf = requestAnimationFrame(draw); };
 function start() {
-  const e = ensure(); if (!e) return;                                // no engine, no sound — so nothing may flip to "playing" and lie about it
+  const e = ensure(); if (!e) return;
   $playing.set(true);
-  wl = wakeLock.acquire();                                          // screen stays on while it plays
-  if (np) np.release();                                            // one live session; a lingering one is a phantom notification
+  wl = wakeLock.acquire();
+  if (np) np.release();
   np = holdAudio({ title: npTitle(), artist: "microspec", artwork: artUrl(),
-    onPlay: () => { if (!$playing.get()) start(); },                // lock-screen / headset transport
+    onPlay: () => { if (!$playing.get()) start(); },
     onPause: () => stop(), onPrev: () => stepTrack(-1), onNext: () => stepTrack(1),
     resumeCtx: () => e.resume() });
   np.setPlaying(npTitle());
@@ -238,7 +207,6 @@ function stop() {
 }
 const toggle = () => { buzz(12); $playing.get() ? stop() : start(); };
 
-// ---- generator: pick an archetype from the seed, search its Euclidean space, write the bar left→right ----
 function generate(seed = randSeed(), animate = true) {
   if (animate) ensure();
   if (genT) { clearInterval(genT); genT = null; }
@@ -255,39 +223,26 @@ function generate(seed = randSeed(), animate = true) {
 const newTrack = () => { buzz(); const seed = randSeed(); const { seeds } = $hist.get(); const next = [...seeds, seed]; $hist.set({ seeds: next, idx: next.length - 1 }); generate(seed); };
 const stepTrack = (d) => { buzz(); let { seeds, idx } = $hist.get(); idx += d; if (idx < 0) { seeds = [randSeed(), ...seeds]; idx = 0; } else if (idx >= seeds.length) { seeds = [...seeds, randSeed()]; idx = seeds.length - 1; } $hist.set({ seeds, idx }); generate(seeds[idx]); };
 
-// ---- saves ----
 const beatSig = (r) => JSON.stringify([r.tracks, r.bpm, r.riff]);
 const beatBars = (tracks) => STEPS.map((s) => TRACKS.reduce((n, tr) => n + (tracks?.[tr.id]?.[s] ? 1 : 0), 0));
 const autoName = (t, tracks, bpm, list) => { const key = JSON.stringify(tracks), pre = PRESETS.find((p) => JSON.stringify(parse(p)) === key), genId = $gen.get(), label = pre ? T(t, pre.name) : (genId ? T(t, presetName(genId)) : T(t, "beatWord")), base = label + " · " + bpm; let n = base, i = 2; while (list.some((it) => it.name === n)) n = `${base} (${i++})`; return n; };
 
-// ================= Beat: the full-bleed 3D spectrum stage + a floating player island =================
-// The body IS the spectrum — one of ten fundamentally different three.js scenes (viz.js) fills the screen
-// (fixed z-0). Everything you touch floats over it as glass islands: genres up top, the player down low.
-// Switch scene by swiping the field left/right, or tap a tick — the scene is its own label (no captions).
 export function rave({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t), tracks = useStore($tracks), style = useStore($style), playing = useStore($playing), fx = useStore($fx), cur = useStore($cur), bpm = useStore($bpm), sweep = useStore($sweep), viz = useStore($viz);
   const loc = useStore(S.locale);
-  // A persisted non-synth pack was only remembered, not loaded — fetch its samples once on mount so the restored
-  // kit actually plays (until then playback falls back to synth; the load is silent — no buzz, no re-select).
   useEffect(() => { loadPackSamples($pack.get()); }, []);
-  // ?viz=<0..9> deep-links a scene (also how a headless shoot reviews a non-default scene — $viz is localStorage,
-  // not a URL, so the param is the only way to land the stage on a specific visual for a screenshot).
-  useEffect(() => { try { const q = new URLSearchParams(location.search).get("viz"); if (q != null) { const n = parseInt(q, 10); if (n >= 0 && n < VIZ_COUNT) $viz.set(n); } } catch { /* */ } }, []);
+  useEffect(() => { try { const q = new URLSearchParams(location.search).get("viz"); if (q != null) { const n = parseInt(q, 10); if (n >= 0 && n < VIZ_COUNT) $viz.set(n); } } catch { } }, []);
   const pick = (i) => { buzz(); ensure(); const [id, b] = PLAYER[i]; $style.set(i); $tracks.set(parse(presetById(id))); $bpm.set(b); $hist.set({ seeds: [], idx: -1 }); $gen.set(null); syncNP(); };
   const kickRow = tracks.kick;
   const [immersed, setImmersed] = useState(immersionState.on);
   const toggleImmersion = async () => { buzz(12); if (immersionState.on) { disableImmersion(); setImmersed(false); } else { setImmersed(await enableImmersion()); } };
-  // The whole field is the switcher: swipe left/right cycles scene (usePanX detects only — no paneRef, so
-  // nothing slides), and each tick is a jump. Persisted, so you reopen on the scene you left.
   const setViz = (i) => { buzz(); $viz.set(((i % VIZ_COUNT) + VIZ_COUNT) % VIZ_COUNT); };
   const { pan } = usePanX({ onNext: () => setViz(viz + 1), onPrev: () => setViz(viz - 1) });
 
   return html`<${Fragment}>
     <${SpectrumStage} index=${viz} />
 
-    ${/* No bottom fade of our own: the runtime's dock already fades the page under it, and a gradient
-         laid over the stage was the one piece of decoration the material bans. The island carries its
-         own legibility (it is the raised surface), so the field runs to the dock. */""}
+    ${""}
     <div class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]" data-playing=${playing ? "on" : "off"} data-gen=${sweep >= 0 ? "on" : "off"} data-scene=${viz}>
       <div class="flex items-center gap-2">
         <div class="flex-1 min-w-0">
@@ -299,9 +254,7 @@ export function rave({ S, screen, openScreen, closeScreen }) {
 
       <div ...${pan} class="flex-1 min-h-0 touch-pan-y" aria-hidden="true"></div>
 
-      ${/* ONE row, not two: the scene's name and the ten ticks that pick it are the same control, and
-           stacking them centred put a third band of dashes above the two the player already has. Name left,
-           track right — the lower third stops reading as four repeating strips of dots. */""}
+      ${""}
       <div class="ms-decor flex items-center justify-between gap-[var(--ms-gap)]">
         <div class=${`${LABEL} truncate`}>${T(t, vizKey(VIZ[viz].id))}</div>
         <div data-viztrack class="flex items-center gap-1 shrink-0">
@@ -310,16 +263,11 @@ export function rave({ S, screen, openScreen, closeScreen }) {
       </div>
 
       <${Island} className="flex flex-col gap-[var(--ms-gap)]">
-        ${/* The 16-step playhead is the bar POSITION, which is what a player's progress line is — so it
-             belongs to the transport, inside the island, not floating over the stage as its own strip. Same
-             material as the matrix tab: the empty steps are the groove (--sf-track-face) and the marks that
-             sit IN it — sweep, playhead, kick, the downbeat — stay ink, because there colour means something. */""}
+        ${""}
         <div data-viz class="grid grid-cols-[repeat(16,minmax(0,1fr))] gap-1">
           ${STEPS.map((i) => { const beat = i % 4 === 0, k = kickRow[i], on = i === cur, sw = i === sweep; const hot = sw ? "bg-accent" : on ? "bg-secondary" : k ? "bg-secondary/45" : beat ? "bg-base-content/20" : ""; return html`<div key=${i} class=${`h-1.5 rounded-full transition-colors ${hot}`} style=${hot ? "" : "background:var(--sf-track-face)"}></div>`; })}
         </div>
-        ${/* The kit's Slider: its mono caption IS the accessible name, so the filter glyph that used to
-             stand in for a label is gone. The tempo is a separate readout, not this slider's value, so it
-             keeps its own micro-label at the row's end. */""}
+        ${""}
         <div class="flex items-end gap-[var(--ms-gap)] px-1">
           <div class="flex-1 min-w-0"><${Slider} id="mfilter" attr="data-filter" label=${T(t, "fxFilter")} min=${0} max=${1} step=${0.01} value=${fx.mfilter} onInput=${(v) => setFx("mfilter", v)} /></div>
           <span class=${`${LABEL} tabular-nums shrink-0 pb-1`}>${bpm} BPM</span>
@@ -336,35 +284,22 @@ export function rave({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// ================= Pads: the matrix + settings sheet =================
 export function ravePads({ S, toast, screen, openScreen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale), tracks = useStore($tracks), bpm = useStore($bpm), playing = useStore($playing), cur = useStore($cur), sweep = useStore($sweep);
   const cellToggle = (tid, s) => { ensure(); $tracks.set({ ...tracks, [tid]: tracks[tid].map((v, i) => (i === s ? !v : v)) }); };
-  const save = async () => { try { const list = await SAVES.all(); const rec = { tracks, bpm, riff: $riff.get() }; if (list.find((it) => beatSig(it) === beatSig(rec))) { buzz(); toast?.(T(t, "toastDup", { name: autoName(t, tracks, bpm, list) })); return; } await SAVES.put("p" + Date.now(), { name: autoName(t, tracks, bpm, list), ...rec, fx: $fx.get() }); toast?.(T(t, "toastSaved")); } catch { /* */ } };
+  const save = async () => { try { const list = await SAVES.all(); const rec = { tracks, bpm, riff: $riff.get() }; if (list.find((it) => beatSig(it) === beatSig(rec))) { buzz(); toast?.(T(t, "toastDup", { name: autoName(t, tracks, bpm, list) })); return; } await SAVES.put("p" + Date.now(), { name: autoName(t, tracks, bpm, list), ...rec, fx: $fx.get() }); toast?.(T(t, "toastSaved")); } catch { } };
 
   return html`<${Fragment}>
     <div class="pb-40 flex flex-col gap-1">
-      ${/* The playhead rail rides above the matrix and must stay READABLE while the grid scrolls under it —
-           so it is an opaque piece of the page (bg-base-100) lifted on the shallow rung, not frosted glass.
-           Blur over our own surface erases the very shadow pair that makes the surface read; it belongs
-           over foreign content (a video, a camera frame), never over base. The idle segments take
-           --sf-track-face: a 4px rail cannot hold a shadow pair, and this is the system's one sanctioned
-           place for tone to stand in for depth (see theme.css). */""}
+      ${""}
       <div class="sticky z-10 -mx-4 px-4 bg-base-100 sf-e2 flex items-center gap-[3px] py-1" style="top:calc(var(--hdr-h) + env(safe-area-inset-top))">
         <div class="w-7 shrink-0"></div>
         ${STEPS.map((s) => { const hot = s === sweep ? "bg-accent" : s === cur ? "bg-secondary" : ""; return html`<div class=${`flex-1 h-1 rounded-full transition-colors ${s % 4 === 0 && s > 0 ? "ml-1" : ""} ${hot}`} style=${hot ? "" : "background:var(--sf-track-face)"} key=${s}></div>`; })}
       </div>
-      ${/* THE PADS. The 16-column grid, the cell height and the beat grouping are the instrument and do not
-           move — only what a cell is MADE OF changes. An empty step is a HOLE in the grid waiting to be
-           filled (`sf-inset`), not a tone step; a struck step is that hole filled and pushed back out, so it
-           keeps the track's own colour as the FILL of a raised cell. The rung is the shallow one: 22x16 cells
-           at ~20px wide, and the full pair on an object that size is a shadow bigger than the thing. */""}
+      ${""}
       ${TRACKS.map((tr) => { const live = tracks[tr.id].some(Boolean); return html`<div class="flex items-center gap-[3px]" key=${tr.id}>
         <div class=${`w-7 shrink-0 flex items-center justify-center ${live ? "text-base-content" : "text-muted"}`} title=${T(t, tr.name)}>${Icon(tr.icon, "text-base")}</div>
-        ${/* The cell names its transition properties rather than taking `all`: what actually changes here is
-             the material (sf-e2 ↔ sf-inset is a box-shadow PAIR), the track's fill, and the sweep's scale.
-             `all` also animated the cell's WIDTH — these are flex-1 in a row that reflows — so every resize
-             re-laid-out 22x16 cells for 150ms, off the compositor, for something nobody can see. */""}
+        ${""}
         ${STEPS.map((s) => { const on = tracks[tr.id][s], sw = s === sweep, playhead = sw || s === cur; return html`<button data-cell=${`${tr.id}-${s}`} data-current=${s === cur || null} data-sweep=${sw || null} aria-pressed=${on} aria-label=${`${T(t, tr.name)} ${s + 1}`} onClick=${() => cellToggle(tr.id, s)} key=${s}
           class=${`relative overflow-hidden flex-1 min-w-0 h-8 rounded touch-manipulation transition-[box-shadow,background-color,transform,scale] duration-150 ${s % 4 === 0 && s > 0 ? "ml-1" : ""} ${on ? `${tr.on} sf-e2` : "sf-inset"} ${sw ? "scale-105" : ""}`}
           >${playhead ? html`<span class=${`pointer-events-none absolute inset-y-1 left-1/2 -translate-x-1/2 w-1 rounded-full ${sw ? "bg-accent" : "bg-secondary"}`}></span>` : null}</button>`; })}
@@ -372,8 +307,7 @@ export function ravePads({ S, toast, screen, openScreen, closeScreen }) {
     </div>
 
     <${Island} pinned className="w-full max-w-xl">
-        ${/* Same bar, now the kit's: the tempo is the now-playing line and the four tools are `actions`,
-             which demote into the overflow sheet with their words when the window gets narrow. */""}
+        ${""}
         <${Transport} locale=${loc} stopIcon playing=${playing} onToggle=${toggle} disabled=${!audioSupported} keep=${4}
           moreOpen=${screen === "more"} onMore=${() => openScreen("more")} onMoreClose=${closeScreen}
           actions=${[
@@ -389,15 +323,11 @@ export function ravePads({ S, toast, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// The settings island → a history-backed bottom sheet (S.screen="fx", so system Back closes it): tempo, the
-// full FX rack, the generator and the genre presets — out of the way while you edit the grid.
 function FxSheet({ open, onClose, t, sweep }) {
   const fx = useStore($fx), bpm = useStore($bpm), tracks = useStore($tracks), pack = useStore($pack), loading = useStore($loading);
   const activePreset = PRESETS.find((p) => JSON.stringify(parse(p)) === JSON.stringify(tracks))?.id;
   return html`<${Sheet} id="fxsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
-    ${/* Every range here is the kit's Slider. The tempo carries a real unit, so its number rides the caption
-         as a mono count beside the label ("ТЕМП · 132 BPM") — the one sentence-free way to show a value the
-         kit deliberately does not print. */""}
+    ${""}
     <${Slider} id="bpm" attr="data-tempo" label=${`${T(t, "tempo")} · ${bpm} BPM`} min=${90} max=${150} step=${1} value=${bpm} onInput=${(v) => { $bpm.set(v); applyFx(); }} />
     <div class="grid grid-cols-2 gap-x-[var(--ms-gap)] gap-y-1.5">
       ${FX.map((f) => html`<${Slider} key=${f.id} id=${f.id} attr="data-fx" label=${T(t, f.label)} min=${f.min} max=${f.max} step=${f.step} value=${fx[f.id]} onInput=${(v) => setFx(f.id, v)} />`)}
@@ -419,9 +349,6 @@ function FxSheet({ open, onClose, t, sweep }) {
   </${Sheet}>`;
 }
 
-// ================= Saved =================
-// The bars are 2px wide inside a 20px row — far too thin for a shadow pair, so the empty ones take the
-// system's track face and become the groove the filled ones rise out of, instead of a hand-picked ink tint.
 const Spectrum = ({ tracks, live, cur }) => { const bars = beatBars(tracks), mx = Math.max(1, ...bars); return html`<span data-spectrum class="flex items-end gap-px h-5 w-full" aria-hidden="true">${bars.map((v, s) => { const hot = live && s === cur ? "bg-secondary" : v ? "bg-primary" : ""; return html`<span class=${`flex-1 rounded-sm transition-colors ${hot}`} style=${`height:${Math.round((v ? 0.25 + 0.75 * (v / mx) : 0.12) * 100)}%${hot ? "" : ";background:var(--sf-track-face)"}`} key=${s}></span>`; })}</span>`; };
 
 export function raveSaved({ S, undo }) {
@@ -435,15 +362,13 @@ export function raveSaved({ S, undo }) {
   const loadBeat = (it) => { $tracks.set({ ...empty(), ...(it.tracks || {}) }); $bpm.set(it.bpm || 130); $riff.set(it.riff?.length === N ? it.riff : RIFF); if (it.fx) { $fx.set({ ...DFX, ...it.fx }); applyFx(); } $gen.set(null); };
   const open = (it) => { buzz(); loadBeat(it); S.tab.set("pads"); };
   const play = (it) => { buzz(); if (isCur(it)) { stop(); return; } loadBeat(it); start(); };
-  const del = async (it) => { const { id, _ts, ...rec } = it; try { await SAVES.remove(id); } catch { /* */ } load(); undo?.(async () => { try { await SAVES.put(id, rec); } catch { /* */ } load(); }, it.name || T(t, "beatWord")); };
+  const del = async (it) => { const { id, _ts, ...rec } = it; try { await SAVES.remove(id); } catch { } load(); undo?.(async () => { try { await SAVES.put(id, rec); } catch { } load(); }, it.name || T(t, "beatWord")); };
 
   if (!useReveal(list !== null)) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel class="card bg-base-100 rounded-[var(--ms-r)] overflow-hidden" key=${i}><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate font-semibold"><${Scramble} len=${12} /></div><div class="h-5"><${Scramble} len=${16} /></div></div></div></div>`)}</div>`;
   if (!list.length) return html`<div class="flex flex-col items-center text-base-content/70 py-20 gap-2 text-center px-6">${Icon("lucide:bookmark", "text-4xl")}<span>${T(t, "savedEmpty")}</span></div>`;
 
   return html`<div class="flex flex-col gap-2">
-    ${/* No hairline: `.card` already carries the shallow pair, and an outline on top of an extrusion is the
-         old kit showing through — the edge is the material's job now. Same for the skeleton above, whose
-         avatar slot is a WELL the artwork drops into rather than a step-darker rectangle. */""}
+    ${""}
     ${list.map((it) => { const on = isCur(it); return html`<div data-saved class="card bg-base-100 rounded-[var(--ms-r)]" key=${it.id}>
       <div class="card-body p-3 flex-row items-center gap-3">
         <button data-play disabled=${!audioSupported} aria-label=${on ? T(t, "aStop") : T(t, "aPlay")} class=${`btn btn-circle btn-sm shrink-0 ${on ? "btn-secondary" : "btn-primary"}`} onClick=${() => play(it)}>${Icon(on ? "lucide:square" : "lucide:play", "text-base")}</button>

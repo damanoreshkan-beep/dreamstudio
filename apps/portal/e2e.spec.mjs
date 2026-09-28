@@ -1,6 +1,3 @@
-// The gate has no camera: the system (pixi) mounts the farm's own still (assets/mock.webp) as the sprite and the
-// presets run on it, so the whole screen — the twelve materials, the preset attribute, the theme mode, the flip,
-// the save verb — is exercised without a camera and without the network (pixi is bundled into app.js).
 const ready = async (h) => { for (let i = 0; i < 80; i++) { if ((await h.count('[data-live][data-ready="1"]')) > 0) break; await h.wait(250); } };
 
 export default [
@@ -31,8 +28,6 @@ export default [
       await ready(h);
       await h.click('[data-mat="lum"]'); await h.wait(150);
       await h.click("[data-tune]");
-      // the sheet opens through the screen atom and a dialog's showModal — after a first frame that may be
-      // busy building the graph, so the wait is a poll, never a fixed pause
       for (let i = 0; i < 12 && (await h.count("#tune[open]")) === 0; i++) await h.wait(250);
       h.expect((await h.count("#tune[open]")) === 1, "панель налаштувань не відкрилась");
       const n = await h.count("[data-knob]");
@@ -56,7 +51,6 @@ export default [
     },
   },
   {
-    // The picture is the subject: the island holds the strip and one verb, the stage keeps the larger share.
     name: "сцена отримує більшу частку екрана, ніж острів", run: async (h) => {
       await ready(h);
       const stage = await h.css("[data-stage-box]", "height"), island = await h.css("[data-island]", "height");

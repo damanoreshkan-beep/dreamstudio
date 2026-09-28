@@ -1,7 +1,3 @@
-// Under the gate there's no WebGL/network, so the deck.gl map never inits (probe-guarded) — the DOM is the
-// truth. view.js seeds a fixture of Kyiv jobs. These drive the routed structure: the Map tab's single post
-// island, the Post page (a routed page, not a sheet), the List tab's rows (newest first, the folded search,
-// the employment strip), and a job's detail page with its pinned apply island.
 export default [
   {
     name: "Map tab: a single post island, no clutter",
@@ -35,7 +31,6 @@ export default [
       h.expect((await h.count("[data-job-age]")) >= 5, "рядки без віку");
       h.expect((await h.count("[data-job-new]")) >= 1, "жодної позначки «нове»");
       h.expect((await h.count("[data-job-pay-text]")) >= 1, "текстова зарплата не показана у рядку");
-      // a trailing place in parentheses is stripped in the ROW only
       await h.waitFor(/Кухар-універсал/);
       h.expect(!/Оболонь\)/.test(await h.text("[data-list]")), "адреса у дужках лишилась у заголовку рядка");
     },

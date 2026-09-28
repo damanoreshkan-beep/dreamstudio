@@ -1,12 +1,3 @@
-// apps/swarm — the room is the arena. The rear camera is a viewfinder, the ring of hostiles
-// lives at real-world azimuths, and aiming is physically turning the phone (compass heading +
-// tilt). The simulation is wasm (tools/wasm/swarm/game.c) and knows none of this; projection and
-// every pixel live in render.js.
-//
-// Chrome over the viewfinder is deliberately FIXED-colour (solid ink chips, white text): the
-// backdrop is foreign content — a camera frame — not a themed surface, so theme-aware classes
-// would flip against pixels they cannot know. Same stance as cam's bezel internals.
-
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef, useState, useCallback } from "preact/hooks";
@@ -24,11 +15,8 @@ import { renderFrame } from "./render.js";
 import { loadEngine, makeClock, makeSound, GATE_SEED } from "./engine.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the micro-label at the ladder's size (`length:` — a bare var() in text-[…] is a colour to Tailwind v4)
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider";
 
-/* Frames between DEAD and the over-card, so the last sting is actually seen (hunt's lesson:
-   raising the card on the flag's own frame animates a death nobody ever saw). */
 const DEATH_ARC = 40;
 
 const NS = "swarm:";
@@ -37,8 +25,6 @@ const $runs = persistentAtom(`${NS}runs`, "0");
 const $sound = persistentAtom(`${NS}sound`, "1");
 const $over = atom(false);
 
-/* the shared bot: aim straight at the nearest entry, fire on a free trigger. The gate fixture
-   and its survivability search both use it, so the two can never disagree about "playable". */
 function botInput(E) {
   const st = E.state(), { dl, n } = E.list();
   let az = st[S.NAZ] >= 0 ? st[S.NAZ] : 0, el = 0;
@@ -58,7 +44,7 @@ export function swarm(props) {
   const soundOn = useStore($sound) === "1";
   const over = useStore($over);
 
-  const [live, setLive] = useState(false);        // CamStage reports a picture on the stage
+  const [live, setLive] = useState(false);
   const [ready, setReady] = useState(false);
   const [engErr, setEngErr] = useState("");
 
@@ -71,23 +57,16 @@ export function swarm(props) {
 
   const arm = useCallback(() => { sound.current?.arm(); }, []);
 
-  /* sensors: heading/pitch are refs — a re-render per compass event would fight the rAF loop for the
-     main thread. The wake lock is CamStage's, held with the stream. */
   useEffect(() => {
     if (gate || !live) return;
-    // look: raw alpha gimbal-locks with the phone held upright (this app's ONLY grip) and leapt
-    // 1°→−300° mid-turn on the reference device — aim must ride the camera axis, not alpha
     const stopC = compass.start((deg) => { headingT.current = deg * 10; }, { trueNorth: false, look: true });
     const stopT = tilt.start(({ beta }) => {
       if (beta == null) return;
-      // upright-in-hand is beta≈80; that maps to level aim, tuned on the reference device
       pitchT.current = Math.max(-450, Math.min(450, (beta - 80) * 10));
     });
     return () => { stopC(); stopT(); };
   }, [live]);
 
-  /* drag-to-look: the fallback aim (desktop, denied sensors) and a trim on top of the compass.
-     Styles/refs only — never state — per pointermove. */
   useEffect(() => {
     const el = cv.current;
     if (!el) return;
@@ -101,7 +80,6 @@ export function swarm(props) {
     return () => { el.removeEventListener("pointerdown", dn); window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
   }, []);
 
-  /* keyboard trigger — the one input a gate can actually press */
   useEffect(() => {
     const dn = (e) => { if (e.code === "Space" || e.code === "KeyZ") { fire.current = 1; arm(); } };
     const up = (e) => { if (e.code === "Space" || e.code === "KeyZ") fire.current = 0; };
@@ -126,9 +104,6 @@ export function swarm(props) {
       const ctx = cv.current?.getContext("2d");
       if (!ctx) return;
 
-      /* the gate has no hands and no compass. Run the aim-bot forward so every check measures a
-         POPULATED fight — kills banked, ring mid-approach — and (hunt's lesson) SEARCH the length
-         instead of writing it: the largest track whose aftermath survives 600 idle frames. */
       if (gate) {
         const survives = (k) => {
           E.init(seed.current);
@@ -156,21 +131,10 @@ export function swarm(props) {
 
       const clock = makeClock(() => {
         let h = (((headingT.current + dragT.current) % 3600) + 3600) % 3600;
-        // a held trigger OR a queued one-shot (keyboard-activated click); the pulse burns down
-        // per STEP, never by wall-clock — a timeout here once zeroed the flag a held key owned.
-        // 18 frames, not 3: it must cover a FULL trigger recharge (16), because in the gate the
-        // attract bot fires on every free cooldown and a shorter window usually lands entirely
-        // inside one — measured as an 81% e2e miss rate before this number
         const manual = !!(fire.current || pulse.current > 0);
         if (pulse.current > 0) pulse.current--;
         let aimAz = h, aimEl = pitchT.current, f = manual;
         if (gate) {
-          /* attract mode — the gate has no hands, so the game PLAYS itself: the camera drifts
-             toward the nearest threat (a fixed heading against a 360° ring photographs an empty
-             window) and the trigger pulls only when the DRAWN crosshair actually covers a target,
-             so every flash on a shot is a true cause-and-effect frame. The one exception is a
-             point-blank threat: past 350cm the camera is on it anyway, and exact aim there is
-             what keeps the demo from dying mid-session. */
           const st0 = E.state(), { dl: d0, n: n0 } = E.list();
           let ne = null;
           for (let i = 0; i < n0; i++) {
@@ -203,12 +167,11 @@ export function swarm(props) {
         const hh = (((headingT.current + dragT.current) % 3600) + 3600) % 3600;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         let accent = "#F2B84B";
-        try { accent = getComputedStyle(cv.current).getPropertyValue("--app-accent").trim() || accent; } catch { /* preflight stub */ }
+        try { accent = getComputedStyle(cv.current).getPropertyValue("--app-accent").trim() || accent; } catch { }
         const locked = st[S.DEAD] ? -1 : lockOn(dl, n, hh, pitchT.current);
         renderFrame(ctx, dl, n, st, hh, pitchT.current, w, hgt, { muzzle, lockedIdx: locked, accent });
         if (muzzle > 0) muzzle--;
 
-        // imperative HUD writes — a Preact render per frame would fight the loop it feeds
         if (waveEl.current) waveEl.current.textContent = st[S.WAVE];
         if (scoreEl.current) scoreEl.current.textContent = st[S.SCORE];
         if (comboEl.current) {
@@ -223,12 +186,9 @@ export function swarm(props) {
           hd.dataset.frame = st[S.FRAME]; hd.dataset.wave = st[S.WAVE]; hd.dataset.score = st[S.SCORE];
           hd.dataset.hp = st[S.HP]; hd.dataset.alive = st[S.ALIVE]; hd.dataset.dead = st[S.DEAD] ? "1" : "0";
           hd.dataset.kills = st[S.KILLS]; hd.dataset.shots = st[S.SHOTS];
-          // shots the USER caused — in the gate the attract bot also fires, so the e2e's trigger
-          // assertions read this counter, never the engine's total
           hd.dataset.mshots = mshots.current;
           hd.dataset.heading = Math.round(hh / 10);
         }
-        /* the run is banked at DEATH; the card waits out the arc so the sting is seen */
         if (st[S.DEAD]) {
           if (fell.current == null) {
             fell.current = st[S.FRAME];
@@ -264,24 +224,14 @@ export function swarm(props) {
   restartRef.current = restart;
 
   const chip = "flex items-baseline gap-1.5 rounded-full bg-black px-3 py-1 border border-white/15";
-  // NOT .btn: the component's neumorphic pair comes from theme.css AFTER the utility layer, so
-  // shadow-none loses the cascade and the pair renders as a white halo over the camera feed —
-  // measured on the light shot. Viewfinder chrome is flat, so these are plain buttons.
   const chipBtn = "w-9 h-9 rounded-full grid place-items-center bg-black text-white border border-white/15 pointer-events-auto";
 
   return html`<${Fragment}>
     <div class="ms-stage z-20 bg-black overflow-hidden select-none" ref=${stage} data-swarm>
       ${gate ? html`<div class="absolute inset-0" aria-hidden="true"
         style="background:radial-gradient(130% 90% at 50% 18%, #141210, #000000 68%)"></div>` : null}
-      ${/* the viewfinder is the kit's ONE camera stage: it shows the feed itself (show), and the tap
-           and the pinch stay the GAME's (drag-to-look, the trigger), so its gestures and its
-           fullscreen are off. No `still`: in the gate it stands aside and the training backdrop
-           above plus the seeded forward-run ARE the picture. Everything the app draws over the feed
-           sits at z-[2], above the stage's own gesture layer. */""}
-      ${/* onEnable: the ONE tap arms BOTH native prompts — the camera is the stage's own business, and
-           the orientation permission (iOS gesture-gated, shared by compass and tilt) is asked for from
-           inside that same tap handler, so the gesture context still holds. The game runs
-           magnetic-less via drag if it is refused. */""}
+      ${""}
+      ${""}
       <${CamStage} loc=${loc} reason=${T(t, "camReason")} onSettings=${() => A.screen.set("perms")}
           onEnable=${() => { compass.request().catch(() => {}); }}
           show=${true} fullscreen=${false} gestures=${false} onState=${(s) => setLive(s.ready)}>
@@ -289,10 +239,7 @@ export function swarm(props) {
         aria-label=${T(t, "screenAlt")} onPointerDown=${arm}></canvas>
 
       <div ref=${hud} data-readout class="absolute inset-0 z-[2] pointer-events-none p-3 text-white font-mono">
-        ${/* flex-wrap: the score is unbounded and uk labels run long, so on a narrow stage the
-             right cluster WRAPS under the chips instead of sliding past the padding into the
-             screen edge — which is exactly what the 505-score shot photographed, and what no
-             overflow gate can see (absolute children never scroll the page) */""}
+        ${""}
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div class="flex items-center gap-2 min-w-0">
             <div class=${chip}>

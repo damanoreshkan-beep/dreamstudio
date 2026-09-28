@@ -1,13 +1,7 @@
-// microspec runtime — rds unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { syndrome, OFFSET, ptyName, rdsChar, RdsBlockSync, RdsParser, Rds } from "../rds.js";
 import { goertzelPower, pilotRatioDb, rssiFromBytes, IF_RATE, PILOT_COEFF } from "../fmradio.js";
 
-// ================= RDS (rds.js) =================
-// A standard RDS modulator (independent of the decoder's internals) so the whole chain — CRC/offset framing
-// AND the 57 kHz DBPSK DSP — is validated by a synthetic-signal round-trip, the same tactic as the FM test.
 function rdsCrc10(data16) { let reg = 0; for (let i = 25; i >= 0; i--) { const bit = i >= 10 ? (data16 >> (i - 10)) & 1 : 0; reg = (reg << 1) | bit; if (reg & 0x400) reg ^= 0x5B9; reg &= 0x7FF; } return reg & 0x3FF; }
 function rdsBlock(data16, off) { return ((data16 & 0xFFFF) << 10) | ((rdsCrc10(data16) ^ off) & 0x3FF); }
 function blockBits(b26) { const a = []; for (let i = 25; i >= 0; i--) a.push((b26 >> i) & 1); return a; }
@@ -44,12 +38,10 @@ Deno.test("rds framing: bitstream → block sync → parser recovers PS, RadioTe
 });
 
 Deno.test("rds end-to-end DSP: 57 kHz DBPSK MPX → Rds recovers the station metadata", () => {
-  const FS = 250_000, CHIP = 2375;   // 2 chips per bit
+  const FS = 250_000, CHIP = 2375;
   const bits = rdsStream(30);
-  // differential encode, then biphase (Manchester) chips: e=1 → [+1,−1], e=0 → [−1,+1]
   const chips = []; let e = 0;
   for (const b of bits) { e ^= b; chips.push(e ? 1 : -1, e ? -1 : 1); }
-  // modulate chips onto a 57 kHz subcarrier at FS (rectangular chips; the decoder's LPF shapes them)
   const total = Math.floor(chips.length * FS / CHIP);
   const mpx = new Float32Array(total);
   for (let n = 0; n < total; n++) { const ci = Math.floor(n * CHIP / FS); mpx[n] = 0.7 * chips[ci] * Math.cos(2 * Math.PI * 57000 * n / FS); }
@@ -70,7 +62,6 @@ Deno.test("rds DSP robustness: locks through a carrier phase+freq offset and add
   for (const b of bits) { e ^= b; chips.push(e ? 1 : -1, e ? -1 : 1); }
   const total = Math.floor(chips.length * FS / CHIP);
   const mpx = new Float32Array(total);
-  // deterministic pseudo-noise (no Math.random in this suite's spirit), a static phase offset, +6 Hz carrier drift
   let seed = 1234567;
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff - 0.5; };
   for (let n = 0; n < total; n++) { const ci = Math.floor(n * CHIP / FS); mpx[n] = 0.7 * chips[ci] * Math.cos(2 * Math.PI * 57006 * n / FS + 1.1) + 0.05 * rnd(); }
@@ -80,8 +71,6 @@ Deno.test("rds DSP robustness: locks through a carrier phase+freq offset and add
   assertEquals(snap.ptyName, "Pop music");
   assert(/HELLO RADIO/.test(snap.rt), `RadioText not recovered under impairment: "${snap.rt}"`);
 });
-
-// ================= FM auto-scan helpers (fmradio.js) =================
 
 Deno.test("goertzelPower: peaks at the target bin, low off-target", () => {
   const N = 2500, fs = IF_RATE, tone = new Float32Array(N);
@@ -106,7 +95,6 @@ Deno.test("rssiFromBytes: stronger IQ → higher dBFS, monotone", () => {
   assert(rssiFromBytes(mk(100)) < 0, "dBFS is ≤ 0 (relative to full scale)");
 });
 
-// ---- RDS stable/accumulating display layer ----
 const g0A = (ps, seg, ok = [1, 1, 1, 1]) => ({ a: 0x1234, b: (10 << 5) | (seg & 3), c: 0, d: (ps.charCodeAt(seg * 2) << 8) | ps.charCodeAt(seg * 2 + 1), ok });
 const feedPS = (p, ps, reps) => { for (let r = 0; r < reps; r++) for (let s = 0; s < 4; s++) p.group(g0A(ps, s)); };
 const g2A = (str, addr, ab = 0, ok = [1, 1, 1, 1]) => { const cc = (i) => (i < str.length ? str.charCodeAt(i) : 0x20); return { a: 0x1234, b: 0x2000 | (ab << 4) | (addr & 0xF), c: (cc(addr * 4) << 8) | cc(addr * 4 + 1), d: (cc(addr * 4 + 2) << 8) | cc(addr * 4 + 3), ok }; };
@@ -115,10 +103,8 @@ Deno.test("rds PS latch: a confirmed name survives noise + dropout (never cleare
   const p = new RdsParser();
   feedPS(p, "TEST FM ", 3);
   assertEquals(p.snapshot().ps, "TEST FM");
-  // a single differing group must not flip a 2-of-3-confirmed name
   for (let s = 0; s < 4; s++) p.group(g0A("HITS ONE", s));
   assertEquals(p.snapshot().ps, "TEST FM", "one group can't overwrite a confirmed name");
-  // CRC-failed (bad block-D) groups write nothing → name holds
   for (let r = 0; r < 3; r++) for (let s = 0; s < 4; s++) p.group(g0A("XXXXXXXX", s, [1, 1, 1, 0]));
   assertEquals(p.snapshot().ps, "TEST FM", "bad blocks never reach the buffer");
 });
@@ -136,8 +122,8 @@ Deno.test("rds RadioText: A/B flag debounced, last complete message latched", ()
   const p = new RdsParser();
   for (let r = 0; r < 3; r++) { p.group(g2A("HELLO\r", 0, 0)); p.group(g2A("HELLO\r", 1, 0)); }
   assertEquals(p.snapshot().rt, "HELLO");
-  p.group(g2A("XXXXXX", 0, 1));                 // a single flipped A/B must NOT wipe the text
+  p.group(g2A("XXXXXX", 0, 1));
   assertEquals(p.snapshot().rt, "HELLO", "one flipped A/B can't clear RadioText");
-  for (let r = 0; r < 3; r++) { p.group(g2A("WORLD\r", 0, 1)); p.group(g2A("WORLD\r", 1, 1)); } // sustained new message
+  for (let r = 0; r < 3; r++) { p.group(g2A("WORLD\r", 0, 1)); p.group(g2A("WORLD\r", 1, 1)); }
   assertEquals(p.snapshot().rt, "WORLD", "a debounced new message replaces atomically");
 });

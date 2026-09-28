@@ -1,5 +1,3 @@
-// Habits — a local-first stateful app (IndexedDB). Headless Chromium HAS IndexedDB, so we drive real CRUD
-// via the UI. Tests share one page + DB, so they build on each other: add → check-in → detail → delete.
 const addHabit = async (h, name) => {
   const opener = (await h.count("#empty-add")) ? "#empty-add" : "#add-habit";
   await h.click(opener); await h.wait(200);
@@ -24,9 +22,6 @@ export default [
     },
   },
   {
-    // Деталі — це kit-Sheet (/_rt/ui.js), тож стан читаємо з самого <dialog>, а не з наявності кнопки
-    // «назад» (її тепер малює кит). Панель має mono-заголовок, який CSS переводить в UPPERCASE — innerText
-    // віддає вже трансформований текст, тому регекс регістронезалежний.
     name: "деталі: heatmap + статистика, Back закриває", run: async (h) => {
       await h.click("[data-open]"); await h.wait(250);
       h.expect((await h.prop("#h-detail", "open")) === true, "деталі не відкрились");
@@ -46,8 +41,6 @@ export default [
     },
   },
   {
-    // High-consequence delete (habit + its whole history) → a danger-confirm, and it's history-backed:
-    // #d-del opens the sheet but deletes NOTHING until confirmed; Back cancels it and the habit survives.
     name: "видалення звички: конфірм, Back скасовує, підтвердження видаляє", run: async (h) => {
       const before = await h.count("[data-habit]");
       await h.click("[data-open]"); await h.wait(200);

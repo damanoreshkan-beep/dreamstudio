@@ -1,9 +1,3 @@
-// Code — a colour code-breaker (Mastermind). A hidden 4-peg code of 6 colours; each guess is scored
-// exact (right colour + slot) / near (right colour, wrong slot) until you crack it or run out of tries.
-// The deduction maths lives in /_rt/codebreak.js (unit-tested); the secret is seeded (/_rt/groove.js
-// mulberry32) so a game is shareable by its number and deterministic for the gate. Every colour also
-// carries a distinct symbol — the code is playable without colour vision, and read out by name to a screen
-// reader. The win/lose overlay is a history-backed screen (system Back closes it, never exits).
 import { html } from "htm/preact";
 import { useState, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -14,12 +8,9 @@ import { isGate, MOCK, gate } from "/_rt/gate.js";
 import { Island } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the one micro-label recipe (design.md): mono, the density token, uppercased by CSS
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const SLOTS = 4, NCOLORS = 6, MAX = 10;
 
-// Each peg: a saturated hue visible on both themes + a near-black ink for its symbol + a distinct shape,
-// so colour is never the only channel (colour-blind play + SR names). Symbols: ● ▲ ■ ◆ ★ ⬢.
 const PEGS = [
   { c: "#EC5A4A", ink: "#2A0906", sym: "●", key: "cRed" },
   { c: "#E4B93C", ink: "#241A00", sym: "▲", key: "cAmber" },
@@ -29,8 +20,6 @@ const PEGS = [
   { c: "#B98BEA", ink: "#1E0A38", sym: "⬢", key: "cViolet" },
 ];
 
-// gate/mock: a fixed seed with a few plays already on the board, so the shot exercises the populated state
-// (guess rows + feedback pips + a half-filled current guess), never an empty grid.
 const START_SEED = 7;
 function seededStart(secret) {
   const guesses = [[0, 1, 2, 3], [4, 5, 0, 1], [2, 3, 4, 0]];
@@ -60,19 +49,14 @@ export function code({ S }) {
     const fb = feedback(secret, cur);
     const next = [...rows, { guess: cur, fb }];
     setRows(next); setCur([]);
-    if (solved(fb, SLOTS) || next.length >= MAX) S.screen.set("over"); // history-backed win/lose screen
+    if (solved(fb, SLOTS) || next.length >= MAX) S.screen.set("over");
   };
   const newGame = () => { const s = rand(); setSeed(s); setRows([]); setCur([]); S.screen.set(null); };
   const share = async () => {
     const url = `${location.origin}${location.pathname}?g=${seed}`;
-    try { await navigator.clipboard.writeText(url); S.toast?.(T(t, "linkCopied")); } catch { /* clipboard blocked */ }
+    try { await navigator.clipboard.writeText(url); S.toast?.(T(t, "linkCopied")); } catch { }
   };
 
-  // a peg disc — as art (aria label = its colour name) or, when onRemove, a button to pull it back out.
-  // A peg is a physical token you drop into a slot, so it declares the material: RAISED, keeping its own
-  // hue as the FILL rather than letting the colour stand in for the depth. `sf-e2` (the shallow rung) and
-  // not the full pair, because a peg is 28-44px and the deep extrusion on it is a shadow bigger than the
-  // token. Its empty counterpart is `sf-inset` — the same hole, unfilled.
   const disc = (ci, big, onRemove) => {
     const p = PEGS[ci], size = big ? "w-11 h-11 text-lg" : "w-7 h-7 text-sm";
     const style = `background:${p.c};color:${p.ink}`;
@@ -81,11 +65,6 @@ export function code({ S }) {
       : html`<span role="img" aria-label=${T(t, p.key)} class=${`${size} rounded-full sf-e2 inline-flex items-center justify-center font-bold shrink-0`} style=${style}>${p.sym}</span>`;
   };
 
-  // feedback pips — exact (filled) then near (ring); slot-unaligned so they never leak which position is right.
-  // Filled and ring are MARKS, not surfaces: the ring is the second, non-colour channel that makes "near"
-  // readable without hue, so its border stays — it is drawing information, not outlining an object. The
-  // fourth kind is the absence of a mark, and an empty score slot is a hole in the row: `sf-inset`, where a
-  // 15%-ink tone step used to imply the depth the material now supplies.
   const pips = (fb) => {
     const kinds = [...Array(fb.exact).fill("e"), ...Array(fb.partial).fill("n")];
     while (kinds.length < SLOTS) kinds.push("o");
@@ -129,9 +108,7 @@ export function code({ S }) {
             : disc(cur[i], true, () => removePeg(i)))}
         </div>
         <div class="flex items-center justify-center gap-2">
-          ${/* The palette stays a six-across row of round tokens — the geometry is the game. Only the material
-               changed: each peg is a raised object carrying its own hue (`sf-e2`), matching the discs it drops
-               into the guess row above, so a peg looks the same whether it is in the palette or on the board. */""}
+          ${""}
           ${PEGS.map((p, ci) => html`<button data-peg=${ci} aria-label=${T(t, p.key)} disabled=${over || cur.length >= SLOTS} onClick=${() => addPeg(ci)}
             class="w-11 h-11 rounded-full sf-e2 inline-flex items-center justify-center font-bold text-lg shrink-0 active:scale-90 transition-transform disabled:opacity-30" style=${`background:${p.c};color:${p.ink}`} key=${ci}>${p.sym}</button>`)}
         </div>

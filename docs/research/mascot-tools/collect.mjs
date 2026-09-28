@@ -1,4 +1,3 @@
-// collect.mjs <out-dir> <b64-lines-file>… → writes <out-dir>/<name>.png (later lines win) and prints the names
 const [outDir, ...files] = Deno.args;
 await Deno.mkdir(outDir, { recursive: true });
 const seen = new Map();

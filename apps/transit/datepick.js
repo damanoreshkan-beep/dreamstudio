@@ -1,14 +1,3 @@
-// The birth-date picker — a real calendar, because `<input type="date">` is the wrong control for this job.
-//
-// The native picker is built for dates NEAR TODAY: it opens on the current month and every browser gives it
-// a different chrome. A birth date is thirty or fifty years back, so the one interaction that matters is
-// reaching a distant YEAR, and that is the one the native control makes slowest. This one opens on the year
-// grid's own terms — tap the year in the header and 24 of them are on screen at once, tap a month, tap a
-// day. Three taps to any birth date in a century.
-//
-// Month and weekday names come from `Intl`, not from the app's dictionary: 12 + 7 names per locale is 38
-// strings that would have to be kept in parity by hand for no gain, and the platform already has them
-// declined correctly for both locales this app ships.
 import { html } from "htm/preact";
 import { useState, useEffect } from "preact/hooks";
 import { Sheet } from "/_rt/ui.js";
@@ -18,8 +7,6 @@ const intl = (locale) => (locale === "en" ? "en-GB" : locale || "uk");
 const pad = (n) => String(n).padStart(2, "0");
 export const ymd = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
-// "1990-07-15" → {y, m, d}, or null. Parsed by hand rather than through `new Date(s)`, which reads a bare
-// date string as UTC and can hand back the previous day once the browser renders it in a western timezone.
 export function parseYmd(s) {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || "");
   if (!m) return null;
@@ -29,16 +16,13 @@ export function parseYmd(s) {
 }
 
 const daysIn = (y, m) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
-// Monday-first column index of the 1st, matching both locales this app ships.
 const firstCol = (y, m) => (new Date(Date.UTC(y, m, 1)).getUTCDay() + 6) % 7;
 
 const monthName = (locale, m, style = "long") =>
   new Date(Date.UTC(2021, m, 1)).toLocaleDateString(intl(locale), { month: style });
-// 2021-03-01 was a Monday, so this walks Mon→Sun.
 const weekdayName = (locale, i) =>
   new Date(Date.UTC(2021, 2, 1 + i)).toLocaleDateString(intl(locale), { weekday: "short" });
 
-// The field itself: what the form shows when the sheet is closed.
 export function DateField({ value, label, locale, placeholder, onOpen, attr }) {
   const p = parseYmd(value);
   const text = p
@@ -60,8 +44,6 @@ export function CalendarSheet({ open, onClose, value, onPick, locale, title, min
   const [mode, setMode] = useState("day");
   const [cur, setCur] = useState(() => sel || { y: today.getUTCFullYear() - 30, m: today.getUTCMonth(), d: 1 });
 
-  // Re-centre on whatever the field holds each time the sheet opens — a picker that reopens on last
-  // month's scroll position is the native control's other annoyance, not one to reproduce.
   useEffect(() => {
     if (!open) return;
     setMode("day");
@@ -89,7 +71,6 @@ export function CalendarSheet({ open, onClose, value, onPick, locale, title, min
 
   let body;
   if (mode === "year") {
-    // 24 years a page: a generation on one screen, so a birth year is one tap after one paging step at most.
     const base = Math.max(minYear, cur.y - 12);
     const years = Array.from({ length: 24 }, (_, i) => base + i).filter((y) => y >= minYear && y <= maxYear);
     body = html`<div class="grid grid-cols-4 gap-1.5">

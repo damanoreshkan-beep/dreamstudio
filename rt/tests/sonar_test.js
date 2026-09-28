@@ -1,10 +1,3 @@
-// microspec runtime — sonar (ultrasonic Doppler) unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-//
-// The gate has no speaker and no microphone, so `synthSpectrum` IS the sonar signal CI ever sees. The eleven
-// states of apps/sonar/RESEARCH.md §7 are covered below; the numbers they assert were measured from this
-// module, not chosen.
-
 import { assert, assertEquals, assertAlmostEquals } from "jsr:@std/assert@1";
 import {
   DEFAULTS, speedOfSound, dopplerHz, radialFromHz, binWidth, binOf, hzOfBin, snapCarrier,
@@ -14,8 +7,6 @@ import {
 const SR = 48000, FFT = DEFAULTS.fftSize;
 const frame = (opts = {}) => synthSpectrum({ sampleRate: SR, fftSize: FFT, ...opts });
 const read = (opts = {}) => analyzeFrame(frame(opts), { sampleRate: SR, fftSize: FFT });
-
-// ---- physics ----
 
 Deno.test("sonar speedOfSound: matches the NPL values the design is scaled to", () => {
   assertAlmostEquals(speedOfSound(0), 331.3, 1e-9);
@@ -36,21 +27,15 @@ Deno.test("sonar radialFromHz: exact inverse of dopplerHz", () => {
 });
 
 Deno.test("sonar temperature is negligible for DETECTION, not for m/s", () => {
-  // Why the app never prints m/s but can ignore the thermometer: 0-40 °C moves a 1 m/s shift by <8 Hz,
-  // nothing against a ±250 Hz window — yet it is 7% of the value a speed readout would claim.
   const cold = dopplerHz(1, 19000, speedOfSound(0)), hot = dopplerHz(1, 19000, speedOfSound(40));
   assert(Math.abs(cold - hot) < 8, `shift spread ${Math.abs(cold - hot).toFixed(1)} Hz`);
   assert(Math.abs(cold - hot) / cold > 0.05, "…but >5% of the reading");
 });
 
-// ---- bin geometry: the measurement the whole design rests on ----
-
 Deno.test("sonar snapCarrier: lands on an EXACT bin centre, and 19 kHz does not", () => {
   const w = binWidth(SR, FFT);
   assertAlmostEquals(w, 1.4648, 1e-4);
   const snapped = snapCarrier(19000, SR, FFT);
-  // The snapped frequency is an integer number of bins; the round number is a third of a bin off, which is
-  // where Blackman's -58 dB sidelobes sit and a slow hand's sideband dies (RESEARCH.md §0).
   assertAlmostEquals(snapped / w, Math.round(snapped / w), 1e-9);
   const offBins = Math.abs(19000 / w - Math.round(19000 / w));
   assert(offBins > 0.3 && offBins < 0.4, `19000 Hz is ${offBins.toFixed(2)} bin off`);
@@ -63,8 +48,6 @@ Deno.test("sonar bin helpers: round-trip, and follow the sample rate", () => {
   assertAlmostEquals(binWidth(44100, FFT), 1.3458, 1e-4);
 });
 
-// ---- robust statistics ----
-
 Deno.test("sonar median/mad: an outlier moves neither much", () => {
   assertEquals(median([3, 1, 2]), 2);
   assertEquals(median([4, 1, 3, 2]), 2.5);
@@ -73,8 +56,6 @@ Deno.test("sonar median/mad: an outlier moves neither much", () => {
   assertEquals(mad([10, 10, 10]), 0);
   assertEquals(mad([1, 2, 3, 4, 1000]), 1);
 });
-
-// ---- the eleven fixtures (RESEARCH.md §7) ----
 
 Deno.test("sonar fixture 1: no carrier → not ok, nothing claimed", () => {
   const r = read({ carrierHz: 0 });
@@ -107,7 +88,6 @@ Deno.test("sonar fixture 4: a lower sideband alone reads as receding", () => {
 });
 
 Deno.test("sonar fixture 5: both sides lit → motion, but NO direction claimed", () => {
-  // One object plus multipath routinely lights both sides; the app must say "motion" and stop there.
   const hz = dopplerHz(0.3, 19000);
   const r = read({ moves: [{ hz, db: -70 }, { hz: -hz, db: -72 }] });
   assert(r.motionDb > 15, "motion is still obvious");
@@ -115,8 +95,6 @@ Deno.test("sonar fixture 5: both sides lit → motion, but NO direction claimed"
 });
 
 Deno.test("sonar fixture 6: a drifted carrier is TRACKED, and sidebands follow it", () => {
-  // Clock drift and resampling move the carrier; a band anchored to the nominal frequency would slide its
-  // guard over live signal. The peak is found ~90 Hz off, and the shift is still measured from the peak.
   const drifted = 19000 + 90;
   const db = frame({ carrierHz: drifted, moves: [{ hz: 33.24, db: -70 }] });
   const c = trackCarrier(db, { sampleRate: SR, fftSize: FFT });
@@ -128,10 +106,9 @@ Deno.test("sonar fixture 6: a drifted carrier is TRACKED, and sidebands follow i
 });
 
 Deno.test("sonar fixture 7: a carrier below the SNR floor is lost, not guessed at", () => {
-  const r = read({ carrierDb: -108 });                       // barely above the -110 dB floor
+  const r = read({ carrierDb: -108 });
   assertEquals(r.ok, false);
   assert(r.carrier.snrDb < DEFAULTS.carrierSnrDb, `snr ${r.carrier.snrDb.toFixed(1)} dB`);
-  // A carrier pushed further than the tracking window is lost too, however loud it is.
   const far = analyzeFrame(frame({ carrierHz: 19000 + 400 }), { sampleRate: SR, fftSize: FFT });
   assertEquals(far.ok, false);
 });
@@ -147,8 +124,6 @@ Deno.test("sonar fixture 9: a raised noise floor does not become motion", () => 
   const quiet = read({ floorDb: -110 }), loud = read({ floorDb: -70 });
   assert(loud.ok, "the carrier still clears a -70 dB floor");
   assertAlmostEquals(loud.motionDb, quiet.motionDb, 1.5, "motion is RELATIVE to the sidebands' own floor");
-  // The reading follows the CONTRAST, not the level: the same 40 dB reflection over a floor 40 dB louder
-  // scores the same. That is what makes one calibration valid in a quiet room and a noisy one.
   const quietMove = read({ floorDb: -110, moves: [{ hz: 33.24, db: -70 }] });
   const loudMove = read({ floorDb: -70, moves: [{ hz: 33.24, db: -30 }] });
   assertAlmostEquals(loudMove.motionDb, quietMove.motionDb, 1.5);
@@ -156,9 +131,6 @@ Deno.test("sonar fixture 9: a raised noise floor does not become motion", () => 
 });
 
 Deno.test("sonar fixture 10: the 0.05 m/s hand clears the guard — with one bin to spare", () => {
-  // The tightest case in the whole design: 5.54 Hz is 3.8 bins, and the guard is 4 bins
-  // (max(guardBins 3, ceil(4.5 Hz / 1.46 Hz))). The reflection lands ON the guard edge, so this test is what
-  // stands between a working slow-hand and a silent one — if guardHz or fftSize moves, it fails here first.
   const w = binWidth(SR, FFT);
   const guard = Math.max(DEFAULTS.guardBins, Math.ceil(DEFAULTS.guardHz / w));
   const shiftBins = dopplerHz(0.05, 19000) / w;
@@ -176,8 +148,6 @@ Deno.test("sonar fixture 11: walking (1 m/s) is unmistakable and sits inside the
   assertAlmostEquals(r.dominantHz, hz, 1.5);
 });
 
-// ---- calibration + detection ----
-
 Deno.test("sonar Calibration: thresholds come from the ROOM, and hysteresis is ordered", () => {
   const cal = Calibration({ minFrames: 4 });
   assertEquals(cal.ready, false);
@@ -192,8 +162,6 @@ Deno.test("sonar Calibration: thresholds come from the ROOM, and hysteresis is o
 });
 
 Deno.test("sonar Calibration: a perfectly steady room still gets a usable threshold", () => {
-  // MAD 0 would make on == off == median and the detector would trip on rounding noise; the 0.25 floor is
-  // the only thing between a silent room and a permanently-triggered one.
   const cal = Calibration({ minFrames: 1 });
   for (let i = 0; i < 10; i++) cal.push(-7);
   const th = cal.thresholds();
@@ -202,7 +170,6 @@ Deno.test("sonar Calibration: a perfectly steady room still gets a usable thresh
 });
 
 Deno.test("sonar Detector: attack/release are TIME, not frames", () => {
-  // The analyser is polled from rAF, whose rate is not specified; 60 fps and 20 fps must behave identically.
   const run = (dt) => {
     const d = Detector({ on: 5, off: 1 });
     let onAt = 0, offAt = 0, t = 0;
@@ -219,18 +186,17 @@ Deno.test("sonar Detector: attack/release are TIME, not frames", () => {
 
 Deno.test("sonar Detector: the dead band between off and on cannot chatter", () => {
   const d = Detector({ on: 5, off: 1 });
-  for (let i = 0; i < 100; i++) d.update(3, 16);                 // inside the band, forever
+  for (let i = 0; i < 100; i++) d.update(3, 16);
   assertEquals(d.active, false, "an idle detector stays idle in the dead band");
   for (let i = 0; i < 20; i++) d.update(9, 16);
   assertEquals(d.active, true);
-  for (let i = 0; i < 100; i++) d.update(3, 16);                 // same dead band, now active
+  for (let i = 0; i < 100; i++) d.update(3, 16);
   assertEquals(d.active, true, "…and an active one stays active — that is the point of two thresholds");
   d.reset();
   assertEquals(d.active, false);
 });
 
 Deno.test("sonar end-to-end: calibrate on stillness, then a hand trips it and the room releases it", () => {
-  // The app's whole loop, in one test: learn the room, detect a wave, fall back to idle when it stops.
   const cal = Calibration({ minFrames: 8 });
   for (let seed = 1; seed <= 12; seed++) cal.push(read({ seed }).motionDb);
   const th = cal.thresholds();

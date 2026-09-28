@@ -1,12 +1,3 @@
-// mirage — the stage. ONE fit screen: a Stage (the picture, or the dust while it forms) over the GL field,
-// and ONE composer island where the mode is a Segmented. The pipeline is the screen — input (prompt · photo)
-// → a race across HF Spaces → variants → keep / save / hand off — and the mode only changes what the input
-// is. State and actions live in state.js, outside the mount, because the runtime mounts one tab at a time.
-//
-// THE THREE LAYERS (RESEARCH.md): the FIELD (GlStage + mirage.frag, tinted by the picture in view — GlStage
-// downsamples its texture to 64px, so a picture can never BE the field), the DUST (/_rt/dust.js, while a race
-// runs; it needs no picture, the dust gathers before one exists) and the PICTURE (a real <img> — the product,
-// saveable and shareable, which a texture is not).
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useRef, useEffect, useState } from "preact/hooks";
@@ -26,7 +17,6 @@ import * as M from "./state.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const fmt = (s) => `${Math.floor(s / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
-// Only a spark, never shown: the model writes the actual line in the active locale.
 const SPARKS = {
   make: ["a lighthouse in a storm", "an empty station at dawn", "a garden under snow", "a city seen through rain", "a whale above a desert", "a room where the light is wrong"],
   edit: ["turn it into an oil painting", "golden-hour light", "make it snow", "black-and-white film", "turn day into night", "a pencil sketch"],
@@ -34,13 +24,9 @@ const SPARKS = {
 const GATE_EDIT = "add falling snow, cinematic";
 const ICONS = { make: "lucide:sparkles", edit: "lucide:wand-sparkles", read: "lucide:scan-eye", blend: "lucide:blend", style: "lucide:palette" };
 SPARKS.blend = ["put the second picture into the first", "dress the person in the second picture's outfit", "merge both into one scene", "the style of the second on the first"];
-// Style takes a DESCRIPTION of what should come out, not an instruction: the Spaces behind it read the look
-// from the second picture and the prompt only says what the subject is (USO's own guidance).
 SPARKS.style = ["a woman on a balcony at dusk", "a quiet street after rain", "a cat on a windowsill", "a portrait against a wide sky"];
 const ASPECTS = [["screen", "lucide:smartphone"], ["square", "lucide:square"], ["portrait", "lucide:rectangle-vertical"], ["landscape", "lucide:rectangle-horizontal"]];
 const tool = "btn btn-ghost btn-sm btn-circle text-base-content/70";
-// The working line sweeps like the 21st "AI text loading" idiom — a gradient clipped to the glyphs — but it
-// says the worker's REAL state (translating · queued · painting n/m), never a cycled phrase. Gate: static.
 const SHIMMER = `.mg-sh{background:linear-gradient(90deg,rgba(255,255,255,.45) 0%,#fff 50%,rgba(255,255,255,.45) 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:mgSweep 2.2s linear infinite}
 @keyframes mgSweep{from{background-position:200% 0}to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.mg-sh{animation:none}}`;
@@ -53,22 +39,18 @@ export function mirage({ S, toast }) {
   const twoSlot = M.TWO_SLOT.includes(mode);
   const slides = mode === "read" ? [] : st.slides, cur = slides[st.idx] || slides[0] || null;
   const working = st.phase === "working";
-  // Every racing mode counts: the elapsed clock and the field's `busy` channel are driven from here, so a
-  // mode left out of this list runs with a frozen readout behind a picture that is genuinely forming.
   const anyBusy = [make, edit, read, blendSt, styleSt].some((s) => s.phase === "working");
-  const shown = cur?.url || st.src || st.a || null;              // the picture in view: the product, or the source
+  const shown = cur?.url || st.src || st.a || null;
   const text = mode === "read" ? st.question : st.prompt;
   const setText = (v) => M.patch(mode, mode === "read" ? { question: v } : { prompt: v });
   const [hist, remember] = usePromptHistory(mode);
-  const [hold, setHold] = useState(false);                          // hold-to-compare: the original over the rework
+  const [hold, setHold] = useState(false);
   const ctx = { t, loc };
 
   useEffect(() => { M.resume(ctx); }, []);
-  // a 1s tick only while something runs — the elapsed readout, nothing else re-renders for it
   const [, tick] = useState(0);
   useEffect(() => { if (!anyBusy) return; const id = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(id); }, [anyBusy]);
 
-  // ── the field's live channels: a plain object the shader reads every frame, never state ──────────
   const chan = useRef({ busy: 0, arrive: 0, ready: 0 }).current;
   useEffect(() => { chan.busy = anyBusy ? 1 : 0; }, [anyBusy]);
   useEffect(() => {
@@ -80,7 +62,6 @@ export function mirage({ S, toast }) {
   }, [shown]);
   const vary = () => [chan.busy, chan.arrive, M.MODES.indexOf(mode) / M.MODES.length, chan.ready];
 
-  // ── actions ───────────────────────────────────────────────────────────────────────────────────────
   const go = async () => {
     if (working) return M.cancel(mode);
     if (mode === "make") { remember(st.prompt); return M.conjure(ctx); }
@@ -94,8 +75,7 @@ export function mirage({ S, toast }) {
     if (working) return;
     if (gate) { setText(mode === "make" ? M.GATE_PROMPT : GATE_EDIT); return; }
     const list = SPARKS[mode];
-    // the reader sees their language; the send is the model's own English (ai-text.js suggestPrompt, 2026-09-03)
-    try { const p = await suggestPrompt(mode === "make" ? "dream" : "edit", list[Math.floor(Math.random() * list.length)], loc); if (p) setText(p.local); } catch { /* fail-open */ }
+    try { const p = await suggestPrompt(mode === "make" ? "dream" : "edit", list[Math.floor(Math.random() * list.length)], loc); if (p) setText(p.local); } catch { }
   };
   const save = async () => { if (!shown) return; try { await downloadUrl(shown, `mirage-${cur?.seed || Date.now()}.${cur?.ext || "jpg"}`); toast?.(T(t, "saved")); } catch { toast?.(T(t, "eNetwork")); } };
   const share = async () => { if (!shown) return; try { const r = await shareFile(await (await fetch(shown)).blob(), `mirage-${cur?.seed || Date.now()}.${cur?.ext || "jpg"}`); if (r === "saved") toast?.(T(t, "saved")); } catch { toast?.(T(t, "eNetwork")); } };
@@ -108,19 +88,17 @@ export function mirage({ S, toast }) {
   const placeholder = T(t, mode === "make" ? "promptPlaceholder" : mode === "edit" ? "editPlaceholder" : mode === "blend" ? "blendPlaceholder" : mode === "style" ? "stylePlaceholder" : "askPlaceholder");
   const live = M.liveOf(st.live);
   const elapsed = st.t0 ? Math.round((Date.now() - st.t0) / 1000) : 0;
-  // the catalogue for this mode; a chosen model that is no longer offered falls back to auto on screen
   const models = useStore(M.$models);
-  const enh = useStore(M.$enhance);   // the 4× enhance of the picture in view (zir's route); one at a time
+  const enh = useStore(M.$enhance);
   const modelList = M.modelsFor(mode);
   const chosen = opts.model?.[mode] || "auto";
   const modelSel = chosen !== "auto" && !modelList.some((m) => m.id === chosen) && models.at && !models.error ? "auto" : chosen;
   const shortName = (id) => { const n = id.split("/").pop(); return n.length > 20 ? n.slice(0, 19) + "…" : n; };
   const optsMeta = modelSel !== "auto" ? shortName(modelSel) : mode === "make" ? T(t, opts.quality === "2k" ? "q2k" : "qFast") : null;
-  const styleSel = styleOf(opts.style);   // the chosen style card, null for "none"
+  const styleSel = styleOf(opts.style);
   const label = "font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70";
   const [body, tags] = (() => { const lines = read.text.trim().split(/\n+/); const last = lines[lines.length - 1] || ""; const isTags = lines.length > 1 && last.split(",").length >= 3 && last.length < 120; return isTags ? [lines.slice(0, -1).join("\n"), last.split(",").map((s) => s.trim()).filter(Boolean)] : [read.text, []]; })();
 
-  // ── the stage ─────────────────────────────────────────────────────────────────────────────────────
   const frame = "max-w-full max-h-full rounded-[var(--ms-r)] object-contain sf-raised";
   const slot = (inner) => html`<div class="absolute inset-0 flex items-center justify-center p-[var(--ms-gap)] pb-6">${inner}</div>`;
   const stage = () => {
@@ -147,9 +125,6 @@ export function mirage({ S, toast }) {
       </div>` : null}
     </${Fragment}>`;
     if (dust) return html`<${Fragment}>${dust}${caption}</${Fragment}>`;
-    // the two slots, stacked: each is a picture with its own × or a compact chooser until it has one. In style
-    // the two are NOT interchangeable — the top one is the picture, the bottom one is the look it borrows — so
-    // each carries its name. Blend's two are peers and stay unlabelled.
     if (twoSlot) return html`<div class="absolute inset-0 flex flex-col gap-[var(--ms-gap)] p-[var(--ms-gap)] pb-6">
       ${["a", "b"].map((sl) => html`<div key=${sl} data-slot=${sl} class="relative flex-1 min-h-0 flex items-center justify-center">
         ${st[sl] ? html`<${Fragment}>
@@ -167,9 +142,6 @@ export function mirage({ S, toast }) {
     return null;
   };
 
-  // ── the composer ──────────────────────────────────────────────────────────────────────────────────
-  // One word, two glyphs: the hand-off keeps its name (it is the interesting action); save and share are
-  // universally iconic and stay circles, so nothing truncates at any width — under 15rem the word demotes too.
   const act = (id, icon, label, onClick) => html`<button data-act=${id} class="btn btn-sm btn-circle shrink-0" aria-label=${label} title=${label} onClick=${onClick}>${Icon(icon, "text-base")}</button>`;
   const handoff = (id, icon, label, onClick) => html`<button data-act=${id} class="btn btn-sm rounded-full flex-1 min-w-0 gap-1.5" aria-label=${label} onClick=${onClick}>${Icon(icon, "text-base shrink-0")}<span class="truncate @max-[15rem]:hidden">${label}</span></button>`;
   const hasResult = !!cur && st.phase === "done";
@@ -194,9 +166,7 @@ export function mirage({ S, toast }) {
           <${Segmented} attr="data-aspect" label=${T(t, "aspect")} value=${opts.aspect} onChange=${(a) => M.setOpts({ aspect: a })}
             items=${ASPECTS.map(([id, icon]) => ({ id, icon, label: T(t, "a" + id[0].toUpperCase() + id.slice(1)) }))} />
         </${Fragment}>` : null}
-        ${/* The model: the owner's choice, not the back end's. "Auto" is the measured pool; every other pill is a
-             Space the edge can run NOW — green = HF says RUNNING, grey = HF could not say; a dead one is never
-             offered. The list is fetched when this sheet opens and re-probed on demand. */""}
+        ${""}
         <div class="flex items-center justify-between gap-2">
           <div class=${label}>${T(t, "model")}</div>
           <button data-models-check aria-label=${T(t, "modelCheck")} class="btn btn-ghost btn-xs btn-circle text-base-content/70" disabled=${models.loading} onClick=${() => M.loadModels(true)}>${Icon("lucide:refresh-cw", `text-base ${models.loading ? "animate-spin" : ""}`)}</button>
@@ -207,9 +177,7 @@ export function mirage({ S, toast }) {
       </div>
     <//>
 
-    ${/* The style cards of Make — the first card is the farm's own material (the icons' luminous plexus),
-          the rest are MATERIALS, not genres (styles.js). A card = the same fox through that card's block, so
-          the picture tells the truth about what the style does. History-backed like every sheet here. */""}
+    ${""}
     <${Sheet} id="styles" open=${screen === "styles"} onClose=${() => S.screen.set(null)} title=${T(t, "styleSheet")} icon="lucide:paintbrush" locale=${loc}>
       <div class="grid grid-cols-3 gap-2.5">
         <button data-style="none" aria-pressed=${!styleSel} onClick=${() => { M.setOpts({ style: "none" }); S.screen.set(null); }}
@@ -241,17 +209,14 @@ export function mirage({ S, toast }) {
     <div class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)] ms-side">
       <${Stage}>${stage()}<//>
 
-      ${/* The island sits in a plain ms-side-main box (hive's structure): in the side-by-side shape the ROW
-           stretches its children, and a raised surface stretched to the column's height reads as an empty
-           slab with controls floating in its middle. The box takes the stretch; the island keeps its size. */""}
+      ${""}
       <div class="ms-side-main shrink-0 flex flex-col justify-center">
       <${Island} className="w-full max-w-xl mx-auto flex flex-col gap-[var(--ms-gap)]">
         <${Segmented} attr="data-mode" label=${T(t, "tabStage")} items=${modeItems} value=${mode} onChange=${(m) => M.$mode.set(m)} />
 
         ${hasResult ? html`<div data-actions class="@container flex items-center gap-1.5">
           ${mode === "edit" ? handoff("keep", "lucide:wand-sparkles", T(t, "keep"), M.keepEditing) : handoff("to-edit", "lucide:wand-sparkles", T(t, "toEdit"), () => M.toEdit(cur.url))}
-          ${/* ENHANCE — the picture in view ×4 through zir's route; the pill says what it is doing (Покращую · N s)
-               and, once the slide is the enhanced one, that it is done (Покращено, off) — never a spinner */""}
+          ${""}
           ${(() => { const busy = enh.phase === "working" && enh.mode === mode; const hd = !!cur?.hd; const eta = busy && enh.live?.eta ? Math.max(0, Math.round(enh.live.eta - (enh.live.elapsed || 0))) : null;
             return html`<button data-act="enhance" aria-busy=${busy ? "true" : null} aria-pressed=${hd ? "true" : "false"} disabled=${hd || busy || working} class="btn btn-sm rounded-full flex-1 min-w-0 gap-1.5"
               aria-label=${T(t, hd ? "enhanced" : busy ? "enhancing" : "enhance")} onClick=${() => M.enhance(mode)}>${Icon(hd ? "lucide:check" : "lucide:scan-eye", "text-base shrink-0")}<span class="truncate @max-[15rem]:hidden">${T(t, hd ? "enhanced" : busy ? "enhancing" : "enhance")}${eta != null ? html` <span class="tabular-nums font-mono text-xs opacity-70">${eta} s</span>` : ""}</span></button>`; })()}

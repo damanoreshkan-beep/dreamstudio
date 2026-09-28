@@ -1,6 +1,3 @@
-// On This Day — what happened on today's date: highlights, events, births, deaths and holidays from
-// Wikipedia (rest_v1 onthisday feed, CORS *, keyless). Content follows the UI locale (uk→uk.wikipedia,
-// en→en.wikipedia). Cards link to the article; the list staggers in with the systemic `motion`.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -59,16 +56,15 @@ export function onthisday({ S }) {
     return () => { live = false; };
   }, [locale]);
 
-  const ready = useReveal(!!data);   // hold the skeleton ≥1s so a fast load doesn't flash
+  const ready = useReveal(!!data);
   useEffect(() => {
     if (!listRef.current) return;
     const rows = listRef.current.querySelectorAll(".otd");
     if (!rows.length) return;
     const a = animate(rows, { y: [10, 0] }, { delay: stagger(0.025), duration: 0.3, ease: "easeOut" });
-    return () => { try { a.stop(); } catch { /* */ } };
+    return () => { try { a.stop(); } catch { } };
   }, [cat, ready]);
 
-  // Structure (date + category tabs) renders immediately; the entries are decoding skeleton cards until ready.
   const dateStr = new Date().toLocaleDateString(locale === "en" ? "en-GB" : locale || "uk", { day: "numeric", month: "long" });
   const items = data ? (data[cat] || []).slice().sort((a, b) => (b.year || 0) - (a.year || 0)) : [];
   const body = (it) => html`<div class="card-body p-3 flex-row items-start gap-3">
@@ -76,8 +72,6 @@ export function onthisday({ S }) {
     <div class="flex-1 min-w-0"><p class="text-sm leading-snug break-words">${it.text}</p></div>
     ${it.thumb ? html`<img src=${it.thumb} loading="lazy" alt="" class="w-14 h-14 rounded-[var(--ms-r-in)] object-cover shrink-0" />` : null}
   </div>`;
-  // A card is the page RAISED (`.card` carries the shallow pair from theme.css) — the hairline it wore was an
-  // edge drawn on top of an extrusion, and a lighter face is the "grey card on black" mistake.
   const CARD = "card rounded-[var(--ms-r)] overflow-hidden";
   const skel = (i) => html`<div class=${CARD} key=${"s" + i}><div class="card-body p-3 flex-row items-start gap-3 text-muted"><div class="shrink-0 w-12 text-right pt-0.5"><span class="text-base font-bold tabular-nums"><${Scramble} len=${4} /></span></div><div class="flex-1 min-w-0 flex flex-col gap-1.5"><div class="truncate text-sm"><${Scramble} len=${34} /></div><div class="truncate text-sm w-2/3"><${Scramble} len=${18} /></div></div></div></div>`;
 

@@ -1,9 +1,4 @@
-// Кіно — the app is a spec + a data adapter and nothing else, so these assertions are really about the
-// CONTRACT: `detail.actions[].play` must produce a real in-app player, and the stack it opens on must
-// behave. If this app needs a view.js to pass, video isn't in the system.
 const ready = async (h) => { await h.waitFor(/\S{6}/, 15000); await h.wait(300); };
-// The tap target is the runtime's transparent overlay button, not the .card div — clicking the card
-// itself does nothing, which is exactly what the first run of this file proved.
 const firstCard = ".aw-tap";
 
 export default [
@@ -15,7 +10,6 @@ export default [
     },
   },
   {
-    // The drill-down contract: a card opens the detail IN-APP, never throws you to archive.org.
     name: "картка відкриває деталі, а не викидає з апки", run: async (h) => {
       await ready(h);
       await h.click(firstCard); await h.wait(400);
@@ -26,7 +20,6 @@ export default [
     },
   },
   {
-    // The whole reason the contract exists: `play` opens the RUNTIME player, with no app code.
     name: "play відкриває плеєр рантайму", run: async (h) => {
       await ready(h);
       await h.click(firstCard); await h.wait(400);
@@ -36,9 +29,6 @@ export default [
     },
   },
   {
-    // Overlays are a STACK, not a set. Back from the player must land on the film you opened it from —
-    // dropping the viewer all the way to the list loses the item they were reading, and used to: the
-    // runtime closed every overlay at once.
     name: "Back із плеєра повертає в деталі, а не в список", run: async (h) => {
       await ready(h);
       await h.click(firstCard); await h.wait(400);
@@ -52,8 +42,6 @@ export default [
     },
   },
   {
-    // Filters refetch against the archive rather than sieving the 60 rows already on screen — so this
-    // asserts the SHEET routes and the query actually goes back out, not that a list got shorter.
     name: "фільтри: мова + епоха, шторка history-backed", run: async (h) => {
       await ready(h);
       await h.click("#filter-btn"); await h.wait(250);
@@ -62,7 +50,6 @@ export default [
       h.expect((await h.count("#f-era")) === 1, "немає селекта епохи");
       await h.select("#f-lang", "uk"); await h.wait(200);
       await h.click("#f-apply"); await h.wait(2500);
-      // Ukrainian is 4 films in the whole archive (measured) — a real, tiny result, not an empty state.
       const n = await h.count(firstCard);
       h.expect(n > 0 && n < 20, `фільтр мови не звузив вибірку (${n} карток)`);
       await h.click("#filter-btn"); await h.wait(250);

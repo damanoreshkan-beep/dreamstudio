@@ -1,8 +1,3 @@
-// Habits — a local-first streak tracker. No API, no backend: every habit and every daily check-in lives in
-// the device's IndexedDB (/_rt/db.js), so it works fully offline and the data is the user's. This is a
-// stateful productivity app — CRUD + streak math + a GitHub-style contribution heatmap — not a read-only
-// feed. Sub-screens (habit detail, add sheet) route through the runtime's S.screen / S.sheet so the system
-// Back button closes them (never exits the PWA). Haptics on every check-in.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect } from "preact/hooks";
@@ -15,37 +10,27 @@ import { downloadBlob } from "/_rt/apk.js";
 import { Panel, Sheet } from "/_rt/ui.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The kit's micro-label (Panel/Slider use the same one) — a field caption is a label, not a caption a
-// good UI would need explained.
-// `length:` — a bare var() inside text-[…] is a COLOUR to Tailwind v4 and the caption fell back to body size.
 const LABEL = "font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70";
 
 const habitsColl = collection("habits");
 const marksColl = collection("marks");
 
-// ---- shared local state -----------------------------------------------------
-const $habits = atom([]);   // [{ id, name, icon, color, createdAt }]
-const $marks = atom({});    // { "habitId|YYYY-MM-DD": 1 }
+const $habits = atom([]);
+const $marks = atom({});
 const $ready = atom(false);
 const $draft = atom({ name: "", icon: "lucide:check", color: "#10b981" });
 
-// THE HABIT'S MARK PALETTE — the one hex list in this app, and it is data, not design: a habit's colour is
-// its identity, chosen by the user, and it only ever reaches MARKS (the icon tile, the week chips, the
-// heatmap cells, the check chip) — never text, never a surface under text. Eight hues far enough apart to
-// tell three habits apart at 14px; stored per habit in IndexedDB, so the list is a schema, not a theme.
 const COLORS = ["#10b981", "#f59e0b", "#3b82f6", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
 const ICONS = ["lucide:check", "lucide:dumbbell", "lucide:book-open", "lucide:droplets", "lucide:moon", "lucide:footprints", "lucide:apple", "lucide:brain", "lucide:pencil", "lucide:heart-pulse", "lucide:leaf", "lucide:music"];
 
-// ---- date helpers (all LOCAL — a habit day is the user's calendar day) ------
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const addDays = (d, n) => { const x = new Date(d); x.setHours(12, 0, 0, 0); x.setDate(x.getDate() + n); return x; };
 const today = () => ymd(new Date());
-const weekdayMon = (d) => (d.getDay() + 6) % 7;                 // Mon=0 … Sun=6
+const weekdayMon = (d) => (d.getDay() + 6) % 7;
 const between = (a, b) => Math.round((new Date(b + "T12:00") - new Date(a + "T12:00")) / 864e5);
 
-// ---- streak math ------------------------------------------------------------
 function streak(id, marks) {
-  let n = 0; const start = marks[id + "|" + today()] ? 0 : 1;   // today undone → streak may still run through yesterday
+  let n = 0; const start = marks[id + "|" + today()] ? 0 : 1;
   for (let i = start; ; i++) { if (marks[id + "|" + ymd(addDays(new Date(), -i))]) n++; else break; }
   return n;
 }
@@ -61,7 +46,6 @@ function monthRate(id, marks) {
   return Math.round((done.length / now.getDate()) * 100);
 }
 
-// ---- persistence ------------------------------------------------------------
 async function loadAll() {
   try {
     const hs = await habitsColl.all();
@@ -70,25 +54,25 @@ async function loadAll() {
     const map = {}; for (const m of ms) map[m.id] = 1;
     $habits.set(hs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)));
     $marks.set(map);
-  } catch { /* no IndexedDB (headless preflight) → stay empty, app still renders */ }
+  } catch { }
   $ready.set(true);
 }
 async function addHabit(name, icon, color) {
   const id = "h" + Date.now().toString(36) + Math.floor(performance.now()).toString(36);
   const h = { name: name.trim(), icon, color, createdAt: Date.now() };
   $habits.set([...$habits.get(), { id, ...h }]);
-  try { await habitsColl.put(id, h); } catch { /* */ }
+  try { await habitsColl.put(id, h); } catch { }
   return id;
 }
 async function removeHabit(id) {
   $habits.set($habits.get().filter((h) => h.id !== id));
   const m = { ...$marks.get() }; for (const k in m) if (k.startsWith(id + "|")) delete m[k]; $marks.set(m);
-  try { await habitsColl.remove(id); const all = await marksColl.all(); await Promise.all(all.filter((r) => r.id.startsWith(id + "|")).map((r) => marksColl.remove(r.id))); } catch { /* */ }
+  try { await habitsColl.remove(id); const all = await marksColl.all(); await Promise.all(all.filter((r) => r.id.startsWith(id + "|")).map((r) => marksColl.remove(r.id))); } catch { }
 }
 async function toggle(id, day) {
   const key = id + "|" + day, m = { ...$marks.get() };
-  if (m[key]) { delete m[key]; $marks.set(m); haptic.tick(); try { await marksColl.remove(key); } catch { /* */ } }
-  else { m[key] = 1; $marks.set(m); haptic.bump(); try { await marksColl.put(key, { d: 1 }); } catch { /* */ } }
+  if (m[key]) { delete m[key]; $marks.set(m); haptic.tick(); try { await marksColl.remove(key); } catch { } }
+  else { m[key] = 1; $marks.set(m); haptic.bump(); try { await marksColl.put(key, { d: 1 }); } catch { } }
 }
 async function seed() {
   const defs = [["Читати", "lucide:book-open", "#3b82f6"], ["Спорт", "lucide:dumbbell", "#10b981"], ["Вода", "lucide:droplets", "#14b8a6"]];
@@ -99,7 +83,7 @@ async function seed() {
 }
 function exportData() {
   const blob = new Blob([JSON.stringify({ habits: $habits.get(), marks: Object.keys($marks.get()) }, null, 2)], { type: "application/json" });
-  downloadBlob(blob, "habits.json");   // shell-aware: a bare <a download> saves nothing inside the APK
+  downloadBlob(blob, "habits.json");
 }
 async function importData(file) {
   try {
@@ -107,20 +91,13 @@ async function importData(file) {
     for (const h of d.habits || []) await habitsColl.put(h.id, { name: h.name, icon: h.icon, color: h.color, createdAt: h.createdAt || Date.now() });
     for (const k of d.marks || []) await marksColl.put(k, { d: 1 });
     await loadAll();
-  } catch { /* bad file — ignore */ }
+  } catch { }
 }
 
-// ---- small pieces -----------------------------------------------------------
-// The 7 days BEFORE today — a subtle history strip. Today is owned solely by the big check button, so it's
-// never drawn twice (taste-gate fix). Still tappable to back-fill a missed day.
 const Dots = ({ h, marks, onToggle, t }) => {
   const days = []; for (let i = 7; i >= 1; i--) days.push(ymd(addDays(new Date(), -i)));
   return html`<div class="overflow-x-auto -mx-0.5 px-0.5"><div class="flex gap-1.5 w-max pt-0.5" role="group" aria-label=${T(t, "week")}>${days.map((d) => {
     const on = !!marks[h.id + "|" + d];
-    // No outline: a done day is a small RAISED chip carrying the habit's colour, an empty one is an empty
-    // SLOT — `sf-inset`, the same word the sequencer grids use. The old hairline + transparent fill was an
-    // edge drawn on top of an extrusion, and the `bg-base-content/10` that replaced it was a tone step
-    // standing in for depth: a grey square that says "not done" by being greyer, not by being a hole.
     return html`<button key=${d} type="button" onClick=${() => onToggle(h.id, d)} aria-pressed=${on}
       aria-label=${`${d} ${on ? T(t, "done") : T(t, "notDone")}`}
       class=${`w-6 h-6 rounded-[var(--ms-r-in)] shrink-0 transition-transform active:scale-90 ${on ? "sf-e2" : "sf-inset"}`}
@@ -130,22 +107,12 @@ const Dots = ({ h, marks, onToggle, t }) => {
 
 function Heatmap({ h, marks, onToggle, t }) {
   const now = new Date(), WEEKS = 13;
-  const start = addDays(now, -weekdayMon(now) - 7 * (WEEKS - 1));   // Monday, WEEKS-1 weeks back
+  const start = addDays(now, -weekdayMon(now) - 7 * (WEEKS - 1));
   const cols = [];
   for (let w = 0; w < WEEKS; w++) {
     const cells = [];
     for (let r = 0; r < 7; r++) {
       const d = ymd(addDays(start, w * 7 + r)), future = between(today(), d) > 0, on = !!marks[h.id + "|" + d];
-      // Same rule as the week strip, and the 13×7 geometry is untouched: an empty cell is a HOLE in the
-      // grid (`sf-inset`), a done one is that hole filled by the habit's colour. It was a tint before —
-      // first a hardcoded `--fallback-b2` grey that painted the whole grid near-white on the dark page,
-      // then `bg-base-content/10`, which is the same mistake one step quieter: tone doing depth's job.
-      //
-      // Today's marker had to stop being Tailwind's `ring-1`. A ring IS a box-shadow, and so is the
-      // material — `sf-inset` and the ring would each claim the single `box-shadow` property and the
-      // last one loaded (theme.css) would silently erase the other. `outline` is a separate property, so
-      // the recess and the marker coexist; the offset also makes today legible on a FILLED cell, where a
-      // same-coloured ring was invisible. (The add-sheet's colour palette hit this first — see below.)
       cells.push(html`<button key=${d} type="button" disabled=${future} onClick=${() => onToggle(h.id, d)}
         aria-label=${`${d} ${on ? T(t, "done") : T(t, "notDone")}`}
         class=${`w-3.5 h-3.5 rounded-[3px] ${future ? "opacity-0" : "active:scale-90"} ${on ? "" : "sf-inset"}`}
@@ -156,21 +123,10 @@ function Heatmap({ h, marks, onToggle, t }) {
   return html`<div class="overflow-x-auto -mx-1 px-1"><div class="flex gap-[3px] w-max">${cols}</div></div>`;
 }
 
-// Colour is carried by the icon tile + dots + heatmap (non-text), never by text — a light habit colour as
-// text fails contrast on the light theme. Stats stay in the accessible base-content ink.
 const Stat = ({ n, label }) => html`<div class="flex-1 text-center">
   <div class="text-2xl font-bold tabular-nums">${n}</div>
   <div class=${`${LABEL} mt-0.5`}>${label}</div></div>`;
 
-// ---- add / edit sheet -------------------------------------------------------
-// The kit's Sheet owns the shell (drag-dismiss, title row, close, backdrop, its own inner scroll); only the
-// fields below are the app's. `open`/`onClose` come from S.sheet — the runtime's history-backed atom — so
-// the system Back button closes it instead of exiting the PWA.
-//
-// Neither palette became a Segmented. A strip is a ONE-OF-N choice laid out as one row; these are grids of
-// 12 icons and 8 colours whose wrapping geometry IS the affordance (you scan a palette, you don't tab
-// through it). What they DO adopt is the farm's selection convention — the rail is a groove (`sf-inset`)
-// and the chosen cell lifts out of it, which theme.css applies to any `[aria-pressed="true"]` inside one.
 function AddSheet({ open, onClose, t }) {
   const draft = useStore($draft);
   const save = async () => { if (!draft.name.trim()) return; await addHabit(draft.name, draft.icon, draft.color); $draft.set({ name: "", icon: "lucide:check", color: "#10b981" }); onClose(); };
@@ -186,9 +142,7 @@ function AddSheet({ open, onClose, t }) {
     </div>
     <div class="flex flex-col gap-1.5">
       <div class=${LABEL}>${T(t, "color")}</div>
-      ${/* `outline`, not Tailwind's `ring`: a ring IS a box-shadow, and the groove's raise rule sets
-           box-shadow on the selected cell — the two would overwrite each other and the selection would
-           silently vanish. An outline is a separate property, so the mark and the extrusion coexist. */""}
+      ${""}
       <div class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-wrap gap-2">${COLORS.map((c) => html`<button key=${c} type="button" aria-label=${c} aria-pressed=${draft.color === c}
         onClick=${() => $draft.set({ ...draft, color: c })}
         class="w-8 h-8 rounded-full transition-transform"
@@ -198,16 +152,9 @@ function AddSheet({ open, onClose, t }) {
   </${Sheet}>`;
 }
 
-// ---- habit detail -----------------------------------------------------------
-// Was a full-screen `fixed inset-0` overlay with its own navbar, its own back button and — worse — its own
-// nested `overflow-y-auto`, i.e. the farm's Sheet rebuilt by hand one layer below the class-name ban. It is
-// the kit's Sheet now: the title row carries the habit's icon and name, the close is the kit's, and the
-// sheet's max-h-88dvh scroll is the one sanctioned nested scroll. Routing is unchanged (S.screen via
-// closeScreen), so Back still closes it and the danger-confirm still stacks on top of it.
 function DetailSheet({ open, id, t, onClose, confirm }) {
   const habits = useStore($habits), marks = useStore($marks);
   const h = habits.find((x) => x.id === id);
-  // High-consequence (drops the habit + its whole history, unrecoverable) → a danger-confirm, not undo.
   const askDelete = () => h && confirm({
     title: T(t, "delHabitTitle", { name: h.name }),
     body: T(t, "delHabitBody", { n: Object.keys(marks).filter((k) => k.startsWith(h.id + "|")).length }),
@@ -229,7 +176,6 @@ function DetailSheet({ open, id, t, onClose, confirm }) {
   </${Sheet}>`;
 }
 
-// ---- main tool view ---------------------------------------------------------
 export function habits({ S, closeScreen, confirm }) {
   const t = useStore(S.t), hs = useStore($habits), marks = useStore($marks), ready = useStore($ready), screen = useStore(S.screen), sheet = useStore(S.sheet);
   useEffect(() => { loadAll(); }, []);
@@ -252,13 +198,9 @@ export function habits({ S, closeScreen, confirm }) {
                 <span class="min-w-0"><span class="font-semibold block truncate">${h.name}</span>
                   <span class="text-sm text-muted flex items-center gap-1">${s > 0 ? html`${Icon("lucide:flame", "text-[0.9em]")} ${T(t, "dayStreak", { n: s })}` : T(t, "noStreak")}</span></span>
               </button>
-              ${/* A boolean check-in, not a one-of-N strip: it stays a single circular target. What changed is
-                   the material — the ring came off and the two states are the two things this material has to
-                   say, an extruded blank vs a filled chip in the habit's colour. */""}
-              ${/* sf-e3 is the same pair as sf-raised, on purpose: only the FILL changes between the two
-                   states, never the depth — a toggle that also shrinks its extrusion reads as two objects. */""}
-              ${/* the check on a filled chip is the page's own colour (base-100): dark ink on a lit mark at
-                   night, paper on it by day — the same relation the theme gives every -content pair */""}
+              ${""}
+              ${""}
+              ${""}
               <button data-today type="button" class=${`w-9 h-9 rounded-full shrink-0 flex items-center justify-center active:scale-90 transition-transform ${done ? "sf-e3" : "sf-raised"}`}
                 aria-pressed=${done} aria-label=${`${h.name} ${T(t, "todayToggle")}`}
                 style=${done ? `background:${h.color};color:var(--color-base-100)` : `color:${h.color}`}
@@ -275,9 +217,7 @@ export function habits({ S, closeScreen, confirm }) {
         </div>
       </div>`}
 
-    ${/* Both sheets stay mounted and are driven by their routing atom — S.sheet for the composer, S.screen
-         for the detail — which is what lets the kit run its open/close transition instead of the node
-         appearing and vanishing, and keeps Back closing the top one. */""}
+    ${""}
     <${AddSheet} open=${!!sheet} onClose=${() => S.sheet.set(false)} t=${t} />
     <${DetailSheet} open=${!!detailId} id=${detailId} t=${t} onClose=${closeScreen} confirm=${confirm} />
   </${Fragment}>`;

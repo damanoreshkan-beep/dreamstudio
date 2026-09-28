@@ -1,4 +1,3 @@
-// rt/genchar.js — the pure parts of the character generator: the picture prompt, the fallback name, the row map.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { lookPrompt, nameFrom, charOf, looksLikeLook, genStatusCode, LOOK, LOOK_ASK } from "../genchar.js";
 

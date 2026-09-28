@@ -1,14 +1,3 @@
-// microspec runtime — V2 Player: the archive's parsing + the size maths (SYSTEMIC, pure, unit-tested).
-//
-// The store reads a LIVE public archive: modland's V2 tree, which is nginx directory listings (there is no
-// JSON API for V2M anywhere). A listing carries exactly two facts — a filename and a BYTE SIZE — and that is
-// the app's headline number, so nothing else is needed to render the store. Duration only exists once the
-// synth has opened a tune (`v2m_duration_ms`), which is why the "×N smaller than MP3" line belongs to the
-// player, not the store.
-//
-// Three mirrors serve the same tree with `Access-Control-Allow-Origin: *`, so the app fetches them directly
-// (no proxy) and fails over between them.
-
 import { fib } from "@microspec/core/runtime/spectrum.js";
 
 export const MIRRORS = [
@@ -17,7 +6,6 @@ export const MIRRORS = [
   "https://modland.ziphoid.com/pub/modules/V2/",
 ];
 
-// 128 kbit/s — the reference the size story compares against. 1 s of MP3 = 16 000 bytes.
 export const MP3_BPS = 16000;
 
 const encPath = (s) => String(s).split("/").map(encodeURIComponent).join("/");
@@ -132,7 +120,6 @@ export function helixStrand(bytes, { max = 16384, turns = 9, radius = 0.42, span
   const pos = new Float32Array(n * 3);
   for (let k = 0, i = 0; k < n; k++, i += stride) {
     const t = n === 1 ? 0 : k / (n - 1);
-    // the two strands of the helix, alternating byte by byte — a rung's worth apart
     const a = t * turns * Math.PI * 2 + (k & 1 ? Math.PI : 0);
     const r = radius * (0.72 + 0.28 * (u8[i] / 255));
     pos[k * 3] = Math.cos(a) * r;

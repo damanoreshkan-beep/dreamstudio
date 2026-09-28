@@ -1,4 +1,3 @@
-// Kotyk-Zirka in every theme — prints the JOBS json for genraw.mjs (two takes per theme).
 const CAT = "a small imaginary chubby cat sitting like a loaf with its paws tucked in, two five-pointed star shaped ears on top of its head, a very short tail, a small crescent mark on its chest, eyes shut, faintly smiling, full body, centred, plenty of empty space around it";
 const M = {
   lum: "drawn only with thin glowing light filaments and luminous nodes, a hollow wireframe plexus of bright threads and points of light forms the cat, no real cat, translucent, nothing solid, volumetric bloom, floating alone in an empty pure black void, no floor, warm amber gold light with clearly visible electric cyan accents, cinematic, no text",

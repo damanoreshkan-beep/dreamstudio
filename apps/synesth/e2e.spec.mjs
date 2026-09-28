@@ -1,12 +1,9 @@
-// The gate has no camera and no audio gesture, so the view seeds a palette (real chroma maths) and shows
-// the note-orbs; sound only starts on a tap. Everything below asserts the visual/interaction, not the audio.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-orb]")) > 0) break; await h.wait(400); } };
 
 export default [
   {
     name: "сцена: орби з нотами + лади + play", run: async (h) => {
       await ready(h);
-      // the orb field carries `data-readout`: `data-live` is the kit's CamStage mark now
       h.expect((await h.count("[data-readout]")) === 1, "немає сцени");
       h.expect((await h.count("[data-orb]")) === 5, "немає 5 нот-орбів");
       h.expect((await h.count("[data-scale]")) === 7, "немає 7 ладів");
@@ -16,8 +13,6 @@ export default [
   {
     name: "play → pause стан", run: async (h) => {
       await ready(h);
-      // State, not classes: the play control is the kit's Transport now, and a check pinned to
-      // `.btn-secondary` was asserting DaisyUI's markup rather than whether the sound started.
       await h.tap("#play"); await h.wait(200);
       h.expect((await h.attr("#play", "data-playing")) === "true", "play не запустився");
       await h.tap("#play"); await h.wait(200);
@@ -28,8 +23,6 @@ export default [
     name: "зміна ладу", run: async (h) => {
       await ready(h);
       await h.tap('[data-scale="minor"]'); await h.wait(150);
-      // assert the STATE, not a framework class: the scale strip is the shared kit component now, and a
-      // test pinned to `.btn-primary` was testing DaisyUI's markup rather than whether the mode changed.
       h.expect((await h.attr('[data-scale="minor"]', "aria-pressed")) === "true", "лад не перемкнувся");
       await h.tap('[data-scale="penta"]'); await h.wait(120);
     },

@@ -1,6 +1,3 @@
-// The gate has no camera, so CamStage stands aside (no still) and the view seeds a reading from a synthetic
-// frame (real colour.js maths): a picked HEX + a 5-swatch palette render populated and deterministically.
-// `data-live` is the stage's own mark; the readout carries `data-readout`.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-readout]")) > 0) break; await h.wait(400); } };
 
 export default [
@@ -18,8 +15,6 @@ export default [
     name: "freeze активує стан", run: async (h) => {
       await ready(h);
       await h.tap("[data-freeze]"); await h.wait(150);
-      // STATE, not skin: btn-primary is a DaisyUI class the material migration is free to change, while
-      // aria-pressed is the contract the button actually makes to the user (and to a screen reader).
       h.expect((await h.count('[data-freeze][aria-pressed="true"]')) === 1, "freeze не активувався");
     },
   },

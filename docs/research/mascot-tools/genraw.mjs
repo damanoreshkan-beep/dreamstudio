@@ -1,5 +1,3 @@
-// raw generator: JOBS env = [[name, FULL prompt]] — nothing appended (rerun.mjs appends the icon STYLE block,
-// which is exactly wrong for style cards that must NOT glow).
 const PODS = ["microspec-vpn-p1", "microspec-vpn-p2", "microspec-vpn-p3", "microspec-vpn-p4"];
 const IDS = ["mrfakename/Z-Image-Turbo"];
 const JOBS = JSON.parse(Deno.env.get("JOBS") || "[]");

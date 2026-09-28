@@ -1,5 +1,3 @@
-// HF catalog — live data via the CORS proxy. Poll on [data-fav] (real model cards); the loading Skeleton
-// also renders .card divs, so never gate on .card alone.
 const load = async (h) => { for (let i = 0; i < 24; i++) { if ((await h.count("[data-fav]")) > 0) break; await h.wait(500); } };
 
 export default [
@@ -45,11 +43,10 @@ export default [
   {
     name: "категорія: локалізовані інлайн-опції + фільтр не ламає каталог", run: async (h) => {
       await load(h);
-      // inline select options localize via T — textContent holds every option regardless of visibility
       const opts = await h.prop("#f-category", "textContent");
       h.expect(/Генерація зображень/.test(opts) && /Розпізнавання мови/.test(opts), "інлайн-опції категорії не локалізовані");
       await h.click("#filter-btn"); await h.wait(150);
-      await h.select("#f-category", "text-to-image"); await h.wait(120);   // select value = pipeline_tag
+      await h.select("#f-category", "text-to-image"); await h.wait(120);
       await h.click("#f-apply"); await h.wait(500);
       await load(h);
       h.expect((await h.count(".card")) > 2, "після вибору категорії немає карток");
@@ -63,10 +60,9 @@ export default [
       await h.click("#f-apply"); await h.wait(500);
       await load(h);
       h.expect((await h.count(".card")) > 2, "спейси не завантажились");
-      await h.click(".aw-tap"); await h.wait(250);   // detail carries the outbound HF link
+      await h.click(".aw-tap"); await h.wait(250);
       h.expect((await h.count('a[href^="https://huggingface.co/spaces/"]')) >= 1, "деталі спейса без посилання /spaces/");
       await h.back(); await h.wait(200);
-      // switch back to models so later shared-page tests see the models catalog
       await h.click("#filter-btn"); await h.wait(150);
       await h.click('#f-type [data-val="models"]'); await h.wait(120);
       await h.click("#f-apply"); await h.wait(500); await load(h);
@@ -75,7 +71,7 @@ export default [
   {
     name: "збереження: закладка додає в Збережені", run: async (h) => {
       await load(h);
-      await h.click("[data-fav]"); await h.wait(150);   // the star button carries data-fav (z-[2], above the drill-down overlay)
+      await h.click("[data-fav]"); await h.wait(150);
       await h.click('[data-tab="saved"]'); await h.wait(200);
       h.expect((await h.count("[data-fav]")) >= 1, "збережена модель не зʼявилась");
       await h.click('[data-tab="catalog"]'); await h.wait(150);

@@ -1,11 +1,3 @@
-// blackout — the street: GOTHAM (owner, 2026-09-13 night: «небо з луною. кажани. це готем сіті … кіберпанк … хочу екшн»).
-// An endless night avenue along −z built from 24 m chunks, born 4 ahead of the runner and freed 2 behind, FOUR LANES
-// wide. A moon and stars outside the fog, gothic spires on the roofs, neon signs on the facades, bats crossing the
-// street, TUNNELS a chunk long, DECKS (a second level on one or two lanes: ramp → deck → ramp, like the train roofs
-// in Subway Surfers — run into its end and you are caught, jump onto it and you ride above the street), ENERGY CANS
-// (six seconds of double speed), WALKERS (undead standing in the lanes — shoot them or dodge them) and the rows of
-// obstacles at twice the density. THE HORDE (undead cast clones) chases at the distance the chaser state machine sets
-// (jyoti-run's Teacher: menace → surge on a stumble → caught on the second within 150 m).
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
@@ -16,26 +8,22 @@ import { glbUrl } from "./state.js";
 
 export const STREET_W = 10, CHUNK = 24, AHEAD = 4, BEHIND = 2;
 export const LANE_W = 2.2, LANES = 4;
-export const laneX = (i) => (i - (LANES - 1) / 2) * LANE_W;   // −3.3 · −1.1 · 1.1 · 3.3
-export const DECK_H = 2.4, RAMP = 5;                           // the second level: its height, its ramps' length
-const WALK = 1.6, KERB = STREET_W / 2 + WALK / 2, WALL = STREET_W / 2 + WALK + 0.2;   // sidewalk centre, facade face
-const TILE = 9;                                                                          // facade metres per texture tile
-const Z_H = 1.7, Z_MIN = 8, Z_MAX = 12;                                                  // the horde: height, count by difficulty
-const WALKER_HP = 2, WALKER_SPEED = 0.7;                                                 // a walker takes two pistol rounds, shuffles toward her
-// the chaser (jyoti-run TEACHER, metres): hover distance on a clean run, after a stumble; the grab; forgiveness
-export const CHASE = { menace: 4.6, surge: 2.3, catchAt: 1.1, relax: 1.4, decayM: 150, surgeS: 0.6, closing: 6 };   // the camera sits 7.8 m back, 4 m up: at 4.6 the first heads cross the frame's low edge
+export const laneX = (i) => (i - (LANES - 1) / 2) * LANE_W;
+export const DECK_H = 2.4, RAMP = 5;
+const WALK = 1.6, KERB = STREET_W / 2 + WALK / 2, WALL = STREET_W / 2 + WALK + 0.2;
+const TILE = 9;
+const Z_H = 1.7, Z_MIN = 8, Z_MAX = 12;
+const WALKER_HP = 2, WALKER_SPEED = 0.7;
+export const CHASE = { menace: 4.6, surge: 2.3, catchAt: 1.1, relax: 1.4, decayM: 150, surgeS: 0.6, closing: 6 };
 const DRACO_PATH = "https://www.gstatic.com/draco/versioned/decoders/1.5.7/";
 const A = (p) => new URL(p, import.meta.url).href;
 const CARS = ["sedan", "taxi", "suv", "van", "hatch"];
-const HORDE_SKINS = ["arissa", "michelle", "sophie", "eve", "nightshade"];   // arissa is bundled (dev); the rest are afterdark's
+const HORDE_SKINS = ["arissa", "michelle", "sophie", "eve", "nightshade"];
 const NEON = [0x22d3ee, 0xff3eb5, 0x7c5cff, 0x39ff6a, 0xf5b942];
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
-// seeded, so a run replays and the daily seed is a date
 export function rng(seed) { let a = seed >>> 0; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 
-// one obstacle row across the four lanes: which lane asks for what (neon-rush spawnRow, widened to 4 lanes, plus the
-// walkers). Pure: `r` is the chunk's rng, `d` the difficulty 0..1. Never more than two blocking (dodge/walker) lanes.
 export function rowStates(r, d) {
   const roll = r(), st = Array(LANES).fill("open");
   const shuffled = () => [...Array(LANES).keys()].sort(() => r() - 0.5);
@@ -57,7 +45,6 @@ async function tex(url, repeat) {
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
   return t;
 }
-// a facade variant: the brick photo with a 3×3 window grid per 9 m tile drawn over it; the glow map holds the lit ones
 function facadeSet(img, seed) {
   const N = 1024, px = N / TILE, r = rng(seed);
   const c = document.createElement("canvas"), e = document.createElement("canvas"); c.width = c.height = e.width = e.height = N;
@@ -74,14 +61,11 @@ function facadeSet(img, seed) {
   const mk = (cv) => { const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4; return t; };
   return { map: mk(c), glow: mk(e) };
 }
-// a box whose faces tile the facade every TILE metres (one shared material per chunk, no texture clones)
 function buildingGeo(w, h, d) {
   const g = new THREE.BoxGeometry(w, h, d), uv = g.attributes.uv, dims = [[d, h], [d, h], [w, d], [w, d], [w, h], [w, h]];
   for (let i = 0; i < 24; i++) { const [u, v] = dims[i >> 2]; uv.setXY(i, uv.getX(i) * u / TILE, uv.getY(i) * v / TILE); }
   return g;
 }
-// Kenney UVs point at palette swatches, so a photo map needs its own projection: the swatch colour is baked into
-// vertex colours (desaturated — the rust map carries the hue) and the UVs become a world-space box projection
 const RUST_M = 2.2;
 let swatch = null;
 function bake(g, map) {
@@ -103,7 +87,6 @@ function boxUv(g) {
     if (ax >= ay && ax >= az) uv.setXY(i, z / RUST_M, y / RUST_M); else if (ay >= az) uv.setXY(i, x / RUST_M, z / RUST_M); else uv.setXY(i, x / RUST_M, y / RUST_M);
   }
 }
-// one prop of the merged GLB → one geometry (the node's meshes baked through their world matrices) + its material
 function propGeo(node, rust = false) {
   node.updateWorldMatrix(true, true);
   const parts = []; let mat = null;
@@ -120,8 +103,6 @@ function propGeo(node, rust = false) {
   geo.computeBoundingBox();
   return { geo, mat };
 }
-// an instance pool: one InstancedMesh per prop kind, free slots parked at scale 0 (SwiftShader halved its frame
-// time when zero-scale instances stopped running the vertex shader: `count` = highest slot in use)
 function pool(geo, mat, cap, parent) {
   const im = new THREE.InstancedMesh(geo, mat, cap); im.count = 0; im.frustumCulled = false;
   const zero = new THREE.Matrix4().makeScale(0, 0, 0), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3();
@@ -138,15 +119,14 @@ function pool(geo, mat, cap, parent) {
   };
 }
 const radial = (inner, outer) => { const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d"); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, inner); gr.addColorStop(1, outer); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; };
-// the grade: every textured surface loses most of its colour and takes a cold grey-teal cast (Silent Hill)
 const grade = (m, k = 0.25) => { m.onBeforeCompile = (sh) => { sh.fragmentShader = sh.fragmentShader.replace("#include <map_fragment>", "#include <map_fragment>\n diffuseColor.rgb = mix(vec3(dot(diffuseColor.rgb, vec3(0.299, 0.587, 0.114))), diffuseColor.rgb, " + k.toFixed(2) + ") * vec3(0.82, 0.9, 0.88);"); }; m.needsUpdate = true; return m; };
 const vertical = () => { const c = document.createElement("canvas"); c.width = 4; c.height = 128; const g = c.getContext("2d"); const gr = g.createLinearGradient(0, 0, 0, 128); gr.addColorStop(0, "rgba(255,255,255,0.55)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 4, 128); return new THREE.CanvasTexture(c); };
 
 export function createWorld(scene) {
   const group = new THREE.Group(); scene.add(group);
   const loader = new GLTFLoader(); const draco = new DRACOLoader(); draco.setDecoderPath(DRACO_PATH); loader.setDRACOLoader(draco);
-  const chunks = new Map();   // index → { group, mats, obstacles[], coins[], cans[], slots[], geos[], walkers[], z, tunnel }
-  const decks = [];           // { lanes: Set, z0 (its near end, larger z), z1 (its far end), chunk }
+  const chunks = new Map();
+  const decks = [];
   let seedBase = 1, difficulty = 0, deckUntil = 0, lastTunnel = -9;
   const box = new THREE.BoxGeometry(1, 1, 1);
   const mesh = (geo, mat, x, y, z, parent, sx = 1, sy = 1, sz = 1) => { const m = new THREE.Mesh(geo, mat); m.scale.set(sx, sy, sz); m.position.set(x, y, z); parent.add(m); return m; };
@@ -182,12 +162,10 @@ export function createWorld(scene) {
   const spireGeo = new THREE.ConeGeometry(1, 1, 6);
   const batGeo = (() => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute([-0.45, 0.12, 0, 0, 0, 0.08, -0.15, -0.04, 0, 0.45, 0.12, 0, 0, 0, 0.08, 0.15, -0.04, 0], 3)); g.computeVertexNormals(); return g; })();
 
-  // ── the sky: a moon with a halo and a field of stars, all outside the fog, riding with the camera ──
   const sky = new THREE.Group(); scene.add(sky);
-  const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 24, 16), M.moon); moon.position.set(-9, 40, -170); sky.add(moon);   // ~13° up over the street's end (the 14–56 m blocks hide anything off to a side): inside a camera that looks 11° down with a 30° half-fov
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(7, 24, 16), M.moon); moon.position.set(-9, 40, -170); sky.add(moon);
   const halo = new THREE.Sprite(M.halo); halo.scale.set(46, 46, 1); halo.position.copy(moon.position); sky.add(halo);
   { const n = 420, p = new Float32Array(n * 3), r = rng(7); for (let i = 0; i < n; i++) { const th = r() * Math.PI * 2, ph = Math.acos(1 - r() * 0.9); p[i * 3] = 190 * Math.sin(ph) * Math.cos(th); p[i * 3 + 1] = Math.abs(190 * Math.cos(ph)) + 6; p[i * 3 + 2] = 190 * Math.sin(ph) * Math.sin(th); } const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(p, 3)); sky.add(new THREE.Points(g, M.stars)); }
-  // ── the bats: a flock crossing the street every half minute, wings flapping, a screech from sound.js ──
   const BATS = 14, bats = new THREE.InstancedMesh(batGeo, M.bat, BATS); bats.frustumCulled = false; bats.count = 0; scene.add(bats);
   const flock = { on: false, t0: 0, next: 12000, x0: 0, dir: 1, off: Array.from({ length: BATS }, () => ({ x: (Math.random() - 0.5) * 6, y: (Math.random() - 0.5) * 2.5, z: (Math.random() - 0.5) * 8, ph: Math.random() * 6.28, w: 9 + Math.random() * 6 })) };
   const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _p = new THREE.Vector3(), _s = new THREE.Vector3();
@@ -205,7 +183,6 @@ export function createWorld(scene) {
     bats.instanceMatrix.needsUpdate = true;
   }
 
-  // the assets: textures, the facade variants, the prop pools — the street is not built before `ready`
   const P = {}, facades = [], carTex = [];
   let road = null, walk = null, bandMat = null, roadReady = false;
   const ready = (async () => {
@@ -213,7 +190,7 @@ export function createWorld(scene) {
       new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = A("assets/tex-facade.webp"); }),
       tex(A("assets/tex-graffiti.webp")), tex(A("assets/tex-asphalt.webp"), [(STREET_W + WALK * 2) / 7, CHUNK / 7]), tex(A("assets/tex-metal.webp"), [2, 1]), tex(A("assets/tex-sidewalk.webp")),
       loader.loadAsync(A("assets/props.glb")),
-      ...CARS.map((k) => tex(A(`assets/tex-car-${k}.webp`))),   // flat in assets/: the farm build copies no subdirs
+      ...CARS.map((k) => tex(A(`assets/tex-car-${k}.webp`))),
     ]);
     carTex.push(...rust);
     for (const s of [3, 11]) facades.push(facadeSet(facadeImg, s));
@@ -222,20 +199,18 @@ export function createWorld(scene) {
     bandMat = grade(new THREE.MeshStandardMaterial({ map: graffiti, color: 0x5e5c5a, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }), 0.35);
     M.bin = grade(new THREE.MeshStandardMaterial({ map: metal, color: 0x4e524c, roughness: 0.9, metalness: 0.2 }));
     M.bar = grade(new THREE.MeshStandardMaterial({ map: metal, color: 0x7a6a4a, roughness: 0.8, metalness: 0.35, emissive: 0x2a1a0a, emissiveIntensity: 0.4 }));
-    // the deck wears the street's asphalt (tiled along its length), its rails and posts the painted metal (owner, 2026-09-13: the rails had no texture)
     const deckTex = asphalt.clone(); deckTex.repeat.set(1, 9); deckTex.needsUpdate = true;
     M.deck.map = deckTex; M.deck.color.set(0x4a4c50); M.deck.needsUpdate = true; grade(M.deck);
     M.rail.map = metal; M.rail.color.set(0x8a8e92); M.rail.needsUpdate = true;
     M.post.map = metal; M.post.color.set(0x6a6e70); M.post.needsUpdate = true;
-    // the energy can's label (Z-Image through docs/research/mascot-tools/genraw.mjs): a wrap around the cylinder
     const canTex = await tex(A("assets/tex-can.webp")).catch(() => null);
     if (canTex) { canTex.wrapS = THREE.RepeatWrapping; canTex.repeat.set(2, 1); M.can.map = canTex; M.can.emissiveMap = canTex; M.can.color.set(0xffffff); M.can.emissive.set(0x9bffb0); M.can.emissiveIntensity = 0.9; M.can.needsUpdate = true; }
     const cap = { sedan: 16, taxi: 16, suv: 16, van: 16, hatch: 16, bin: 24, lamp: 32, barrier: 16, planter: 16, cone: 16 };
     for (const node of props.scene.children) {
       const car = CARS.indexOf(node.name);
       const { geo, mat } = propGeo(node, car >= 0); const m = grade(mat.clone(), car >= 0 ? 0.6 : 0.2);
-      m.color.multiplyScalar(0.5); m.roughness = 0.92; m.metalness = 0.1;   // Kenney's clean paint → dead, dusty, rusting
-      if (car >= 0) { m.map = carTex[car]; m.vertexColors = true; m.color.setScalar(0.9); m.roughness = 0.8; m.metalness = 0.2; }   // Z-Image rust over the swatch tone
+      m.color.multiplyScalar(0.5); m.roughness = 0.92; m.metalness = 0.1;
+      if (car >= 0) { m.map = carTex[car]; m.vertexColors = true; m.color.setScalar(0.9); m.roughness = 0.8; m.metalness = 0.2; }
       if (node.name === "bin") { m.emissive = new THREE.Color(0x1c2a1a); m.emissiveIntensity = 0.5; }
       if (node.name === "lamp") { m.roughness = 0.85; m.metalness = 0.25; }
       P[node.name] = pool(geo, m, cap[node.name] || 16, group);
@@ -248,7 +223,6 @@ export function createWorld(scene) {
     roadReady = true;
   })();
 
-  // ── THE UNDEAD: the cast clones for the horde (running) and the walkers (shuffling in the lanes) ──
   const horde = { chars: [], run: null, attack: null, walk: null, die: null, hit: null };
   const hordeReady = (async () => {
     const [zrun, zattack, zwalk, zdie, zhit] = await Promise.all(["zrun", "zattack", "zwalk", "zdie", "zhit"].map((n) => loader.loadAsync(A(`assets/clip-${n}.glb`)).catch(() => null)));
@@ -265,7 +239,7 @@ export function createWorld(scene) {
       if (!o.isMesh) return;
       const m = grade(o.material.clone(), 0.12);
       m.color.multiply(new THREE.Color(0.68, 0.74, 0.64)); m.roughness = 1; m.metalness = 0; m.envMapIntensity = 0;
-      m.emissive = new THREE.Color(0x8fa093); m.emissiveMap = m.map; m.emissiveIntensity = 0.16;   // the pallor: dead skin faintly pale in the dark
+      m.emissive = new THREE.Color(0x8fa093); m.emissiveMap = m.map; m.emissiveIntensity = 0.16;
       o.material = m; deadMats.push(m);
     });
     return root;
@@ -292,7 +266,6 @@ export function createWorld(scene) {
   }
   function killZombie(i) { const z = zombies[i]; z.mixer.stopAllAction(); group.remove(z.holder); zombies.splice(i, 1); }
 
-  // the chaser: one distance the whole horde hangs from (jyoti-run's Teacher, ported to metres behind the runner)
   const chase = { dist: CHASE.menace + 4, target: CHASE.menace, mistakes: 0, cleanM: 0, surgeT: 0, caught: false, closeT: 0 };
   function updateHorde(px, pz, dt, running, speed, t, metres) {
     if (!horde.chars.length || !horde.run) return;
@@ -307,8 +280,7 @@ export function createWorld(scene) {
     for (let i = zombies.length - 1; i >= 0; i--) {
       const zb = zombies[i];
       if ((zb.offT -= dt) < 0) { zb.offT = 2 + Math.random() * 4; zb.off = (Math.random() - 0.5) * 6; }
-      const surge = Math.sin(t * zb.w1 + zb.ph) * Math.sin(t * zb.w2);   // the halting run: lunges past the pace, then stumbles back
-      // she carries the pack with her (a lerp toward a moving target lags by speed/k — 2.6 m at 6.5 m/s); the ease is only for the gap's own drift
+      const surge = Math.sin(t * zb.w1 + zb.ph) * Math.sin(t * zb.w2);
       const tz = pz + chase.dist + zb.gap * (chase.caught ? 0.3 : 1);
       zb.z -= metres; zb.z += (tz - zb.z) * Math.min(1, dt * 2.5);
       const tx = Math.max(-lim, Math.min(lim, chase.caught ? px + zb.off * 0.25 : px + zb.off));
@@ -321,7 +293,6 @@ export function createWorld(scene) {
       for (const { b, q } of zb.bones) b.quaternion.multiply(q);
     }
   }
-  // WALKERS — undead standing in a lane, shuffling toward her; shot dead they fall (Zombie Death) and pay coins
   function spawnWalker(ch, lane, z) {
     if (!horde.chars.length || !horde.walk) { ch.obstacles.push({ kind: "dodge", lane, z, zHalf: 0.5 }); return; }
     const c = horde.chars[Math.floor(Math.random() * horde.chars.length)], root = cloneSkinned(c.root);
@@ -351,30 +322,27 @@ export function createWorld(scene) {
     const hx = x - side * 1.4, hy = 4.6;
     place(ch, "head", hx, hy, z, 0); place(ch, "beam", hx, hy - 0.1, z, 0); place(ch, "pool", hx, 0.03, z, 0);
   }
-  // a car: parked along the kerb (dressing) or abandoned across a lane (a dodge)
   function car(ch, r, x, z, across) {
     const kind = CARS[Math.floor(r() * CARS.length)], ry = across ? (r() < 0.5 ? Math.PI / 2 : -Math.PI / 2) : (r() < 0.5 ? 0 : Math.PI);
     place(ch, kind, x, 0, z, ry + (r() - 0.5) * 0.08);
   }
-  // the obstacle of one lane in one row — its mesh and its collision record {kind, lane, z, zHalf}; `y` = the lane's floor
   function obstacle(ch, r, kind, lane, z) {
     const x = laneX(lane), g = ch.group, y = floorAt(lane, z);
-    if (kind === "jump") {                 // a low barrier across the lane — cleared in the air
+    if (kind === "jump") {
       mesh(box, M.barrier, x, y + 0.3, z, g, LANE_W - 0.3, 0.6, 0.35);
       mesh(box, M.post, x - LANE_W / 2 + 0.25, y + 0.32, z, g, 0.1, 0.64, 0.1); mesh(box, M.post, x + LANE_W / 2 - 0.25, y + 0.32, z, g, 0.1, 0.64, 0.1);
       ch.obstacles.push({ kind, lane, z, zHalf: 0.35 });
-    } else if (kind === "slide") {         // a bar overhead — cleared under it
+    } else if (kind === "slide") {
       mesh(box, M.post, x - LANE_W / 2 + 0.15, y + 0.85, z, g, 0.14, 1.7, 0.14); mesh(box, M.post, x + LANE_W / 2 - 0.15, y + 0.85, z, g, 0.14, 1.7, 0.14);
       mesh(box, M.bar, x, y + 1.45, z, g, LANE_W - 0.1, 0.3, 0.3);
       ch.obstacles.push({ kind, lane, z, zHalf: 0.3 });
-    } else if (kind === "walker") {        // an undead in the lane — shot, or dodged
+    } else if (kind === "walker") {
       spawnWalker(ch, lane, z);
-    } else {                               // a dumpster — vaulted with the roll (owner, 2026-09-13) — or a car across the lane, only another lane clears it
+    } else {
       if (r() < 0.5) { const sc = 1.25; place(ch, "bin", x, y, z, Math.PI / 2, sc); ch.obstacles.push({ kind: "bin", lane, z, zHalf: 0.9 }); }
-      else { car(ch, r, x, z, true); ch.obstacles.push({ kind: "car", lane, z, zHalf: 1.0 }); }   // a car across the lane is vaulted too (owner, 2026-09-13 night)
+      else { car(ch, r, x, z, true); ch.obstacles.push({ kind: "car", lane, z, zHalf: 1.0 }); }
     }
   }
-  // the second level: a deck over `lanes` from z0 down to z1, a ramp at each end, a rail on the outer edges
   function deck(ch, lanes, z0, z1) {
     const xs = lanes.map(laneX), xc = (Math.min(...xs) + Math.max(...xs)) / 2, w = (Math.max(...xs) - Math.min(...xs)) + LANE_W - 0.15, g = ch.group;
     const len = z0 - z1, flat = len - 2 * RAMP;
@@ -384,7 +352,6 @@ export function createWorld(scene) {
     for (let zz = z0 - 2; zz > z1 + 2; zz -= 3) for (const side of [-1, 1]) mesh(box, M.post, xc + side * (w / 2 - 0.4), DECK_H / 2 - 0.3, zz, g, 0.18, DECK_H - 0.4, 0.18);
     decks.push({ lanes: new Set(lanes), z0, z1 });
   }
-  // the floor under a lane at z: 0, the deck's height, or a point on its ramps. Pure over `decks`.
   function floorAt(lane, z) {
     for (const d of decks) {
       if (!d.lanes.has(lane) || z > d.z0 || z < d.z1) continue;
@@ -394,7 +361,6 @@ export function createWorld(scene) {
     }
     return 0;
   }
-  // a tunnel: walls, a ceiling, tube lights along it — the buildings are outside it
   function tunnel(ch, z0) {
     const g = ch.group, w = STREET_W + WALK * 2 + 0.4, h = 6.5, zc = z0 - CHUNK / 2;
     for (const side of [-1, 1]) mesh(box, M.tunnel, side * (w / 2 + 0.3), h / 2, zc, g, 0.6, h, CHUNK + 0.2);
@@ -402,7 +368,6 @@ export function createWorld(scene) {
     for (const side of [-1, 1]) mesh(box, M.tunnel, side * (w / 2 - 0.8), h - 0.4, zc, g, 1.6, 0.8, CHUNK + 0.2);
     for (let zz = z0 - 2; zz > z0 - CHUNK; zz -= 4) { const t = mesh(box, M.tube, 0, h - 0.15, zz, g, 5, 0.12, 0.3); ch.tubes.push(t); }
   }
-  // gothic roofs: a spire or two, an antenna, a neon sign on some of the faces
   function roof(ch, r, side, x, y, z, w, d) {
     const g = ch.group;
     if (r() < 0.45) { const sh = 5 + r() * 12, sw = Math.min(w, d) * 0.28; const s = mesh(spireGeo, M.spire, x + (r() - 0.5) * w * 0.4, y + sh / 2, z + (r() - 0.5) * d * 0.4, g, sw, sh, sw); ch.geos.push(); void s; }
@@ -415,13 +380,11 @@ export function createWorld(scene) {
     const z0 = -i * CHUNK, g = new THREE.Group(); group.add(g);
     const ch = { group: g, mats: [], obstacles: [], coins: [], cans: [], slots: [], geos: [], walkers: [], tubes: [], neon: [], z: z0 - CHUNK / 2, tunnel: false };
     mesh(roadGeo, road, 0, 0.005, z0 - CHUNK / 2, g);
-    // a tunnel every 6–9 chunks (never two in a row, never over a deck)
     ch.tunnel = i >= 4 && i - lastTunnel >= 6 && deckUntil < i && r() < 0.35;
     if (ch.tunnel) { lastTunnel = i; tunnel(ch, z0); }
     for (const side of [-1, 1]) {
       mesh(walkGeo, walk, side * KERB, 0.075, z0 - CHUNK / 2, g);
       if (!ch.tunnel) {
-        // buildings: 2–3 blocks per side, lit from inside, gothic roofs; a graffiti plinth on some; one chunk material per variant
         const fm = facades.map((f) => grade(new THREE.MeshStandardMaterial({ color: 0x5a5e5c, map: f.map, emissive: 0xffffff, emissiveMap: f.glow, emissiveIntensity: 0.6, roughness: 1 }), 0.3));
         ch.mats.push(...fm);
         let z = z0;
@@ -444,13 +407,11 @@ export function createWorld(scene) {
       for (const cz of [z0 - 3, z0 - 11, z0 - 19]) if (r() < 0.8) place(ch, "can", side * (STREET_W / 2 + 0.5), 0.15, cz - r() * 2, r() * 6.28);
       if (r() < 0.6) { const kind = ["planter", "barrier", "cone"][Math.floor(r() * 3)]; place(ch, kind, side * (STREET_W / 2 + 1.1), 0.15, z0 - 2 - r() * 20, r() * 6.28); }
     }
-    // a deck: from chunk 3 on, when none is running, on one or two neighbouring lanes, one and a half to two chunks long
     if (i >= 3 && deckUntil < i && !ch.tunnel && r() < 0.3) {
       const two = r() < 0.5, l0 = Math.floor(r() * (two ? LANES - 1 : LANES)), lanes = two ? [l0, l0 + 1] : [l0];
       const len = CHUNK * (1.5 + r() * 0.5);
       deck(ch, lanes, z0 - 2, z0 - 2 - len); deckUntil = i + Math.ceil(len / CHUNK);
     }
-    // the rows: 1–4 per chunk by difficulty in z ∈ [z0−4, z0−20]; a lane under a ramp or a deck's end keeps its row clear
     const rows = [];
     if (i >= 2) {
       const n = Math.min(4, 1 + Math.floor(difficulty * 2.5) + (r() < 0.35 ? 1 : 0)), step = 16 / n;
@@ -460,7 +421,6 @@ export function createWorld(scene) {
         rows.push({ z, st });
       }
     }
-    // coins on the open lanes between rows (on a deck, on top of it); an energy can now and then
     let cursor = z0 - 1.5;
     for (const row of rows) {
       const open = row.st.map((s, l) => (s === "open" ? l : -1)).filter((l) => l >= 0);
@@ -510,9 +470,7 @@ export function createWorld(scene) {
       flock.on = false; bats.count = 0; flock.next = performance.now() + 12000;
     },
     zombies: () => zombies.map((z) => ({ x: +z.x.toFixed(2), z: +z.z.toFixed(2) })),
-    // the lamps and the tunnel tubes breathe with the beat (sound.js): shared materials, so one write lights the street
     pulse(k) { const v = 0.55 + 0.45 * clamp01(k); M.head.color.setScalar(v); M.pool.opacity = 0.5 + 0.5 * v; M.beam.opacity = 0.02 + 0.03 * v; M.tube.color.setScalar(0.6 + 0.4 * v); },
-    // keep AHEAD chunks in front of the runner and BEHIND behind; move the horde, the walkers, the sky, the bats; forgive clean metres
     update(z, dist, dt, running, px, speed, metres, camPos, now) {
       if (!roadReady) return;
       difficulty = Math.min(1, dist / 800);
@@ -527,11 +485,9 @@ export function createWorld(scene) {
       return inTunnel;
     },
     inTunnel(z) { return !!chunks.get(Math.max(0, Math.floor(-z / CHUNK)))?.tunnel; },
-    // a stumble: the horde lunges in; the second within the forgiveness window is the grab
     stumble() { chase.mistakes++; chase.cleanM = 0; if (chase.mistakes >= 2) { api.catch(); return true; } chase.target = CHASE.surge; chase.surgeT = CHASE.surgeS; return false; },
     catch() { chase.caught = true; chase.target = 0.6; },
     near: () => Math.max(0, Math.min(1, 1 - (chase.dist - CHASE.catchAt) / (CHASE.menace - CHASE.catchAt))),
-    // the obstacle under the runner's feet in her lane, once: {kind, walker?} or null (the caller decides if she cleared it)
     hit(lane, pz) {
       for (const ch of chunks.values()) for (const o of ch.obstacles) {
         if (o.done || o.lane !== lane || (o.walker && o.walker.dead)) continue;
@@ -539,13 +495,10 @@ export function createWorld(scene) {
       }
       return null;
     },
-    // a dumpster or a car within `reach` metres ahead in her lane (the jump becomes the vault)
     binAhead(lane, pz, reach) {
       for (const ch of chunks.values()) for (const o of ch.obstacles) if (!o.done && (o.kind === "bin" || o.kind === "car") && o.lane === lane && o.z < pz && pz - o.z < reach) return true;
       return false;
     },
-    // a shot down `lane` (and `spread` lanes either side) from pz, `range` metres ahead: the nearest live walker takes
-    // `dmg`; returns {walker, dead, lane, z} or null. A dying walker plays Zombie Death and pays coins once.
     shoot(lane, pz, range, dmg, spread = 0) {
       let best = null;
       for (const ch of chunks.values()) for (const w of ch.walkers) {
@@ -558,9 +511,7 @@ export function createWorld(scene) {
       if (best.hit) { best.hit.reset().play(); best.hit.setEffectiveWeight(1); }
       return { walker: best, dead: false, lane: best.lane, z: best.z };
     },
-    // a walker she runs through while boosted (or after a hit): it drops
     fell(w) { if (!w || w.dead) return; w.dead = true; if (w.die) { w.die.reset().play(); w.walk.crossFadeTo(w.die, 0.1, false); } },
-    // the coins within reach; the energy can within reach (once)
     collect(px, py, pz) {
       let n = 0;
       for (const ch of chunks.values()) for (const c of ch.coins) {

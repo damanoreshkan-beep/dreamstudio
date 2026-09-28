@@ -1,4 +1,3 @@
-// mayak — the list is a small searchable table; a category filters the fixture; a row opens the map page.
 const seed = async (h) => { for (let i = 0; i < 26; i++) { if ((await h.count("[data-list]")) > 0) break; await h.wait(300); } };
 
 export default [

@@ -1,8 +1,3 @@
-// The gate has no camera, no network and no GPU minute to spend: the stage projects assets/mock.webp through
-// the same shader (GlStage's `cam`, core ≥ 1.2.31), a tap on a material re-inks it, the shutter freezes it and
-// the keeper "lands" after a beat as the same still; enlarge ×4 lands the same still at four times the size.
-// The whole one-shot loop — the strip, the shutter, the flip, developing, save, enlarge, share, full size, a
-// material as the way back — is exercised without a single call out.
 const ready = async (h) => { for (let i = 0; i < 40; i++) { if ((await h.count('[data-stage][data-cam="yes"]')) > 0) break; await h.wait(250); } };
 const develop = async (h) => { await h.click("[data-shutter]"); for (let i = 0; i < 30; i++) { if ((await h.count("[data-keeper]")) > 0) break; await h.wait(100); } };
 
@@ -77,7 +72,6 @@ export default [
     },
   },
   {
-    // The picture is the subject: the island holds the strip and one row, the stage keeps the larger share.
     name: "сцена отримує більшу частку екрана, ніж острів", run: async (h) => {
       await ready(h);
       const stage = await h.css("[data-stage-box]", "height"), island = await h.css("[data-island]", "height");

@@ -1,7 +1,3 @@
-// The pipeline, as state + actions that OUTLIVE the view. The runtime mounts one tab at a time, so a
-// picture that cost 30s and a GPU minute must not live in useState; and a race that is half-way when the
-// tab goes away must keep landing its variants into the same atoms the view will read when it comes back.
-// Everything here is module-level; view.js subscribes and renders.
 import { atom } from "nanostores";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
@@ -10,15 +6,12 @@ import { toEnglish } from "/_rt/translate.js";
 import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";   // sizeOf: the enhanced slide's measured size (the client log caught its absence live, 2026-09-03)
+import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";
 import { startJob, follow, followOne, cancelJob } from "/_rt/imagejob.js";
 import { report } from "/_rt/telemetry.js";
 import { styleOf } from "./styles.js";
 
 export const MODES = ["make", "edit", "read", "blend", "style"];
-// The two-slot modes: a picture, a second picture, an instruction. They differ ONLY in what the second
-// picture is for — a subject to merge in (blend) or a look to borrow (style) — so they share every action
-// below and separate only at the route.
 export const TWO_SLOT = ["blend", "style"];
 export const GATE_PROMPT = "northern lights over a frozen lake, cinematic, ultra detailed";
 export const GATE_TEXT = "Гірське озеро на світанку: дзеркальна вода віддзеркалює рожеві піки, над берегом стелиться легкий туман. Тиша, прохолода і золоте світло перших променів.\n\nгори, озеро, світанок, туман, тиша";
@@ -29,37 +22,23 @@ const JOB_KEY = (mode) => `ms:mirage:job:${mode}`;
 const OPTS_KEY = "ms:mirage:opts";
 const BASE = { make: `${VPS_PROXY}/image`, edit: `${VPS_PROXY}/image/edit`, blend: `${VPS_PROXY}/image/blend`, style: `${VPS_PROXY}/image/style` };
 
-// ── atoms ────────────────────────────────────────────────────────────────────────────────────────────
 export const $mode = atom("make");
-// make: idle | working | done | error
 export const $make = atom({ prompt: gate ? GATE_PROMPT : "", phase: gate ? "done" : "idle",
   slides: gate ? [7, 8, 9, 10].map((s) => ({ url: mockArt(s), seed: s })) : [], idx: 0, more: false, error: null, live: null, t0: 0 });
-// edit: empty | camera | ready | working | done | error   (src = the picture being reworked, original = the first one loaded)
 export const $edit = atom({ prompt: "", phase: gate ? "ready" : "empty", src: gate ? mockArt(3) : null, original: gate ? mockArt(3) : null,
   slides: [], idx: 0, more: false, error: null, live: null, t0: 0 });
-// blend: two pictures + an instruction → variants. ready | camera | working | done | error; `cam` = the slot the
-// viewfinder is filling. No "empty": the stage shows two slots and each fills on its own.
 export const $blend = atom({ prompt: "", phase: "ready", a: gate ? mockArt(11) : null, b: gate ? mockArt(12) : null, cam: null,
   slides: [], idx: 0, more: false, error: null, live: null, t0: 0 });
-// style: the same two slots, read differently — `a` is the picture, `b` is the picture whose LOOK is borrowed.
-// The Spaces behind it take those as two separate inputs in that order (Content / Style), which is what makes
-// this a mode of its own rather than a prompt someone has to phrase correctly in Blend.
 export const $style = atom({ prompt: "", phase: "ready", a: gate ? mockArt(15) : null, b: gate ? mockArt(16) : null, cam: null,
   slides: [], idx: 0, more: false, error: null, live: null, t0: 0 });
-// read: empty | camera | ready | working | done | error
 export const $read = atom({ question: "", phase: gate ? "ready" : "empty", src: gate ? mockArt(5) : null, text: "", error: null });
 const DEFAULT_OPTS = { quality: "2k", aspect: "screen", style: "none", model: { make: "auto", edit: "auto", read: "auto", blend: "auto", style: "auto" } };
-const loadOpts = () => { try { const v = JSON.parse(localStorage.getItem(OPTS_KEY) || "null"); if (v?.quality && v?.aspect) return { ...DEFAULT_OPTS, ...v, model: { ...DEFAULT_OPTS.model, ...(v.model || {}) } }; } catch { /* */ } return DEFAULT_OPTS; };
+const loadOpts = () => { try { const v = JSON.parse(localStorage.getItem(OPTS_KEY) || "null"); if (v?.quality && v?.aspect) return { ...DEFAULT_OPTS, ...v, model: { ...DEFAULT_OPTS.model, ...(v.model || {}) } }; } catch { } return DEFAULT_OPTS; };
 export const $opts = atom(loadOpts());
-export const setOpts = (p) => { const v = { ...$opts.get(), ...p }; $opts.set(v); try { localStorage.setItem(OPTS_KEY, JSON.stringify(v)); } catch { /* */ } };
+export const setOpts = (p) => { const v = { ...$opts.get(), ...p }; $opts.set(v); try { localStorage.setItem(OPTS_KEY, JSON.stringify(v)); } catch { } };
 export const setModel = (mode, id) => setOpts({ model: { ...$opts.get().model, [mode]: id || "auto" } });
-// The chosen model is sent ONLY while the catalogue still offers it: the view already shows a vanished choice
-// as Авто, but the request kept sending the stale id and the edge answered 400 "unknown model" — which the
-// read mode showed as "Не вдалося прочитати. Спробуй інше фото" (2026-09-03). No catalogue yet = auto.
 const modelFor = (mode) => { const m = $opts.get().model[mode]; if (!m || m === "auto") return null; const cat = $models.get(); return cat.at && !cat.error && !modelsFor(mode).some((x) => x.id === m) ? null : m; };
 
-// ── the catalogue: what the edge can run right now, with HF's word on whether each Space is alive ─────────
-// Fetched when the options sheet opens, kept 5 min; `fresh` re-probes. Under the gate a fixed list.
 const KIND = { make: "gen", edit: "edit", read: "read", blend: "blend", style: "style" };
 const GATE_MODELS = { gen: [{ id: "black-forest-labs/FLUX.1-schnell", tier: "2k", alive: true }, { id: "mrfakename/Z-Image-Turbo", tier: "fast", alive: true }, { id: "krea/Krea-2", tier: "fast", alive: null }],
   edit: [{ id: "LPX55/Qwen-Image-Edit-2511-Turbo-Lightning", tier: "edit", alive: true }, { id: "JitRoy2024/Qwen_Img_Space", tier: "edit", alive: true }], read: [{ id: "ovh/Qwen2.5-VL-72B", tier: "vision", alive: null }, { id: "prithivMLmods/Qwen3-VL-Outpost", tier: "space", alive: true }],
@@ -78,23 +57,18 @@ export async function loadModels(fresh = false) {
     $models.set({ gen: j.gen || [], edit: j.edit || [], read: j.read || [], blend: j.blend || [], style: j.style || [], at: Date.now(), loading: false, error: false });
   } catch { $models.set({ ...$models.get(), loading: false, error: true }); }
 }
-// the models a mode may pick from: alive or unknown — a Space HF calls dead is never offered
 export const modelsFor = (mode) => ($models.get()[KIND[mode]] || []).filter((m) => m.alive !== false);
 
 const ATOM = { make: $make, edit: $edit, read: $read, blend: $blend, style: $style };
 export const patch = (mode, p) => { const a = ATOM[mode]; a.set({ ...a.get(), ...(typeof p === "function" ? p(a.get()) : p) }); };
 
-// one run counter, one job, one background hold per racing mode — a superseded run can never land
 const runs = { make: 0, edit: 0, read: 0, blend: 0, style: 0 }, jobs = { make: null, edit: null, blend: null, style: null }, holds = { make: null, edit: null, blend: null, style: null };
 
-const revoke = (url) => { if (url?.startsWith?.("blob:")) { try { URL.revokeObjectURL(url); } catch { /* */ } } };
-// free a set of slides, except any URL that moved on to live somewhere else (a hand-off, a keep)
+const revoke = (url) => { if (url?.startsWith?.("blob:")) { try { URL.revokeObjectURL(url); } catch { } } };
 const freeSlides = (list, keep = []) => list.forEach((s) => { if (!keep.includes(s.url)) revoke(s.url); });
 const held = () => [$edit.get().src, $edit.get().original, $read.get().src, $blend.get().a, $blend.get().b, $style.get().a, $style.get().b];
 const stillHeld = (url) => [...held(), ...$make.get().slides.map((s) => s.url), ...$edit.get().slides.map((s) => s.url), ...$blend.get().slides.map((s) => s.url), ...$style.get().slides.map((s) => s.url)].includes(url);
 
-// ── the race (make + edit share it; only the route and the body differ) ──────────────────────────────
-// ctx = { t } — the dictionary at the moment the run starts, for the notification and the hold's words.
 async function race(mode, body, run, ctx, seed) {
   const base = BASE[mode];
   const alive = () => run === runs[mode];
@@ -103,7 +77,7 @@ async function race(mode, body, run, ctx, seed) {
   if (!alive()) { cancelJob(base, job); return; }
   jobs[mode] = job;
   const t0 = Date.now();
-  try { localStorage.setItem(JOB_KEY(mode), JSON.stringify({ job, prompt: body.prompt, seed, ts: t0, quality: body.quality })); } catch { /* */ }
+  try { localStorage.setItem(JOB_KEY(mode), JSON.stringify({ job, prompt: body.prompt, seed, ts: t0, quality: body.quality })); } catch { }
   patch(mode, { t0 });
   await followJob(mode, job, run, ctx, seed);
 }
@@ -117,8 +91,6 @@ async function followJob(mode, job, run, ctx, seed) {
     base, job, alive,
     onLive: (live) => patch(mode, { live }),
     onSlide: (s) => {
-      // the runtime's imagejob (core 1.2.8) replaced the local race.js; it hands the blob instead of an
-      // ext, and the blob must not live on in the slide — the object URL already keeps the bytes reachable
       mine.push({ url: s.url, w: s.w, h: s.h, by: s.by, n: s.n, ext: extOf(s.blob), seed: seed + s.n });
       patch(mode, { slides: [...mine], more: true, ...(mine.length === 1 ? { idx: 0, phase: "done" } : {}) });
       if (mine.length === 1) {
@@ -129,7 +101,7 @@ async function followJob(mode, job, run, ctx, seed) {
   });
   if (status === "stale") return;
   release(); holds[mode] = null; jobs[mode] = null;
-  try { localStorage.removeItem(JOB_KEY(mode)); } catch { /* */ }
+  try { localStorage.removeItem(JOB_KEY(mode)); } catch { }
   patch(mode, { more: false, live: null });
   if (!mine.length) fail(mode, run, status === "timeout" ? "eTimeout" : status === "busy" ? "eBusy" : "eFailed");
 }
@@ -138,10 +110,9 @@ function fail(mode, run, code) {
   if (run !== runs[mode]) return;
   holds[mode]?.(); holds[mode] = null; jobs[mode] = null;
   patch(mode, { error: code, phase: "error", more: false, live: null });
-  report(`${mode}.fail`, { reason: code, model: modelFor(mode) || "auto" });   // the clients' own log (/feed/log)
+  report(`${mode}.fail`, { reason: code, model: modelFor(mode) || "auto" });
 }
 
-// ── make ─────────────────────────────────────────────────────────────────────────────────────────────
 export async function conjure(ctx) {
   const st = $make.get(), p = st.prompt.trim();
   if (!p || st.phase === "working") return;
@@ -152,12 +123,8 @@ export async function conjure(ctx) {
   if (gate) { await sleep(90); if (run === runs.make) patch("make", { slides: [seed, seed + 1, seed + 2, seed + 3].map((s) => ({ url: mockArt(s), seed: s })), phase: "done" }); return; }
   notifyAsk();
   patch("make", { live: { stage: "translate" } });
-  // English under the hood (2026-09-03): the prompt becomes English or the run stops — a Ukrainian prompt at a
-  // Space is the defect, not a shortfall; a wand suggestion sends as the model's own English (translate.js)
   let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail("make", run, e.code || "eTranslate"); }
   if (run !== runs.make) return;
-  // The style card: its English block rides AFTER the subject, the same order the farm's own icons were
-  // art-directed (subject first, then the material) — apps/mirage/styles.js.
   const sb = styleOf($opts.get().style)?.block;
   if (sb) pEn = `${pEn}, ${sb}`;
   const { quality, aspect } = $opts.get();
@@ -165,7 +132,6 @@ export async function conjure(ctx) {
   await race("make", { prompt: pEn, quality, aspect, ratio, seed, k: K, model: modelFor("make") }, run, ctx, seed);
 }
 
-// ── edit ─────────────────────────────────────────────────────────────────────────────────────────────
 export async function rework(ctx) {
   const st = $edit.get(), p = st.prompt.trim();
   if (!p || !st.src || st.phase === "working") return;
@@ -176,7 +142,7 @@ export async function rework(ctx) {
   if (gate) { await sleep(120); if (run === runs.edit) patch("edit", { slides: [0, 1, 2, 3].map((n) => ({ url: mockArt(seed + n), seed: seed + n })), phase: "done" }); return; }
   notifyAsk();
   let image;
-  try { image = (await toDataURL(st.src)).data; } catch { return fail("edit", run, "eFailed"); }   // the kit's toDataURL answers { data, w, h } (mirage's own copy answered the string — 2026-09-03 regression)
+  try { image = (await toDataURL(st.src)).data; } catch { return fail("edit", run, "eFailed"); }
   if (run !== runs.edit) return;
   if (image.length > 9_000_000) return fail("edit", run, "eBig");
   patch("edit", { live: { stage: "translate" } });
@@ -185,7 +151,6 @@ export async function rework(ctx) {
   await race("edit", { image, prompt: pEn, seed, k: K, model: modelFor("edit") }, run, ctx, seed);
 }
 
-// the result becomes the new base — a chain of reworks is one tap per link
 export function keepEditing() {
   const st = $edit.get(), cur = st.slides[st.idx] || st.slides[0];
   if (!cur) return;
@@ -193,10 +158,6 @@ export function keepEditing() {
   patch("edit", { src: cur.url, slides: [], idx: 0, more: false, prompt: "", error: null, phase: "ready" });
 }
 
-// ── the two-slot modes: two pictures + an instruction ────────────────────────────────────────────────
-// Blend merges the second picture's SUBJECT into the first; style borrows its LOOK. The pictures travel the
-// same way (slot a first, slot b second — the Spaces read them in that order), so this is one function and
-// the mode is the only thing that changes: the route it posts to and the pool the edge races behind it.
 async function fuse(mode, ctx) {
   const st = ATOM[mode].get(), p = st.prompt.trim();
   if (!p || !st.a || !st.b || st.phase === "working") return;
@@ -232,7 +193,6 @@ export function clearSlot(mode, slot) {
   if (old && !stillHeld(old)) revoke(old);
 }
 
-// ── read ─────────────────────────────────────────────────────────────────────────────────────────────
 const ASK = {
   uk: { read: "Опиши це зображення українською: 2–3 речення про те, що на ньому і який настрій, потім окремим рядком до 5 ключових тегів через кому.", q: "Відповідай українською, коротко і по суті, спираючись лише на це зображення. Питання: " },
   en: { read: "Describe this image in English: 2–3 sentences on what is in it and its mood, then, on a separate line, up to 5 key tags separated by commas.", q: "Answer in English, briefly and to the point, from this image alone. Question: " },
@@ -251,7 +211,6 @@ export async function readPhoto(ctx) {
   try {
     const r = await fetch(`${VPS_PROXY}/vision`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image, prompt: q ? ask.q + q : ask.read, maxTokens: 400, model: modelFor("read") }) });
     if (run !== runs.read) return;
-    // 502 = every reader refused or timed out (the free-tier quotas, measured 2026-09-03) — the photo is fine, say so
     if (!r.ok) return fail("read", run, r.status === 429 ? "eRate" : r.status === 413 ? "eBig" : r.status === 502 ? "eReadBusy" : "eRead");
     const j = await r.json().catch(() => null);
     if (run !== runs.read) return;
@@ -262,11 +221,6 @@ export async function readPhoto(ctx) {
   } catch { fail("read", run, "eNetwork"); }
 }
 
-// ── enhance: the picture in view → 4× through zir's own route ────────────────────────────────────────────
-// Owner, 2026-09-03: "додати одразу в цю апку кнопку покращити і заюзати наше апі з апки зір". The same
-// /feed/image/upscale zir runs (the hd race + the quota-free CPU row), the same 1024 cap on the way in, the
-// same measured size on the way back; the slide is replaced IN PLACE (url · w · h · ext, `hd: true`), the
-// original stays alive until the slides are freed, so nothing the user made is lost to its own polish.
 const UPSCALE = `${VPS_PROXY}/image/upscale`;
 /** `{ mode, url, phase: idle|working|done|error, live, error }` — one enhance at a time, for the picture in view. */
 export const $enhance = atom({ mode: "", url: "", phase: "idle", live: null, error: null });
@@ -297,10 +251,9 @@ export async function enhance(mode) {
   try {
     const size = (await sizeOf(res.blob)) || { w: 0, h: 0 };
     land({ url: res.url, w: size.w, h: size.h, ext: extOf(res.blob), by: res.by });
-  } catch (e) { report("enhance.land", { msg: e?.message || String(e) }); fail("eFailed"); }   // a landing that throws is an error on the screen, never a silent rejection
+  } catch (e) { report("enhance.land", { msg: e?.message || String(e) }); fail("eFailed"); }
 }
 
-// ── cancel / sources / hand-offs ─────────────────────────────────────────────────────────────────────
 export function cancel(mode) {
   const st = ATOM[mode].get();
   if (st.phase !== "working") return;
@@ -309,12 +262,11 @@ export function cancel(mode) {
     const job = jobs[mode]; jobs[mode] = null;
     holds[mode]?.(); holds[mode] = null;
     if (job && !gate) cancelJob(BASE[mode], job);
-    try { localStorage.removeItem(JOB_KEY(mode)); } catch { /* */ }
+    try { localStorage.removeItem(JOB_KEY(mode)); } catch { }
     patch(mode, { more: false, live: null, phase: st.slides.length ? "done" : mode === "make" ? "idle" : "ready" });
   } else patch("read", { phase: "ready" });
 }
 
-// a new source for edit/read; the previous set is freed unless another mode still shows it
 export function setSource(mode, url) {
   const st = ATOM[mode].get();
   if (mode === "edit") {
@@ -338,21 +290,19 @@ const oneLine = (s) => s.replace(/\s*\n+\s*/g, ". ").replace(/\.\s*\./g, ".").tr
 export const readToMake = () => { patch("make", { prompt: oneLine($read.get().text) }); $mode.set("make"); };
 export const readToEdit = () => { const r = $read.get(); toEdit(r.src, oneLine(r.text)); };
 
-// ── resume: the edge keeps a job for five minutes, so a tab Android discarded mid-race is picked up ──
 export function resume(ctx) {
   if (gate) return;
   for (const mode of ["make", "edit", "blend", "style"]) {
-    if (runs[mode]) continue;                                   // a live run already owns this mode
-    let j = null; try { j = JSON.parse(localStorage.getItem(JOB_KEY(mode)) || "null"); } catch { /* */ }
-    if (!j?.job || Date.now() - j.ts > 240000) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { /* */ } continue; }
-    if ((mode === "edit" && !$edit.get().src) || (TWO_SLOT.includes(mode) && !(ATOM[mode].get().a && ATOM[mode].get().b))) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { /* */ } continue; }   // the source blob died with the page
+    if (runs[mode]) continue;
+    let j = null; try { j = JSON.parse(localStorage.getItem(JOB_KEY(mode)) || "null"); } catch { }
+    if (!j?.job || Date.now() - j.ts > 240000) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { } continue; }
+    if ((mode === "edit" && !$edit.get().src) || (TWO_SLOT.includes(mode) && !(ATOM[mode].get().a && ATOM[mode].get().b))) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { } continue; }
     const run = ++runs[mode]; jobs[mode] = j.job;
     patch(mode, { phase: "working", prompt: j.prompt || "", t0: j.ts, error: null });
     followJob(mode, j.job, run, ctx, j.seed || 0);
   }
 }
 
-// a derived view of the working line, shared by the caption and the dust: what the worker last said
 export function liveOf(live) {
   if (!live) return { key: "queued", step: null, pct: null };
   if (live.stage === "translate") return { key: "translating", step: null, pct: 0.02 };

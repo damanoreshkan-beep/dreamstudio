@@ -1,4 +1,3 @@
-// rt/coins.js — the packs and the pure helpers (the Telegram half is proven live through the edge).
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { PACKS, packOf, bestValue } from "../coins.js";
 

@@ -1,15 +1,8 @@
-// Hoard — the gate mounts a running three-hour session over a seeded vault (view.js FIXTURE_*), so the shot
-// is the POPULATED screen. Flow covered: the field renders on WebGL; the amount ticks off a stored timestamp
-// and survives a reload; the rate sheet is history-backed; Bank moves a session into the vault; a deleted
-// session is gone. The amount itself is asserted through /_rt/earn.js's own unit tests, never here.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-amount]")) > 0) break; await h.wait(300); } };
 const money = (s) => Number(String(s).replace(/[^\d,.-]/g, "").replace(/\s/g, "").replace(",", "."));
 
 export default [
   {
-    // regression guard: the hoard IS the field. A silent fall to a blank canvas (a shader that will not
-    // compile, a fetch that 404s because hoard.frag dropped out of the build allow-list) is invisible to
-    // every other check and means the app ships as a number on a grey page.
     name: "поле: WebGL-шлях активний у гейті", run: async (h) => {
       await ready(h); await h.wait(1200);
       const hw = await h.attr("[data-stage]", "data-haswebgl");
@@ -102,8 +95,6 @@ export default [
       await h.click('[data-tab="me"]'); await h.wait(300);
       await h.click('[data-loc="en"]'); await h.wait(400);
       await h.click('[data-tab="flow"]'); await h.wait(400);
-      // The meta line is `uppercase`, and innerText returns the RENDERED text — so this reads "/ S", not
-      // "/ s". Case-insensitive, and Latin s still cannot match the uk unit (Cyrillic с → С, U+0421).
       const en = await h.text("[data-persec]");
       h.expect(/\/\s*s\s*$/i.test(en), `англійська локаль не застосувалась: data-persec = "${en}"`);
       await h.click('[data-tab="me"]'); await h.wait(300);

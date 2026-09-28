@@ -1,6 +1,3 @@
-// Earthquakes — live global seismicity from USGS (past 24 h, M≥2.5) on the shared globe, with a Motion
-// seismic ripple pulsing over the strongest event and the recent list staggering in. Data CORS *, direct.
-// Uses the systemic `motion` dependency (import-map) for the WAAPI animations.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -13,16 +10,7 @@ import { isGate, MOCK } from "/_rt/gate.js";
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const USGS = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson";
 
-// magnitude → colour [dark-theme bright, light-theme dark]; text uses light-dark(), shapes the bright one
-// Same split as apps/air/view.js, and for the same measured reason. FILLS keep the original saturated
-// ramp — a fill is a MARK, so it answers to 3:1, not 4.5:1, and the globe dots and chip borders are the
-// whole point of the colour.
 const MAG = [["#41C06F", "#136B3A"], ["#8FBE45", "#3F6B24"], ["#D8B23C", "#6E5200"], ["#E2932F", "#985800"], ["#E7742E", "#A24810"], ["#EC5A4A", "#B63125"], ["#C94BBA", "#8E2A86"]];
-// TEXT rides SATURATION rather than lightness: on a dark page a colour cannot be made more urgent by
-// darkening it, and lightening the severe bands is what made air's "very poor" read as a soft salmon
-// while a good reading stayed vivid green. Calm sage at M2 climbing to 72% saturation at M7.
-// The magnitude chip sits on a `bg-primary/10` row when selected, and that tint — not the plain page —
-// is the binding bed, because it moves the surface toward the text in both themes.
 const MAG_INK = [["#A1BCAB", "#304E3D"], ["#ACBB95", "#445738"], ["#C6B581", "#564618"], ["#D5AF7F", "#7F5419"], ["#E3A986", "#8F4A1F"], ["#EFA39B", "#A6352B"], ["#E2A0DA", "#8E2A86"]];
 const magI = (m) => Math.max(0, Math.min(6, Math.floor(m) - 2));
 const magFill = (m) => MAG[magI(m)][0];
@@ -47,7 +35,7 @@ export function quakes({ S }) {
   const t = useStore(S.t), locale = useStore(S.locale);
   const [list, setList] = useState(isGate || MOCK ? sample() : null);
   const [err, setErr] = useState(false);
-  const [selId, setSelId] = useState(null); // the focused quake (tap a row or a globe dot); defaults to the strongest
+  const [selId, setSelId] = useState(null);
   const rowsRef = useRef();
 
   useEffect(() => {
@@ -63,21 +51,18 @@ export function quakes({ S }) {
   }, []);
 
   const top = list && list.length ? list.reduce((a, b) => (b.mag > a.mag ? b : a)) : null;
-  const sel = (list && list.find((q) => q.id === selId)) || top; // globe + headline follow the selection
+  const sel = (list && list.find((q) => q.id === selId)) || top;
 
-  // Motion: stagger the list in. (The seismic ripple is drawn ON the globe canvas — anchored to the real
-  // epicentre lat/lon via `pulse:true` on its point — so it tracks rotation, unlike a fixed DOM overlay.)
   useEffect(() => {
     if (!top || !rowsRef.current) return;
     const rows = rowsRef.current.querySelectorAll(".qrow");
     if (!rows.length) return;
     const a = animate(rows, { y: [12, 0] }, { delay: stagger(0.035), duration: 0.35, ease: "easeOut" });
-    return () => { try { a.stop(); } catch { /* */ } };
+    return () => { try { a.stop(); } catch { } };
   }, [top && top.id]);
 
-  const ready = useReveal(!!list);   // hold the skeleton ≥1s so a fast load doesn't flash
+  const ready = useReveal(!!list);
   if (err && !list) return html`<div class="flex flex-col items-center text-base-content/70 py-20 gap-2 text-center px-6">${Icon("lucide:cloud-off", "text-3xl")}<span>${T(t, "qStatusError")}</span></div>`;
-  // the real globe spins immediately; the headline + list are decoding skeletons
   if (!ready) return html`<div class="flex flex-col gap-4 items-center">
     <div class="w-full flex justify-center"><${Globe} points=${[]} spin=${true} height=${300} /></div>
     <div class="flex flex-col items-center gap-1 -mt-1"><div class="text-4xl font-bold tabular-nums text-base-content/40"><${Scramble} len=${5} /></div><div class="text-sm text-base-content/50"><${Scramble} len=${20} /></div></div>
@@ -100,13 +85,7 @@ export function quakes({ S }) {
       <div class="text-xs text-base-content/70 mt-0.5">${list.length} ${T(t, "count24")}</div>
     </div>` : null}
 
-    ${/* The list is ONE raised surface with rows ruled across it, not 24 outlined boxes: `sf-raised` for the
-         panel, `divide-y` kept because it divides rows inside that surface (base-300 is a real step down,
-         unlike base-200). The row's own press was `active:bg-base-200` — a tone step for depth, and since
-         base-200 IS base-100 in this material it had stopped drawing anything at all, so tapping a quake
-         gave no feedback. `sf-press` is the material's own press: the row becomes a hole under the finger.
-         The selected row keeps `bg-primary/10`, which is MEANING (and the bed MAG_INK is contrast-checked
-         against), not depth. */""}
+    ${""}
     <div ref=${rowsRef} class="w-full max-w-[420px] rounded-2xl sf-raised overflow-hidden divide-y divide-base-300/40">
       ${recent.map((q) => html`<button data-quake class=${`qrow w-full text-left flex items-center gap-3 px-4 py-2.5 transition ${sel && q.id === sel.id ? "bg-primary/10" : "sf-press"}`} onClick=${() => setSelId(q.id)} key=${q.id}>
         <div class="w-11 text-center font-bold tabular-nums rounded-lg py-1 text-sm shrink-0" style=${`color:${magColor(q.mag)};border:1.5px solid ${magFill(q.mag)}`}>${q.mag.toFixed(1)}</div>

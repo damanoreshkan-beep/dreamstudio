@@ -1,6 +1,3 @@
-// persona — the gate seeds the fixture shelf + a mock session (no network here), so the shelf is populated, a
-// person opens, and a line sent gets a streamed fixture reply. Systemic parts (cards, search, sections,
-// back-routing) are the runtime's; this file tests the app's own claims — the conversation.
 const shelf = async (h) => { for (let i = 0; i < 25; i++) { if ((await h.count(".aw-tap")) > 0) return true; await h.wait(200); } return false; };
 const openFirst = async (h) => {
   if (!(await shelf(h))) return false;

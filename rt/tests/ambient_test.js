@@ -1,17 +1,12 @@
-// microspec runtime — ambient unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { consonance, voicingScore, MODES as AMODES, CHORDS as ACHORDS, buildScale, voiceLead, VOICE_FLOOR, VOICE_CEIL, pickChord, sparkleNote, enoLoops, loopsForDensity, ENO_BASE, STYLES, styleById, chordRoot, mulberry32 as arng } from "../ambient.js";
 
-// ===================== ambient (generative ambient theory) =====================
-
 Deno.test("ambient: consonance ranks the perfect 5th sweetest, minor 2nd/tritone harshest", () => {
-  assert(consonance(7) > consonance(4), "P5 should beat M3");        // 3:2 vs 5:4
+  assert(consonance(7) > consonance(4), "P5 should beat M3");
   assert(consonance(4) > consonance(1), "M3 should beat m2");
   assert(consonance(1) < consonance(5) && consonance(6) < consonance(5), "m2 and tritone are rough");
-  assertEquals(consonance(12), consonance(0));                        // octave wraps to unison
-  assertEquals(consonance(-5), consonance(7));                        // sign-independent
+  assertEquals(consonance(12), consonance(0));
+  assertEquals(consonance(-5), consonance(7));
 });
 
 Deno.test("ambient: a consonant voicing scores higher than a clustered one", () => {
@@ -35,7 +30,7 @@ Deno.test("ambient: buildScale spans the octaves and every pitch is in the mode"
 });
 
 Deno.test("ambient: voiceLead anchors the root as bass and lifts every upper voice above the low-interval floor", () => {
-  const v = voiceLead(null, 36, ACHORDS.maj9);   // C2 root — thirds/9ths must not stay in the mud
+  const v = voiceLead(null, 36, ACHORDS.maj9);
   assertEquals(Math.min(...v), 36, "bass is the chord root");
   for (const m of v) { assert(m <= VOICE_CEIL, "above ceiling"); if (m !== 36) assert(m >= VOICE_FLOOR, "upper voice below floor"); }
   assert(v.every((x, i) => i === 0 || x >= v[i - 1]), "ascending");
@@ -43,8 +38,7 @@ Deno.test("ambient: voiceLead anchors the root as bass and lifts every upper voi
 
 Deno.test("ambient: voiceLead minimises motion — upper voices hug the previous voicing", () => {
   const prev = [40, 52, 55, 59];
-  const led = voiceLead(prev, 41, ACHORDS.maj7);        // F root chord after the previous
-  // total motion of the voice-led upper voices must beat the naive (root+interval, no octave shift) placement
+  const led = voiceLead(prev, 41, ACHORDS.maj7);
   const naive = ACHORDS.maj7.map((iv) => 41 + iv).slice(1);
   const nearest = (arr, x) => Math.min(...arr.map((p) => Math.abs(p - x)));
   const ledMotion = led.slice(1).reduce((a, m) => a + nearest(prev, m), 0);
@@ -60,7 +54,6 @@ Deno.test("ambient: pickChord stays in the palette, avoids an immediate repeat, 
     assert(a >= 0 && a < pal.length, "out of palette");
     assert(pal.length === 1 || a !== 1, "did not avoid repeat");
   }
-  // same seed → same sequence
   const s1 = arng(9), s2 = arng(9);
   for (let i = 0; i < 10; i++) assertEquals(pickChord(pal, 0, s1), pickChord(pal, 0, s2));
 });
@@ -79,12 +72,12 @@ Deno.test("ambient: sparkleNote returns a chord tone in the sparkle register", (
 Deno.test("ambient: enoLoops are near-coprime, jittered within ±5%, and deterministic", () => {
   const a = enoLoops(6, arng(11)), b = enoLoops(6, arng(11));
   assertEquals(a.length, 6);
-  assertEquals(a.map((x) => x.len), b.map((x) => x.len));           // deterministic
+  assertEquals(a.map((x) => x.len), b.map((x) => x.len));
   a.forEach((x, i) => {
     assert(x.len > 0 && x.phase >= 0 && x.phase < x.len, "phase in range");
     assert(Math.abs(x.len - ENO_BASE[i]) <= ENO_BASE[i] * 0.05 + 1e-9, "jitter beyond ±5%");
   });
-  assertEquals(enoLoops(99, arng(1)).length, ENO_BASE.length);      // clamps to available bases
+  assertEquals(enoLoops(99, arng(1)).length, ENO_BASE.length);
   assert(loopsForDensity(0) >= 3 && loopsForDensity(1) <= ENO_BASE.length);
 });
 
@@ -100,5 +93,5 @@ Deno.test("ambient: exactly ten distinct styles, each valid and referencing a re
     assert(s.rel >= s.atk, `${s.id}: release should be >= attack for a pad`);
   }
   assertEquals(styleById("zen").id, "zen");
-  assertEquals(styleById("nope").id, STYLES[0].id);                 // fallback
+  assertEquals(styleById("nope").id, STYLES[0].id);
 });

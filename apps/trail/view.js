@@ -1,16 +1,3 @@
-// trail — a day recorded by the phone itself, a month printed as one sheet.
-//
-// Three facts settled in apps/trail/RESEARCH.md decide every screen here and are not up for re-litigation:
-//   · `location.watch` emits nothing on its own. `bg.start({location:true})` is what attaches the listener,
-//     and the cadence is the service's own 10 s / 10 m — the catalogue declares no way for an app to set it.
-//   · The service keeps NO backlog. `sink` is one callback, so every fix taken while this page was gone is
-//     lost. `bg.status().fixes` is the ground truth count, and the difference is drawn as a GAP.
-//   · ACCESS_BACKGROUND_LOCATION cannot be granted from the runtime dialog on Android 11+, and a permission
-//     refused twice never prompts again. `system.settings` with page "location" is the only route.
-//
-// The geometry lives in packages/runtime/trace.js with unit tests; this file is wiring, layout and taste.
-// Screen and export share that geometry on purpose: the SVG is drawn for the eye, the PNG is drawn with
-// Canvas2D for print, and if they ever disagree it is because someone bypassed trace.js.
 import { html } from "htm/preact";
 import { useEffect, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -25,9 +12,6 @@ import { mulberry32 } from "/_rt/groove.js";
 import { bbox, centre, spanM, boxAround, segments, simplify, project, length, stops } from "/_rt/trace.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The micro-label (`length:` — a bare var() in text-[…] is a COLOUR to Tailwind v4; eleven captions here
-// carried it and rendered at body size) and the one class for a sentence of secondary prose. The two are
-// different things: a caption over a value is mono and small, a sentence is a sentence.
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const NOTE = "text-sm text-muted";
 
@@ -36,23 +20,17 @@ const pad2 = (n) => String(n).padStart(2, "0");
 const dayIdOf = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
 const monthIdOf = (id) => id.slice(0, 7);
 
-// A day that never left a 120 m circle is a day at home — a dot, not a scribble. Measured against the
-// stationary noise of a consumer GPS: a phone on a desk wanders ~40 m over an afternoon.
 const HOME_M = 120;
-const MIN_SPAN_M = 300;   // the floor for the shared scale, so one quiet month is not magnified into drama
+const MIN_SPAN_M = 300;
 
-// State outlives a tab switch. A subscription restarted on every render would churn the service, and the
-// recorder must keep running while the user reads the month.
 const $days = atom(new Map());
 const $rec = atom(false);
 const $err = atom(null);
 const $loaded = atom(false);
-const $perm = atom("unknown");      // unknown | ok | needsSettings | noApp | stale
+const $perm = atom("unknown");
 const $month = atom(monthIdOf(dayIdOf(Date.now())));
 
 let cancelWatch = null;
-
-// ── the recorded day ──────────────────────────────────────────────────────────────────────────────────
 
 const dayOf = (id) => $days.get().get(id) || { id, points: [], lost: 0 };
 
@@ -60,11 +38,9 @@ async function putDay(day) {
   const next = new Map($days.get());
   next.set(day.id, day);
   $days.set(next);
-  try { await DAYS.put(day.id, { points: day.points, lost: day.lost }); } catch { /* no IndexedDB: the session still draws */ }
+  try { await DAYS.put(day.id, { points: day.points, lost: day.lost }); } catch { }
 }
 
-// Every fix is written as it arrives, never batched on stop. A recorder that loses the day when the process
-// dies is the exact failure this app exists to not have.
 async function onFix(fix) {
   if (!fix || typeof fix.lat !== "number" || typeof fix.lon !== "number") return;
   const at = fix.at || Date.now();
@@ -72,9 +48,6 @@ async function onFix(fix) {
   await putDay({ ...day, points: [...day.points, { lat: fix.lat, lon: fix.lon, acc: fix.acc || 0, at }] });
 }
 
-/* The service counts every fix it took; we count the ones that reached us. The difference is not an
-   estimate — it is exactly how many positions exist that we will never see, and the day is drawn with a
-   break there rather than a straight line across ground nobody walked. */
 async function reconcile() {
   if (!shell.has("bg.status")) return;
   try {
@@ -84,14 +57,10 @@ async function reconcile() {
     const day = dayOf(dayIdOf(Date.now()));
     const lost = Math.max(0, (st.fixes || 0) - day.points.length);
     if (lost !== day.lost) await putDay({ ...day, lost });
-  } catch { /* the shell went away mid-call; the next tick asks again */ }
+  } catch { }
 }
 
 async function checkPermission() {
-  /* The catalogue mock reports ACCESS_BACKGROUND_LOCATION false — deliberately, it models the state a real
-     user starts in. Honouring it under the gate would mean every shot, every axe pass and the whole
-     breakpoint matrix only ever saw the permission panel, and the recorder's live layout was measured by
-     nobody. So the gate gets the granted branch by default and `?mock=grant` aims at the other one. */
   if (gate) { $perm.set(MOCK === "grant" ? "needsSettings" : "ok"); return; }
   if (!shell.has("bg.start") || !shell.has("location.watch")) {
     $perm.set(shell.why("bg.start") === ERR.staleBridge ? "stale" : "noApp");
@@ -100,7 +69,6 @@ async function checkPermission() {
   try {
     const info = await shell.call("system.info", {});
     const perms = info?.perms || {};
-    // Absent means this build never declared it, which is the same dead end as refused.
     $perm.set(perms.ACCESS_BACKGROUND_LOCATION === true ? "ok" : "needsSettings");
   } catch { $perm.set("needsSettings"); }
 }
@@ -118,25 +86,17 @@ async function startDay(t) {
 async function stopDay() {
   cancelWatch?.();
   cancelWatch = null;
-  try { await shell.call("bg.stop", {}); } catch { /* already gone */ }
+  try { await shell.call("bg.stop", {}); } catch { }
   $rec.set(false);
 }
-
-// ── the gate's month ──────────────────────────────────────────────────────────────────────────────────
-// The bridge mock emits ONE fix in Kyiv and settles, so left alone every screen here would be empty and the
-// only layout axe, the overflow matrix and the shots ever measure would be the empty one. Seed the WIDEST
-// state instead: a full month, a day with a gap in it, a day at home, and the longest readout.
 
 function sampleMonth() {
   const rnd = mulberry32(0x7241_1c);
   const now = new Date();
   const days = new Map();
-  /* The WHOLE month, not "up to today". Seeding only elapsed days made the fixture a function of the
-     calendar: on the 6th the grid held six marks in thirty-one cells, so the shot, the breakpoint matrix
-     and axe all measured a sparse poster, and the e2e caught it only because the month was young. */
   const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   for (let d = 1; d <= lastDay; d++) {
-    if (rnd() < 0.22) continue;                                   // a day nobody recorded stays blank
+    if (rnd() < 0.22) continue;
     const id = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(d)}`;
     const base = new Date(now.getFullYear(), now.getMonth(), d, 8, 30).getTime();
     const home = rnd() < 0.18;
@@ -145,10 +105,7 @@ function sampleMonth() {
     let lat = 50.4501 + (rnd() - 0.5) * 0.01, lon = 30.5234 + (rnd() - 0.5) * 0.01;
     let hx = (rnd() - 0.5), hy = (rnd() - 0.5);
     const points = [];
-    const gapAt = d % 9 === 4 ? Math.floor(n / 2) : -1;            // one day a month loses its middle
-    // A degree of longitude at 50°N is 0.64 of a degree of latitude, so equal steps in DEGREES draw a walk
-    // squashed flat. The first fixture stepped lon 5:3 against lat on top of that and every seeded day came
-    // out a horizontal wisp — the shapes a poster is made of, generated wrong.
+    const gapAt = d % 9 === 4 ? Math.floor(n / 2) : -1;
     const kLon = 1 / Math.cos(50.45 * Math.PI / 180);
     for (let i = 0; i < n; i++) {
       hx += (rnd() - 0.5) * 0.6; hy += (rnd() - 0.5) * 0.6;
@@ -168,10 +125,8 @@ async function loadDays() {
   try {
     const rows = await DAYS.all();
     $days.set(new Map(rows.map((r) => [r.id, { id: r.id, points: r.points || [], lost: r.lost || 0 }])));
-  } catch { /* no IndexedDB — the app still records into memory for this session */ }
+  } catch { }
 }
-
-// ── geometry helpers shared by the screen and the export ──────────────────────────────────────────────
 
 const walked = (points) => segments(points).reduce((m, s) => m + length(s), 0);
 const isHome = (points) => { const b = bbox(points); if (!b) return true; const s = spanM(b); return Math.max(s.w, s.h) < HOME_M; };
@@ -196,8 +151,6 @@ function ownBox(points, grow = 1.08) {
 const km = (m) => (m >= 10_000 ? Math.round(m / 1000) : Math.round(m / 100) / 10);
 const hhmm = (ms) => `${Math.floor(ms / 3_600_000)}:${pad2(Math.round(ms % 3_600_000 / 60_000))}`;
 const movingMs = (points) => segments(points).reduce((m, s) => m + (s.length > 1 ? s[s.length - 1].at - s[0].at : 0), 0);
-
-// ── today ─────────────────────────────────────────────────────────────────────────────────────────────
 
 export function trailToday({ t, S }) {
   const days = useStore($days), rec = useStore($rec), perm = useStore($perm), err = useStore($err);
@@ -247,7 +200,6 @@ export function trailToday({ t, S }) {
   </div>`;
 }
 
-// A reading sits IN the page: the well (sf-inset), not a lighter panel laid on it.
 const Stat = (label, value, unit) => html`<div class="rounded-[var(--ms-r)] sf-inset px-3 py-2 min-w-0">
   <div class=${`${LABEL} truncate`}>${label}</div>
   <div class="font-mono text-[length:var(--ms-title)] leading-tight truncate">${value}${unit ? html`<span class="font-mono text-[length:var(--ms-label)] text-base-content/70 ml-1">${unit}</span>` : null}</div>
@@ -286,8 +238,6 @@ function DayCanvas(points, box, cls, pad = 0) {
   </svg>`;
 }
 
-// ── month ─────────────────────────────────────────────────────────────────────────────────────────────
-
 export function trailMonth({ t, S, screen, openScreen, closeScreen, toast, confirm }) {
   const days = useStore($days), month = useStore($month);
   useStore(S.locale);
@@ -302,10 +252,8 @@ export function trailMonth({ t, S, screen, openScreen, closeScreen, toast, confi
 
   const [y, mo] = month.split("-").map(Number);
   const first = new Date(y, mo - 1, 1);
-  const lead = (first.getDay() + 6) % 7;                       // Monday-first, like every calendar here
+  const lead = (first.getDay() + 6) % 7;
   const count = new Date(y, mo, 0).getDate();
-  // Capitalise the first letter only. A `capitalize` class raised the abbreviation too, so uk's
-  // "серпень 2026 р." reached the header as "Серпень 2026 Р.".
   const raw = first.toLocaleDateString(S.locale.get() === "uk" ? "uk-UA" : "en-GB", { month: "long", year: "numeric" });
   const label = raw.charAt(0).toUpperCase() + raw.slice(1);
 
@@ -332,11 +280,6 @@ export function trailMonth({ t, S, screen, openScreen, closeScreen, toast, confi
             const id = `${month}-${pad2(i + 1)}`;
             const d = days.get(id);
             const has = d && d.points.length > 0;
-            // EVERY cell is a surface, recorded or not. Without that the month has no structure at all: the
-            // first shot was six wisps floating in a void, because a 30%-opacity fill is invisible at this
-            // size and the calendar the grid is supposed to be simply was not there. Depth is the meaning:
-            // an empty day is a well (sf-inset), a recorded one is the page lifted (sf-raised) — never a
-            // hairline box, which is not depth in this material.
             if (!has) return html`<div key=${id} class="aspect-square rounded-[var(--ms-r-in)] sf-inset" aria-hidden="true"></div>`;
             return html`<button key=${id} data-day=${id} aria-label=${id}
               class="aspect-square rounded-[var(--ms-r-in)] sf-raised sf-e2 active:scale-95 transition-transform p-0.5"
@@ -400,12 +343,8 @@ async function removeDay(id) {
   const next = new Map($days.get());
   next.delete(id);
   $days.set(next);
-  try { await DAYS.remove(id); } catch { /* nothing persisted to remove */ }
+  try { await DAYS.remove(id); } catch { }
 }
-
-// ── export ────────────────────────────────────────────────────────────────────────────────────────────
-// Canvas2D rather than a serialised SVG: an <img> of an SVG data URL renders text with whatever font the
-// rasteriser happens to resolve, which is not the one on screen. The geometry is trace.js's either way.
 
 const SHEET = 2048;
 

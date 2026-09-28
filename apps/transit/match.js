@@ -1,23 +1,3 @@
-// Compatibility — real astrological synastry between two people, from two birth DATES and no birth times.
-//
-// Each person's Sun/Moon/Mercury/Venus/Mars come from the SYSTEMIC ephemeris (/_rt/astro eclipticPositions,
-// astronomy-engine — the same engine the transit wheel runs on). The contacts between the two charts, their
-// orbs and the index are the pure, unit-tested /_rt/synastry. Nothing is fetched or invented: the positions
-// are real, the maths is deterministic and offline, and the AI paragraph is handed the sourced corpus and
-// told to synthesise that and nothing else.
-//
-// THE UNKNOWN TIME IS THE DESIGN PROBLEM, and it is not a small one. Measured on this ephemeris: the Moon
-// moves 13.2° in a mean day and 15.3° at its fastest, so a date without a time carries ±6.6° on it — and it
-// changes SIGN inside the birth day 43.8% of the time. The old screen took noon, printed a Moon glyph and
-// said nothing, which means roughly one card in five was confidently showing the wrong Moon. Hiding that
-// behind a single number was the actual bug; the ±24 h slider is the fix. It moves the whole chart in 30
-// minute steps, recomputing live (0.19 ms for both charts, so there is nothing to debounce), and the Moon
-// visibly changes under it. ±24 h rather than ±12 h on purpose: it covers the unknown hour AND the unknown
-// timezone, since a birth date recorded in local time can sit up to 14 hours from the UTC day.
-//
-// The AI reading is the one thing that does NOT follow the slider live — each distinct chart is a paid
-// request, so it settles for a second after the last move and warms once. Sign glyphs are the hand-drawn
-// SVGs from /_rt/zodiac (never emoji). The two dates and both offsets persist locally.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useMemo } from "preact/hooks";
@@ -35,28 +15,21 @@ import { Reading } from "./reading.js";
 
 const AI_MATCH = { get: matchRead, has: isMatchRead, warm: warmMatchRead };
 
-// `$a` is "you" and `$b` is "the partner" — the storage keys predate the layout and stay put, because
-// renaming them would silently drop the dates every existing user has already entered. Which of the two is
-// drawn FIRST is a presentation choice, made once in `people` below.
 const $a = persistentAtom("compat.a", gate ? "1990-07-15" : "");
 const $b = persistentAtom("compat.b", gate ? "1992-03-22" : "");
-// Minutes from 12:00 UTC on the stated date, −1440..+1440.
 const $ao = persistentAtom("compat.ao", "0");
 const $bo = persistentAtom("compat.bo", "0");
 
 const BAND_COLOR = ["var(--color-error)", "var(--color-warning)", "var(--color-secondary)", "var(--color-success)"];
 const ASPECT_KEY = { conjunction: "aspConjunction", sextile: "aspSextile", square: "aspSquare", trine: "aspTrine", opposition: "aspOpposition" };
-const STEP = 30, SPAN = 1440;   // 30-minute steps, ±24 h
+const STEP = 30, SPAN = 1440;
 const GATE_MATCH = { uk: "Найтісніший контакт тут — тригон Сонця партнера до твого Місяця, орб 2.1°: те, ким він є свідомо, лягає просто на те, як ти реагуєш, і саме тому ви домовляєтеся швидше, ніж встигаєте посперечатися. Тригон його Венери до твого Марса, орб 1.3°, тримає потяг у тому ж легкому руслі — тут ніхто нікого не здобуває. Секстиль його Місяця до твого Марса дає вихід, але тільки якщо ним скористатися: сам він нічого не зробить. Самі положення влаштовані по-різному — його Сонце в Овні починає прямо, твоє в Раку прихищає і памʼятає, — і ця різниця в темпі буде помітною раніше за все інше. Ціна тут одна й конкретна: легкість тригонів мало кому впадає в око, тож витримку цієї пари ви обидва схильні недооцінювати. Місяць рухається на понад тринадцять градусів за добу, тож точний час народження визначив би його знак.", en: "The closest contact here is your partner's Sun trine your Moon, orb 2.1°: who they consciously are lands straight on the way you react, which is why the two of you settle things before you get round to arguing about them. Their Venus trine your Mars, orb 1.3°, keeps the attraction in the same easy channel — nobody is winning anybody here. Their Moon sextile your Mars is an opening rather than an event: it helps only if it is taken. The placements themselves are built differently — their Aries Sun starts directly, your Cancer Sun shelters and remembers — and that difference in tempo shows up before anything else does. The cost is one and specific: a trine flows so readily that it goes unnoticed, so you both underrate how much this pair actually endures. The Moon moves over thirteen degrees a day, so a birth time would settle its sign." };
 
-// The birth instant under test: noon UTC on the date, shifted by the slider.
 const instant = (dateStr, offMin) => {
   const p = parseYmd(dateStr);
   return p ? new Date(Date.UTC(p.y, p.m, p.d, 12) + offMin * 60000) : null;
 };
 
-// A person's five bodies at that instant, or null when the date is unset or the ephemeris is unavailable —
-// never a partial chart, because a missing Venus scores as an absent contact and reads as aversion.
 const chartAt = (dateStr, offMin) => {
   const d = instant(dateStr, offMin);
   if (!d) return null;
@@ -66,9 +39,6 @@ const chartAt = (dateStr, offMin) => {
 
 const bodyOf = (pos, key) => pos.find((p) => p.key === key);
 
-// Does this person's Moon change sign inside the DAY around the chosen instant? That is the honest span for
-// "the hour is unknown", and it is the 43.8% case: when it is true the Moon glyph on the card is the one
-// that holds at this position of the slider and not a fact about the person.
 const moonUnsettled = (dateStr, offMin) => {
   const lo = chartAt(dateStr, offMin - 720), hi = chartAt(dateStr, offMin + 720);
   if (!lo || !hi) return false;
@@ -79,7 +49,6 @@ const clock = (offMin) => {
   const total = ((720 + offMin) % 1440 + 1440) % 1440;
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 };
-// Which calendar day the offset lands on, relative to the date the user typed.
 const dayShift = (offMin) => Math.floor((720 + offMin) / 1440);
 
 export function match({ S, screen, openScreen, closeScreen }) {
@@ -92,9 +61,6 @@ export function match({ S, screen, openScreen, closeScreen }) {
   const list = useMemo(() => (A && B ? contacts(A, B) : []), [A, B]);
   const r = A && B ? score(list) : null;
 
-  // The reading settles a second behind the sliders. Every distinct chart is one paid request, so warming on
-  // each of the 97 steps would spend a hundred of them on charts the user swept past — and cache each one
-  // forever under its own key.
   const [settled, setSettled] = useState({ ao, bo });
   useEffect(() => {
     const id = setTimeout(() => setSettled({ ao, bo }), 1000);
@@ -135,17 +101,6 @@ export function match({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// The unknown hour, made movable. The readout is the whole point of the control — the number it shows is
-// stated in UTC because without a birth PLACE there is no local time to convert to, and quietly printing a
-// local-looking clock would be the app inventing a timezone.
-//
-// `--range-fill:0` is DaisyUI's own knob, not a style laid over it: the fill is painted by the thumb's
-// box-shadow spread, and the variable that drives it collapses to nothing at 0 while `--range-bg` keeps the
-// track. Reaching for the track variable instead is how this farm once deleted every seek bar. Turning the
-// fill off is not cosmetic — a filled range reads as a VALUE that is half-set, and on the deployed screen
-// the two bars were the heaviest thing above the ring (solid black in the light theme). This control does
-// not hold a value; it holds an OFFSET from a midpoint that means "no adjustment", so it gets a dial with a
-// notch under its centre and no fill at all.
 function TimeDial({ p, t }) {
   const shift = dayShift(p.off);
   return html`<label ...${{ [`data-dial-${p.key}`]: p.key }} class="flex flex-col gap-1">
@@ -182,14 +137,6 @@ function Ring({ score, t }) {
 }
 
 function Person({ label, pos, t, unsettled, attr }) {
-  // A person card is an object ON the page, so it declares the material instead of drawing a hairline round
-  // itself — the shadow pair IS the edge now. `sf-e2` (the shallow rung) because there are two of these side
-  // by side in a grid and the full extrusion on a half-width card overpowers the ring it sits under.
-  //
-  // The three small bodies are a 3-column GRID, not a flex row. As a row each cell sized to its own label
-  // and the widest one («МІСЯЦЬ») pushed its neighbours until the three captions ran together into
-  // "МІСЯЦЬВЕНЕРАМАРС" on a 384 px screen. A grid gives each an equal, bounded third of the card, and
-  // `min-w-0` is what lets `truncate` actually apply inside it.
   const sun = signOf(bodyOf(pos, "sun").lon);
   return html`<div ...${{ [attr]: "1" }} class="rounded-[var(--ms-r)] sf-raised sf-e2 p-3 flex flex-col items-center gap-2">
     <div class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70">${label}</div>
@@ -210,9 +157,6 @@ function Person({ label, pos, t, unsettled, attr }) {
 
 function Bars({ r, t }) {
   const axes = [["axCore", r.core], ["axLove", r.love], ["axEmotion", r.emotion], ["axMind", r.mind], ["axPassion", r.passion]];
-  // An axis track is a TROUGH the score fills — `sf-inset`, the farm's word for a rail. It used to be
-  // `bg-base-300`, i.e. a tone step standing in for the recess; base-300 no longer reads as a step down from
-  // the page, so the empty part of every bar had quietly gone invisible and a low score looked like no bar.
   return html`<div class="flex flex-col gap-2.5">
     ${axes.map(([key, v]) => html`<div class="flex items-center gap-3" key=${key}>
       <div class="w-20 shrink-0 text-[0.78rem] font-medium truncate">${T(t, key)}</div>
@@ -222,15 +166,6 @@ function Bars({ r, t }) {
   </div>`;
 }
 
-// The contacts themselves — the evidence the index is built from, so a number on the ring can be traced to
-// the aspects that produced it. The orb is shown against the pair's OWN limit because those limits differ:
-// 3° is most of a Mercury–Venus contact and a quarter of a Sun–Moon one.
-//
-// Each body is NAMED, not just discced. The first deployed version drew `Planet` alone, which on a wheel is
-// unambiguous because position carries the identity — in a list it is an anonymous coloured dot, and three
-// rows reading "● тригон ●" told the reader nothing about which planets were in trine. The two columns are
-// laid out to match the two cards above, partner on the left and you on the right, so whose planet is whose
-// needs no caption.
 function Contacts({ list, t }) {
   if (!list.length) return html`<div data-contacts class="text-[0.8rem] text-muted py-1">${T(t, "matchNoContacts")}</div>`;
   return html`<div data-contacts class="flex flex-col gap-1.5">
@@ -250,11 +185,8 @@ function Contacts({ list, t }) {
   </div>`;
 }
 
-// The reading. `settled` is the offsets as they were a second after the last slider move, so the grounding
-// block and its cache signature are built from a chart the user has stopped on.
 function Verdict({ people, settled, locale, t }) {
-  const { ao, bo } = settled;   // named, not positional: `people` draws the partner first and the pair
-                                // read the other way round once already.
+  const { ao, bo } = settled;
   const pos = [chartAt(people[0].date, bo), chartAt(people[1].date, ao)];
   const stable = pos[0] && pos[1];
   const built = useMemo(() => {

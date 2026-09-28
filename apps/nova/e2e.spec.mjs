@@ -1,7 +1,3 @@
-// nova — headless gate assertions. Under the gate /_rt/auth.js seeds a mock GitHub session and the view seeds
-// a deterministic developer fixture (MOCK_DEVS), so the gate reviews the REAL signed-in feed with no network
-// and no OAuth popup. Read-only checks run before the star mutations so the order is robust whether or not
-// the harness reloads between tests (the supported set is module-level, so it accumulates within one page).
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-dev]")) > 0) break; await h.wait(400); } };
 
 export default [
@@ -17,8 +13,6 @@ export default [
     name: "підтримка: аркуш зі спонсорськими посиланнями, Back закриває", run: async (h) => {
       await ready(h);
       await h.click("[data-dev] [data-support]"); await h.wait(500);
-      // The shell is the kit's Sheet now, so the assertion is the dialog's STATE (open), not a class or a
-      // back-button the kit doesn't draw.
       h.expect((await h.prop("#support-sheet", "open")) === true, "аркуш підтримки не відкрився");
       h.expect((await h.count("[data-fund][href*='sponsors']")) >= 1, "немає посилання на GitHub Sponsors");
       await h.back(); await h.wait(400);
@@ -41,7 +35,7 @@ export default [
   {
     name: "фінал: зіркове поле з підтриманими девами з табу «Зірки», Back закриває", run: async (h) => {
       await ready(h);
-      await h.click("[data-dev] [data-star]"); await h.wait(500);   // ensure ≥1 lifted this session
+      await h.click("[data-dev] [data-star]"); await h.wait(500);
       await h.click('[data-tab="lifted"]'); await h.wait(300);
       h.expect((await h.count("#reveal")) === 1, "немає кнопки фіналу в табі «Зірки»");
       await h.click("#reveal"); await h.wait(600);

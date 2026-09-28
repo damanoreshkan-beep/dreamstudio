@@ -1,16 +1,3 @@
-// apps/hoard — a pay rate turned into a living hoard. The maths (rate → per-second, the saturating fill
-// and depth channels, the money and span formatting) is the unit-tested /_rt/earn.js; the look is
-// hoard.frag on /_rt/glstage.js; this file is the clock, the store and the surface.
-//
-// The clock is a TIMESTAMP, never a counter. `hoard:startedAt` goes into localStorage on Start and every
-// number on screen is derived from (Date.now() - startedAt): close the app, lock the phone, reboot — the
-// hoard is exactly where the work left it. A per-tick accumulator would drift the moment the tab is
-// backgrounded, which is the one thing this app must survive.
-//
-// The field never re-renders Preact: GlStage reads `ink`/`vary` as FUNCTIONS every frame, so one rAF pump
-// integrates the channels and writes the three live strings straight into their nodes. A component that
-// re-rendered at 60 fps would rebuild the whole fit screen for a number that changed in the second decimal.
-
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -31,14 +18,12 @@ import {
 const JSON_CODEC = { encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return null; } } };
 
 const $rate = persistentAtom("hoard:rate", { mode: "month", ...DEFAULTS.month, currency: "UAH" }, JSON_CODEC);
-const $startedAt = persistentAtom("hoard:startedAt", "0");     // ms epoch, "0" = nothing running
-const $sessions = atom([]);                                     // banked, newest first (IndexedDB)
+const $startedAt = persistentAtom("hoard:startedAt", "0");
+const $sessions = atom([]);
 
 const ledger = collection("hoard");
 const started = () => Number($startedAt.get()) || 0;
 
-// The gate has no history and no hardware, so it would photograph a blank pool and an empty vault — the
-// empty state of every screen this app has. Seed a running three-hour session and a week of banked work.
 const FIXTURE_STARTED = 3 * 3600_000;
 const FIXTURE_SESSIONS = [
   { id: "fx1", amount: 1190.48, ms: 8 * 3600_000, currency: "UAH", endedAt: 1755000000000, mode: "month" },
@@ -47,9 +32,6 @@ const FIXTURE_SESSIONS = [
   { id: "fx4", amount: 744.05, ms: 5 * 3600_000, currency: "UAH", endedAt: 1754740000000, mode: "month" },
 ];
 
-// db.js's all() orders by the record's WRITE time, which is not when the session ended — a restored undo,
-// or a fixture set written in one loop, comes back shuffled (the vault shipped 10·9·12·11 серпня). The
-// list is ordered by the field it is actually about.
 const byEnded = (rows) => [...rows].sort((a, b) => (b.endedAt || b._ts || 0) - (a.endedAt || a._ts || 0));
 
 async function loadSessions() {
@@ -61,19 +43,15 @@ async function loadSessions() {
     }
     $sessions.set(byEnded(all));
   } catch {
-    $sessions.set(gate ? byEnded(FIXTURE_SESSIONS) : []);       // no IndexedDB (preflight): render anyway
+    $sessions.set(gate ? byEnded(FIXTURE_SESSIONS) : []);
   }
 }
 if (gate && !started()) $startedAt.set(String(Date.now() - FIXTURE_STARTED));
 
-// ---- the live channels: read every frame by GlStage, integrated by the one rAF pump below ----
-// #D8A43A (spec.accent) in display space. The shader shades and desaturates it; this is the hue only.
 const GOLD = [0.847, 0.643, 0.227];
 const env = { fill: 0.1, heat: 0, glint: 0, phase: 0, depth: 0 };
 const varyOf = () => [env.fill, env.heat, env.glint, env.phase];
 const inkOf = () => [GOLD[0], GOLD[1], GOLD[2], env.depth];
-
-// ---- the hoard screen ----------------------------------------------------------------------------
 
 export function flow({ t, S, toast }) {
   const loc = useStore(S.locale);
@@ -89,18 +67,12 @@ export function flow({ t, S, toast }) {
 
   useEffect(() => { loadSessions(); }, []);
 
-  // Everything ever banked in the ACTIVE currency: a hoard is one pile, and two currencies added together
-  // would be a lie. It sets the resting height of the field and how rich the gold runs.
   const banked = vaultTotals(sessions).find((v) => v.currency === rate.currency)?.sum || 0;
   const depth = lifetimeDepth(banked, perSec);
 
-  // ONE rAF pump: it integrates the shader channels and writes the three live strings. Restarted only when
-  // something structural changes (the rate, the currency, whether a session runs) — never per frame.
   useEffect(() => {
     let raf = 0, dead = false, prev = 0, lastDom = -1, lastLen = -1, lastUnit = -1;
     env.depth = depth;
-    // The resting height: what you have ALREADY banked. Without it a stopped hoard is an empty screen, and
-    // the pile you spent a month on would vanish every time you pressed Bank.
     const rest = 0.10 + 0.45 * depth;
     const frame = (now) => {
       if (dead) return;
@@ -114,19 +86,15 @@ export function flow({ t, S, toast }) {
       env.fill += (Math.max(rest, running ? hoardFill(amount, perSec) : rest) - env.fill) * Math.min(1, dt * 1.2);
       env.glint *= Math.exp(-dt * 3.2);
       const unit = Math.floor(amount);
-      if (running && lastUnit >= 0 && unit > lastUnit) env.glint = 1;   // a whole coin lands
+      if (running && lastUnit >= 0 && unit > lastUnit) env.glint = 1;
       lastUnit = unit;
 
-      // The DOM at 10 Hz, the field at 60: past ~10 updates a second the last digit is a blur nobody reads,
-      // and each one costs a layout on a text node that is 80 px tall.
       if (now - lastDom > 100) {
         lastDom = now;
         const el = amountRef.current, box = boxRef.current;
         if (el) {
           const s = fmtAmount(amount, rate.currency, 2);
           el.textContent = s;
-          // Refit only when the string CHANGES LENGTH: a binary search over font-size is ~26 reflows, and
-          // the length changes once per order of magnitude, not once per tick.
           if (box && s.length !== lastLen) { lastLen = s.length; fitText(el, box); }
         }
         if (elapsedRef.current) elapsedRef.current.textContent = fmtSpan(ms);
@@ -166,8 +134,7 @@ export function flow({ t, S, toast }) {
     </div>
 
     <div class="relative z-10 h-full min-h-0 flex flex-col gap-[var(--ms-gap)]" data-running=${running ? "yes" : "no"}>
-      ${/* the rate, as the one thing you can change from here — a pill, because it is context that happens
-           to be tappable, not a control cluster */""}
+      ${""}
       <div class="shrink-0 flex justify-center">
         <button data-rate type="button" aria-label=${T(t, "aRate")} onClick=${() => S.screen.set("rate")}
           class=${`btn btn-ghost btn-sm h-auto min-h-0 py-1.5 px-3 rounded-full font-mono uppercase tracking-wide text-[length:var(--ms-label)] max-w-full ${FROST}`}>
@@ -176,8 +143,7 @@ export function flow({ t, S, toast }) {
         </button>
       </div>
 
-      ${/* the subject: the amount, sized to the box rather than to a guess (fitText), and a mono meta line
-           carrying the two numbers behind it */""}
+      ${""}
       <div class="shrink-0 text-center px-1">
         <div ref=${boxRef} data-amount-box class="w-full" style="height:var(--ms-hero)">
           <div ref=${amountRef} data-amount class="font-mono tabular-nums font-semibold"
@@ -190,13 +156,10 @@ export function flow({ t, S, toast }) {
         </div>
       </div>
 
-      ${/* the void the hoard rises into — deliberately empty: the field IS the content here */""}
+      ${""}
       <div class="flex-1 min-h-0" aria-hidden="true"></div>
 
-      ${/* Filled ink in BOTH states. The running state was an outline for one build, and on the shot it read
-           as a disabled control — an outline inside a frost island over a dark field is barely a box. The
-           state is not carried by this button anyway: the field, the ticking amount and the clock all say
-           it, and the button says what it DOES, the way a play/pause key does. */""}
+      ${""}
       <${Island} className="shrink-0" tone="frost">
         <button data-run type="button" onClick=${running ? bank : start}
           class="btn btn-primary btn-block h-[var(--ms-ctl)] min-h-0 rounded-[var(--ms-r-in)] gap-2">
@@ -210,12 +173,8 @@ export function flow({ t, S, toast }) {
   </${Fragment}>`;
 }
 
-// ---- the pay rate ---------------------------------------------------------------------------------
-
 function RateSheet({ t, loc, S, open, rate }) {
   const [draft, setDraft] = useState(rate);
-  // The sheet is a DRAFT: Back and the close button discard, one button commits. Opening it re-seeds from
-  // the live rate, so a discarded edit never survives into the next open.
   useEffect(() => { if (open) setDraft(rate); }, [open]);
   const set = (k, v) => setDraft({ ...draft, [k]: v });
   const close = () => S.screen.set(null);
@@ -234,8 +193,7 @@ function RateSheet({ t, loc, S, open, rate }) {
       onChange=${(id) => setDraft({ ...normRate({ ...DEFAULTS[id], mode: id, currency: draft.currency }) })}
       items=${MODES.map((m) => ({ id: m, label: T(t, m === "month" ? "modeMonth" : m === "shift" ? "modeShift" : "modeDay") }))} />
 
-    ${/* three number fields on one row down to ~360 px; below that they wrap rather than shrink under the
-         thumb. Wrapping a ROW is free — the sheet is the farm's one sanctioned nested scroll. */""}
+    ${""}
     <div class="flex flex-wrap gap-[var(--ms-gap)] items-end">
       ${field(T(t, draft.mode === "month" ? "payMonth" : draft.mode === "shift" ? "payShift" : "payDay"), "pay", { "data-pay": "" })}
       ${draft.mode === "month" ? field(T(t, "rateDays"), "days", { "data-days": "" }) : null}
@@ -251,8 +209,6 @@ function RateSheet({ t, loc, S, open, rate }) {
   <//>`;
 }
 
-// ---- the vault ------------------------------------------------------------------------------------
-
 export function vault({ t, S, undo }) {
   const loc = useStore(S.locale);
   const sessions = useStore($sessions);
@@ -263,8 +219,8 @@ export function vault({ t, S, undo }) {
 
   const remove = async (s) => {
     $sessions.set($sessions.get().filter((x) => x.id !== s.id));
-    try { await ledger.remove(s.id); } catch { /* no IndexedDB: the list is already gone from view */ }
-    undo?.(async () => { try { await ledger.put(s.id, s); } catch { /* */ } await loadSessions(); }, T(t, "removed"));
+    try { await ledger.remove(s.id); } catch { }
+    undo?.(async () => { try { await ledger.put(s.id, s); } catch { } await loadSessions(); }, T(t, "removed"));
   };
 
   if (!sessions.length) {

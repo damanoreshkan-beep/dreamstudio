@@ -1,5 +1,3 @@
-// Alpha extents of the theme sprites in rt/: per-row alpha mass → where the art sits in the square, so every
-// decor offset is a MEASUREMENT (docs/research/themes.md).  deno run -A measure.mjs [prefix]
 import { decode } from "npm:@jsquash/webp@1.4.0";
 const dir = new URL("../../../rt/", import.meta.url);
 const prefix = Deno.args[0] ? `ds-${Deno.args[0]}-` : "ds-";

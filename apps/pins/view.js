@@ -1,18 +1,3 @@
-// apps/pins — get a DIRECT image link out of Pinterest, which is otherwise a four-step archaeology dig.
-//
-// The whole app exists because a pin page is not a document, it is an app: fetching it yields a shell with
-// the board name and nothing else. What answers is Pinterest's own key-less widget API, and — measured —
-// it sends `access-control-allow-origin: *`, so the browser calls it directly and this app is backend-less
-// apart from ONE hop. See docs/research/pinterest-extraction.md; the parsing lives in /_rt/pinterest.js
-// with unit tests, because "which of these four shapes did the user paste" is logic, not markup.
-//
-// The one hop: a `pin.it` short link resolves through a 302 whose `location` header carries no CORS, so no
-// browser may read it. `/feed/pin?code=` on our own edge reads that one header and returns the id.
-//
-// The direct-link ladder is the product. `/originals/` frequently does not exist and answers with a small
-// XML error rather than a 404, so a status code proves nothing — each rung is confirmed by actually
-// decoding it (`Image().naturalWidth`). Displaying and downloading i.pinimg needs no CORS; reading its
-// pixels would, so nothing here reads pixels.
 import { html } from "htm/preact";
 import { useState, useEffect } from "preact/hooks";
 import { atom } from "nanostores";
@@ -31,13 +16,11 @@ const SAVED = collection("pinsSaved");
 const $q = atom("");
 const $busy = atom(false);
 const $err = atom("");
-const $items = atom([]);          // resolved pins (one for a pin, many for a board)
-const $kind = atom("");           // "pin" | "board"
-const $full = atom({});           // pin id → the confirmed full-size URL
+const $items = atom([]);
+const $kind = atom("");
+const $full = atom({});
 const $owned = atom(new Set());
 
-// A deterministic fixture: the gate has no network, and the shot must show a resolved pin rather than an
-// empty field. Same shape the API returns, trimmed by readPins.
 const FIXTURE = [{
   id: "1096274734320084795",
   text: "Ground your system in the full guide on UI kit foundations — durations, easing and distance tokens.",
@@ -47,7 +30,6 @@ const FIXTURE = [{
   link: "", page: "https://www.pinterest.com/pin/1096274734320084795/",
 }];
 
-// ── resolving ────────────────────────────────────────────────────────────────────────────────────────
 async function resolveShort(code) {
   const r = await fetch(`${VPS_PROXY}/pin?code=${encodeURIComponent(code)}`);
   if (!r.ok) throw new Error("short");
@@ -81,8 +63,6 @@ async function grab(raw) {
   } finally { $busy.set(false); }
 }
 
-// Walk the ladder and keep the first rung that DECODES. A status code is not evidence here: i.pinimg
-// answers a missing /originals/ with a small XML document, which an <img> rejects and a 200 would not.
 function confirmFull(pin) {
   if (!pin?.src || gate) return;
   const rungs = ladder(pin.src);
@@ -101,17 +81,14 @@ function confirmFull(pin) {
 const fullOf = (pin, full) => full[pin.id] || pin.src;
 
 async function loadOwned() {
-  try { const all = await SAVED.all(); $owned.set(new Set(all.map((x) => x.id))); } catch { /* */ }
+  try { const all = await SAVED.all(); $owned.set(new Set(all.map((x) => x.id))); } catch { }
 }
 
-// ── the pin card ─────────────────────────────────────────────────────────────────────────────────────
 const PinCard = ({ pin, t, full, owned, onSave, onCopy, compact }) => {
   const url = fullOf(pin, full);
   const isFull = !!full[pin.id];
   return html`<${Panel} className="gap-2" data-pin=${pin.id}>
-    ${/* The tile reserves its aspect ratio and paints the API's own dominant colour while the image
-         decodes — a better skeleton than a shimmer, because it is the average colour of the very image
-         being waited for. */""}
+    ${""}
     <a href=${url} target="_blank" rel="noopener" data-open-image
       class="block w-full overflow-hidden rounded-[var(--ms-r-in)]"
       style=${`aspect-ratio:1/${ratio(pin)};background:${pin.color}`}>
@@ -140,10 +117,6 @@ const PinCard = ({ pin, t, full, owned, onSave, onCopy, compact }) => {
   <//>`;
 };
 
-// Nothing resolved yet. The screen shows what you already grabbed — continuity, and the reason to come
-// back — and if there is nothing yet, the three shapes it accepts, as chips that FILL the field when
-// tapped. A tappable example is an affordance; the same text as a sentence would be hint text, which the
-// farm bans for good reason.
 const SHAPES = ["https://pin.it/", "https://www.pinterest.com/pin/", "https://www.pinterest.com/user/board/"];
 function Idle({ t }) {
   const owned = useStore($owned);
@@ -166,7 +139,6 @@ function Idle({ t }) {
   </div>`;
 }
 
-// ── grab ─────────────────────────────────────────────────────────────────────────────────────────────
 export function pins({ S, toast }) {
   const t = useStore(S.t);
   const q = useStore($q);
@@ -179,12 +151,11 @@ export function pins({ S, toast }) {
 
   useEffect(() => {
     loadOwned();
-    // A link shared into the app arrives as ?url= — resolve it without the user retyping anything.
     try {
       const u = new URLSearchParams(location.search).get("url");
       if (u) { $q.set(u); grab(u); }
       else if (gate) grab("https://pin.it/4TgG4yGpF");
-    } catch { /* */ }
+    } catch { }
   }, []);
 
   useEffect(() => { items.forEach(confirmFull); }, [items]);
@@ -209,8 +180,7 @@ export function pins({ S, toast }) {
           aria-label=${T(t, "inputLabel")} placeholder=${T(t, "inputPlaceholder")}
           onInput=${(e) => $q.set(e.target.value)}
           class="input input-bordered w-full flex-1 min-w-0" />
-        ${/* No spinner: the verb changes to its progressive form and the card slot below shows the pin
-             decoding (Pixels) — the state is said by the words and by the structure, not by a wheel. */""}
+        ${""}
         <button id="grab" type="submit" disabled=${busy} aria-busy=${busy ? "true" : null} class="btn btn-primary gap-1.5 shrink-0">
           ${Icon("lucide:arrow-down-to-line", "text-base")}
           <span class="truncate">${T(t, busy ? "grabbing" : "grab")}</span>
@@ -235,7 +205,6 @@ export function pins({ S, toast }) {
   </div>`;
 }
 
-// ── saved ────────────────────────────────────────────────────────────────────────────────────────────
 export function pinsSaved({ S, toast }) {
   const t = useStore(S.t);
   const owned = useStore($owned);

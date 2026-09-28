@@ -1,8 +1,3 @@
-// Sonar — the gate has no speaker and no microphone, so the view runs a DETERMINISTIC synthetic spectrum
-// (view.js `gateFrame`): a still room long enough to calibrate, then a hand crossing the beam, frozen 25
-// frames into a wave. Every assertion below therefore measures the POPULATED, moving screen — the state a
-// real room only reaches with a hand in front of the phone. Capture itself is structure only: permission
-// prompts, an oscillator and a live analyser cannot exist headless.
 const ready = async (h) => {
   for (let i = 0; i < 20; i++) { if ((await h.count("[data-live]")) > 0) break; await h.wait(250); }
 };
@@ -16,10 +11,8 @@ export default [
       h.expect((await h.count("#play")) === 1, "немає транспорту");
       h.expect((await h.count("[data-cal]")) === 1, "немає перекалібрування");
       const body = await h.bodyText();
-      // the frozen gate frame is mid-wave and decisive, so the screen must say motion AND name a direction
       h.expect(/Рух|Motion/i.test(body), `гейт показує не рух: ${body.slice(0, 120)}`);
       h.expect(/Наближається|Approaching/i.test(body), "напрямок не названо, хоча кадр однозначний");
-      // the signal metric is a real number from analyzeFrame, not a placeholder
       h.expect(/-?\d+\.\d/.test(await h.text("[data-live]")), "метрика сигналу порожня");
     },
   },
@@ -67,7 +60,6 @@ export default [
       const body = await h.bodyText();
       h.expect(/32768/.test(body), "не показано розмір FFT");
       h.expect(/AEC/.test(body), "не показано стан обробки мікрофона");
-      // the honesty panel is a contract with the user, not decoration: it must survive a refactor
       h.expect(/м\/с|m\/s/i.test(body), "немає застереження про швидкість");
     },
   },

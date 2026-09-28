@@ -1,17 +1,4 @@
-// V2M AudioWorklet processor — renders Farbrausch V2 (.v2m) chiptune on the audio thread.
-//
-// Loads the self-contained v2synth.wasm (0 imports, exported memory) with a plain
-// WebAssembly.instantiate — NO emscripten glue, so it runs inside AudioWorkletGlobalScope
-// (only WebAssembly + typed arrays, both guaranteed). wasm bytes arrive via processorOptions.
-//
-// Synth + player (c) Tammo 'kb' Hinrichs / Farbrausch — Artistic License 2.0.
-//
-// Messages in : {cmd:"load", bytes:ArrayBuffer} | {cmd:"play"} | {cmd:"pause"}
-//               {cmd:"stop"} | {cmd:"seek", ms}
-// Messages out: {type:"ready"} | {type:"duration", ms} | {type:"position", ms}
-//               {type:"ended", ms} | {type:"error", ...}
-
-const MAXQ = 1024; // render-quantum guard (spec quantum is 128; leave headroom)
+const MAXQ = 1024;
 
 class V2MProcessor extends AudioWorkletProcessor {
   constructor(options) {
@@ -32,8 +19,7 @@ class V2MProcessor extends AudioWorkletProcessor {
     if (!wasm) return;
     WebAssembly.instantiate(wasm, {}).then(({ instance }) => {
       const X = (this.X = instance.exports);
-      X._initialize(); // runs C++ static constructors
-      // memory is fixed-size (ALLOW_MEMORY_GROWTH=0) → these views stay valid forever
+      X._initialize();
       this.heapU8 = new Uint8Array(X.memory.buffer);
       this.heapF32 = new Float32Array(X.memory.buffer);
       this.bufPtr = X.malloc(MAXQ * 2 * 4);
@@ -86,11 +72,7 @@ class V2MProcessor extends AudioWorkletProcessor {
     const X = this.X;
     const F = this.heapF32;
     const base = this.bufPtr >> 2;
-    const still = X.v2m_render(this.bufPtr, n); // interleaved stereo float
-    // Sanitise before the graph sees it: the synth genuinely overshoots (tunes measured up to 15x full
-    // scale) and diverges into NaN at some sample rates. A NaN reaching the destination can poison the
-    // whole audio graph, so clamp to a sane range and map non-finite to silence — the comparison form
-    // below is NaN-safe (both tests fail → 0). Musical level control is the limiter's job downstream.
+    const still = X.v2m_render(this.bufPtr, n);
     for (let i = 0, j = base; i < n; i++, j += 2) {
       const l = F[j], r = F[j + 1];
       L[i] = l >= -4 ? (l <= 4 ? l : 4) : (l >= -Infinity ? -4 : 0);

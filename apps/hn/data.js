@@ -1,11 +1,6 @@
-// Hacker News adapter (Algolia front-page API — CORS *, no key). Returns { items, meta }.
 import { fetchJson } from "/_rt/feed.js";
 import { isGate } from "/_rt/gate.js";
 
-// Gate fixture: the runners' shared egress gets rate-limited by Algolia and a live-data e2e then reds the
-// whole run (twice on 2026-09-01, green from every other network). In the gate the front page is a
-// deterministic set — real HN shapes (points, comments, an outbound url, a recent timestamp) so every
-// assertion the e2e makes (badges, detail with relative time, search to zero, bookmark) has something real.
 const GATE_HN = [
   ["Show HN: A terminal SDR that needs no root", "sdr", 412, 133, "https://github.com/example/hackrf-term"],
   ["Deno 2.9 ships the outdated command with a lockfile-only mode", "deno", 288, 97, "https://deno.com/blog/v2.9"],
@@ -23,7 +18,6 @@ const GATE_HN = [
 
 export async function load(filters = {}) {
   if (isGate) return { items: Number(filters.cursor) ? [] : GATE_HN, meta: {}, next: null };
-  // Infinite scroll: the front-page ranking spans several Algolia pages (nbHits ~150); cursor = page index.
   const page = Number(filters.cursor) || 0;
   const url = `https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30&page=${page}`;
   const data = await fetchJson(url);

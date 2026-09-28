@@ -1,7 +1,3 @@
-// Ether — a HackRF scanner/receiver over WebUSB. Headless has no device, so the view runs in demo mode (gate):
-// Listen seeds a live listening state (band tiles + equalizer + transport), Radar seeds a named-source list +
-// a waterfall. These cases exercise both instruments, the routing invariant (every sheet is Back-closable),
-// i18n and the PWA modal. No frequencies are asserted — the surface is deliberately frequency-free.
 const ready = async (h, sel) => { for (let i = 0; i < 20; i++) { if ((await h.count(sel)) > 0) break; await h.wait(300); } };
 
 export default [

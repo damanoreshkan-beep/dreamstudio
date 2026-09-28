@@ -1,10 +1,5 @@
-// microspec runtime — pwned unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assertEquals } from "jsr:@std/assert@1";
 import { sha1hex, splitHash, parseRange, lookup, checkPassword } from "../pwned.js";
-
-// ---- pwned: k-anonymity breach check ----
 
 Deno.test("pwned: SHA-1 matches known vectors", async () => {
   assertEquals(await sha1hex(""), "DA39A3EE5E6B4B0D3255BFEF95601890AFD80709");
@@ -22,8 +17,8 @@ Deno.test("pwned: splitHash → 5-char prefix + 35-char suffix", () => {
 Deno.test("pwned: parseRange + lookup (case-insensitive, tolerant)", () => {
   const text = "AAAA:5\r\nF68EB995FACB3A1C35287B778D5BD785511:42\n\nBBBB:0";
   assertEquals(lookup("F68EB995FACB3A1C35287B778D5BD785511", text), 42);
-  assertEquals(lookup("f68eb995facb3a1c35287b778d5bd785511", text), 42);   // case-insensitive
-  assertEquals(lookup("DEADBEEF", text), 0);                               // absent → 0
+  assertEquals(lookup("f68eb995facb3a1c35287b778d5bd785511", text), 42);
+  assertEquals(lookup("DEADBEEF", text), 0);
   assertEquals(parseRange(text).size, 3);
 });
 

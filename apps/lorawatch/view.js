@@ -1,7 +1,3 @@
-// LoRa Watch — tune a HackRF to a LoRa channel (868 MHz), SEE the chirps in a waterfall, DETECT LoRa
-// activity (the preamble) with its SF/BW, and DECODE packets to raw bytes (preamble sync → CFO/STO →
-// symbol extraction → gray/interleave/hamming/whiten/CRC codec, ported from LoRaPHY). A Web Worker does
-// the DSP (/_rt/lora.js decodeLoraSignal). See docs/research/lora-detect.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -16,11 +12,9 @@ import { usbSupported, USB_FILTERS } from "/_rt/hackrf.js";
 import { createUsbSession } from "/_rt/usbsession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the ONE mono readout size — the ladder's label token, never text-xs (`length:` because a bare var() in
-// text-[…] is a colour to Tailwind v4)
 const MONO = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const fMhz = (hz) => (hz / 1e6).toFixed(3);
 const NORM_LO = -95, NORM_HI = -35;
 const norm = (db) => Math.max(0, Math.min(1, (db - NORM_LO) / (NORM_HI - NORM_LO)));
@@ -34,7 +28,6 @@ const preset = () => LORA_PRESETS.find((p) => p.key === $preset.get()) || LORA_P
 
 let wfCanvas = null;
 
-// The USB + worker lifecycle is /_rt/usbsession.js — five apps carried a byte-identical copy of it.
 const rf = createUsbSession({
   atom,
   spawn: () => new Worker(new URL("./dsp.worker.js", import.meta.url), { type: "module" }),
@@ -53,13 +46,10 @@ const $connected = rf.$connected, $usbOk = rf.$usbOk;
 
 const connect = () => { buzz(12); return rf.connect(); };
 const disconnect = () => { buzz(); rf.disconnect(); };
-// A preset change re-tunes the radio, which means a fresh worker with the new start message — restart()
-// keeps the USB session and swaps the DSP, which is exactly what the old stop-then-start did by hand.
 function setPreset(k) { buzz(); $preset.set(k); $detect.set(null); $active.set(false); rf.restart(); }
 
-// ---- waterfall drawing (guarded for the 0×0 preflight stub) ----
 function ctx2d(cv) { try { return cv && cv.getContext ? cv.getContext("2d") : null; } catch { return null; } }
-function heat(v, out) { // v 0..1 → [r,g,b] into `out`
+function heat(v, out) {
   v = Math.max(0, Math.min(1, v));
   const s = [[0, 8, 9, 14], [0.35, 26, 30, 84], [0.6, 40, 110, 190], [0.8, 90, 200, 180], [1, 240, 240, 210]];
   for (let i = 1; i < s.length; i++) if (v <= s[i][0]) { const a = s[i - 1], b = s[i], f = (v - a[0]) / (b[0] - a[0]); out[0] = a[1] + (b[1] - a[1]) * f | 0; out[1] = a[2] + (b[2] - a[2]) * f | 0; out[2] = a[3] + (b[3] - a[3]) * f | 0; return; }
@@ -73,17 +63,16 @@ function drawRows(cv, flat, nrows, cols) {
     heat(norm(flat[r * cols + Math.min(cols - 1, (x / w * cols) | 0)]), rgb);
     const i = (r * w + x) * 4; img.data[i] = rgb[0]; img.data[i + 1] = rgb[1]; img.data[i + 2] = rgb[2]; img.data[i + 3] = 255;
   }
-  c.drawImage(cv, 0, -nrows);                       // scroll up; newest rows at the bottom
+  c.drawImage(cv, 0, -nrows);
   c.putImageData(img, 0, h - nrows);
 }
-// deterministic demo: paint a dark channel with a few diagonal LoRa up-chirps sweeping the band
 function seedWaterfall(cv) {
   const c = ctx2d(cv); const w = cv?.width | 0, h = cv?.height | 0; if (!c || !w || !h) return;
   const img = c.createImageData && c.createImageData(w, h); if (!img) return;
   const rgb = [0, 0, 0];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    let v = 0.12 + 0.05 * Math.sin(x * 0.3 + y * 0.11);            // noise floor
-    for (let k = 0; k < 6; k++) { const start = (k * 41) % h; const bin = ((x - (((y - start + h) % h) / h) * w) % w + w) % w; if (bin < w * 0.06) v = Math.max(v, 0.9); } // 6 up-chirp sweeps
+    let v = 0.12 + 0.05 * Math.sin(x * 0.3 + y * 0.11);
+    for (let k = 0; k < 6; k++) { const start = (k * 41) % h; const bin = ((x - (((y - start + h) % h) / h) * w) % w + w) % w; if (bin < w * 0.06) v = Math.max(v, 0.9); }
     heat(Math.min(1, v), rgb); const i = (y * w + x) * 4; img.data[i] = rgb[0]; img.data[i + 1] = rgb[1]; img.data[i + 2] = rgb[2]; img.data[i + 3] = 255;
   }
   c.putImageData(img, 0, 0);
@@ -105,25 +94,16 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
     ]);
   }, []);
   const wfRef = useRef(null), wfBox = useRef(null);
-  // The waterfall takes its size from its BOX, never from itself. `clientWidth` on a canvas reports the
-  // canvas's own INTRINSIC size (its width attribute) for as long as no CSS width applies — and the utility
-  // sheet is generated in the browser here, so on a cold open there is a window where it does not. Measuring
-  // the canvas inside that window and writing back clientWidth×DPR made the element intrinsically 2× the
-  // default 300px, i.e. 600px of layout in a 384px page, and the whole document scrolled with it.
-  //   So: measure the box (a plain block with an inline height — right in every window, and its height does
-  // not depend on the canvas, so the observer below cannot feed itself), then set BOTH halves of the HiDPI
-  // pair — the CSS box in px and the backing store in device px. The canvas can no longer size anything.
-  // The observer re-fits when the sheet lands, on rotation, and when the view is narrowed.
   useEffect(() => {
     wfCanvas = wfRef.current; const cv = wfCanvas, box = wfBox.current;
     if (!cv || !box) return;
     const fit = () => {
       const r = box.getBoundingClientRect(), w = Math.round(r.width), h = Math.round(r.height);
-      if (!w || !h) return;                                          // not laid out yet — the observer calls back
+      if (!w || !h) return;
       cv.style.display = "block"; cv.style.width = `${w}px`; cv.style.height = `${h}px`;
       const dpr = Math.min(2, (typeof devicePixelRatio !== "undefined" && devicePixelRatio) || 1);
       const ww = w * dpr, hh = h * dpr;
-      if (cv.width === ww && cv.height === hh) return;               // resizing the store clears it — only on change
+      if (cv.width === ww && cv.height === hh) return;
       cv.width = ww; cv.height = hh;
       if (demo) seedWaterfall(cv);
     };
@@ -136,12 +116,11 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
   if (!connected) {
     const supported = usbSupported() && usbOk;
     return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto" data-lora-state="disconnected">
-      ${/* A raised plaque, not a tinted box with a hairline: the material says "object", the colour stays on
-           the MARK (the glyph) where an arbitrary hue is safe in both themes. */""}
+      ${""}
       <div class="w-20 h-20 rounded-[var(--ms-r)] grid place-items-center sf-raised sf-e3 text-primary">${Icon("lucide:radio", "text-4xl")}</div>
       <h2 class="text-2xl font-semibold">${T(t, "connectTitle")}</h2>
       <p class="text-muted leading-relaxed">${T(t, "connectBody")}</p>
-      ${/* no WebUSB: a fact in ink inside a well, the glyph in the warm pole as the mark — not amber text */""}
+      ${""}
       ${supported
         ? html`<button id="connect" data-connect class="btn btn-primary btn-lg gap-2 mt-1" onClick=${connect}>${Icon("lucide:usb")}${T(t, "connectBtn")}</button>`
         : html`<div class="flex items-center justify-center gap-2 sf-inset rounded-[var(--ms-r)] px-4 py-3 text-sm text-base-content">${Icon("lucide:triangle-alert", "shrink-0 text-[var(--app-accent)]")}${T(t, "noUsb")}</div>`}
@@ -155,22 +134,15 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
       <${Segmented} attr="data-preset" scroll variant="outline" size="sm"
         items=${LORA_PRESETS.map((pp) => ({ id: pp.key, label: pp.label }))} value=${pk} onChange=${setPreset} />
 
-      ${/* waterfall (chirps) — the hairline was framing FOREIGN content whose own near-black already draws the
-           edge against either theme's page. It is a slab on the page now, so the shadow pair does the edge. */""}
-      ${/* The height is inline, not `h-64`: this box is what the canvas is measured against, so it has to be
-           the right size from the first frame — before the generated sheet exists — and it must not take its
-           height from the thing it sizes. */""}
+      ${""}
+      ${""}
       <div ref=${wfBox} class="w-full rounded-[var(--ms-r)] overflow-hidden bg-black sf-e2" style="height:16rem">
         <canvas ref=${wfRef} class="block w-full h-full" role="img" aria-label=${T(t, "waterfall")} data-waterfall></canvas>
       </div>
 
-      ${/* activity — the ring of primary hairline + tint was a THIRD drawing of "detected", which the pulsing
-           dot and the headline already say. The panel now answers with the material instead: it stands
-           further off the page while there is something to hear (e3) and settles back to e2 when idle. */""}
+      ${""}
       <div class=${`rounded-[var(--ms-r)] px-4 py-3 flex items-center gap-3 sf-raised ${active ? "sf-e3" : "sf-e2"}`} data-live data-activity>
-        ${/* Idle was an ink alpha (`bg-base-content/25`). A 10px LED is far too small for the shadow pair, so
-             it takes --sf-track-face — the system's one sanctioned tone step — instead of this app's own
-             guess at how dark "off" should be. Live keeps bg-primary: that is meaning, not depth. */""}
+        ${""}
         <span class=${`w-2.5 h-2.5 rounded-full shrink-0 ${active ? "bg-primary animate-pulse" : ""}`} style=${active ? "" : "background:var(--sf-track-face)"}></span>
         <div class="flex-1 min-w-0">
           <div class="font-semibold text-sm">${T(t, active ? "detected" : "listening")}</div>
@@ -183,8 +155,7 @@ export function lorawatchView({ S, screen, openScreen, closeScreen }) {
       ${packets.length ? html`<div class="flex flex-col gap-1.5" data-live data-packets>
         <div class=${`${LABEL} px-1`}>${T(t, "packets")}</div>
         ${packets.map((pkt) => html`<div key=${pkt.id} data-packet class="rounded-[var(--ms-r)] sf-raised sf-e2 px-4 py-2.5 flex flex-col gap-1">
-          ${/* The CRC pill is a small raised object in INK; its meaning is the dot — success for a clean
-               frame, error for a bad one. Colour on the mark, never on the words. */""}
+          ${""}
           <div class="flex items-center gap-2">
             <span class=${`inline-flex items-center gap-1 rounded-full px-2 py-0.5 sf-e2 ${LABEL} text-base-content`}><span aria-hidden="true" class="w-1.5 h-1.5 rounded-full shrink-0" style=${`background:var(${pkt.crcOk ? "--color-success" : "--color-error"})`}></span>${T(t, pkt.crcOk ? "crcOk" : "crcBad")}</span>
             <span class=${MONO}>SF${pkt.sf} · ${pkt.bytes.length} B</span>

@@ -1,6 +1,3 @@
-// Wishlist — a local-first stateful app (IndexedDB). Headless Chromium HAS IndexedDB, so we drive real CRUD
-// through the UI. Tests share one page + DB and build on each other: first list → wish → grant → detail →
-// second list → switch → delete-list confirm → i18n → install.
 const openAddList = async (h) => {
   const sel = (await h.count("#empty-add-list")) ? "#empty-add-list" : "#add-list";
   await h.click(sel); await h.wait(200);
@@ -41,8 +38,6 @@ export default [
     },
   },
   {
-    // The detail is the kit's Sheet now, so the assertion is the dialog's STATE (`open`), not a class or a
-    // hand-rolled back button the kit does not have.
     name: "деталі бажання відкриваються, Back закриває", run: async (h) => {
       await h.click("[data-open]"); await h.wait(250);
       h.expect((await h.prop("#w-detail", "open")) === true, "деталі не відкрились");
@@ -56,7 +51,6 @@ export default [
       const before = await h.count("[data-list]");
       await addList(h, "Для дому");
       h.expect((await h.count("[data-list]")) === before + 1, "другий список не додався");
-      // новий список активний і порожній → є заклик додати перше бажання
       h.expect((await h.count("#empty-add-wish")) === 1, "новий список не порожній/не активний");
       await h.click('[data-list]:first-child'); await h.wait(200);
       h.expect(/Велосипед/.test(await h.bodyText()), "перемикання на перший список не показало його бажання");
@@ -72,19 +66,15 @@ export default [
     },
   },
   {
-    // Deleting a whole list drops its wishes → a danger-confirm, history-backed: #l-del opens the sheet but
-    // deletes NOTHING until confirmed; Back cancels and the list survives.
     name: "видалення списку: конфірм, Back скасовує, підтвердження видаляє", run: async (h) => {
       const before = await h.count("[data-list]");
       await h.click("#edit-list"); await h.wait(200);
       await h.click("#l-del"); await h.wait(200);
       h.expect((await h.prop("#confirm", "open")) === true, "конфірм не відкрився");
-      // Back cancels the confirm only — it stacks on top, so the list sheet stays open beneath it.
       await h.back(); await h.wait(200);
       h.expect((await h.prop("#confirm", "open")) !== true, "Back не закрив конфірм");
       h.expect((await h.prop("#l-sheet", "open")) === true, "Back мав скасувати лише конфірм, не аркуш списку");
       h.expect((await h.count("[data-list]")) === before, "список видалено попри скасування");
-      // sheet is still open → delete again directly, then confirm
       await h.click("#l-del"); await h.wait(200);
       await h.click("#confirm-go"); await h.wait(350);
       h.expect((await h.count("[data-list]")) === before - 1, "підтверджене видалення списку не спрацювало");

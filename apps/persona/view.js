@@ -1,26 +1,3 @@
-// persona — the conversation: the ONE bespoke surface, mounted as the body of the runtime's drill-down
-// (`detail.view`, with `detail.stage`). Everything else — shelf, search, sections, empty states, skeleton,
-// back-routing, app-bar — is the runtime's. What could not be declared: a thread that grows word by word, a
-// composer that stays under the thumb, and a PRESENCE.
-//
-// PRESENCE. The person's portrait is the palette of a full-bleed WebGL field (/_rt/glstage.js +
-// presence.frag) behind the whole conversation. It breathes at rest, quickens while the model is thinking
-// (the line is sent, no words yet), pulses with the tokens while it speaks, and fades in as the portrait
-// binds — so opening a person is stepping into their room, not into a form. Every state the field carries
-// is also in the DOM (`data-pending`, the Scramble slot), which is all axe and the gate can see.
-//
-// FOCUS. Before the first line the intro is the person — portrait, name, who they are, three openers. After
-// it, the intro folds to a slim row and the thread is the screen; the openers leave with the first line.
-//
-// SMOOTHNESS. Stream deltas are batched per animation frame (one re-render per frame, not per chunk); the
-// thread follows the reply only while the reader is at the bottom; the composer's air is MEASURED off the
-// composer (ResizeObserver) and the keyboard's off the visual viewport — no constant describes an element.
-//
-// The reply STREAMS (/_rt/characters.js reads the edge's SSE): the pending slot fills in place; a stream cut
-// short keeps its words and says so; a refused one offers "Again". The thread is the server's (Postgres, per
-// user); this file mirrors it per session so reopening a person is instant. Previous conversations with the
-// same person live in a history sheet (S.screen — history-backed, Back closes it); a chat is deleted with
-// undo (deferred server delete), a person you added with the danger sheet.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef, useCallback } from "preact/hooks";
 import { atom } from "nanostores";
@@ -37,11 +14,7 @@ import { toItem } from "./data.js";
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const raf = (fn) => (typeof requestAnimationFrame === "function" ? requestAnimationFrame(fn) : setTimeout(fn, 16));
 
-// ── threads ───────────────────────────────────────────────────────────────────────────────────────────────
-// characterId → { chatId, messages, loaded, history }. Module scope: closing a person and reopening keeps
-// the thread. `history` is the person's list of chats (newest first) once the sheet has asked for it.
 const $threads = atom({});
-// Threads are a user's: a sign-out (or another account) forgets them, or the next reader would see the last one's.
 let lastSid = session.get()?.sid || null;
 session.listen((s) => { const sid = s?.sid || null; if (sid !== lastSid) { lastSid = sid; $threads.set({}); } });
 const threadOf = (id) => $threads.get()[id] || { chatId: null, messages: [], loaded: false, history: null };
@@ -54,7 +27,7 @@ async function loadThread(characterId) {
   if (threadOf(characterId).loaded) return;
   try {
     const list = await chats();
-    const mine = list.filter((c) => c.character_id === characterId);   // newest first from the edge
+    const mine = list.filter((c) => c.character_id === characterId);
     patch(characterId, (th) => ({ ...th, history: mine }));
     if (!mine.length) { patch(characterId, (th) => ({ ...th, loaded: true })); return; }
     const got = await loadChat(mine[0].id);
@@ -67,30 +40,22 @@ async function openHistoryChat(characterId, chatId) {
   patch(characterId, (th) => ({ ...th, chatId, loaded: true, messages: asMsgs(got?.messages) }));
 }
 
-// ── presence ──────────────────────────────────────────────────────────────────────────────────────────────
-// One live record the stage reads EVERY FRAME (vary is a function): targets are set by the view, the values
-// ease here — a re-render never drives the field, and the field never waits for one. `energy` is the token
-// pulse: each flushed delta adds a little, every frame takes some away.
 const presence = { think: 0, speak: 0, listen: 0, ready: 0, energy: 0, tThink: 0, tListen: 0, tReady: 0 };
 const presenceVary = () => {
   presence.think += (presence.tThink - presence.think) * 0.06;
   presence.listen += (presence.tListen - presence.listen) * 0.08;
-  presence.ready += (presence.tReady - presence.ready) * 0.035;      // ~600 ms fade for a person swap
+  presence.ready += (presence.tReady - presence.ready) * 0.035;
   presence.energy *= 0.965;
   presence.speak += (presence.energy - presence.speak) * 0.2;
   return [presence.think, presence.speak, presence.listen, presence.ready];
 };
 
-// The whole send path: the reader's line and an empty reply go on screen at once; the stream fills the reply
-// one FRAME at a time; the outcome (done / cut / failed) is written INTO it, so the thread never lies.
 async function ask(characterId, text, loc) {
   const th = threadOf(characterId);
   const uid = tmpId(), aid = tmpId();
   patch(characterId, (t0) => ({ ...t0, messages: [...t0.messages, { id: uid, role: "user", content: text }, { id: aid, role: "assistant", content: "", pending: true }] }));
   const upd = (fn) => patch(characterId, (t0) => ({ ...t0, messages: t0.messages.map((m) => (m.id === aid ? fn(m) : m)) }));
   presence.tThink = 1;
-  // Each frame's worth of new text is its own CHUNK, so the words that just arrived can fade in softly while
-  // the ones before them stay still; when the reply is done the chunks collapse into plain text.
   let latest = "", queued = false, chunkSeq = 0;
   const flush = () => {
     queued = false;
@@ -110,8 +75,6 @@ async function ask(characterId, text, loc) {
   }
 }
 
-// Group the flat list into turns (a reader line + the reply under it); a stray reply or an unanswered line is
-// a turn of its own, so nothing is dropped.
 function turnsOf(messages) {
   const turns = [];
   for (const m of messages) {
@@ -127,7 +90,6 @@ const startOver = (characterId) => patch(characterId, (th) => ({ ...th, chatId: 
 
 const when = (iso, loc) => { try { return new Date(iso).toLocaleDateString(loc === "uk" ? "uk-UA" : "en-GB", { day: "numeric", month: "short" }); } catch { return ""; } };
 
-// ── the body ──────────────────────────────────────────────────────────────────────────────────────────────
 export function chat({ item, t, loc, S, undo, confirm }) {
   const sess = useStore(session);
   const threads = useStore($threads);
@@ -144,8 +106,6 @@ export function chat({ item, t, loc, S, undo, confirm }) {
 
   useEffect(() => { restore(); }, []);
 
-  // A candidate becomes a person before anything else; the detail item is swapped for the real row so the
-  // title, the portrait and this body all follow.
   useEffect(() => {
     if (!isCandidate || !sess) return;
     let live = true;
@@ -156,7 +116,6 @@ export function chat({ item, t, loc, S, undo, confirm }) {
 
   useEffect(() => { if (characterId != null && sess) loadThread(characterId); }, [characterId, !!sess]);
 
-  // The composer floats; the thread needs exactly its height of air underneath, MEASURED off the element.
   useEffect(() => {
     const el = composer.current, box = wrap.current;
     if (!el || !box || typeof ResizeObserver === "undefined") return;
@@ -165,9 +124,6 @@ export function chat({ item, t, loc, S, undo, confirm }) {
     return () => ro.disconnect();
   }, [!!sess, isCandidate]);
 
-  // The keyboard: index.html asks for `interactive-widget=resizes-content` (Chrome shrinks the layout viewport,
-  // the fixed composer rides up); where a browser ignores it (Safari) the visual viewport is measured and the
-  // composer is lifted by the difference. Both together: on Chrome the difference is 0.
   useEffect(() => {
     const vv = globalThis.visualViewport, box = wrap.current;
     if (!vv || !box) return;
@@ -177,8 +133,6 @@ export function chat({ item, t, loc, S, undo, confirm }) {
     return () => { vv.removeEventListener("resize", apply); vv.removeEventListener("scroll", apply); };
   }, [!!sess, isCandidate]);
 
-  // Follow the reply as it grows — but only while the reader is at the bottom. Scrolling up to re-read an
-  // earlier turn must not be fought by the stream; the scroll container is the runtime's overlay.
   useEffect(() => {
     const el = wrap.current?.closest('[role="dialog"]');
     if (!el) return;
@@ -197,7 +151,6 @@ export function chat({ item, t, loc, S, undo, confirm }) {
     ask(characterId, text, loc);
   }, [streaming, characterId, loc]);
 
-  // ── the presence stage: the portrait as palette; state from the thread ──────────────────────────────
   const stage = html`<${GlStage} shader=${new URL("presence.frag", import.meta.url)} seed=${((characterId || 0) % 97) / 97}
     tex=${item.cover || null} vary=${presenceVary}
     texReady=${(r) => { presence.tReady = r; }} />`;
@@ -217,8 +170,6 @@ export function chat({ item, t, loc, S, undo, confirm }) {
         S.detail.set(null);
       } })}>${Icon("lucide:trash-2", "text-lg")}</button>` : null;
 
-  // The person, without a card: over the field the reading IS the surface. Full before the first line, a
-  // slim row after it (focus) — the same element, two densities.
   const intro = hasThread
     ? html`<div data-intro data-slim class="flex items-center gap-3 pt-1">
         <img src=${item.cover} alt="" class="w-10 h-10 rounded-full object-cover shrink-0 sf-inset" />
@@ -282,15 +233,13 @@ export function chat({ item, t, loc, S, undo, confirm }) {
           </div>`)}
           <span ref=${tail} aria-hidden="true" style="scroll-margin-bottom:calc(var(--composer-h, 4rem) + var(--kb, 0px) + 1rem)"></span>
         </div>`}
-    ${/* Three openers ARE the empty state of a fresh thread — each opens a different kind of conversation — and
-          they leave the moment there is one line. */""}
+    ${""}
     ${empty ? html`<div class="flex flex-wrap gap-2 pt-1 ms-reveal">
         ${["openerWho", "openerDay", "openerAdvice"].map((k) => html`<button data-opener=${k} key=${k} type="button" onClick=${() => submit(T(t, k))} data-haptic="tap"
           class="sf-raised rounded-full px-3.5 py-2 text-left text-[0.85rem] leading-snug text-base-content/85 active:sf-pressed transition-transform">${T(t, k)}</button>`)}
       </div>` : null}
 
-    ${/* The composer: the kit's Island, floating over the thread at the bottom of the drill-down (which covers
-          the dock) — one field and one send key, sized off the density tokens; lifted by the measured keyboard. */""}
+    ${""}
     <div class="fixed inset-x-0 z-20 flex justify-center px-3 pointer-events-none" style="bottom:calc(env(safe-area-inset-bottom) + var(--kb, 0px) + 0.75rem)">
       <${Island} className="pointer-events-auto w-full max-w-xl" tag="section" aria-label=${T(t, "composer")}>
         <form ref=${composer} data-composer onSubmit=${(e) => { e.preventDefault(); submit(draft); input.current?.focus?.(); }} class="flex items-center gap-2">
@@ -306,8 +255,7 @@ export function chat({ item, t, loc, S, undo, confirm }) {
       <//>
     </div>
 
-    ${/* Previous conversations with this person. History-backed on S.screen (Back closes the sheet, not the
-          person); a row opens that thread; delete is reversible for 5 s — the server delete waits for the undo. */""}
+    ${""}
     <${Sheet} id="persona-history" open=${screen === "history"} onClose=${() => S.screen.set(null)} title=${T(t, "history")} subtitle=${item.title} icon="lucide:history" locale=${loc}>
       ${screen === "history" ? html`<ul data-history-list class="flex flex-col divide-y divide-base-300/60 -mx-1">
         ${history.map((c) => html`<li key=${c.id} class="flex items-center gap-2">

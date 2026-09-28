@@ -1,13 +1,9 @@
-// The gate seeds a fixed fixture (Leo, Jul 2027) with three distinct days, so the reading + four star
-// ratings render deterministically and offline (no network in headless). The sign glyph is the hand-drawn
-// /_rt/zodiac.js SVG — no emoji anywhere.
 export default [
   {
     name: "reading renders: sign card, day segmented (today), real prose, star ratings", run: async (h) => {
       h.expect((await h.count("[data-sign]")) === 1, "немає картки знака");
       h.expect(/Leo|Лев/.test(await h.text("[data-sign]")), "стандартний знак ≠ поточний сонячний (Лев)");
       h.expect((await h.count("[data-day]")) === 3, "має бути 3 дні (вчора/сьогодні/завтра)");
-      // The day strip is the kit's Segmented, so the state is aria-pressed (never a class, never a tablist role).
       h.expect((await h.attr('[data-day="today"]', "aria-pressed")) === "true", "'сьогодні' не активне за замовчуванням");
       h.expect((await h.text("[data-reading]")).trim().length > 40, "порожнє/поверхневе читання");
       h.expect((await h.count("[data-ratings]")) === 1, "немає блоку зоряних рейтингів");

@@ -1,6 +1,3 @@
-// microspec runtime — air unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { eaqiBand, pollutantBand, pollenBand, AQI_BANDS, POLLEN_BANDS } from "../air.js";
 
@@ -19,12 +16,10 @@ Deno.test("eaqiBand maps the EEA 6-band scale on its 20-point boundaries", () =>
 });
 
 Deno.test("pollutantBand uses each pollutant's own EEA breakpoints", () => {
-  // PM2.5 breakpoints 10/20/25/50/75
   assertEquals(pollutantBand("pm2_5", 10), 0, "10 tops Good");
   assertEquals(pollutantBand("pm2_5", 10.5), 1);
   assertEquals(pollutantBand("pm2_5", 75), 4);
   assertEquals(pollutantBand("pm2_5", 80), 5, "beyond the last breakpoint → extreme");
-  // Same concentration, different pollutant → different band (the whole point of per-pollutant bands).
   assertEquals(pollutantBand("no2", 45), 1, "45 µg/m³ NO₂ is only Fair");
   assertEquals(pollutantBand("o3", 45), 0, "45 µg/m³ O₃ is still Good");
   assertEquals(pollutantBand("so2", 300), 2);
@@ -38,7 +33,6 @@ Deno.test("pollenBand is category-aware: zero is 'none', a weed grain bands high
   assertEquals(pollenBand("grass", 31), 2);
   assertEquals(pollenBand("grass", 150), 3);
   assertEquals(pollenBand("grass", 200), 4, "grass very high");
-  // 20 grains: moderate for grass, but already High-band material for a potent weed.
   assertEquals(pollenBand("grass", 20), 1, "20 grass grains = Low");
   assertEquals(pollenBand("ragweed", 20), 2, "20 ragweed grains = Moderate (lower threshold)");
   assertEquals(pollenBand("birch", 60), 3, "trees peak fast: 60 birch = High");

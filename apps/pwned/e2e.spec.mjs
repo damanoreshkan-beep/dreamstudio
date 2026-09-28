@@ -1,6 +1,3 @@
-// The gate seeds "password" → a canned breached result (no live API), so the shot shows a populated verdict.
-// Covered: the split hash renders (prefix visible), the verdict shows, show/hide toggle flips the input type,
-// the check button yields a verdict, i18n, PWA install.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-pw]")) > 0) break; await h.wait(300); } };
 
 export default [

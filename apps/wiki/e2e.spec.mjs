@@ -1,4 +1,3 @@
-// searchFetch: debounce (350ms) then network. Poll on [data-fav] (real result cards), not .card.
 const search = async (h, q) => {
   await h.type("#filter", q);
   for (let i = 0; i < 24; i++) { if ((await h.count("[data-fav]")) > 0) break; await h.wait(500); }
@@ -16,7 +15,6 @@ export default [
       await search(h, "Київ");
       const cards = await h.count(".card");
       h.expect(cards > 3, "пошук не повернув статей");
-      // fallback letter-tile guarantees no image-less card, so imgs === cards (no flake on thumbnail-less pages)
       h.expect((await h.count(".card img")) === cards, "є картки без зображення (мініатюра/плейсхолдер)");
       h.expect(/Читати/.test(await h.bodyText()), "немає афордансу «Читати»");
     },

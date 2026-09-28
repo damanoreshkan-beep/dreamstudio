@@ -1,12 +1,3 @@
-// Camera (Камера) — a pocket camera dressed as a handheld game console: one square viewfinder "screen" set
-// in a modern ink-and-glass chassis, and a deck loaded with every control — filters, exposure, zoom, torch,
-// self-timer, thirds grid, mirror, front/back and a 1:1 · 4:5 · 16:9 frame — under a big shutter. The live
-// stream is the kit's CamStage inside the viewfinder well — it owns the priming (`primeFull`, so the Enable
-// button is never clipped by the square well), getUserMedia with cam's own CONSTRAINTS and its retry,
-// the flip (`facing`), the torch and the wake lock; the shot is drawn to a canvas from the element the stage
-// hands over, with the chosen filter/mirror/zoom baked in, and saved (or shared) — never uploaded. The gate
-// has no camera and cam has no mock picture, so the stage stands aside there and the console is shot over its
-// own flat neutral frame. No emoji — icons are lucide glyphs, the shutter is a drawn ring.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -18,9 +9,8 @@ import { gate } from "/_rt/gate.js";
 import { downloadBlob } from "/_rt/apk.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 
 const FX = [
   ["fxNone", ""],
@@ -32,9 +22,6 @@ const FX = [
   ["fxVivid", "saturate(1.6) contrast(1.16)"],
   ["fxFade", "contrast(0.82) brightness(1.1) saturate(0.78)"],
 ];
-// what cam asked getUserMedia for before the stage owned the stream: the shot is a centred square scaled to
-// 1200 px, so a 640×480 default would upscale from 480. `ideal`, never `exact` — weak hardware still opens.
-// One module constant: a literal per render would be a new object every time.
 const CONSTRAINTS = { width: { ideal: 1920 }, height: { ideal: 1920 } };
 const ASPECTS = ["1:1", "4:5", "16:9"];
 const arOf = (a) => (a === "4:5" ? 4 / 5 : a === "16:9" ? 16 / 9 : 1);
@@ -48,15 +35,15 @@ export function cam({ S }) {
   const [grid, setGrid] = useState(false);
   const [mirror, setMirror] = useState(false);
   const [torch, setTorch] = useState(false);
-  const [timer, setTimer] = useState(0);          // 0 · 3 · 10 s
+  const [timer, setTimer] = useState(0);
   const [aspect, setAspect] = useState("1:1");
-  const [caps, setCaps] = useState(null);         // what the running track declares (CamStage reads it)
-  const [ready, setReady] = useState(false);      // a frame exists: only then does the well carry the look
-  const [shot, setShot] = useState(null);         // last capture (object URL) → thumbnail
-  const [count, setCount] = useState(0);          // self-timer countdown
-  const [flash, setFlash] = useState(false);      // brief post-capture screen flash
-  const [frontFlash, setFrontFlash] = useState(false); // front-camera screen-flash mode (no hardware torch up front)
-  const [lit, setLit] = useState(false);          // screen flooded white to light the face while grabbing
+  const [caps, setCaps] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [shot, setShot] = useState(null);
+  const [count, setCount] = useState(0);
+  const [flash, setFlash] = useState(false);
+  const [frontFlash, setFrontFlash] = useState(false);
+  const [lit, setLit] = useState(false);
 
   const videoRef = useRef(), timerRef = useRef(0);
   const filterStr = () => `${FX[fx][1]} brightness(${expo.toFixed(2)})`.trim();
@@ -65,19 +52,17 @@ export function cam({ S }) {
   const cycleAspect = () => { buzz(); setAspect((a) => ASPECTS[(ASPECTS.indexOf(a) + 1) % ASPECTS.length]); };
   const flip = () => { buzz(); setTorch(false); setFacing((f) => (f === "environment" ? "user" : "environment")); };
 
-  // front camera is mirrored by default; the toggle inverts it. It is the SAVED frame's property only — the
-  // viewfinder never mirrors (owner, 2026-09-07), so this one value decides both the button and the shot.
   const showMirror = mirror !== (facing === "user");
 
   const grab = () => {
     const v = videoRef.current; if (!v || !(v.videoWidth > 0)) return;
     try {
-      const vw = v.videoWidth, vh = v.videoHeight, src = Math.min(vw, vh) / zoom;   // centred, zoomed square source
+      const vw = v.videoWidth, vh = v.videoHeight, src = Math.min(vw, vh) / zoom;
       const sx = (vw - src) / 2, sy = (vh - src) / 2;
       const ar = arOf(aspect); let ow = 1200, oh = Math.round(1200 / ar); if (ar < 1) { oh = 1200; ow = Math.round(1200 * ar); }
       const out = document.createElement("canvas"); out.width = ow; out.height = oh;
       const ctx = out.getContext("2d"); ctx.filter = filterStr();
-      if (showMirror) { ctx.translate(ow, 0); ctx.scale(-1, 1); }   // the toggle's own state, so the button and the frame can never disagree
+      if (showMirror) { ctx.translate(ow, 0); ctx.scale(-1, 1); }
       const scale = Math.max(ow / src, oh / src), dw = src * scale, dh = src * scale;
       ctx.drawImage(v, sx, sy, src, src, (ow - dw) / 2, (oh - dh) / 2, dw, dh);
       out.toBlob((blob) => {
@@ -86,10 +71,9 @@ export function cam({ S }) {
         if (navigator.canShare?.({ files: [file] })) { navigator.share({ files: [file] }).catch(() => {}); }
         else { downloadBlob(blob, file.name); S.toast?.(T(t, "aSaved")); }
       }, "image/jpeg", 0.92);
-    } catch { /* capture blocked */ }
+    } catch { }
     setFlash(true); setTimeout(() => setFlash(false), 160);
   };
-  // fire: front-flash floods the screen bright white and lets the front camera expose to the lit face before the grab
   const fire = () => {
     if (frontFlash && facing === "user") { setLit(true); setTimeout(() => { grab(); setTimeout(() => setLit(false), 140); }, 420); }
     else grab();
@@ -101,20 +85,16 @@ export function cam({ S }) {
   };
   useEffect(() => () => clearInterval(timerRef.current), []);
 
-  // No outline on either state: these sit in an sf-inset deck, and theme.css already lifts an
-  // `[aria-pressed="true"]` child out of a groove. The signal is the FILL and the extrusion — a hairline on
-  // top of that reads as a sticker glued into the well.
   const Toggle = (on, icon, label, onClick, extra) => html`<button aria-pressed=${!!on} aria-label=${label} onClick=${onClick} class=${`btn btn-circle btn-sm ${on ? "btn-primary" : "bg-base-100 text-base-content/80"}`}>${extra || Icon(icon, "text-base")}</button>`;
 
   return html`<${Fragment}>
     <div class="ms-stage z-20 flex items-stretch justify-center p-[var(--ms-gap)]" data-facing=${facing} data-aspect=${aspect} data-timer=${timer} data-cam-fx=${FX[fx][0]} data-count=${count}>
       <!-- the console body -->
-      ${/* The chassis is the kit's Panel — the page extruded, no outline; base-100 === base-200 in both themes,
-           so a from/to gradient here would be a one-colour fill pretending to be shading. */""}
+      ${""}
       <${Panel} className="w-full max-w-sm mx-auto min-h-0">
         <div class="shrink-0 flex items-center justify-between px-0.5">
           <div class="flex items-center gap-1.5">
-            ${/* the power LED is the one MARK on the chassis: the farm's mark colour, no glow of its own */""}
+            ${""}
             <span class="w-1.5 h-1.5 rounded-full bg-[var(--app-accent)]" aria-hidden="true"></span>
             <span class=${LABEL}>${loc === "uk" ? "μКАМ" : "μCAM"}</span>
           </div>
@@ -124,25 +104,12 @@ export function cam({ S }) {
         </div>
 
         <!-- the square viewfinder screen, set in a well -->
-        ${/* The viewfinder is a WELL the feed sits in (sf-inset, the concentric radius inside the Panel).
-             Everything drawn OVER it — the grid, the corner marks, the crop bars, the countdown, the flash
-             ring and the flash itself — sits on a PICTURE, not on the page, so those are white/black by
-             design in both themes: the theme never reaches a camera frame. */""}
+        ${""}
         <div class="flex-1 min-h-0 flex items-center justify-center">
           <div data-screen class="relative aspect-square max-h-full max-w-full w-full rounded-[var(--ms-r-in)] overflow-hidden sf-inset">
-            ${/* the gate has no camera and cam passes no still, so CamStage stands aside there: a flat neutral
-                 frame stands in for the feed so the console is shot populated */""}
+            ${""}
             ${gate ? html`<div class="absolute inset-0 bg-neutral" aria-hidden="true"></div>` : null}
-            ${/* The stage IS the viewfinder: it shows the picture cover-fit and never mirrors it itself. The
-                 console's own look — filter and digital zoom — rides on this wrapper, so it lands on the
-                 PICTURE and not on the marks below, which are siblings of the well and stay unfiltered.
-                 The MIRROR is deliberately not here (owner, 2026-09-07): a mirrored live feed makes people
-                 seasick, so the toggle bakes into the saved frame only (`grab`), and the viewfinder always
-                 shows the world the way it is. `ready` is not decoration: a `filter` or a `transform` here
-                 makes this wrapper the containing block for `position: fixed` descendants, and `primeFull`
-                 pins the priming screen to a fixed `.ms-stage`. Painting the look before there is a frame
-                 would drag the Enable button back into the square well — the very clipping `primeFull`
-                 exists to prevent. */""}
+            ${""}
             <div class="absolute inset-0" style=${ready ? `filter:${filterStr()};transform:scale(${zoom.toFixed(3)})` : null}>
               <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} primeFull
                 facing=${facing} torch=${torch} constraints=${CONSTRAINTS} still=${null} show=${true} fullscreen=${false} gestures=${false}
@@ -153,12 +120,12 @@ export function cam({ S }) {
               <div class="absolute top-1/3 left-0 right-0 h-px bg-white/25"></div><div class="absolute top-2/3 left-0 right-0 h-px bg-white/25"></div>
             </div>` : null}
             ${aspect !== "1:1" ? cropBars(aspect) : null}
-            ${/* front flash armed: a white ring on the frame's edge — the screen is about to become the light */""}
+            ${""}
             ${frontFlash && facing === "user" && !lit ? html`<div class="absolute inset-0 rounded-[inherit] pointer-events-none border-[3px] border-white/90" aria-hidden="true"></div>` : null}
             <div class="absolute inset-3 pointer-events-none" aria-hidden="true">
               ${["top-0 left-0 border-t-2 border-l-2 rounded-tl-md", "top-0 right-0 border-t-2 border-r-2 rounded-tr-md", "bottom-0 left-0 border-b-2 border-l-2 rounded-bl-md", "bottom-0 right-0 border-b-2 border-r-2 rounded-br-md"].map((c, i) => html`<span key=${i} class=${`absolute w-5 h-5 border-white/30 ${c}`}></span>`)}
             </div>
-            ${/* the countdown is the hero reading of the frame; the drop-shadow is legibility over a bright feed, not depth */""}
+            ${""}
             ${count > 0 ? html`<div class="absolute inset-0 flex items-center justify-center"><div class="text-[length:var(--ms-hero)] font-bold tabular-nums text-white drop-shadow-lg">${count}</div></div>` : null}
             <div class=${`absolute inset-0 bg-white pointer-events-none transition-opacity duration-150 ${flash ? "opacity-80" : "opacity-0"}`}></div>
           </div>
@@ -188,13 +155,9 @@ export function cam({ S }) {
           </div>
           <!-- shutter row -->
           <div class="flex items-center justify-between px-2 pt-0.5">
-            ${/* The last-shot slot is a WELL the frame drops into — sf-inset, the same reading pipette's
-                 empty swatches take — not a bordered tile. */""}
+            ${""}
             <div class="w-11 h-11 rounded-[var(--ms-r-in)] sf-inset overflow-hidden shrink-0">${shot ? html`<img src=${shot} alt="" class="w-full h-full object-cover" />` : null}</div>
-            ${/* The shutter is the one object on the chassis you press, so it is the chassis EXTRUDED: the
-                 ring keeps the page's own colour and sf-e3 does the lifting. It used to wash the face with
-                 `bg-base-content/10` — a tone step doing the job the material already does, and the one
-                 move that flattens an extrusion. Size, the 4px gap ring and the inner disc are untouched. */""}
+            ${""}
             <button data-shutter aria-label=${T(t, "aShutter")} onClick=${shoot} class="w-[4.6rem] h-[4.6rem] rounded-full sf-raised flex items-center justify-center active:scale-95 transition-transform sf-e3">
               <span class="w-[3.6rem] h-[3.6rem] rounded-full bg-primary border-4 border-base-100"></span>
             </button>
@@ -204,13 +167,12 @@ export function cam({ S }) {
       <//>
     </div>
 
-    ${/* the front flash: the whole screen IS the light for 420 ms — white by definition, not a surface */""}
+    ${""}
     ${lit ? html`<div class="fixed inset-0 z-40 bg-white" aria-hidden="true"></div>` : null}
   </${Fragment}>`;
 }
 
 function cropBars(aspect) {
-  // dark bars overlaying the square viewfinder to show the selected frame
   if (aspect === "4:5") return html`<div class="absolute inset-0 pointer-events-none" aria-hidden="true"><div class="absolute inset-y-0 left-0 w-[10%] bg-black/55"></div><div class="absolute inset-y-0 right-0 w-[10%] bg-black/55"></div></div>`;
   return html`<div class="absolute inset-0 pointer-events-none" aria-hidden="true"><div class="absolute inset-x-0 top-0 h-[22%] bg-black/55"></div><div class="absolute inset-x-0 bottom-0 h-[22%] bg-black/55"></div></div>`;
 }

@@ -1,13 +1,5 @@
-// Live crypto ticker over the Binance combined WebSocket (@ticker ≈ 1 msg/sec/pair). Real WebSocket, no
-// auth (WS isn't subject to CORS). This app is a plain `list` — it declares search + sort in spec.json and
-// gets them for free; this module is just the live data source: it maintains the current rows and pushes
-// them to the runtime, which renders + searches + sorts them. It owns its own reconnect.
-//
-// CI/dev: Binance geo-blocks datacenter IPs (US CI runners), so on localhost we synthesize a live ticker —
-// the gate reviews a real, moving market. Same env-double idea as pulse.
 const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
-// [binanceSymbol, ticker, name, seedPrice(for the mock)]
 const PAIRS = [
   ["BTCUSDT", "BTC", "Bitcoin", 62000], ["ETHUSDT", "ETH", "Ethereum", 1770], ["SOLUSDT", "SOL", "Solana", 76],
   ["XRPUSDT", "XRP", "XRP", 1.08], ["BNBUSDT", "BNB", "BNB", 560], ["DOGEUSDT", "DOGE", "Dogecoin", 0.07],
@@ -19,7 +11,6 @@ const PAIRS = [
 const META = Object.fromEntries(PAIRS.map(([s, b, n]) => [s, { base: b, name: n }]));
 
 const price = (p) => { p = +p; const d = p >= 1 ? 2 : p >= 0.01 ? 4 : 6; return "$" + p.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); };
-// row: `price` is the display string; `chg`/`vol` are numbers so the schema-declared sort can order them.
 const row = (s, p, chg, vol) => ({ id: s, base: META[s].base, name: META[s].name, price: price(p), chg: Math.round(chg * 100) / 100, vol: Math.round(vol / 1e6) });
 
 export function stream(push) {
@@ -41,11 +32,11 @@ export function stream(push) {
   const connect = () => {
     if (!alive) return;
     ws = new WebSocket(url);
-    ws.onmessage = (e) => { try { const d = JSON.parse(e.data).data; if (d?.s && META[d.s]) rows[d.s] = row(d.s, d.c, d.P, d.q); } catch { /* skip */ } };
-    ws.onclose = () => { if (alive) retry = setTimeout(connect, 2000); }; // WS has no auto-reconnect
+    ws.onmessage = (e) => { try { const d = JSON.parse(e.data).data; if (d?.s && META[d.s]) rows[d.s] = row(d.s, d.c, d.P, d.q); } catch { } };
+    ws.onclose = () => { if (alive) retry = setTimeout(connect, 2000); };
     ws.onerror = () => ws.close();
   };
   connect();
-  setInterval(emit, 400); // steady flush (never per-message)
+  setInterval(emit, 400);
   addEventListener("pagehide", () => { alive = false; clearTimeout(retry); ws?.close(); });
 }

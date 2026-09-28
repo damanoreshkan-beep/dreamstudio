@@ -1,5 +1,3 @@
-// The gate/mock seeds a fixed code (seed 7) with three guesses already played + a half-filled current
-// guess, so the board renders populated and the play loop is deterministic.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-row]")) > 0) break; await h.wait(400); } };
 
 export default [

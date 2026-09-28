@@ -1,20 +1,3 @@
-// arc — the landing shelves. Curated, committed, and verified: every entry below was checked to exist, to
-// pass `isBook`, and to carry a plot section of at least 1500 characters, because a book whose article has
-// no plot is a dead end the moment someone taps it.
-//
-// TITLES ARE DISAMBIGUATED ON PURPOSE. The bare title is a trap: "Shadows of Forgotten Ancestors" resolves
-// to Paradjanov's FILM, "The City" to something else entirely, "Felix Austria" and "Black Council" to other
-// subjects. Four of twelve Ukrainian entries were wrong when looked up by plain title — hence the explicit
-// "(novel)" forms and the committed pageids.
-//
-// Static rather than queried, deliberately: it is deterministic, offline-safe, costs ONE batched request
-// for every shelf at once, and cannot drift when a Wikipedia category is re-organised. The one group that
-// genuinely needed to be live — "recent releases" — was measured and dropped: of 35 articles in the 2025
-// and 2026 novel categories only 6 (17.1%) had a usable plot and NONE had a cover, so the shelf would have
-// been mostly empty tiles under a label that promised novelty.
-//
-// Author names are carried in both locales because Wikidata returns them in one, and a Ukrainian reader
-// should not meet "Panas Myrnyi" on a shelf of Ukrainian literature.
 export const CURATED = {
   ukr: [
     { id: "76319809", pageid: 76319809, title: "Do Oxen Low When Mangers are Full?", uk: "Панас Мирний", en: "Panas Myrnyi" },
@@ -67,6 +50,4 @@ export const CURATED = {
   ],
 };
 
-// Shelf order on the landing screen. Ukrainian first: this farm's reader is Ukrainian, and a shelf of world
-// canon is what every other reading app opens with.
 export const SHELVES = ["ukr", "canon", "genre", "screen"];

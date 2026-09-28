@@ -1,5 +1,3 @@
-// The gate/mock uses a static sample (a "very poor" ozone day with active pollen), so the gauge,
-// forecast, pollutant list and pollen list render deterministically.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-aqi]")) > 0) break; await h.wait(500); } };
 
 export default [

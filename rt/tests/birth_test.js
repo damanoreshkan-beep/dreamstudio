@@ -1,6 +1,3 @@
-// microspec runtime — birth unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { resolve, isComplete, parseDate, parseTime, EMPTY } from "../birth.js";
 
@@ -24,24 +21,19 @@ Deno.test("birth/resolve: the three zone modes, and the one thing that is missin
   const ulm = { name: "Ulm", lat: 48.4, lng: 10, zone: "Europe/Berlin", country: "Germany" };
   const rec = { date: "1879-03-14", time: "11:30", zoneMode: "place", place: ulm };
 
-  // the place's zone — tzdata knows 1879 Ulm ran on Berlin's Local Mean Time
   const byZone = resolve(rec);
   assert(byZone.ok);
   assertEquals(byZone.offsetLabel, "+00:53:28");
   assertEquals(byZone.ms, Date.parse("1879-03-14T10:36:32Z"));
 
-  // true LMT from the longitude — 10 E is exactly 40 minutes of sun ahead, which is how the published
-  // reference chart for this birth is calculated
   const byLmt = resolve({ ...rec, zoneMode: "lmt" });
   assertEquals(byLmt.offsetLabel, "+00:40");
   assertEquals(byLmt.ms, Date.parse("1879-03-14T10:50:00Z"));
 
-  // a birth certificate beats every database
   const byHand = resolve({ ...rec, zoneMode: "manual", offset: "+01:00" });
   assertEquals(byHand.ms, Date.parse("1879-03-14T10:30:00Z"));
   assertEquals(resolve({ ...rec, zoneMode: "manual", offset: "nonsense" }).reason, "offset");
 
-  // each missing piece is named, so the form can point at it instead of failing vaguely
   assertEquals(resolve({}).reason, "date");
   assertEquals(resolve({ date: "1990-07-15" }).reason, "time");
   assertEquals(resolve({ date: "1990-07-15", time: "12:00" }).reason, "place");
@@ -49,7 +41,6 @@ Deno.test("birth/resolve: the three zone modes, and the one thing that is missin
   assert(!isComplete({ date: "1990-07-15", time: "12:00" }));
   assert(isComplete(rec));
 
-  // the DST flags survive the whole pipeline, so the form can warn instead of quietly picking one
   const amb = resolve({ date: "2021-10-31", time: "03:30", zoneMode: "place",
     place: { lat: 50.45, lng: 30.52, zone: "Europe/Kyiv" } });
   assert(amb.ambiguous, "that hour ran twice in Kyiv");

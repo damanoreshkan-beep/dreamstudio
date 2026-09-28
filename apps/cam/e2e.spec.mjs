@@ -1,6 +1,3 @@
-// Gate has no camera and cam passes no `still`, so the kit's CamStage stands aside and the console renders
-// over its own flat neutral frame (no stream, no priming screen under gate). Filters/aspect/mirror are pure
-// CSS + a canvas capture; no unit math here.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-screen]")) > 0) break; await h.wait(300); } };
 
 export default [

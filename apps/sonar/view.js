@@ -1,13 +1,3 @@
-// Sonar — the phone emits a steady tone near 19 kHz and listens for it coming back. Anything moving reflects
-// it Doppler-shifted, so motion appears as energy in the sidebands beside an otherwise pure carrier. This file
-// owns only the wiring: the oscillator, the microphone, the analyser and the picture. Every number it shows is
-// computed by /_rt/sonar.js, which is browser-free and unit-tested — the gate has no speaker and no mic.
-//
-// Three facts from RESEARCH.md that this file cannot get wrong:
-//   · the carrier is SNAPPED to an exact FFT bin (snapCarrier). Off-bin, Blackman's sidelobes sit right where
-//     a slow hand's sideband would be — measured at -60 dB against -187 dB on-bin. It is the whole design.
-//   · getUserMedia may neither resolve nor reject, so nothing is sequenced behind it;
-//   · ctx.resume() can stay pending forever without activation, so it is never awaited.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -25,51 +15,42 @@ import { wakeLock } from "/_rt/sensors.js";
 import { collection } from "/_rt/db.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the farm's mono micro-label (`length:` — the bare var form is a colour to Tailwind v4), and the same size
-// for mono meta that keeps its case (units, times)
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const META = "font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/70";
 const CARRIERS = [18000, 19000, 20000];
-const VOL_MAX = 0.1;                       // a Web Audio gain has no defined mapping to SPL, so the ceiling is
-const AUTO_STOP_MS = 5 * 60 * 1000;        // conservative and the run is time-boxed rather than argued about
-const CAL_FRAMES = 30;                     // ~2 s of a still room at rAF rate
-const ROWS = 200;                          // waterfall history, in analysed frames (≈3 s at 60 fps)
+const VOL_MAX = 0.1;
+const AUTO_STOP_MS = 5 * 60 * 1000;
+const CAL_FRAMES = 30;
+const ROWS = 200;
 const EVENTS = collection("sonarEvents");
 
 const num = (v, d = 1) => (Number.isFinite(v) ? v.toFixed(d) : "—");
 const kHz = (hz) => `${(hz / 1000).toFixed(1)} kHz`;
 
-// ---- state (module scope: the run survives a tab switch, which is the point of a motion log) ----
-const $status = atom("idle");              // idle | listening | denied | unavailable | unsupported
+const $status = atom("idle");
 const $primed = persistentAtom("sonar:primed", "0");
-const $reading = atom(null);               // the last analyzeFrame result, trimmed to what the UI shows
+const $reading = atom(null);
 const $active = atom(false);
 const $cal = atom({ frames: 0, ready: false });
 const $diag = atom({ ctxRate: 0, micRate: 0, emitted: 0, settings: null });
 const $carrier = persistentAtom("sonar:carrier", "19000");
 const $volume = persistentAtom("sonar:vol", "0.02");
-const $logv = atom(0);                     // bumped when the log changes, so the list reloads
+const $logv = atom(0);
 
-// ---- audio graph ----
 let eng = null, analyser = null, stream = null, srcNode = null, osc = null, oscGain = null;
 let raf = 0, buf = null, cal = null, det = null, lastT = 0, startedAt = 0, burst = null, frameN = 0;
-let paint = null;                          // the row painter, set by the view when its canvas mounts
-let gen = 0, wl = null;                    // `gen` invalidates a permission prompt the user walked away from
+let paint = null;
+let gen = 0, wl = null;
 
 const carrierHz = () => Number($carrier.get()) || DEFAULTS.carrierHz;
 const volume = () => Math.min(VOL_MAX, Math.max(0, Number($volume.get()) || 0));
 
-// The gate's spectrum stream. Deterministic in the frame index — no Math.random, no clock — so a shot, an axe
-// run and the breakpoint matrix all measure the SAME populated screen. It calibrates on a still room, then
-// runs a hand crossing the beam over and over, which is the state worth measuring (an idle screen is not).
-// GATE_STILL must exceed CAL_FRAMES: calibration that swallows moving frames learns the motion as the room's
-// baseline and the threshold lands out of reach (measured: on = +47 dB, so the gate's detector never trips).
 const GATE_RATE = 48000, GATE_STILL = CAL_FRAMES + 4;
 function gateFrame(i) {
   const base = { sampleRate: GATE_RATE, fftSize: DEFAULTS.fftSize, seed: (i % 11) + 1 };
   if (i < GATE_STILL) return synthSpectrum(base);
   const p = ((i - GATE_STILL) % 96) / 96;
-  if (p > 0.72) return synthSpectrum(base);                        // the pause between waves
+  if (p > 0.72) return synthSpectrum(base);
   const swing = Math.sin((Math.PI * p) / 0.72);
   const hz = dopplerHz(0.06 + 0.42 * swing, carrierHz()) * (p < 0.36 ? 1 : -1);
   return synthSpectrum({ ...base, moves: [{ hz, db: -76 + 10 * swing }] });
@@ -83,8 +64,6 @@ function reset() {
   $reading.set(null);
 }
 
-// One frame: analyse, calibrate or detect, and record the burst. `paint` is the picture, kept separate so the
-// numbers still happen in a DOM with no canvas (preflight runs in linkedom).
 function consume(db, dtMs, sampleRate) {
   const r = analyzeFrame(db, { sampleRate, fftSize: DEFAULTS.fftSize, carrierHz: carrierHz() });
   $reading.set({ ok: r.ok, motionDb: r.motionDb, direction: r.direction, dominantHz: r.dominantHz, snrDb: r.carrier.snrDb });
@@ -122,16 +101,9 @@ function pump() {
   consume(buf, dt, eng.ctx.sampleRate);
 }
 
-// The gate never waits and never drifts: one synchronous burst fills the calibration, the waterfall and the
-// detector, and then STOPS mid-wave. So the first paint is already the settled, populated screen (a screen
-// spending its first two seconds calibrating is the screen every gate would otherwise measure), and every
-// shot, axe pass and breakpoint measures that identical frame instead of whatever phase rAF landed on.
-const GATE_END = GATE_STILL + 96 * 2 + 25; // two full waves (enough rows to FILL the waterfall), then 25
-                                           // frames into a third: moving, decisive, approaching
+const GATE_END = GATE_STILL + 96 * 2 + 25;
 function gateWarmup() {
   reset();
-  // The Signal tab reads $diag, which only a real capture fills — left unset, every gate run measures a
-  // screen of em-dashes instead of the populated one. These are the fixture's own true numbers.
   $diag.set({
     ctxRate: GATE_RATE, micRate: GATE_RATE,
     emitted: snapCarrier(carrierHz(), GATE_RATE, DEFAULTS.fftSize),
@@ -143,26 +115,23 @@ function gateWarmup() {
 function teardown() {
   if (raf) cancelAnimationFrame(raf);
   raf = 0; lastT = 0;
-  try { osc?.stop(); } catch { /* already stopped */ }
-  try { osc?.disconnect(); oscGain?.disconnect(); srcNode?.disconnect(); } catch { /* torn down */ }
+  try { osc?.stop(); } catch { }
+  try { osc?.disconnect(); oscGain?.disconnect(); srcNode?.disconnect(); } catch { }
   osc = null; oscGain = null; srcNode = null; analyser = null; buf = null;
-  try { stream?.getTracks().forEach((tr) => tr.stop()); } catch { /* already gone */ }
+  try { stream?.getTracks().forEach((tr) => tr.stop()); } catch { }
   stream = null;
-  try { wl?.release(); } catch { /* */ }
+  try { wl?.release(); } catch { }
   wl = null;
 }
 
 function stop() {
-  gen++;                                   // a stream still in flight is stopped on arrival, never opened
+  gen++;
   teardown();
   burst = null;
   $active.set(false);
   $status.set("idle");
 }
 
-// MIC constraints, `ideal` and never `exact`: a device that cannot switch its DSP off answers exact:false with
-// OverconstrainedError, and a processed stream is still worth diagnosing. echoCancellation is the dangerous
-// one — its job is to subtract the speaker's own output, which IS our signal.
 const MIC = { audio: { channelCount: { ideal: 1 }, echoCancellation: { ideal: false }, noiseSuppression: { ideal: false }, autoGainControl: { ideal: false }, sampleRate: { ideal: 48000 } }, video: false };
 
 async function start() {
@@ -181,21 +150,19 @@ async function start() {
     $status.set(n === "NotAllowedError" || n === "SecurityError" ? "denied" : "unavailable");
     return;
   }
-  // The prompt may be answered long after the user gave up (or never answered at all — getUserMedia can
-  // neither resolve nor reject), so a late stream is stopped rather than opened.
   if (mine !== gen) { s.getTracks().forEach((tr) => tr.stop()); return; }
   stream = s;
   $primed.set("1");
 
   eng = eng || createEngine({ master: 1, noise: false });
   if (!eng) { teardown(); $status.set("unsupported"); return; }
-  eng.resume();                                             // never awaited: it can stay pending forever
+  eng.resume();
 
   const ctx = eng.ctx;
   analyser = ctx.createAnalyser();
   analyser.fftSize = DEFAULTS.fftSize;
-  analyser.smoothingTimeConstant = 0;                       // smoothing is an EMA over magnitude — it would
-  buf = new Float32Array(analyser.frequencyBinCount);       // blur exactly the transient we are looking for
+  analyser.smoothingTimeConstant = 0;
+  buf = new Float32Array(analyser.frequencyBinCount);
   srcNode = ctx.createMediaStreamSource(stream);
   srcNode.connect(analyser);
 
@@ -207,7 +174,7 @@ async function start() {
   oscGain.gain.setTargetAtTime(volume(), ctx.currentTime, 0.05);
 
   let settings = null;
-  try { settings = stream.getAudioTracks()[0]?.getSettings?.() || null; } catch { /* telemetry only */ }
+  try { settings = stream.getAudioTracks()[0]?.getSettings?.() || null; } catch { }
   $diag.set({ ctxRate: ctx.sampleRate, micRate: settings?.sampleRate || 0, emitted, settings });
 
   wl = wakeLock.acquire();
@@ -215,18 +182,12 @@ async function start() {
   raf = requestAnimationFrame(pump);
 }
 
-// ---- the picture: a waterfall, time falling down, Doppler shift across ----
-// Each row is one spectrum: left of centre is receding, right is approaching. The carrier's own guard band is
-// left blank — it is the emitter, not a reflection — and drawn as a CSS hairline so it flips with the theme.
 function makePainter(canvas, accent) {
   const c2d = canvas.getContext?.("2d");
   if (!c2d) return null;
   return (db, r) => {
     const w = canvas.width, h = canvas.height;
     if (!w || !h) return;
-    // `copy`, not the default `source-over`: scrolling a canvas onto ITSELF composites the old pixels on top
-    // of themselves, so a 10%-alpha row saturates to solid after ~10 frames. Measured as broad solid bars
-    // where the picture should have been a faint texture — the gate is blind to it, the eye is not.
     c2d.globalCompositeOperation = "copy";
     c2d.drawImage(canvas, 0, 1);
     c2d.globalCompositeOperation = "source-over";
@@ -242,8 +203,6 @@ function makePainter(canvas, accent) {
       if (Math.abs(off) < guard) continue;
       const v = db[r.carrier.bin + off];
       if (!Number.isFinite(v)) continue;
-      // 6 dB of headroom over the floor before anything is drawn: the room's own texture is ±1.5 dB, and
-      // painting it turns the picture into noise that reads as signal.
       const a = Math.max(0, Math.min(1, (v - floorDb - 6) / 28));
       if (a < 0.04) continue;
       c2d.fillStyle = `rgba(${accent}, ${a.toFixed(3)})`;
@@ -265,45 +224,33 @@ function Waterfall({ t }) {
     const el = canvas.current, wrap = box.current;
     if (!el || !wrap) return;
     const accent = hexRgb(getComputedStyle(wrap).getPropertyValue("--app-accent"));
-    // The canvas is sized in ROWS, not device pixels: one analysed frame is one row, so a fixed 200 makes the
-    // picture ~3 s of history at any screen and any DPR, and CSS stretches it. Sized in device pixels instead,
-    // a DPR-3.5 phone wants 2900 rows — the waterfall would fill a fifth of the box and look broken.
     const size = () => {
       const w = Math.max(1, Math.round(wrap.clientWidth));
       if (el.width !== w || el.height !== ROWS) {
-        // Resizing CLEARS a canvas, so the history is carried across (stretched — it is a waterfall, not
-        // text). Without this a rotation wipes what you were watching, and in the gate the breakpoint matrix
-        // would measure an empty box at every size but the first.
         let keep = null;
         try {
           const tmp = document.createElement("canvas");
           tmp.width = el.width || w; tmp.height = el.height || ROWS;
           tmp.getContext("2d")?.drawImage(el, 0, 0);
           keep = tmp;
-        } catch { /* linkedom, or a canvas with no context */ }
+        } catch { }
         el.width = w; el.height = ROWS;
-        try { if (keep) el.getContext("2d")?.drawImage(keep, 0, 0, w, ROWS); } catch { /* */ }
+        try { if (keep) el.getContext("2d")?.drawImage(keep, 0, 0, w, ROWS); } catch { }
       }
       paint = makePainter(el, accent);
     };
     size();
-    // A FRESH canvas starts blank, and a theme switch remounts one while the run is already "listening" —
-    // so start() never fires again and the light-theme shot measured an empty box. Repaint the fixture on
-    // mount; a resize keeps its history instead (above), which is what a rotation needs.
     if (gate && $status.get() === "listening") gateWarmup();
     let ro = null;
-    try { ro = new ResizeObserver(size); ro.observe(wrap); } catch { /* linkedom */ }
-    return () => { try { ro?.disconnect(); } catch { /* */ } paint = null; };
+    try { ro = new ResizeObserver(size); ro.observe(wrap); } catch { }
+    return () => { try { ro?.disconnect(); } catch { } paint = null; };
   }, []);
-  // a WELL the trace falls into: sf-inset is the depth, so no hairline around it
   return html`<div ref=${box} class="relative flex-1 min-h-0 rounded-[var(--ms-r)] sf-inset overflow-hidden">
     <canvas ref=${canvas} class="absolute inset-0 w-full h-full"></canvas>
-    ${/* The instrument's own graticule — ±125 / ±250 Hz across, ~0.8 s down. currentColor, so it is one
-          declaration in both themes, and behind the trace rather than over it. */ ""}
+    ${ ""}
     <div class="absolute inset-0 pointer-events-none text-base-content opacity-[0.08]"
       style="background-image:repeating-linear-gradient(to right,currentColor 0 1px,transparent 1px 20%),repeating-linear-gradient(to bottom,currentColor 0 1px,transparent 1px 25%)"></div>
-    ${/* The carrier axis is the reference every trace is read against, so it must out-rank the graticule —
-          at a 25% step it fell exactly on a grid line and disappeared into it. */ ""}
+    ${ ""}
     <div class="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-base-content/40"></div>
     <div class="absolute inset-x-0 bottom-0 flex justify-between px-2 py-1 font-mono text-[length:var(--ms-label)] uppercase tracking-wide text-base-content/70">
       <span>${T(t, "axisFar")}</span><span>${T(t, "axisNear")}</span>
@@ -311,9 +258,6 @@ function Waterfall({ t }) {
   </div>`;
 }
 
-// ---- the main view ----
-// `loc` is NOT a prop the runtime passes (t, tab, S, toast, undo, confirm, screen, open/closeScreen are) —
-// taking it from S is what keeps the mic-prime chrome and the log's dates in the user's language.
 export function sonar({ t, toast, S }) {
   const loc = useStore(S.locale);
   const status = useStore($status), reading = useStore($reading), active = useStore($active);
@@ -374,7 +318,6 @@ const Metric = ({ label, value, unit, live }) => html`<div class="rounded-[var(-
   <div ...${live ? { "data-live": "1" } : {}} class="truncate"><span class="text-[length:var(--ms-title)] font-semibold">${value}</span><span class=${META}> ${unit}</span></div>
 </div>`;
 
-// ---- the log ----
 const GATE_LOG = [
   { id: "g3", t: 1754600000000, dur: 4.2, peak: 19.4, dir: 0.91 },
   { id: "g2", t: 1754599400000, dur: 1.1, peak: 12.8, dir: -0.44 },
@@ -397,19 +340,18 @@ export function sonarLog({ t, S, toast, confirm, undo }) {
 
   const del = async (it) => {
     const { id, _ts, ...rec } = it;
-    setList((rows) => (rows || []).filter((r) => r.id !== id));   // optimistic: the row leaves under the finger
-    try { await EVENTS.remove(id); } catch { /* */ }
+    setList((rows) => (rows || []).filter((r) => r.id !== id));
+    try { await EVENTS.remove(id); } catch { }
     $logv.set($logv.get() + 1);
-    undo?.(async () => { try { await EVENTS.put(id, rec); } catch { /* */ } $logv.set($logv.get() + 1); }, T(t, "logDeleted"));
+    undo?.(async () => { try { await EVENTS.put(id, rec); } catch { } $logv.set($logv.get() + 1); }, T(t, "logDeleted"));
   };
   const clear = () => confirm?.({
     title: T(t, "logClearTitle"),
     body: T(t, "logClearBody", { n: (list || []).length }),
     verb: T(t, "logClear"),
-    onConfirm: async () => { try { await EVENTS.clear(); } catch { /* */ } $logv.set($logv.get() + 1); toast?.(T(t, "logCleared")); },
+    onConfirm: async () => { try { await EVENTS.clear(); } catch { } $logv.set($logv.get() + 1); toast?.(T(t, "logCleared")); },
   });
 
-  // the rows' own shape while IndexedDB answers: a well for the glyph, two decoding value slots
   if (!list) return html`<div class="flex flex-col gap-2">${[0, 1, 2].map((i) => html`<div data-skel key=${i} class="card bg-base-100 rounded-[var(--ms-r)]"><div class="card-body p-3 flex-row items-center gap-3 text-muted"><div class="w-9 h-9 rounded-full sf-inset shrink-0"></div><div class="flex-1 min-w-0 flex flex-col gap-1"><div class="font-mono font-semibold"><${Scramble} len=${5} /></div><div class=${META}><${Scramble} len=${16} /></div></div></div></div>`)}</div>`;
   if (!list.length) {
     return html`<div class="flex flex-col items-center text-center gap-2 px-6 py-20 text-base-content/70">
@@ -438,7 +380,6 @@ export function sonarLog({ t, S, toast, confirm, undo }) {
   </div>`;
 }
 
-// ---- signal: what is actually being emitted and measured, plus what it may not claim ----
 export function sonarSignal({ t }) {
   const carrier = useStore($carrier), vol = useStore($volume), diag = useStore($diag), reading = useStore($reading);
   const s = diag.settings || {};

@@ -1,5 +1,3 @@
-// vydyvo's ambient skeleton textures: a generated 1024 PNG → 768 webp q80 into apps/vydyvo/assets/.
-//   deno run -A ambient.mjs <out-dir> n=<png> d=<png>
 import { encode as encodeWebp } from "npm:@jsquash/webp@1.4.0";
 import { initWasm, Resvg } from "npm:@resvg/resvg-wasm@2.6.2";
 await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm"));

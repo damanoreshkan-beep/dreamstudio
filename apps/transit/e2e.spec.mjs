@@ -1,5 +1,3 @@
-// The chart is pure math (ephemeris + trigonometry, no GPS, no network), and under the gate the birth
-// record AND the transit instant are both pinned, so every assertion below is deterministic offline.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-mark]")) > 0) break; await h.wait(500); } };
 
 export default [
@@ -24,7 +22,6 @@ export default [
       h.expect((await h.count('[data-angle-row="angVertex"]')) === 1, "немає рядка вертекса");
       h.expect(/Овен|Телець|Близнюки|Рак|Лев|Діва|Терези|Скорпіон|Стрілець|Козоріг|Водолій|Риби/.test(await h.bodyText()), "немає знаків зодіаку");
       h.expect(/Плацидус/i.test(await h.text("[data-house-system]")), "не показано систему домів");
-      // Kyiv is far from the polar circle, so Placidus must NOT fall back
       h.expect((await h.count("[data-house-fallback]")) === 0, "несподіваний відкат системи домів");
     },
   },
@@ -32,7 +29,6 @@ export default [
     name: "моменти: точний час, коли аспект стає точним", run: async (h) => {
       await h.click('[data-tab="hits"]'); await h.wait(300);
       h.expect((await h.count("[data-hit]")) >= 1, "немає жодного транзиту");
-      // the root-find is chunked across tasks (one contact per turn), so poll rather than guess a duration
       for (let i = 0; i < 30; i++) { if ((await h.count("[data-hit-time]")) > 0) break; await h.wait(300); }
       h.expect((await h.count("[data-hit-time]")) >= 1, "немає жодного точного моменту");
       const txt = await h.text("[data-hit-time]");
@@ -41,13 +37,11 @@ export default [
   },
   {
     name: "система домів перемикається фільтром (Плацидус → Цілий знак)", run: async (h) => {
-      // NB: #f-apply always returns to the FIRST tab (render.js), so navigate back before asserting.
       await h.click("#filter-btn"); await h.wait(250);
       await h.click('#f-houseSystem [data-val="whole"]'); await h.wait(150);
       await h.click("#f-apply"); await h.wait(300);
       await h.click('[data-tab="chart"]'); await h.wait(400);
       h.expect(/Цілий знак/i.test(await h.text("[data-house-system]")), "система домів не змінилась");
-      // whole-sign cusps always start at 0 of a sign
       h.expect(/0°00'/.test(await h.text('[data-cusp="1"]')), "куспід цілого знака не на 0°");
       await h.click("#filter-btn"); await h.wait(250);
       await h.click('#f-houseSystem [data-val="placidus"]'); await h.wait(150);
@@ -88,7 +82,6 @@ export default [
       h.expect(d0 !== (await h.text("[data-date]")), "дата не змінилась");
       await h.click('[data-chip="today"]'); await h.wait(250);
       h.expect(d0 === (await h.text("[data-date]")), "чип «сьогодні» не повернув на сьогодні");
-      // the chosen preset lifts out of the row (material), so its selection reads as STATE, not a border colour
       h.expect((await h.attr('[data-chip="today"]', "aria-pressed")) === "true", "чип «сьогодні» не позначений вибраним");
       h.expect((await h.attr('[data-chip="tomorrow"]', "aria-pressed")) === "false", "невибраний чип позначений вибраним");
       await h.click('[data-chip="tomorrow"]'); await h.wait(250);
@@ -99,10 +92,6 @@ export default [
     },
   },
   {
-    // The arrows are the only control that can name a SINGLE day (one day is under a pixel of slider
-    // travel), so ±1 is asserted through the date readout, and the row is asserted by GEOMETRY: three
-    // controls on one line means three vertical centres within a couple of pixels. A structural check
-    // ("they share a parent") would pass a stack.
     name: "стрілки дня по боках слайдера", run: async (h) => {
       await h.click('[data-tab="wheel"]'); await h.wait(250);
       await ready(h);
@@ -122,8 +111,6 @@ export default [
       h.expect(d0 === (await h.text("[data-date]")), "стрілка назад не повернула на сьогодні");
       h.expect((await h.attr('[data-chip="today"]', "aria-pressed")) === "true", "після кроку назад «сьогодні» не позначене");
 
-      // At the end of the ±365-day window the step has nowhere to go: it must go INERT, not disappear —
-      // a control that vanishes moves the two beside it.
       await h.type("#scrub", "365"); await h.wait(300);
       h.expect((await h.prop('[data-step="next"]', "disabled")) === true, "стрілка вперед активна на межі вікна");
       h.expect((await h.prop('[data-step="prev"]', "disabled")) === false, "стрілка назад вимкнена не на межі");
@@ -132,22 +119,17 @@ export default [
     },
   },
   {
-    // The third slot is the whole rest of the year: a native date input, so the day comes from the platform
-    // calendar rather than from counting slider steps. Asserted through the input's own value change (which
-    // is what a picked day does), not through the OS picker, which no headless browser can open.
     name: "конкретний день з календаря", run: async (h) => {
       await h.click('[data-tab="wheel"]'); await h.wait(250);
       await ready(h);
       const d0 = await h.text("[data-date]");
       h.expect((await h.attr('[data-chip="pick"]', "data-picked")) === "false", "чип дати позначений до вибору");
-      // the gate pins «now» to 25 Jul 2026, so this is a fixed 20 days ahead
       await h.type("[data-pick]", "2026-08-14"); await h.wait(350);
       const d1 = await h.text("[data-date]");
       h.expect(d0 !== d1, "обраний день не змінив дату транзиту");
       h.expect(/14/.test(d1), `дата транзиту не 14 число: ${d1}`);
       h.expect((await h.attr('[data-chip="pick"]', "data-picked")) === "true", "чип дати не позначився вибраним");
       h.expect(/14/.test(await h.text('[data-chip="pick"]')), "чип не показує обраний день");
-      // and the presets take the row back
       await h.click('[data-chip="today"]'); await h.wait(250);
       h.expect(d0 === (await h.text("[data-date]")), "«сьогодні» не повернуло на сьогодні після вибору дня");
       h.expect((await h.attr('[data-chip="pick"]', "data-picked")) === "false", "чип дати лишився вибраним");
@@ -200,20 +182,15 @@ export default [
     },
   },
   {
-    // The whole point of the three sheets below: the AI paragraph is the TOP layer, and the two under it —
-    // the computed facts and the sourced significations — are local data that must be there whether the
-    // model answered or not. So each test asserts all three, not just that a sheet opened.
     name: "трактовка одного транзиту: факти + значення + текст, Back закриває", run: async (h) => {
       await h.click('[data-tab="hits"]'); await h.wait(400);
       h.expect((await h.count("[data-hit]")) >= 1, "немає жодного транзиту");
       await h.tap("[data-hit]"); await h.wait(500);
       h.expect((await h.prop("#transitsheet", "open")) === true, "аркуш транзиту не відкрився");
       h.expect((await h.text("[data-reading]")).trim().length > 80, "порожня трактовка транзиту");
-      // the computed layer — these come from the ephemeris, not the model
       h.expect((await h.text('[data-fact="orb"]')).includes("°"), "немає орба");
       const tempo = await h.text('[data-fact="tempo"]');
       h.expect(tempo.trim().length > 10, `немає темпу тіла: ${tempo}`);
-      // the sourced layer — the corpus entries the model was handed, so the text can be checked against them
       h.expect((await h.count("[data-mean]")) >= 4, "замало значень із корпусу");
       await h.back(); await h.wait(350);
       h.expect((await h.prop("#transitsheet", "open")) !== true, "Back не закрив аркуш транзиту");
@@ -226,12 +203,10 @@ export default [
       h.expect((await h.prop("#placementsheet", "open")) === true, "аркуш положення не відкрився");
       h.expect((await h.text("[data-reading]")).trim().length > 80, "порожня трактовка положення");
       h.expect(/\d/.test(await h.text('[data-fact="house"]')), "немає дому з системою");
-      // Mars is one of the seven classical bodies, so essential dignity APPLIES and must be stated
       h.expect((await h.text('[data-fact="dignity"]')).trim().length > 0, "немає есенційної гідності");
       h.expect((await h.count("[data-mean]")) >= 3, "замало значень із корпусу");
       await h.back(); await h.wait(350);
       h.expect((await h.prop("#placementsheet", "open")) !== true, "Back не закрив аркуш положення");
-      // an ANGLE is not a body: the dignity doctrine must not be applied to it
       await h.tap('[data-place="asc"]'); await h.wait(450);
       h.expect((await h.prop("#placementsheet", "open")) === true, "аркуш ASC не відкрився");
       h.expect((await h.count('[data-fact="dignity"]')) === 0, "куту приписано есенційну гідність");
@@ -240,9 +215,6 @@ export default [
     },
   },
   {
-    // A cusp reading exists for one reason: the house is delegated to the ruler of the sign on it, and that
-    // ruler lives somewhere else. If the ruler line ever stops rendering, the sheet still looks fine and
-    // says nothing — so the ruler is asserted by name, not by the sheet merely opening.
     name: "трактовка дому з куспіда: управитель дому і де він стоїть", run: async (h) => {
       await h.click('[data-tab="chart"]'); await h.wait(400);
       h.expect((await h.count("[data-cusp]")) === 12, "немає 12 куспідів");
@@ -268,22 +240,16 @@ export default [
     },
   },
   {
-    // The catalogue is a chat with no text field: ten questions, tapped. The properties worth pinning are
-    // that tapping one appends an answered pair, that the answer survives a reload (it is cached, and a
-    // reading you have to pay for twice is a reading you stop asking for), and that a question leaves the
-    // catalogue once asked so it cannot be double-billed.
     name: "питання до карти: тап додає відповідь, вона переживає перезавантаження", run: async (h) => {
       await h.click('[data-tab="chart"]'); await h.wait(400);
       await h.tap("[data-ask-open]"); await h.wait(450);
       h.expect((await h.prop("#asksheet", "open")) === true, "аркуш питань не відкрився");
-      // the gate seeds two asked questions so the populated state is what CI and the shots see
       const seeded = await h.count("[data-asked]");
       h.expect(seeded === 2, `очікував 2 засіяні питання, а не ${seeded}`);
       h.expect((await h.count("[data-reading]")) === seeded, "не в кожного питання є відповідь");
       h.expect((await h.text("[data-reading]")).trim().length > 100, "порожня відповідь");
       const rest = await h.count("[data-ask]");
       h.expect(rest === 9, `у каталозі має лишитись 9 питань, а не ${rest}`);
-      // the catalogue shows TOPICS: a chip is a word, and the whole question lives in the prompt
       const chip = (await h.text('[data-ask="money"]')).trim();
       h.expect(chip.length <= 16 && !/\?/.test(chip), `чип каталогу знову речення: ${chip}`);
 
@@ -300,9 +266,6 @@ export default [
     },
   },
   {
-    // `?tab=`/`?screen=` is what makes the two tabs behind the dock reviewable at all — by the screenshot
-    // service and by preflight. If it silently stops routing, the eye goes blind again and nothing else
-    // fails, so it is asserted here rather than trusted.
     name: "?tab= і ?screen= відкривають потрібний екран одразу", run: async (h) => {
       await h.goto("?tab=chart&screen=portrait", 1600);
       h.expect((await h.prop("#portraitsheet", "open")) === true, "?screen= не відкрив портрет");
@@ -312,10 +275,6 @@ export default [
     },
   },
 
-  // ── синастрія: дві карти, невідомий час, і повзунок, що робить цю невідомість видимою ──────────
-  //
-  // Числа тут пораховані наперед (packages/runtime/synastry.js на мок-датах 1992-03-22 × 1990-07-15) і
-  // саме тому вони чогось варті: гейт ловить не «щось відрендерилось», а зміну самої моделі.
   {
     name: "сумісність: партнер стоїть ПЕРШИМ, і в полях, і в картках", run: async (h) => {
       await h.click('[data-tab="match"]'); await h.wait(600);
@@ -332,8 +291,6 @@ export default [
     },
   },
   {
-    // Те, заради чого повзунок існує: Місяць змінює знак усередині доби народження у 43.8% випадків, тож
-    // без часу народження його знак — не факт про людину. У мок-парі це стосується ТЕБЕ, а не партнера.
     name: "сумісність: невизначений Місяць позначено там, де він справді невизначений", run: async (h) => {
       await h.click('[data-tab="match"]'); await h.wait(600);
       h.expect((await h.count("[data-person-a] [data-moon-open]")) === 1, "твій Місяць рухомий, але не позначений");
@@ -345,7 +302,6 @@ export default [
       await h.click('[data-tab="match"]'); await h.wait(600);
       await h.type('[data-dial-b] input[type=range]', "1440"); await h.wait(400);
       h.expect((await h.text("[data-overall]")).trim() === "74", "зсув партнера на +24 год не перерахував індекс");
-      // +24 год від полудня — це той самий годинник наступної доби, тож саме позначка дня доводить зсув.
       h.expect((await h.text("[data-dial-b]")).includes("+1"), "зсув на добу не показано в підписі");
       await h.type('[data-dial-b] input[type=range]', "0"); await h.wait(400);
       h.expect((await h.text("[data-overall]")).trim() === "83", "повернення повзунка не повернуло індекс");

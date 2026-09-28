@@ -1,12 +1,3 @@
-// prox — reads the proximity-pairing beacons every phone around you broadcasts, and names what each one is
-// asking a target device to do.
-//
-// The honest through-line, decided in docs/research/ble-air.md and encoded in packages/runtime/blesig.js:
-// most of these popups carry NO text you can choose. A card says so out loud — "custom text?" is free only
-// for Swift Pair, fixed-by-a-code for Apple Continuity, database-driven for Fast Pair. The grid is the
-// taxonomy; a card lights up when that protocol is actually in the air, and a tap shows the raw bytes.
-//
-// This tab only SCANS (permission "ble"). The transmitter is a separate, consent-gated capability.
 import { html } from "htm/preact";
 import { useEffect, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -20,22 +11,13 @@ import { signatures } from "/_rt/blesig.js";
 import { PRESETS, assemble } from "/_rt/blesend.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The ONE micro size — the density ladder's label token (`length:` because a bare var() in text-[…] is a
-// colour to Tailwind v4) — for every badge, caption and mono readout that carried its own 0.6–0.8rem.
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider";
 const MONO = "font-mono text-[length:var(--ms-label)] tabular-nums";
-// a target chip ("iPhone", "Android") is a small WELL pill in ink — never a tone step under text
 const CHIP = `shrink-0 rounded-full px-2 py-0.5 sf-inset ${LABEL} text-base-content/70`;
-// A live card is LIT: the accent as an outline. Not Tailwind's `ring` — a ring IS a box-shadow, and so is
-// the material, so the two overwrote each other (habits found it first); `outline` is its own property.
 const LIVE = "outline outline-1 -outline-offset-1 outline-[var(--app-accent)]";
 
-// A card is "live" while it has been heard this recently. A pairing beacon repeats several times a second,
-// so a few seconds of silence is a real absence, not a gap between packets.
 const LIVE_MS = 6000;
 
-// The grid, in the order it reads: Apple first (the owner's iPad is the test target), then the other
-// ecosystems, then the open beacon. `textKind` is the whole point of the app, so it lives on the card.
 const CARDS = [
   { key: "nearbyAction", icon: "lucide:wifi", vendor: "apple", target: "ios", textKind: "fixed" },
   { key: "proximityPairing", icon: "lucide:headphones", vendor: "apple", target: "ios", textKind: "none" },
@@ -51,23 +33,22 @@ const CARD_KEYS = new Set(CARDS.map((c) => c.key));
 /** Which grid card a decoded signature belongs to — Continuity fans out by message, the rest are 1:1. */
 function cardKeyOf(sig) {
   if (sig.protocol === "continuity") {
-    return CARD_KEYS.has(sig.msg) ? sig.msg : null;   // airdrop/handoff/… have no card of their own
+    return CARD_KEYS.has(sig.msg) ? sig.msg : null;
   }
   if (sig.protocol === "fastPair") return "fastPair";
   if (sig.protocol === "eddystone") return "eddystone";
-  return sig.protocol;                                // swiftPair, easySetup
+  return sig.protocol;
 }
 
-const $seen = atom({});        // cardKey → { count, rssi, at, detail, raw, text, msg }
+const $seen = atom({});
 const $packets = atom(0);
 const $listening = atom(false);
 const $now = atom(Date.now());
 const $err = atom(null);
 const $blocked = atom(null);
 const $needPerm = atom(null);
-const $sel = atom(null);       // the open card key, or null
-const $selEntry = atom(null);  // a FROZEN snapshot of the decode at tap time — a live entry keeps changing
-                               // (rssi, count, bytes) while the sheet is open, which reflows and jitters it
+const $sel = atom(null);
+const $selEntry = atom(null);
 
 const PERM_RE = /denied:([A-Z_]+)/;
 function noteError(e) {
@@ -84,12 +65,10 @@ async function grant() {
   try {
     const r = await shell.call("system.grant", { permission: p });
     if (r?.state === "granted") { $needPerm.set(null); $err.set(null); hush(); listen(); return; }
-  } catch { /* the grant call failed; settings is still worth offering */ }
-  try { await shell.call("system.settings", { page: "app" }); } catch { /* nothing else to offer */ }
+  } catch { }
+  try { await shell.call("system.settings", { page: "app" }); } catch { }
 }
 
-// The gate has no radio, so seed the widest populated grid it will ever measure: a lit card of every text
-// kind, the Cyrillic Swift Pair name that stresses the layout, and the Wi-Fi Password action byte.
 const GATE_SEEN = {
   nearbyAction: { count: 42, rssi: -51, detail: { actionType: 0x08, action: "wifiPassword", popup: true }, raw: "0f05c00811223310", text: { fixed: "na_wifiPassword" }, msg: "nearbyAction" },
   proximityPairing: { count: 18, rssi: -63, detail: { model: 0x0e20, modelName: "airpodsPro" }, raw: "0719010e2055", text: null, msg: "proximityPairing" },
@@ -127,12 +106,12 @@ async function diagnose() {
   try {
     const info = await shell.call("system.info", {});
     if (info && info.locationOn === false) { $blocked.set("locationOff"); return; }
-  } catch { /* older shell has no such field; fall through */ }
+  } catch { }
   try {
     const st = await shell.call("ble.state", {});
     if (st && st.supported === false) { $blocked.set("noBle"); return; }
     if (st && st.on === false) { $blocked.set("bleOff"); return; }
-  } catch { /* the subscribe error path will say so */ }
+  } catch { }
   $blocked.set(null);
 }
 
@@ -148,7 +127,7 @@ function listen() {
 
 function hush() {
   $listening.set(false);
-  try { stopScan?.(); } catch { /* already gone */ }
+  try { stopScan?.(); } catch { }
   stopScan = null;
   clearInterval(ageTimer); ageTimer = null;
 }
@@ -179,9 +158,6 @@ function detailRows(key, entry, t) {
   return [];
 }
 
-// One pill per text kind. Colour is meaning — but the accent is the MARK (a dot + the border), never the
-// text: accent-as-text is #9D8CFF on a light page, which fails contrast, and the design rule forbids it. So
-// the label stays a token colour and the free-form one is flagged by its accent dot and ring.
 function KindBadge({ kind, t }) {
   const free = kind === "free";
   return html`<span data-kind=${kind}
@@ -223,7 +199,7 @@ function CardSheet({ card, entry, t, open, onClose }) {
         <${KindBadge} kind=${card.textKind} t=${t} />
       </div>
 
-      ${/* `sf-sunken` was not a class the material has — these wells had no surface at all; sf-inset is. */""}
+      ${""}
       <div data-custom class="rounded-[var(--ms-r-in)] p-3 sf-inset flex items-start gap-2">
         ${Icon(card.textKind === "free" ? "lucide:pencil" : "lucide:lock", "text-[1.1em] shrink-0 mt-0.5 text-base-content/70")}
         <div class="min-w-0">
@@ -232,9 +208,7 @@ function CardSheet({ card, entry, t, open, onClose }) {
         </div>
       </div>
 
-      ${/* Heard: the decode IS the content, and a paragraph explaining the beacon next to its bytes was
-           hand-holding. Never heard: there is nothing to decode, so the explanation is the empty state —
-           what this beacon is and why the card exists (copy.md: an empty state is the screen, not a caption). */""}
+      ${""}
       ${live
         ? html`<div data-decode class="flex flex-col gap-2">
             <div class=${`${LABEL} text-muted`}>${T(t, "decoded")}</div>
@@ -279,7 +253,7 @@ export function proxView({ S, t, openScreen, closeScreen }) {
 
   const open = (key) => {
     const e = $seen.get()[key];
-    $selEntry.set(e ? { ...e } : null);   // freeze the sighting — the sheet inspects one moment, it does not tick
+    $selEntry.set(e ? { ...e } : null);
     $sel.set(key);
     openScreen("card");
   };
@@ -320,20 +294,14 @@ export function proxView({ S, t, openScreen, closeScreen }) {
   </div>`;
 }
 
-// ── The transmitter — own-device lab, behind a consent gate ────────────────────────────────────────────
-// This is the send half. It wears its own capability (advertise-raw) and never opens until the owner has
-// acknowledged, once, that it is for their own devices in a controlled space. The emit bytes are built by
-// the pure encoders in blesend.js and shown on screen, because a lab tool that hides what it puts in the
-// air is not a lab tool.
 const LAB_KEY = "prox.lab.ok";
 const readLab = () => { try { return localStorage.getItem(LAB_KEY) === "1"; } catch { return false; } };
 const $labOk = atom(readLab());
-function enableLab() { try { localStorage.setItem(LAB_KEY, "1"); } catch { /* private mode */ } $labOk.set(true); }
+function enableLab() { try { localStorage.setItem(LAB_KEY, "1"); } catch { } $labOk.set(true); }
 
 const $fields = atom({ swiftPair: "тук тук", eddystone: "https://example.com", fastPair: "cd8256" });
-// A custom preset names which field it collects; each maps to its own label/placeholder string.
 const FIELD_LABEL = { name: "fieldName", url: "fieldUrl", model: "fieldModel" };
-const $active = atom(null);     // { id, bytes } currently in the air
+const $active = atom(null);
 const $sErr = atom(null);
 const $sNeedPerm = atom(null);
 
@@ -350,12 +318,10 @@ async function grantSend() {
   try {
     const r = await shell.call("system.grant", { permission: p });
     if (r?.state === "granted") { $sNeedPerm.set(null); $sErr.set(null); return; }
-  } catch { /* fall through to settings */ }
-  try { await shell.call("system.settings", { page: "app" }); } catch { /* nothing else to offer */ }
+  } catch { }
+  try { await shell.call("system.settings", { page: "app" }); } catch { }
 }
 
-// Real entropy for the dynamic Apple payloads — the encoders leave the tail non-zero so Android's
-// trailing-zero strip cannot truncate it, and fresh each cycle so a modern iOS treats it as a new device.
 const rnd = (n) => crypto.getRandomValues(new Uint8Array(n));
 let reemit = null;
 function stopReemit() { if (reemit) { clearInterval(reemit); reemit = null; } }
@@ -370,8 +336,6 @@ async function emit(preset) {
     const r = await shell.call("ble.advertiseRaw", { structures, ms: 0, connectable: !!preset.connectable });
     $active.set({ id: preset.id, bytes, out: r?.bytes });
     $sErr.set(null);
-    // Apple cards only re-raise for a device that looks NEW each cycle — so a dynamic preset re-emits a fresh
-    // random payload while it is live (the shell replaces the one advertising slot). Static-text presets hold.
     if (preset.dynamic) {
       reemit = setInterval(async () => {
         try {
@@ -387,7 +351,7 @@ async function stopEmit() {
   stopReemit();
   $active.set(null);
   if (gate) return;
-  try { await shell.call("ble.silence", {}); } catch { /* already silent */ }
+  try { await shell.call("ble.silence", {}); } catch { }
 }
 
 function PresetCard({ preset, active, t }) {
@@ -423,7 +387,7 @@ export function sendView({ t }) {
 
   useEffect(() => {
     if (gate && !$active.get()) $active.set({ id: "swiftPair", bytes: assemble(PRESETS.find((p) => p.id === "swiftPair").build("тук тук")) });
-    return () => { if (!gate) { stopReemit(); $active.set(null); try { shell.call("ble.silence", {}); } catch { /* ignore */ } } };
+    return () => { if (!gate) { stopReemit(); $active.set(null); try { shell.call("ble.silence", {}); } catch { } } };
   }, []);
 
   if (!labOk) {

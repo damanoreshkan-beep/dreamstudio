@@ -1,13 +1,6 @@
-// microspec runtime — hunt engine unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
-// ── hunt — the ranged engine ──────────────────────────────────────────────────────────────
 const HUNT_WASM = new URL("../../../apps/hunt/assets/hunt.wasm", import.meta.url);
-// The engine suite exercises the PRODUCT app's wasm. In the public framework tree (the dreamstudio split,
-// 2026-08-31) that app is absent — the suite still runs in full in the product repo, whose CI drives these
-// same tests through the framework symlink with the farm present.
 const HAVE_APP = await Deno.stat(HUNT_WASM).then(() => true).catch(() => false);
 const etest = (name, fn) => Deno.test({ name, fn, ignore: !HAVE_APP });
 const HUNT_S = { SFX: 10, AMMO: 13, HP: 14, KILLS: 16, COUNT: 17 };
@@ -19,11 +12,6 @@ async function huntEngine() {
 }
 
 etest("hunt engine · your own spear cannot hurt you", async () => {
-  // It could, and it did: the contact check listed the kinds to SKIP rather than the kinds that
-  // are a threat, so particles were excluded and the player's own projectile was not. A spear
-  // leaves from inside her box and on a sprint travels alongside her, so throwing while running
-  // was a way to kill yourself. A skip-list grows a hole every time a kind is added; this asserts
-  // the behaviour rather than the list.
   const { E, st } = await huntEngine();
   E.game_init(0xA17C);
   const hp0 = st()[HUNT_S.HP];
@@ -44,7 +32,7 @@ etest("hunt engine · the quiver is finite and refuses to go negative", async ()
   E.game_init(0xA17C);
   const start = st()[HUNT_S.AMMO];
   assert(start > 0, "the game starts with nothing to throw");
-  for (let f = 0; f < 900; f++) E.game_step(HUNT_IN.SHOOT);     // hammer it long past empty
+  for (let f = 0; f < 900; f++) E.game_step(HUNT_IN.SHOOT);
   const s = st();
   assert(s[HUNT_S.AMMO] >= 0, `ammo went negative (${s[HUNT_S.AMMO]})`);
   assert((s[HUNT_S.SFX] & 512) !== 0 || s[HUNT_S.AMMO] === 0,
@@ -52,20 +40,14 @@ etest("hunt engine · the quiver is finite and refuses to go negative", async ()
 });
 
 etest("hunt engine · the collision box it reports IS the one it stands on", async () => {
-  // The renderer stands sprites on game_box(). If that number and the simulation's own idea of the
-  // player's feet ever disagree, the character hovers — which is what happened when the sprite was
-  // stood on the bottom of a TILE instead: one pixel out in brick, twelve here, and twelve pixels
-  // is a character floating. So assert the RELATIONSHIP, not the constant: after landing, the
-  // bottom of the reported box must sit exactly on the surface it is resting on.
   const { E, st } = await huntEngine();
   E.game_init(0xA17C);
-  for (let f = 0; f < 90; f++) E.game_step(0);                 // stand still and settle
+  for (let f = 0; f < 90; f++) E.game_step(0);
   const s = st();
   const packed = E.game_box(0);
   const boxH = packed & 0xffff;
   assert(boxH > 0 && boxH < 200, `game_box returned a nonsense height (${boxH})`);
   const py = s[6], feet = py + boxH;
-  // find the surface directly under her
   const col = Math.floor((s[4] + s[5]) / 24);
   let ground = -1;
   for (let r = 0; r < 11; r++) if (E.game_tile(col, r) >= 0x10) { ground = r * 24; break; }
@@ -73,7 +55,6 @@ etest("hunt engine · the collision box it reports IS the one it stands on", asy
   assertEquals(feet, ground, `feet at ${feet} against a surface at ${ground} — the box the renderer is given is not the box she rests on`);
 });
 
-// ── the day cycle (worldAt) — the palette is a FUNCTION now, so its laws are testable ─────
 import { WORLD, PHASES, CYCLE, worldAt, lerpHex } from "../hunt.js";
 
 const WORLD_KEYS = Object.keys(WORLD).filter((k) => typeof WORLD[k] === "string");
@@ -81,8 +62,6 @@ const luma = (h) =>
   0.2126 * parseInt(h.slice(1, 3), 16) + 0.7152 * parseInt(h.slice(3, 5), 16) + 0.0722 * parseInt(h.slice(5, 7), 16);
 
 Deno.test("hunt day · every keyframe carries the FULL world key set", () => {
-  // A key missing from one phase would lerp against undefined and flash the fallback mid-run —
-  // the failure would be a one-frame colour pop nobody can reproduce. Parity is the contract.
   for (const ph of PHASES) {
     const missing = WORLD_KEYS.filter((k) => !(k in ph.colors));
     assertEquals(missing, [], `a keyframe at t=${ph.at} is missing: ${missing.join(", ")}`);
@@ -92,9 +71,6 @@ Deno.test("hunt day · every keyframe carries the FULL world key set", () => {
 });
 
 Deno.test("hunt day · depth is a value: every band darker than the sky, stepping down as it nears", () => {
-  // The law the night palette documented in prose, now enforced for all five hours: a backdrop
-  // band brighter than the sky behind it reads as GLOWING, and two bands at one value collapse
-  // into one distance.
   for (const ph of PHASES) {
     const skyBot = luma(ph.sky[1]);
     const bands = ["ridge", "canopyFar", "canopyMid", "canopy"].map((k) => luma(ph.colors[k]));
@@ -106,9 +82,6 @@ Deno.test("hunt day · depth is a value: every band darker than the sky, steppin
 });
 
 Deno.test("hunt day · the hour turns without a visible seam", () => {
-  // 4 columns is the render quantum (mirrored in apps/hunt/render.js); a per-channel jump past
-  // ~16 between adjacent quanta is a palette POP on screen. Includes the wrap: a long run's
-  // second dawn must arrive smoothly.
   const step = 4;
   for (let d = 0; d <= CYCLE; d += step) {
     const a = worldAt(d), b = worldAt(d + step);
@@ -124,8 +97,6 @@ Deno.test("hunt day · the hour turns without a visible seam", () => {
 });
 
 Deno.test("hunt day · the orb stays in the upper-left third and inside the frame", () => {
-  // The farm's lamp is upper-left at 45°; an orb wandering right of centre would light the world
-  // from a place no surface shading agrees with.
   for (let d = 0; d < CYCLE; d += 12) {
     const { orb } = worldAt(d);
     assert(orb.x - orb.r >= 0 && orb.x + orb.r <= 192, `orb x=${orb.x} r=${orb.r} leaves the upper-left half at dist ${d}`);

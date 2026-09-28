@@ -1,8 +1,3 @@
-// Ambient — a soundscape mixer that SYNTHESISES everything in the browser (no audio files). Noise beds
-// (white = random samples; pink = Paul Kellett's filter; brown = leaky integrator) run through
-// BiquadFilters + Oscillator-LFOs; tonal/rhythmic layers (chimes, birds, crickets, heartbeat, bowl…) are
-// built from scheduled enveloped oscillators. 20 layers across 6 categories, stack any number at once,
-// each with its own volume; a sleep timer clears the mix. Refs: noise.js (zacharydenton) · Noisehack · MDN.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -11,7 +6,6 @@ import { Transport, Segmented, Slider } from "/_rt/ui.js";
 import { audioSupported, noiseSource as src, filter as bqf, lfo, strike, createEngine } from "/_rt/audio.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 const GROUPS = [
@@ -51,18 +45,14 @@ const GROUPS = [
 const LAYERS = GROUPS.flatMap((g) => g.items);
 const TIMERS = [15, 30, 60];
 
-// ---- synthesis (all generated) — noise/node/tone primitives live in /_rt/audio.js ----
-// per-layer node kit: tracks nodes + scheduler timers so a layer tears down cleanly.
 function makeKit(ctx, out) {
   const nodes = [], timers = [];
   return {
     ctx, out, nodes, timers,
     add: (...ns) => { nodes.push(...ns); return ns[0]; },
-    // repeating one-shot with a jittered gap (min + up to span ms)
-    loop(min, span, fn) { const tick = () => { try { fn(); } catch { /* */ } timers.push(setTimeout(tick, min + Math.random() * span)); }; timers.push(setTimeout(tick, min + Math.random() * span)); },
-    // struck/plucked tone (fundamental + inharmonic partials, exp decay) — the systemic strike()
+    loop(min, span, fn) { const tick = () => { try { fn(); } catch { } timers.push(setTimeout(tick, min + Math.random() * span)); }; timers.push(setTimeout(tick, min + Math.random() * span)); },
     hit: (freq, opts) => strike(ctx, out, freq, opts),
-    stop() { for (const t of timers) clearTimeout(t); for (const n of nodes) { try { n.stop && n.stop(); } catch { /* */ } try { n.disconnect && n.disconnect(); } catch { /* */ } } },
+    stop() { for (const t of timers) clearTimeout(t); for (const n of nodes) { try { n.stop && n.stop(); } catch { } try { n.disconnect && n.disconnect(); } catch { } } },
   };
 }
 
@@ -105,7 +95,7 @@ function startLayer(eng, key) {
   const ctx = eng.ctx, vol = ctx.createGain(); vol.gain.value = 0; vol.connect(eng.master);
   const kit = makeKit(ctx, vol);
   BUILDERS[key](kit, eng.buffers);
-  eng.layers.set(key, { stop: () => { kit.stop(); try { vol.disconnect(); } catch { /* */ } }, setVol: (v) => { try { vol.gain.setTargetAtTime(v * 0.9, ctx.currentTime, 0.08); } catch { vol.gain.value = v * 0.9; } } });
+  eng.layers.set(key, { stop: () => { kit.stop(); try { vol.disconnect(); } catch { } }, setVol: (v) => { try { vol.gain.setTargetAtTime(v * 0.9, ctx.currentTime, 0.08); } catch { vol.gain.value = v * 0.9; } } });
 }
 
 export function ambient({ S }) {
@@ -124,7 +114,6 @@ export function ambient({ S }) {
     return eng.current;
   };
 
-  // sync the audio graph to state (start/stop/volume) — the UI works even if audio is unavailable
   useEffect(() => {
     const e = eng.current; if (!e) return;
     for (const { key } of LAYERS) {
@@ -135,7 +124,6 @@ export function ambient({ S }) {
     }
   }, [active, paused, vols]);
 
-  // sleep timer → stop everything when it elapses
   useEffect(() => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     if (timerMin > 0 && active.size) timerRef.current = setTimeout(() => { setActive(new Set()); setTimerMin(0); }, timerMin * 60000);
@@ -150,8 +138,7 @@ export function ambient({ S }) {
 
   return html`<div class="flex flex-col items-center gap-[var(--ms-gap)] pt-1"
     data-mix-state=${anyOn ? (paused ? "paused" : "playing") : "idle"} data-mix-on=${active.size} data-timer-min=${timerMin}>
-    ${/* One mixer, one transport: how many layers are running is the now-playing line. Disabled until a
-         layer is on — a play button that starts silence is a lie the old row told with a dimmed icon. */""}
+    ${""}
     <${Transport} locale=${loc} size="sm" playing=${anyOn && !paused} disabled=${!anyOn}
       onToggle=${() => { ensure(); setPaused((p) => !p); }}
       subtitle=${anyOn ? `${active.size} · ${paused ? T(t, "aResume") : T(t, "playing")}` : null} />
@@ -159,23 +146,16 @@ export function ambient({ S }) {
     <div class="flex flex-col gap-[var(--ms-gap)] w-full max-w-[420px]">
       ${GROUPS.map(({ cat, items }) => html`<div class="flex flex-col gap-2" key=${cat}>
         <div class=${`${LABEL} px-1`}>${T(t, cat)}</div>
-        ${/* A sound card is an OBJECT on the page, not a hairline box: off it is the page extruded on the
-             shallow rung (twenty of them in one scroll — the full pair on each is a shadow storm), on it is
-             the same object lifted, carrying the app's own wash. The old `border-primary bg-primary/10`
-             tinted the FACE and drew an outline, which on the light theme read as a cell pressed IN — the
-             exact opposite of what "this layer is playing" should say. The 2-column grid is untouched. */""}
+        ${""}
         <div class="grid grid-cols-2 gap-2.5">
           ${items.map(({ key, name, icon }) => { const on = active.has(key); return html`<div data-layer=${key} data-on=${on ? "1" : null} class=${`rounded-[var(--ms-r)] p-[var(--ms-pad)] flex flex-col gap-2 transition-[box-shadow,background-color] ${on ? "bg-[var(--app-tint)] sf-e3" : "sf-raised sf-e2"}`} key=${key}>
             <button aria-pressed=${on} class="flex items-center gap-2.5 text-left w-full" onClick=${() => toggle(key)}>
-              ${/* The glyph sits in a WELL while the layer is silent and rises out of it when it plays —
-                   `bg-base-200` meant "a step darker than the card", and base-100/200 are one colour now. */""}
+              ${""}
               <span class=${`flex items-center justify-center w-9 h-9 rounded-full shrink-0 ${on ? "sf-e2 text-primary" : "sf-inset text-muted"}`}>${Icon(icon, "text-xl")}</span>
               <span class="font-semibold flex-1 min-w-0 truncate">${T(t, name)}</span>
               ${on ? Icon("lucide:volume-2", "text-primary shrink-0") : null}
             </button>
-            ${/* The kit's Slider: its caption is the input's accessible name. The caption says VOLUME, not the
-                 layer's name again — the card's header already says that, and a second readout is the same
-                 information twice. */""}
+            ${""}
             ${on ? html`<${Slider} attr="data-vol" id=${key} label=${T(t, "volume")} value=${vols[key] ?? 0.55} onInput=${(v) => setVol(key, v)} />` : null}
           </div>`; })}
         </div>
@@ -184,8 +164,7 @@ export function ambient({ S }) {
 
     <div class="flex items-center gap-[var(--ms-gap)] w-full max-w-[420px]">
       <span class="text-muted flex items-center gap-1.5 text-sm shrink-0">${Icon("lucide:moon")}${T(t, "sleep")}</span>
-      ${/* The sleep timer is a genuine one-of-N (or none): the kit's Segmented as a rail, like outpost's.
-           Tapping the active option clears the timer, which the strip shows as "no option pressed". */""}
+      ${""}
       <div class="flex-1 min-w-0"><${Segmented} size="sm" scroll attr="data-timer" label=${T(t, "sleep")}
         items=${TIMERS.map((m) => ({ id: String(m), label: `${m}${T(t, "min")}` }))}
         value=${String(timerMin)} onChange=${(id) => setTimerMin((c) => (c === Number(id) ? 0 : Number(id)))} /></div>

@@ -1,5 +1,3 @@
-// afterdark — the WORKING SET shared by the stage and the cast tab: who is on stage, which moves the floor may
-// play. Persisted per viewer; the stage subscribes and drives the 3D engine, the cast tab edits.
 import { atom } from "nanostores";
 import { persistentAtom } from "@nanostores/persistent";
 import { VPS_PROXY } from "/_rt/feed.js";
@@ -10,18 +8,9 @@ import { makeWallet } from "/_rt/wallet.js";
 import { CHARACTERS, registerChars } from "./characters.js";
 import { DEFAULT_MOVES, MOVE_IDS, isMoveId } from "./dances.js";
 
-// THE WALLET is the farm's (rt/wallet.js, 2026-09-15): a character of your own is paid from it — GEN_PRICE is the
-// display copy of the edge's price (wallet.js CATALOG.afterdark.gen), which is the one charged.
 export const GEN_PRICE = 1000;
 export const wallet = makeWallet("afterdark", { gateBalance: 1250 });
 
-// MY CHARACTERS: the ones this viewer made from a prompt (genchar.js) — {id, name, tint, kind, glb, avatar, ts},
-// newest first. The row of truth is on the edge (`user_characters`, keyed by the sealed session; the edge
-// writes it when a job finishes), read back through /feed/character/mine — so a phone and a laptop signed in
-// as the same person hold the same list. `$myChars` is a local MIRROR: persisted so the grid and the cast
-// resolve my ids before the network answers (and offline), refreshed on every session change, emptied on
-// sign-out. Avatars and public immutable .glb links only — nothing secret. Registered into characters.js so
-// the stage resolves them like the library.
 const JSON_H = { "content-type": "application/json" };
 export { charOf };
 
@@ -39,13 +28,13 @@ export async function removeMyChar(id) {
   const c = getCast().filter((x) => x !== id); if (c.length) setCast(c);
   if (gate) return;
   try { await fetch(`${VPS_PROXY}/character/mine/remove`, { method: "POST", headers: JSON_H, body: JSON.stringify({ id: id.replace(/^my-/, "") }) }); }
-  catch { /* offline: the next load shows it again, and the viewer removes it again */ }
+  catch { }
 }
 /** The list from the edge for the current session (a no-op when nobody is signed in, or under the gate). */
 export async function loadMyChars() {
   if (gate || !sidNow()) return;
-  let r; try { r = await fetch(`${VPS_PROXY}/character/mine`); } catch { return; }   // offline → keep the mirror
-  if (r.status === 401) { setMyChars([]); return; }                                   // a dead session owns nothing
+  let r; try { r = await fetch(`${VPS_PROXY}/character/mine`); } catch { return; }
+  if (r.status === 401) { setMyChars([]); return; }
   if (!r.ok) return;
   const j = await r.json().catch(() => null);
   if (Array.isArray(j?.characters)) setMyChars(j.characters.map(charOf));
@@ -53,9 +42,6 @@ export async function loadMyChars() {
 const sidNow = () => { try { return localStorage.getItem("ms:gh:sid") || ""; } catch { return ""; } };
 registerChars(getMyChars());
 $myChars.listen(() => registerChars(getMyChars()));
-// boot: a stored session lists its characters at once; later a sign-in loads, a sign-out empties the mirror
-// (the cast keeps the ids, `getCast` simply stops resolving them until the same person signs in again).
-// Deferred a tick: this module evaluates before /_rt/index.js installs the sealed fetch that carries the sid.
 if (!gate) {
   let loadedFor = sidNow();
   if (loadedFor) setTimeout(loadMyChars, 0);
@@ -67,18 +53,11 @@ if (!gate) {
   });
 }
 
-// the generation in flight (one at a time): `$genCharLoading` = "" | "picture" | "queued" | "mesh" | "rig" | "store",
-// `$genCharPct` the stage's own percent (0 = unknown), `$genCharError` = "" | an i18n error key, `$newChar` = the
-// last body made (the grid rings it)
 export const $genCharLoading = atom("");
 export const $genCharPct = atom(0);
 export const $genCharError = atom("");
 export const $newChar = atom("");
 
-// the CAST: which characters are on stage (1..MAX_CAST). A JSON id array; the engine lays them out as a crowd
-// that fits the screen. The last one can't be removed (the stage is never empty); the cap keeps a phone alive —
-// every character is a full rigged body with 2048 textures (owner, 2026-09-12: the whole 105-strong library
-// is selectable, the stage is not a stadium).
 export const MAX_CAST = 12;
 export const DEFAULT_CAST = ["kaya", "michelle", "arissa"];
 export const ALL_IDS = CHARACTERS.map((g) => g.id);
@@ -105,9 +84,6 @@ export function mixCast(rand = Math.random) {
   setCast(out);
 }
 
-// the MOVES: which dances the floor may play. A JSON id array; default = the ★ picks. The 36 curated ids ship
-// with the app; any other Mixamo motion id comes from the library (moves.json + the VPS clips). The last one
-// can't be removed (the floor never runs dry). Clips load on demand.
 export const $moves = persistentAtom("afterdark:moves", JSON.stringify(DEFAULT_MOVES));
 export function getMoves() {
   let a; try { a = JSON.parse($moves.get()); } catch { a = null; }

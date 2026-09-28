@@ -1,13 +1,7 @@
-// The store is a custom tool app: category chips + sectioned icon grid, a search that flattens across the
-// farm, a history-backed per-app description Sheet, and NEW badges (IndexedDB). apps.json imports locally.
 const ready = async (h) => { for (let i = 0; i < 12; i++) { if ((await h.count("[data-app]")) > 0) break; await h.wait(200); } };
 
 export default [
   {
-    // Цей тест раніше вимагав ПРОТИЛЕЖНОГО — «є NEW-бейджі на невідкритих» — і саме тому дефект прожив
-    // так довго: у свіжому браузері невідкриті всі 68, тож бейдж стояв на кожній плитці. Знімок показав
-    // стіну однакових ярликів, більших за іконки під ними. Бейдж на всьому не означає нічого, тому
-    // контракт тепер зворотний: перший візит задає базову лінію і не позначає нічого.
     name: "стор: сітка + пошук; перший візит не позначає нічого як нове", run: async (h) => {
       await ready(h); await h.wait(200);
       h.expect((await h.count("[data-app]")) >= 10, "замало плиток застосунків");
@@ -21,7 +15,6 @@ export default [
     name: "пошук фільтрує сітку", run: async (h) => {
       await ready(h);
       const base = await h.count("[data-app]");
-      // folded behind #search-btn (rules/invariants.md); the hidden twin #store-filter takes a typed query
       h.expect((await h.count("#search-btn")) === 1, "немає іконки пошуку в рядку «Сьогодні»");
       h.expect((await h.count("[data-search-open]")) === 0, "поле пошуку розгорнуте до дотику");
       await h.type("#store-filter", "рейв"); await h.wait(250);
@@ -35,8 +28,6 @@ export default [
     },
   },
   {
-    // Немає внутрішньої навігації БЕЗ history (2026-08-31): перемикач категорій жив у локальному стані і
-    // Back з нього не повертав. Уся ферма — на одній сторінці; кожна категорія показує ВСІ свої застосунки.
     name: "одна сторінка: кожна категорія показує всі свої застосунки", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-app]")) >= 70, "головна не показує всю ферму");
@@ -66,19 +57,13 @@ export default [
     },
   },
   {
-    // App Store, не сітка (2026-08-31): добірка великих карток зверху, сторінка апки з Open + Install,
-    // скріншотом та екранами; категорія → рядки-список.
     name: "стор: добірка карток, сторінка апки з Install і скріном, категорія → рядки", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-featured]")) >= 2, "немає карток добірки");
       h.expect((await h.count('[data-featured][data-app="spirit"]')) === 1, "Дух карти не в добірці");
-      // «Сьогодні» (2026-09-03): народжені за 48 годин (`added`) ведуть стек САМІ, курована добірка — слідом.
-      // Рубрика залежить від календаря: коли новонароджених немає, герой — редакторський і несе гасло;
-      // коли є — герой саме новонароджений (без гасла це не дефект) і його брова каже КОЛИ, не «преміум».
       const newborn = await h.count("[data-featured][data-newborn]");
       if (newborn) {
         h.expect((await h.attr("[data-featured]", "data-newborn")) === "1", "новонароджений не веде стек «Сьогодні»");
-        // ICU (Intl.RelativeTimeFormat, uk) says «учора», not «вчора» — the first run of this test learned it.
         h.expect(/сьогодні|учора|today|yesterday/i.test(await h.text(".st-hero")), "брова героя-новинки не каже «коли»");
       } else h.expect((await h.text("[data-slogan]")).trim().length > 5, "герой без гасла");
       await h.click('[data-featured][data-app="tide"]'); await h.wait(300);
@@ -92,9 +77,6 @@ export default [
     },
   },
   {
-    // «Свіжі новинки» (2026-09-02): рубрика без куратора — apps.json несе `added` (scaffold штампує його при
-    // першому scaffold), стор бере вікно у 21 день і ріже слайдами по 3. Рубрика МОЖЕ бути порожньою (нічого
-    // нового за вікно) — тоді її просто немає; коли є, кожен слайд ≤ 3 карток і кожна картка несе опис.
     name: "свіжі новинки: слайди по 3 дрібні картки з описом, лічильник сторінок", run: async (h) => {
       await ready(h);
       const slides = await h.count("[data-fresh-slide]");
@@ -116,17 +98,12 @@ export default [
     },
   },
   {
-    // the theme widget (core material.js + rt/themes.json): a real browser proves the link swap — a tap on
-    // a micro-picture rewrites the page's one theme <link> and stamps the root; the day/night radio flips
-    // html[data-theme] in the same card
     name: "тема: профіль → віджет → «Просто» перемикає лист стилів, «Сяйво» повертає, день/ніч у тій же картці", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(300);
       h.expect((await h.count("#p-material")) === 1, "немає віджета «Тема»");
       h.expect((await h.count('#p-material [data-material-id="plain"]')) === 1, "у стрічці немає картинки «Просто»");
       await h.click('[data-material-id="plain"]'); await h.wait(300);
       h.expect((await h.attr("html", "data-material")) === "plain", "html[data-material] не став plain");
-      // the FARM's theme link, by its file name — `[href*="theme"]` picked daisyui's `themes.css` (linked first), which
-      // the old material.js wrongly rewrote, so this test was green on the bug itself (core 1.2.38, 2026-09-05)
       h.expect((await h.count('link[rel="stylesheet"][href$="/_rt/theme-plain.css"]')) === 1, "лінк теми не переключився на theme-plain.css");
       h.expect((await h.count('link[rel="stylesheet"][href*="daisyui"][href$="themes.css"]')) === 1, "daisyui-ний themes.css мав лишитись незайманим");
       await h.click('[data-material-id="lum"]'); await h.wait(300);

@@ -1,17 +1,3 @@
-// THE THEME DECIDES (owner, 2026-09-02: "у нас все тема рішає … закласти це у систему самої апки"):
-// vydyvo has no preset UI — the farm theme the owner already picked IS the world every picture grows in.
-// One entry per theme module (rt/themes.json): a default subject (used when the prompt is empty), the
-// material's NIGHT and DAY light (rides with the mode read off html[data-theme]), a short mood TINT
-// that replaces the full block when the owner's own words drive the picture (70/30 — the words stronger),
-// and a VOICE per mode — WHO speaks the line under the picture (owner 2026-09-02: "нехай це говорить так
-// як говорить будда вдень … і вночі дух луни" — the persona rides the spark as «Голос: …», the edge's
-// line mode holds its manner without naming it). Voices are Ukrainian: the spark's language, whatever
-// locale the answer lands in.
-// THE SPIRIT SPEAKS, NEVER ABOUT ITS OWN LIGHT (owner 2026-09-04: "слова мають не бути про світло чи тінь, а
-// ніби сама тіньова чи світовий дух говорить"): a voice names WHO speaks and what they care about in LIFE —
-// attention, memory, patience, change, ties, form — and never light, darkness, shadow or glow as a topic; the
-// picture's subject no longer rides the spark either (it is all filaments and bloom, and every thought came
-// out about light). The table of all twelve worlds and their two sides: meta/streams/vydyvo-voices.md.
 export const WORLDS = {
   lum: {
     subject: "a lone tree drawn only with thin glowing light filaments and luminous nodes, a hollow wireframe plexus of bright threads, translucent, nothing solid",
@@ -116,10 +102,6 @@ export const worldOf = (id) => WORLDS[id] || WORLDS.lum;
  * spirit by night; every theme carries its own pair. */
 export const voiceOf = (world, mode) => (mode === "light" ? world.voiceDay : world.voiceNight);
 
-// THE CHARACTERS ARE THEIR OWN CHOICE (owner 2026-09-04: "не будемо прив'язуватись до теми, давай зробимо окремий
-// вибір персонажів мікрокартинками … сіткою, тикаємо і відкривається на весь екран"): the twelve worlds above are
-// the twelve characters, each with a day side and a night side; the picker's tile names them by the side the
-// phone's mode shows, and the other side small. Short names, both locales — the voices themselves stay Ukrainian.
 export const NAMES = {
   lum: { day: { uk: "Будда", en: "Buddha" }, night: { uk: "Дух луни", en: "Echo spirit" } },
   paper: { day: { uk: "Майстер орігамі", en: "Origami master" }, night: { uk: "Літописець", en: "Chronicler" } },
@@ -139,19 +121,11 @@ export const nameOf = (id, mode, loc) => (NAMES[id] || NAMES.lum)[mode === "ligh
 /** The picker's micro-picture of a character in a mode: assets/char-<id>-<n|d>.webp, generated once on the pods. */
 export const thumbOf = (id, mode) => new URL(`assets/char-${id}-${mode === "light" ? "d" : "n"}.webp`, import.meta.url).href;
 
-// THE STATIC PLACEHOLDERS (owner 2026-09-11: "перша генерація погана, потрібні вже готові одразу нехай статика
-// зате мають бути заглушки перед першою генерацію на усі теми та режими"): a full-frame ready-made picture of
-// every world in every mode, made once with that world's OWN prompt (composePrompt below), so the very first
-// paint — before any race has landed — already looks like the show, on all twelve worlds and both sides.
 /** The full-frame static placeholder for a world in a mode: assets/seed-<id>-<n|d>.webp. */
 export const seedUrl = (id, mode) => new URL(`assets/seed-${id}-${mode === "light" ? "d" : "n"}.webp`, import.meta.url).href;
 
 
-// The wallpaper contract and the light of each mode — the client's "system prompt". The theme is read off
-// the document when a race starts, so a light-mode phone gets pictures lit for paper, a dark one for black.
 export const SYSTEM = {
-  // the no-writing clause is spelled out hard (owner 2026-09-02: "заборони тексти … або лого чи ієрогліфи")
-  // and the edge appends its own canonical ban to every generation prompt as the second net
   base: "a full-bleed wallpaper, cinematic, extremely detailed, the subject off-centre with generous empty space around it, no text, no letters, no words, no writing, no signage, no hieroglyphs, no logo, no watermark, no signature, no frame, no border",
   dark: "night, deep darkness, low-key lighting, one source of light, luminous details, black shadows",
   light: "daylight, high-key, airy, bright and soft, pale tones, gentle haze",
@@ -171,7 +145,6 @@ export function composePrompt(subject, world, mode, userDriven = false) {
 /** How many generic fallback lines the locales carry (`l_1..l_N`) — used only offline/under the gate. */
 export const LINES = 6;
 
-// A deterministic frame for the gate: portrait, no network (mirage's mockArt shape).
 export const mockFrame = (seed, mode) => {
   const l = mode === "light" ? [88, 74, 58] : [34, 18, 6];
   const s = (seed * 2654435761) % 40, hue = (seed * 47) % 360;

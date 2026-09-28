@@ -1,17 +1,3 @@
-// microspec OS — the capability console.
-//
-// Three jobs at once, which is why it is one app and not a debug screen:
-//   · the honest demonstration of what the Android shell can do — press a row, the thing happens;
-//   · the device checklist AS CODE. CI runs Chromium and will never execute the shell, so the Java half
-//     is verified by hand — and a written list rots while this one fails visibly;
-//   · the stress test for the permissions screen, since it declares every key in the registry.
-//
-// It is GENERATED from the action catalogue: every row comes from `shell.actions`, never a hand-written
-// mirror, which would drift within a week and quietly stop testing whatever was added last. A catalogue
-// action with no probe recipe here says so on screen instead of being skipped in silence.
-//
-// Under the gate the bridge is mocked from that same catalogue, so the whole matrix is populated in
-// Chromium — an empty screen would make the shot meaningless and hide a broken row.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -28,13 +14,9 @@ import { HeroAura, DeviceConstellation } from "./hero.js";
 import { ROSTER, STATE, classify as classifyDevices, demoStates } from "./devices.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The two type roles below body text, both on the density token so they step with the ladder:
-//   LABEL — the mono micro-label (a Field's name, a tally, an address line under a value);
-//   CAPTION — a launcher tile's word: sans, sentence case, the same size.
 const LABEL = "font-mono text-[length:var(--ms-label)] tracking-wider";
 const CAPTION = "text-[length:var(--ms-label)] leading-tight text-center line-clamp-2";
 
-// Last outcome per action id: { ok, text, ms }. One atom so a run shows up on every tab at once.
 const $runs = atom({});
 const record = (id, v) => $runs.set({ ...$runs.get(), [id]: v });
 
@@ -45,8 +27,6 @@ const CAP_ICON = {
   files: "lucide:folder", server: "lucide:server", lan: "lucide:network",
 };
 
-// Probe recipes: what to send so an action is worth pressing. Actions absent from here are still LISTED
-// — the console must show the catalogue, not the subset someone remembered to wire.
 const PROBE = {
   "system.info": () => ({}),
   "notify.show": (t) => ({ id: "os-probe", title: T(t, "probeNoteTitle"), body: T(t, "probeNoteBody") }),
@@ -54,43 +34,26 @@ const PROBE = {
   "alarm.set": (t) => ({ id: "os-probe", at: Date.now() + 60_000, title: T(t, "probeAlarmTitle"), body: T(t, "probeAlarmBody") }),
   "alarm.cancel": () => ({ id: "os-probe" }),
   "alarm.list": () => ({}),
-  // start then stop, in catalogue order, so the checklist proves the service both comes up and goes away
-  // rather than leaving a notification pinned to the status bar after a run.
   "bg.start": (t) => ({ title: T(t, "probeBgTitle"), body: T(t, "probeBgBody") }),
   "bg.stop": () => ({}),
   "bg.status": () => ({}),
   "wifi.scan": () => ({}),
   "wifi.info": () => ({}),
   "cell.info": () => ({}),
-  // Asking for a permission the shell already holds answers instantly and shows no dialog, so this is
-  // safe inside a checklist run — and it is the one probe that can UNBLOCK the two rows above it.
   "system.grant": () => ({ permission: "READ_PHONE_STATE" }),
   "ble.state": () => ({}),
-  // Speak then fall silent, in catalogue order, so a run proves the radio both starts AND stops instead of
-  // leaving the phone transmitting after the checklist ends. The payload is "msos" in hex so it is
-  // recognisable in another device's raw advertisement dump — this probe is only half a test on one phone.
   "ble.advertise": () => ({ data: "6d736f73", ms: 3000 }),
   "ble.silence": () => ({}),
   "usb.list": () => ({}),
   "system.logs": () => ({}),
-  // Only roots is probeable: grant opens a system picker (a checklist walk must never do that), and
-  // list/read/write need a folder the user has actually handed over. The explorer is their real test.
   "files.roots": () => ({}),
   "system.battery": () => ({}),
-  // system.settings and files.share both leave the app — a checklist walk must never launch a settings
-  // screen or a share sheet. They are pressed deliberately, from the tile and from the explorer.
-  // start, publish a page, read it back, stop — in catalogue order, so a run proves the station comes
-  // up AND goes away rather than leaving a socket listening after the checklist ends.
   "server.start": () => ({ port: 8080 }),
   "server.put": (t) => ({ path: "/", contentType: "text/html; charset=utf-8",
     base64: btoa(unescape(encodeURIComponent(`<!doctype html><meta charset=utf-8><title>${T(t, "title")}</title><h1>${T(t, "title")}</h1>`))) }),
   "server.status": () => ({}),
   "server.stop": () => ({}),
-  // An empty list WITHDRAWS from every share sheet — the only safe probe: os must never start answering
-  // "share audio" for the whole phone because a checklist ran. share.incoming is a subscribe; no probe.
   "share.target": () => ({ kinds: [] }),
-  // ble.scan is a subscribe — no probe, same as location.watch.
-  // location.watch is a subscribe, not a call — it has no probe by design; the row says so.
 };
 
 const stateOf = (id) => (shell.has(id) ? "ok" : shell.why(id) === ERR.staleBridge ? "stale" : "none");
@@ -118,8 +81,6 @@ async function run(id, t, loc) {
   }
 }
 
-// One line of the most load-bearing thing each result carries — a raw JSON dump would be unreadable and
-// would hide the field that actually matters (did the alarm come back EXACT?).
 function summarise(id, v, loc) {
   if (!v || typeof v !== "object") return String(v);
   if (id === "system.info") return `bridge ${v.bridge} · SDK ${v.sdk} · ${v.model}`;
@@ -132,8 +93,6 @@ function summarise(id, v, loc) {
   if (id === "share.target") return (v.kinds || []).join(" ") || "—";
   if (id === "ble.state") {
     if (!v.supported) return "—";
-    // maxAdvLen is the number the ether app's whole payload budget rests on, so the console prints it
-    // rather than a word: 31 means legacy only, and no phone owes us more.
     const adv = v.maxAdvLen ? ` · ${v.maxAdvLen}B${v.extAdv ? " ext" : ""}` : "";
     return `${v.on ? "on" : "off"}${adv}${v.advertising ? " · advertising" : ""}`;
   }
@@ -150,12 +109,6 @@ function summarise(id, v, loc) {
   return JSON.stringify(v);
 }
 
-// ---- the launcher: every permission as a home-screen tile -------------------
-// A permission is a thing you grant, so the honest shape is the one the OS itself uses for things you
-// own: an icon grid. State is a dot on the tile — the badge language a launcher already speaks — never a
-// caption, because a grid that explains itself in words is a list wearing a costume.
-// Colour is the whole readout here: full access, some of it, none. A tile that shows green while the
-// action behind it is refused is worse than no dot at all.
 const TILE_DOT = { granted: "bg-success", partial: "bg-warning", denied: "bg-error", needsApp: "bg-base-content/30", staleApp: "bg-warning", prompt: "", unsupported: "", unknown: "" };
 
 function Launcher({ S, loc, t, toast }) {
@@ -164,7 +117,7 @@ function Launcher({ S, loc, t, toast }) {
   const keys = Object.keys(PERMISSIONS);
 
   const refresh = async () => {
-    await refreshHeld();          // ask the shell what the OS actually granted, then colour from that
+    await refreshHeld();
     const out = {};
     for (const k of keys) out[k] = (await permState(k)).state;
     setStates(out);
@@ -173,27 +126,16 @@ function Launcher({ S, loc, t, toast }) {
 
   const tap = async (k) => {
     const st = states[k];
-    // Files is the one tile that opens something instead of asking for something — SAF has no permission
-    // to grant up front, so the grant IS the first screen of the explorer.
     if (k === "files") {
-      // Files has its own tab now, so the tile goes THERE rather than opening a second copy of the
-      // explorer inside a screen that is itself one level down.
       if (!shell.hasCapability("files")) { toast?.(st === "staleApp" ? L.staleAppHint : L.needsAppHint); return; }
       S.tab.set("files");
       return;
     }
-    // A shell capability reports "granted" as soon as the bridge carries it — which says nothing about
-    // the Android permission underneath. cell.info sat refused while its tile showed green, because the
-    // tap answered "revoke it in settings" instead of asking. In the shell the tap always asks; an
-    // already-held permission answers instantly, so there is no dialog to annoy anyone with.
     if (PERMISSIONS[k]?.capability && shell.present) { await permRequest(k); await refresh(); return; }
     if (st === "granted") { toast?.(L.revokeHint); return; }
     if (st === "needsApp") { toast?.(L.needsAppHint); return; }
     if (st === "staleApp") { toast?.(L.staleAppHint); return; }
     if (st === "denied") {
-      // Denied twice is denied forever — requestPermissions returns instantly and no dialog can ever
-      // appear again. A toast saying "blocked" was a dead end; in the shell the tap now opens the page
-      // that holds the switch. In a browser there is nothing to open, so the hint stands.
       if (shell.has("system.settings")) { await shell.call("system.settings", { page: "app" }); return; }
       toast?.(L.deniedHint);
       return;
@@ -202,13 +144,8 @@ function Launcher({ S, loc, t, toast }) {
     await refresh();
   };
 
-  // Grouped the way a home screen is: sections, not a wall. An empty group renders nothing, so the grid
-  // grows itself as capabilities land rather than needing a layout decision each time.
   const ordered = GROUPS.flatMap((g) => keys.filter((k) => PERMISSIONS[k].group === g));
 
-  // ONE grid, no section headings: with seven icons the groups left two of four columns empty in every
-  // row, which reads as a broken layout rather than a home screen. A launcher groups into folders once it
-  // has enough to fill them; until then the registry order carries the grouping on its own.
   return html`<${Panel} title=${L.title}>
     <div data-launcher class="grid grid-cols-4 @min-[520px]:grid-cols-6 gap-x-3 gap-y-4 pt-2">
       <a data-store href="../store/" class="flex flex-col items-center gap-1.5 min-w-0">
@@ -234,21 +171,9 @@ function Launcher({ S, loc, t, toast }) {
   <//>`;
 }
 
-// ---- the file explorer -----------------------------------------------------
-// It opens from the Files tile, because a launcher icon opening a thing IS the metaphor this screen is
-// built on — and the dock is full at five tabs.
-//
-// There is no storage permission behind any of this. MANAGE_EXTERNAL_STORAGE would hand over the whole
-// device in one declaration and read as spyware; SAF asks the user for a folder instead, and what we can
-// walk is exactly what they picked. So the empty state is not an error — it is the permission model.
 const $fs = atom({ open: false, root: null, trail: [], entries: [], preview: null, busy: false, error: "" });
 const setFs = (patch) => $fs.set({ ...$fs.get(), ...patch });
 
-// One number decides every history question: how many levels are showing. Folders and a preview are both
-// levels, so Back walks out of a preview, up the tree, and finally out of the explorer — one press each.
-// Files is a TAB now, not a thing opened over the console, so the explorer itself is not a level any more:
-// backing out of the top folder leaves the tab, exactly as backing out of any other tab does. Only the
-// folders you descended into and an open preview are levels.
 const fsDepth = (fs) => Math.max(0, fs.trail.length - 1) + (fs.preview ? 1 : 0);
 const syncStack = (S) => {
   const want = fsDepth($fs.get());
@@ -274,8 +199,6 @@ const size = (n, loc) => {
   return `${u[0].toLocaleString(loc, { maximumFractionDigits: u[0] < 10 && u[1] !== "B" ? 1 : 0 })} ${u[1]}`;
 };
 
-// Folders first, then by name — the order every file manager has, and the one that makes a deep tree
-// walkable. The shell returns whatever the provider's cursor happened to hold.
 const ordered = (entries, loc) => [...entries].sort((a, b) =>
   a.dir === b.dir ? a.name.localeCompare(b.name, loc) : (a.dir ? -1 : 1));
 
@@ -298,8 +221,6 @@ async function fsEnterRoot(S, root) {
   await fsOpenFolder(S, root, [{ docId: null, name: root.name }]);
 }
 
-// The one place the folder is chosen. It resolves granted:false when the user backs out of the system
-// picker, which is a normal answer and not a failure — nothing is recorded and the screen does not move.
 async function fsGrant(S) {
   setFs({ busy: true, error: "" });
   try {
@@ -318,7 +239,6 @@ function Explorer({ S, t, loc, toast }) {
       const r = await shell.call("files.roots", {});
       const list = r.roots || [];
       setRoots(list);
-      // One folder is the normal case, and a list of one is a tap that asks nothing. Straight in.
       if (list.length === 1) await fsEnterRoot(S, list[0]);
     } catch { setRoots([]); }
   };
@@ -337,8 +257,6 @@ function Explorer({ S, t, loc, toast }) {
     } catch (e2) { setFs({ busy: false, error: e2?.code === ERR.failed ? e2.detail : (e2?.code || String(e2)) }); }
   };
 
-  // Writing needs to prove itself on something real. The bridge log is the one thing this app owns that
-  // is worth having outside it — and it lands in the folder you are looking at, not a Downloads dead-drop.
   const saveLog = async () => {
     try {
       const r = await shell.call("system.logs", {});
@@ -354,8 +272,6 @@ function Explorer({ S, t, loc, toast }) {
     } catch (e) { toast?.(e?.code || String(e)); }
   };
 
-  // Out of the app entirely — the half of files a browser cannot do at all, since WebView has no
-  // navigator.share. The bytes are already in hand from the read, so nothing is fetched twice.
   const share = async (p) => {
     try {
       await shell.call("files.share", { name: p.name, mime: p.mime || "application/octet-stream", base64: p.base64 });
@@ -374,8 +290,7 @@ function Explorer({ S, t, loc, toast }) {
           </button>
         </div>
         <div class=${`${LABEL} text-muted`}>${p.mime || "?"} · ${size(p.bytes, loc)}</div>
-        ${/* The text flows in the page — ONE page scroll (design.md), never a capped box with its own
-             scroller inside the panel; a long file is a long page, and Back still closes the preview. */""}
+        ${""}
         ${p.src ? html`<img src=${p.src} alt=${p.name} class="w-full rounded-[var(--ms-r-in)] bg-base-200" />`
           : p.text != null ? html`<pre class="font-mono text-xs whitespace-pre-wrap break-all rounded-[var(--ms-r-in)] sf-inset p-3">${p.text}</pre>`
           : html`<div class="text-sm text-muted">${T(t, "fsNoPreview")}</div>`}
@@ -383,7 +298,6 @@ function Explorer({ S, t, loc, toast }) {
     <//>`;
   }
 
-  // No folder yet: the grant button IS the screen. Nothing to explain — the system picker says the rest.
   if (!fs.root) {
     return html`<${Panel} title=${T(t, "fsTitle")}>
       <div data-fs-roots class="flex flex-col gap-2 pt-1">
@@ -403,11 +317,6 @@ function Explorer({ S, t, loc, toast }) {
     <//>`;
   }
 
-  // Where you are is the heading of this screen, so it reads as one: left-aligned next to the entries it
-  // describes, at their weight. A right-aligned path (dir=rtl, to keep the tail of a deep one) left a
-  // 370px hole between the icon and the text on every shallow folder — the gap WAS the layout.
-  // Deep paths keep their last two segments instead: the tail is what tells you where you are, and a full
-  // breadcrumb never fits a phone anyway.
   const trail = fs.trail.length <= 2
     ? fs.trail.map((f) => f.name).join(" / ")
     : `… / ${fs.trail.slice(-2).map((f) => f.name).join(" / ")}`;
@@ -436,7 +345,6 @@ function Explorer({ S, t, loc, toast }) {
   <//>`;
 }
 
-// ---- one action ------------------------------------------------------------
 function Row({ id, t, loc }) {
   const runs = useStore($runs);
   const a = shell.action(id);
@@ -466,10 +374,6 @@ function Row({ id, t, loc }) {
   </div>`;
 }
 
-// ---- the console: the catalogue, live, and every row runnable ---------------
-// This WAS the front door, and it should not have been. It is a checklist: thirty-two rows with a play
-// button each, built to prove the Java half works on a device CI can never run. That job is done, so it
-// moves one level down — reachable in one tap from home, out of the way of anyone who just wants the phone.
 function Console({ S, t, toast }) {
   const loc = useStore(S.locale);
   const runs = useStore($runs);
@@ -479,8 +383,6 @@ function Console({ S, t, toast }) {
   const done = ids.filter((id) => runs[id]).length;
   const failed = ids.filter((id) => runs[id] && !runs[id].ok).length;
 
-  // The whole point of a checklist: one press walks it. Sequential, because a notification and an alarm
-  // firing at once on a real device tells you nothing about which one worked.
   const runAll = async () => {
     if (all) return;
     setAll(true);
@@ -490,7 +392,7 @@ function Console({ S, t, toast }) {
   };
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)] pt-1">
-    ${/* the bridge's own surface is the kit's Panel, not a hand-assembled sf-raised box */""}
+    ${""}
     <${Panel} data-bridge>
       <div class="flex items-center gap-3">
         <span class=${`size-2.5 rounded-full shrink-0 ${present ? "bg-success" : "bg-base-content/25"}`} aria-hidden="true"></span>
@@ -522,10 +424,6 @@ function Console({ S, t, toast }) {
   </div>`;
 }
 
-// ---- alarms: the capability the web cannot have, as something you can actually use ----
-// A checklist proves an action returns ok. It cannot show that an alarm SURVIVES — that it is still
-// pending a minute later, still there after the app is closed, still listed after a reboot. The shell
-// owns that state, so this tab reads it back rather than trusting what the page remembers.
 const MINUTES = [1, 5, 15, 60];
 
 export function alarms({ S, t, toast }) {
@@ -548,8 +446,6 @@ export function alarms({ S, t, toast }) {
     try {
       const at = Date.now() + mins * 60_000;
       const r = await shell.call("alarm.set", { id: `os-${at}`, at, title: T(t, "probeAlarmTitle"), body: T(t, "probeAlarmBody") });
-      // exact is the one field worth surfacing: an inexact alarm may drift by minutes under Doze, and a
-      // screen that shows a time must not quietly promise precision it did not get.
       toast?.(r.exact ? T(t, "alExact") : T(t, "alInexact"));
       await refresh();
     } catch (e) { toast?.(e?.code || T(t, "alFailed")); } finally { setBusy(false); }
@@ -566,7 +462,7 @@ export function alarms({ S, t, toast }) {
         <span class="text-sm text-muted">${why === ERR.staleBridge ? T(t, "stStale") : T(t, "stNone")}</span>
       </div>
     <//>` : html`<${Panel} title=${T(t, "alNew")}>
-      ${/* one-of-N: the kit's strip, not four buttons with aria-pressed by hand */""}
+      ${""}
       <${Segmented} attr="data-min" label=${T(t, "alNew")} value=${mins} onChange=${setMins}
         items=${MINUTES.map((m) => ({ id: m, label: `${m} ${T(t, "alMin")}` }))} />
       <button id="al-set" class="btn btn-sm btn-primary rounded-full w-full gap-2" disabled=${busy} onClick=${schedule}>
@@ -592,44 +488,23 @@ export function alarms({ S, t, toast }) {
   </div>`;
 }
 
-// ---- radar: the subscribe a checklist can never run -------------------------
-// `Run all` executes calls; a subscribe never settles, so location.watch and ble.scan were the only two
-// actions that shipped unproven. This screen is their test, and the thing Web Bluetooth cannot be: it
-// shows EVERYTHING advertising nearby, as it appears, instead of the one device a chooser returns.
-//
-// Angle is a hash of the address, so a device keeps its place between frames instead of jumping; radius
-// is signal strength, which is the only distance a radio can honestly claim.
-const SEEN_MS = 20_000;                       // older than this and it is gone, not "maybe still there"
-// Android throttles a foreground app to four scans per two minutes, so 30s is the fastest honest cadence —
-// anything quicker just returns the previous results with `throttled` set. Networks are NOT aged out like
-// advertisements: a scan is a statement about right now, so each result REPLACES the field rather than
-// decaying into it. An access point that stops being listed is gone the moment the next scan says so.
+const SEEN_MS = 20_000;
 const WIFI_MS = 30_000;
 const band = (freq) => (!freq ? "" : freq >= 5925 ? "6 GHz" : freq >= 5000 ? "5 GHz" : "2.4 GHz");
-// A cell's number is NOT the same physical quantity as an advertisement's. RSRP runs roughly -50 (on top
-// of the mast) to -125 (about to drop the call), so pushing it through the -30…-100 scale would pin every
-// neighbour to the rim and pretend a -104 and a -120 are the same place. The gate mock alone has a -104.
 const cellRadius = (rssi) => {
   const clamped = Math.max(-125, Math.min(-55, rssi));
   return 12 + ((-55 - clamped) / 70) * 78;
 };
 const rssiRadius = (rssi) => {
   const clamped = Math.max(-100, Math.min(-30, rssi));
-  return 12 + ((-30 - clamped) / 70) * 78;    // -30dBm hugs the centre, -100 sits at the rim
+  return 12 + ((-30 - clamped) / 70) * 78;
 };
-// Addresses that differ only in the last byte — most of them, since a vendor gets a contiguous block —
-// must not land on the same bearing. Measured across seven such addresses: h*31 %360 and FNV %360 both
-// collapse them into two clusters (min gap 0–2°); FNV mixed through the golden ratio spreads them around
-// the whole circle (min gap 5°). Bearing is cosmetic, but a radar where every device shares one spoke
-// reads as broken, and that is a defect no gate can see.
 const angleOf = (addr) => {
   let h = 2166136261;
   for (let i = 0; i < addr.length; i++) { h ^= addr.charCodeAt(i); h = Math.imul(h, 16777619); }
   return (((Math.imul(h >>> 0, 2654435761) >>> 0) / 4294967296) * 360) * (Math.PI / 180);
 };
 
-// The gate has no radio, so seed a fixed field — an empty radar photographs as a broken one, and the
-// e2e would be asserting nothing.
 const GATE_DEVICES = [
   { addr: "02:00:00:00:AA:01", name: "Gate Beacon", rssi: -52 },
   { addr: "02:00:00:00:AA:02", name: "Watch", rssi: -67 },
@@ -646,25 +521,16 @@ export function radar({ S, t, toast }) {
   const [held, setHeld] = useState(null);
   const [events, setEvents] = useState(0);
   const stopRef = useRef(null);
-  // Wi-Fi is a CALL where BLE is a subscribe, so the two halves of this screen are driven differently: one
-  // is pushed at us, the other has to be asked. Both answer the same question — what is radiating here —
-  // which is why they share one radar instead of getting a tab each.
   const [nets, setNets] = useState([]);
   const [cells, setCells] = useState([]);
   const [throttled, setThrottled] = useState(false);
   const wifiRef = useRef(null);
-  // LAN hosts stay OFF the radar on purpose. The radius there means one thing — how far a signal
-  // travelled — and a host has no signal strength at all. Placing it by round-trip would make the same
-  // ring mean "far away" for a beacon and "behind a slower switch" for a laptop, which is exactly the kind
-  // of number that looks like a measurement and is not one. They get a list; the radar keeps its meaning.
   const [hosts, setHosts] = useState([]);
-  const [sweep, setSweep] = useState(null);        // { scanned, found } once the sweep finishes
-  const [lanOn, setLanOn] = useState(false);       // the subscribe was accepted — the sweep is running
+  const [sweep, setSweep] = useState(null);
+  const [lanOn, setLanOn] = useState(false);
   const [lanErr, setLanErr] = useState(null);
   const lanRef = useRef(null);
 
-  // Which kinds are shown. All four on by default: a filter that starts filtering is a screen hiding data
-  // it never mentioned. Turning them all off leaves an empty radar, which is what the user just asked for.
   const [show, setShow] = useState({ ble: true, wifi: true, cell: true, lan: true });
   const toggle = (k) => setShow((s) => ({ ...s, [k]: !s[k] }));
 
@@ -672,12 +538,9 @@ export function radar({ S, t, toast }) {
     const n = (s) => s.split(".").reduce((v, o) => v * 256 + (parseInt(o, 10) || 0), 0);
     return n(a.ip) - n(b.ip);
   };
-  // The same host usually arrives twice — once from the sweep, once from SSDP — and each sighting knows
-  // something the other does not: one has the open ports, the other the model name. Merge, never replace.
   const upsertHost = (h) => {
     if (!h) return;
     if (h.done) { setSweep({ scanned: h.scanned, found: h.found, sources: h.sources, done: true }); return; }
-    // Progress is not a host. Without it the fifteen seconds before the first answer look like a hang.
     if (h.progress) { setSweep((s) => (s?.done ? s : { scanned: h.scanned, total: h.total })); return; }
     if (h.started || h.ack || !h.ip) return;
     setHosts((prev) => {
@@ -691,43 +554,37 @@ export function radar({ S, t, toast }) {
       });
     });
   };
-  // A scan that is refused and a scan that finds nothing look identical on an empty radar, so the screen
-  // shows which permissions the OS actually granted and how many advertisements have arrived.
   const [locOn, setLocOn] = useState(null);
   useEffect(() => {
     refreshHeld().then(() => setHeld(heldPermissions()));
-    // Location services OFF is the one failure that looks like success everywhere else.
     if (shell.has("system.info")) shell.call("system.info", {}).then((i) => setLocOn(i.locationOn)).catch(() => {});
   }, []);
   const why = shell.whyCapability("ble");
   const L = permLabels(loc);
 
-  // One entry per address: a beacon advertising ten times a second is one device, not ten.
   const [started, setStarted] = useState(false);
   const [ack, setAck] = useState(false);
   const upsert = (d) => {
-    if (d && d.ack) { setAck(true); return; }            // the bridge received the call
-    if (d && d.started) { setStarted(true); return; }    // the scan began; neither is a device
+    if (d && d.ack) { setAck(true); return; }
+    if (d && d.started) { setStarted(true); return; }
     setEvents((n) => n + 1); setDevices((prev) => {
     const rest = prev.filter((x) => x.addr !== d.addr);
     return [...rest, { ...d, at: Date.now() }].sort((a, b) => b.rssi - a.rssi);
   }); };
 
-  // The two asked-for radios, swept together on one timer. Each failure is swallowed on its own: one radio
-  // being refused must never blank the other two, which is the whole reason they are not one call.
   const sweepRadios = async () => {
     if (shell.has("wifi.scan")) {
       try {
         const r = await shell.call("wifi.scan", {});
         setNets((r.networks || []).slice().sort((a, b) => b.rssi - a.rssi));
         setThrottled(!!r.throttled);
-      } catch { /* the BLE half still works */ }
+      } catch { }
     }
     if (shell.has("cell.info")) {
       try {
         const r = await shell.call("cell.info", {});
         setCells((r.cells || []).slice().sort((a, b) => (b.rssi || -999) - (a.rssi || -999)));
-      } catch { /* a phone with no SIM answers nothing, which is not an error */ }
+      } catch { }
     }
   };
 
@@ -740,14 +597,9 @@ export function radar({ S, t, toast }) {
     stopRef.current = shell.subscribe("ble.scan", {}, upsert, (e) => { setErr(e?.detail || e?.code || ERR.failed); setScanning(false); });
     sweepRadios();
     wifiRef.current = setInterval(sweepRadios, WIFI_MS);
-    // A sweep is a one-shot that ENDS, so it is started once here and not on the radio timer — restarting
-    // it every 30s would keep a hundred sockets busy for a list that barely changes.
     setHosts([]); setSweep(null); setLanErr(null); setLanOn(false);
     if (shell.has("lan.scan")) {
       setLanOn(true);
-      // NEVER swallow a stream failure. This was `() => {}`, which is the exact fault the BLE half has a
-      // whole diagnostic strip for: a sweep the OS refused and a sweep that found nothing were the same
-      // absent panel, with no way to tell which.
       lanRef.current = shell.subscribe("lan.scan", {}, upsertHost, (e) => {
         setLanErr(e?.detail || e?.code || ERR.failed);
         setLanOn(false);
@@ -756,30 +608,26 @@ export function radar({ S, t, toast }) {
   };
   const stop = () => {
     setScanning(false);
-    // Always cancel: a scan left running costs battery behind a screen nobody is looking at.
-    try { stopRef.current?.(); } catch { /* already gone */ }
+    try { stopRef.current?.(); } catch { }
     stopRef.current = null;
     clearInterval(wifiRef.current);
     wifiRef.current = null;
-    try { lanRef.current?.(); } catch { /* already gone */ }
+    try { lanRef.current?.(); } catch { }
     lanRef.current = null;
   };
   useEffect(() => {
-    // Under the gate the screen opens already scanning, so nothing ever presses start — sweep once here or
-    // the radar photographs with its wifi half empty and the e2e asserts nothing about it.
     if (gate) {
       sweepRadios();
-      setLanOn(true);            // the gate opens already scanning, so the flag must say so too
+      setLanOn(true);
       shell.subscribe("lan.scan", {}, upsertHost, () => {});
     }
     return () => {
-      try { stopRef.current?.(); } catch { /* */ }
-      try { lanRef.current?.(); } catch { /* */ }
+      try { stopRef.current?.(); } catch { }
+      try { lanRef.current?.(); } catch { }
       clearInterval(wifiRef.current);
     };
   }, []);
 
-  // Drop what has gone quiet, so the screen states what is there NOW rather than what ever was.
   useEffect(() => {
     if (gate) return;
     const id = setInterval(() => setDevices((prev) => prev.filter((d) => Date.now() - d.at < SEEN_MS)), 2000);
@@ -904,9 +752,6 @@ export function radar({ S, t, toast }) {
           sub: [c.pci != null ? `PCI ${c.pci}` : "", c.cid != null ? `CID ${c.cid}` : "", c.arfcn != null ? `ARFCN ${c.arfcn}` : ""].filter(Boolean).join(" · "),
           rssi: c.rssi ?? -999,
         })),
-        // Sorted by signal across all three, because "what is closest" is the question the radar answers
-        // and three separate lists would make it unanswerable at a glance. dBm is comparable enough for
-        // an ordering even where the underlying quantity is not the same.
       ].sort((a, b) => b.rssi - a.rssi).map((e) => html`<div key=${e.key} data-dev=${e.key} data-kind=${e.kind}
           class="flex items-center gap-3 py-2 border-b border-base-content/10 last:border-0">
         ${Icon(e.kind === "wifi" ? "lucide:wifi" : e.kind === "cell" ? "lucide:radio-tower" : "lucide:bluetooth",
@@ -949,7 +794,6 @@ export function radar({ S, t, toast }) {
   </div>`;
 }
 
-// ---- report: what this device is, as text you can send ----------------------
 function Report({ S, t, toast }) {
   const loc = useStore(S.locale);
   const runs = useStore($runs);
@@ -960,20 +804,14 @@ function Report({ S, t, toast }) {
   const load = async () => {
     try { setInfo(await shell.call("system.info", {})); setErr(null); }
     catch (e) { setErr(e?.code || ERR.failed); setInfo(null); }
-    // What the bridge DID, not just what it returned. Copy takes it along, so one paste carries the
-    // whole chain instead of one bit per reinstall.
     try { setLogs((await shell.call("system.logs", {})).lines || []); } catch { setLogs([]); }
   };
-  // Read on open. A report that greets you with five em-dashes and a button is asking the user to press
-  // something to see the obvious; the button stays, for re-reading after a probe changed something.
   useEffect(() => { load(); }, []);
 
   const lines = () => {
     const rows = [
       ["bridge", shell.present ? String(shell.version) : "—"],
       ["catalogue", `${shell.actions.length}`],
-      // Which build is in your hand, and what it grants. A capability refused by the gate and one that
-      // was never implemented look identical without these two lines — that cost a device round-trip.
       ["version", info ? `${info.version || "?"} (${info.build ?? "?"})` : "—"],
       ["installed", info?.installed ? new Date(info.installed).toLocaleString(loc) : "—"],
       ["granted", info?.caps || "—"],
@@ -1010,16 +848,11 @@ function Report({ S, t, toast }) {
   </div>`;
 }
 
-// ---- permissions: the launcher, one level down ------------------------------
 function Perms({ S, t, toast }) {
   const loc = useStore(S.locale);
   return html`<div class="flex flex-col gap-[var(--ms-gap)] pt-1"><${Launcher} S=${S} loc=${loc} t=${t} toast=${toast} /></div>`;
 }
 
-// ---- the station: the one capability with a product, and no home ------------
-// server.start/put/status/stop existed only as four rows with play buttons, which is a capability nobody
-// can use. A phone that other devices can OPEN is the least browser-like thing this app does; it deserves
-// an address you can read out loud, not a probe result.
 function Station({ S, t, toast }) {
   const [st, setSt] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -1034,8 +867,6 @@ function Station({ S, t, toast }) {
       if (st?.running) { await shell.call("server.stop", {}); }
       else {
         await shell.call("server.start", { port: 8080 });
-        // A station with nothing at "/" answers 404 to the first person who opens it, which reads as
-        // broken. It serves its own address back — proof the whole path works, from the other device.
         const page = `<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">`
           + `<title>${T(t, "title")}</title><body style="font:16px system-ui;padding:2rem"><h1>${T(t, "title")}</h1>`;
         await shell.call("server.put", { path: "/", contentType: "text/html; charset=utf-8", base64: btoa(unescape(encodeURIComponent(page))) });
@@ -1065,45 +896,24 @@ function Station({ S, t, toast }) {
   </div>`;
 }
 
-// ---- ports: what this phone is listening to, on itself ----------------------
-// The counterpart to the radar's host list — not "who shares this wire" but "what is open on THIS
-// device". It cannot be a listing: Android 10 closed /proc/net to apps, so nothing can enumerate the
-// listening sockets and the only honest question is asked one connect at a time
-// (docs/research/localhost-ports.md).
-//
-// The screen's whole job is to keep the difference between "it told us" and "the port number suggests"
-// visible. A row that says HTTP because it answered with a status line and a row that says HTTP because
-// it is 8080 would be the same row otherwise — and the second one is not a measurement.
 const SERVICE_ICON = {
   http: "lucide:globe", tls: "lucide:lock", ssh: "lucide:terminal",
-  // An envelope for a row that may be FTP would be the icon making the claim the text refuses to: the
-  // fork is the honest picture of a banner two protocols share.
   redis: "lucide:database", pop3: "lucide:mail", imap: "lucide:mail", "smtp-or-ftp": "lucide:split",
   gone: "lucide:circle-slash", unknown: "lucide:circle-help",
 };
-// Colour carries the one distinction this screen exists to make, so it is not decoration: ink for a
-// service that identified itself, warning for a grammar two protocols share, muted for a guess.
 const CONF_TONE = { product: "text-success", protocol: "text-success", ambiguous: "text-warning" };
 const SERVICE_NAME = { http: "HTTP", tls: "TLS", ssh: "SSH", redis: "Redis", pop3: "POP3", imap: "IMAP", "smtp-or-ftp": "SMTP / FTP" };
 
-// The gate has no sockets, so seed the field it would find on a phone that has something to say — and
-// seed the WIDEST version of each: the long server string is what truncation gets tested against, and
-// the ::1 row is the one a v4-only sweep would have missed. 8080 is deliberately absent: it arrives from
-// the catalogue mock through the real subscribe path, so the stream is exercised too.
 const GATE_PORTS = [
   { port: 22, family: "4", probe: "passive", hex: "5353482d322e302d4f70656e5353485f392e362044656269616e2d322b6465623132753300", ms: 2 },
   { port: 443, family: "4", probe: "tls", hex: "160303004a020000460303", tls: "handshake_ok", cert: "CN=localhost, O=microspec gate, C=UA", proto: "TLSv1.3", ms: 31 },
   { port: 5432, family: "6", probe: "silent", hex: "", ms: 1 },
-  // 220 on port 21 is the ambiguity, on screen: the port table says FTP, the wire says only what SMTP and
-  // FTP both say. The row must read "SMTP / FTP" — a fixture that could be resolved would prove nothing.
   { port: 21, family: "4", probe: "passive", hex: "323230205365727669636520726561647920666f72206e657720757365720d0a", ms: 4 },
   { port: 41642, family: "4", gone: true, ms: 0 },
 ];
 
 function Ports({ S, t, toast }) {
   const [rows, setRows] = useState(() => (gate ? GATE_PORTS : []));
-  // The gate has no sweep to finish, so its summary is seeded too — an unphotographed panel is one nobody
-  // has looked at, and this one is the reason "nothing answered" can be read at all.
   const [sweep, setSweep] = useState(() => (gate
     ? { scanned: 131070, total: 131070, found: 6, elapsed: 2841, addrs: "127.0.0.1,::1", done: true }
     : null));
@@ -1115,7 +925,6 @@ function Ports({ S, t, toast }) {
   const upsert = (o) => {
     if (!o || o.ack || o.started) return;
     if (o.done) { setSweep({ scanned: o.scanned, total: o.total, found: o.found, elapsed: o.elapsed, addrs: o.addrs, done: true }); setRunning(false); return; }
-    // 65k connects with nothing on screen reads as a hang, and the first open port can be minutes in.
     if (o.progress) { setSweep((s) => (s?.done ? s : { scanned: o.scanned, total: o.total, found: o.found })); return; }
     if (!o.port) return;
     setRows((prev) => [...prev.filter((r) => key(r) !== key(o)), o]);
@@ -1131,28 +940,22 @@ function Ports({ S, t, toast }) {
   };
   const stop = () => {
     setRunning(false);
-    try { stopRef.current?.(); } catch { /* already gone */ }
+    try { stopRef.current?.(); } catch { }
     stopRef.current = null;
   };
   useEffect(() => {
-    // Under the gate the screen opens already swept, so the shot is of a populated list and the e2e has
-    // rows to assert. The mock frame arrives through the real subscribe path, seeded rows do not.
     if (gate) shell.subscribe("lan.ports", {}, upsert, () => {});
-    return () => { try { stopRef.current?.(); } catch { /* */ } };
+    return () => { try { stopRef.current?.(); } catch { } };
   }, []);
 
   const why = shell.whyCapability("lan");
   const seen = orderPorts(rows.map((o) => ({ ...o, ...classify(o) })));
   const tally = tallyPorts(seen);
 
-  // The evidence line, which is also the confidence statement: what it said, or that it said nothing and
-  // the number is all we have. Never a service name — that is the line above.
   const evidence = (r) => {
     if (r.confidence === "gone") return T(t, "portGone");
     if (r.detail) return r.detail;
     if (r.confidence === "protocol" || r.confidence === "ambiguous") return T(t, "portProto");
-    // "postgres?" and not "by port number: postgres" — the question mark says the same thing in one
-    // character, and the sentence version wrapped the row onto a second line to say it.
     return [T(t, r.probe === "silent" || !r.hex ? "portSilent" : "portNoise"), r.hint ? `${r.hint}?` : ""].filter(Boolean).join(" · ");
   };
 
@@ -1213,10 +1016,6 @@ function Ports({ S, t, toast }) {
   </div>`;
 }
 
-// ---- the instrument: one measured fact per line -----------------------------
-// The whole visual language of home. A label in mono caps, the value beside it, a hairline between rows —
-// no card around every fact, because twelve cards is a wall and the facts are what matter. Colour appears
-// only where it MEANS something: green for a thing that is on, error for a thing that is refused.
 const TONE = { ok: "text-success", warn: "text-warning", bad: "text-error" };
 function Field({ label, value, sub, mono, tone, wrap }) {
   return html`<div class="flex items-baseline gap-3 py-2 border-b border-base-content/10 last:border-0">
@@ -1231,12 +1030,8 @@ function Field({ label, value, sub, mono, tone, wrap }) {
   </div>`;
 }
 
-// ---- home: the device, and the four places worth going ----------------------
-// Every function was verified by the console, so the console stops being the front door. What a person
-// actually opens this app for is the state of the phone — and that state was only ever visible as a probe
-// result inside a checklist.
-const $home = atom(null);        // null | "perms" | "console" | "station" | "ports"
-const HOME_MS = 30_000;          // battery and signal move slowly; a 1s poll would be waste, not liveness
+const $home = atom(null);
+const HOME_MS = 30_000;
 
 export function home({ S, t, toast }) {
   const loc = useStore(S.locale);
@@ -1245,9 +1040,6 @@ export function home({ S, t, toast }) {
   const [batt, setBatt] = useState(null);
   const [net, setNet] = useState(null);
   const [roots, setRoots] = useState(null);
-  // Five lines left two thirds of the reference device empty and put the tiles under the dock in a
-  // split window. The answer is not padding — it is that a device panel with five facts is not a device
-  // panel. These are the rest of what the bridge already knows, each on its own line.
   const [ble, setBle] = useState(null);
   const [usb, setUsb] = useState(null);
   const [alarms, setAlarms] = useState(null);
@@ -1255,9 +1047,7 @@ export function home({ S, t, toast }) {
   const [upd, setUpd] = useState(false);
 
   const read = async () => {
-    // Each read stands alone: a phone with no SIM, no granted folder or an older bridge must still show
-    // every other line rather than collapsing the panel into one error.
-    if (shell.has("system.info")) { try { setInfo(await shell.call("system.info", {})); } catch { /* keep the last */ } }
+    if (shell.has("system.info")) { try { setInfo(await shell.call("system.info", {})); } catch { } }
     if (shell.has("system.battery")) { try { setBatt(await shell.call("system.battery", {})); } catch { setBatt(null); } }
     if (shell.has("wifi.info")) { try { setNet(await shell.call("wifi.info", {})); } catch { setNet(null); } }
     if (shell.has("files.roots")) { try { setRoots((await shell.call("files.roots", {})).roots || []); } catch { setRoots(null); } }
@@ -1268,23 +1058,17 @@ export function home({ S, t, toast }) {
   };
   useEffect(() => {
     read();
-    // A screen that only exists after a tap cannot be photographed, and an unphotographed screen is one
-    // nobody has looked at. Gate-only, exactly like the explorer's ?fs — never a URL a user can land on.
     if (gate) {
       const want = new URLSearchParams(location.search).get("home");
       if (want && ["perms", "console", "station", "ports"].includes(want)) { $home.set(want); S.stack.set([want]); }
     }
     const id = setInterval(read, HOME_MS);
-    // Leaving home must leave its history behind with it, or Back would pop a level whose screen is gone.
     return () => { clearInterval(id); $home.set(null); if (S.stack.get().length) S.stack.set([]); };
   }, []);
 
   useEffect(() => S.stack.listen((v) => { if (!(v?.length) && $home.get()) $home.set(null); }), []);
   const open = (id) => { $home.set(id); S.stack.set([id]); };
 
-  // Rebuilding this app produces the SAME package (a digest of the start URL), so Android treats it as an
-  // update rather than a second copy. Normal after a bridge bump: the web deploys in minutes, an APK when
-  // the user reinstalls.
   const update = async () => {
     if (upd) return;
     setUpd(true);
@@ -1293,11 +1077,10 @@ export function home({ S, t, toast }) {
       const blob = await buildApk({ url, name: T(t, "title") });
       const b64 = await new Promise((res, rej) => { const f = new FileReader(); f.onload = () => res(String(f.result).split(",")[1]); f.onerror = rej; f.readAsDataURL(blob); });
       await shell.call("system.update", { name: apkFilename(T(t, "title")), base64: b64 });
-      toast?.(T(t, "updStarted"));   // Android confirms it; we never claim it is installed
+      toast?.(T(t, "updStarted"));
     } catch (e) { toast?.(e?.code || T(t, "updFailed")); } finally { setUpd(false); }
   };
 
-  // one level down: the same root hook, the screen named on it, so the eye can tell the four apart
   const sub = (body) => html`<div data-home data-screen=${screen}>${body}</div>`;
   if (screen === "perms") return sub(html`<${Perms} S=${S} t=${t} toast=${toast} />`);
   if (screen === "console") return sub(html`<${Console} S=${S} t=${t} toast=${toast} />`);
@@ -1318,8 +1101,6 @@ export function home({ S, t, toast }) {
   const TILES = [
     ["store", "lucide:layout-grid", T(t, "storeTile"), null],
     ["station", "lucide:server", T(t, "tileStation"), () => open("station")],
-    // Next to the station on purpose: one opens a port on this phone, the other says which are already
-    // open — and the station is the built-in positive control for the sweep.
     ["ports", "lucide:plug", T(t, "tilePorts"), () => open("ports")],
     ["perms", "lucide:shield-check", T(t, "tilePerms"), () => open("perms")],
     ["console", "lucide:terminal", T(t, "tileConsole"), () => open("console")],
@@ -1387,17 +1168,14 @@ export function home({ S, t, toast }) {
   <//>`;
 }
 
-// ---- files: the explorer, promoted out of a tile ----------------------------
 export function files({ S, t, toast }) {
   const loc = useStore(S.locale);
   useEffect(() => {
     setFs({ open: true });
     syncStack(S);
-    return () => { if (S.stack.get().length) S.stack.set([]); };   // the tab owns its levels; leaving drops them
+    return () => { if (S.stack.get().length) S.stack.set([]); };
   }, []);
 
-  // ONE reaction for every way back — the system button, a gesture, the runtime popping the stack. The
-  // explorer never pops its own levels; it changes state and lets this listener bring the screen along.
   useEffect(() => S.stack.listen((v) => {
     const cur = $fs.get();
     const now = v?.length || 0;

@@ -1,13 +1,7 @@
-// microspec runtime — demod unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { fft, IN_RATE, OUT_RATE, OFFSET_HZ } from "../fmradio.js";
 import { Demodulator, squelchOpen, MODE_PARAMS } from "../demod.js";
 
-// ---- Demodulator (demod.js): NFM + AM round-trips, same synthetic-signal tactic as the FM test ----
-// Feed a HackRF-style int8 IQ block with the modulated carrier at the OFFSET (the front-end shifts it to
-// baseband), then assert the recovered audio's dominant bin ≈ the modulating tone.
 function dominantAudioHz(audioAll, size = 4096) {
   const a = audioAll.slice(-size * 2);
   const re = new Float32Array(size), im = new Float32Array(size);
@@ -42,8 +36,8 @@ Deno.test("Demodulator AM: an amplitude-modulated carrier recovers the audio ton
   for (let b = 0; b < blocks; b++) {
     const bytes = new Uint8Array(per * 2);
     for (let n = 0; n < per; n++, nAll++) {
-      const env = 1 + m * Math.sin(2 * Math.PI * fAudio * nAll / IN_RATE);   // AM envelope
-      phase += 2 * Math.PI * OFFSET_HZ / IN_RATE;                            // steady carrier at the offset
+      const env = 1 + m * Math.sin(2 * Math.PI * fAudio * nAll / IN_RATE);
+      phase += 2 * Math.PI * OFFSET_HZ / IN_RATE;
       const amp = 90 * env / (1 + m);
       bytes[2 * n] = (Math.max(-127, Math.min(127, Math.round(Math.cos(phase) * amp))) + 256) & 0xff;
       bytes[2 * n + 1] = (Math.max(-127, Math.min(127, Math.round(Math.sin(phase) * amp))) + 256) & 0xff;
@@ -55,8 +49,8 @@ Deno.test("Demodulator AM: an amplitude-modulated carrier recovers the audio ton
 });
 
 Deno.test("squelchOpen: opens above threshold, hysteresis holds it open until it drops well below", () => {
-  assertEquals(squelchOpen(-40, -50, false), true);    // strong signal opens
-  assertEquals(squelchOpen(-60, -50, false), false);   // noise stays closed
-  assertEquals(squelchOpen(-52, -50, true, 3), true);  // was open, -52 > -53 → stays open (hysteresis)
-  assertEquals(squelchOpen(-54, -50, true, 3), false); // dropped below -53 → closes
+  assertEquals(squelchOpen(-40, -50, false), true);
+  assertEquals(squelchOpen(-60, -50, false), false);
+  assertEquals(squelchOpen(-52, -50, true, 3), true);
+  assertEquals(squelchOpen(-54, -50, true, 3), false);
 });

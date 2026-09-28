@@ -1,7 +1,3 @@
-// Sub-GHz remote cloner for a HackRF over WebUSB. Headless has no device, so the view runs in demo mode (gate):
-// it seeds connected + a saved-signal list. Real record/transmit need the
-// device, so these cases exercise the UI surface: freq selector, saved list, delete-with-undo,
-// the record island, the settings sheet (history-backed Back), i18n, and the PWA modal.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("#record")) > 0) break; await h.wait(300); } };
 
 export default [

@@ -1,30 +1,16 @@
-// Поголос — the PAGE side of the BLE mesh. The transport is native (the shell's `mesh` flavour, vendored
-// bitchat — docs/research/ble-mesh-build.md §5.5); this file is the thin client the UI talks to, and NOTHING
-// here is protocol: it forwards to `/_rt/shell.js` `mesh.*` actions when the APK provides them, and runs a
-// deterministic MOCK everywhere else so the screen renders in a browser, in the eye (?mock / gate) and in
-// e2e. Candidate for promotion to core `runtime/meshstage.js` once the flavour ships; kept local for the
-// first build (the same way mirage kept a local imagejob copy).
 import { atom, map } from "nanostores";
 import { shell, ERR } from "/_rt/shell.js";
 import { gate } from "/_rt/gate.js";
 import { permAndroid, refreshHeld, heldPermissions } from "/_rt/permissions.js";
 
-// ── stores the views read ────────────────────────────────────────────────────────────────────────
 export const $state = atom({ running: false, peerCount: 0, myPeerID: "", nick: "" });
-// EXACTLY what the bridge sends: the catalogue's mesh.peers entry is { peerID, nick } and nothing else —
-// no hops, no RSSI, no last-seen. Reading a field that is not there is how the room came to say
-// "до undefined стрибків"; anything this app shows about a neighbour is derived from these two.
-export const $peers = atom([]);          // [{ peerID, nick }]
-export const $room = atom([]);           // public messages, oldest→newest: { id, from, nick, text, ts, mine, sys }
-export const $threads = map({});         // peerID → [{ id, text, ts, mine, status }]
-export const $queued = atom(false);      // a public send with no one nearby → store-and-forward
-export const $fault = atom(null);        // { code, detail } — the transport refused, and the room says so
-export const $log = atom([]);            // the app's own ring: what we asked the bridge, what came back
+export const $peers = atom([]);
+export const $room = atom([]);
+export const $threads = map({});
+export const $queued = atom(false);
+export const $fault = atom(null);
+export const $log = atom([]);
 
-// ── the ring ─────────────────────────────────────────────────────────────────────────────────────
-// A radio bug is invisible: nothing crashes, nobody answers, and the honest empty state looks exactly
-// like a broken one. Every crossing of the bridge is noted here so the «Логи» tab can be copied out of
-// the phone verbatim — this is the only way a two-device test says anything at all.
 const RING = 200;
 export function note(kind, text) {
   const line = { t: Date.now(), kind, text: String(text) };
@@ -34,11 +20,6 @@ export function note(kind, text) {
 }
 const faultOf = (e) => ({ code: (e && e.code) || ERR.failed, detail: (e && (e.detail || e.message)) || String(e) });
 
-// ── the field's signal ───────────────────────────────────────────────────────────────────────────
-// Read every frame by GlStage through `vary` and `points`, so the view never re-renders to move the
-// field and there is no second rAF loop in the app. The sweep phase is INTEGRATED here rather than
-// computed as time × rate: multiplying a running clock by a changing rate jerks the whole field the
-// moment the rate moves (tide's lesson, its .frag says the same).
 const env = { scan: 0, presence: 0, pulse: 0, alone: 1, last: 0 };
 
 /** A stable point on the field for an identity — NOT a position in the room. Unit space: [x, y] in
@@ -46,18 +27,12 @@ const env = { scan: 0, presence: 0, pulse: 0, alone: 1, last: 0 };
 export function siteOf(peerID) {
   let h = 2166136261;
   for (let i = 0; i < peerID.length; i++) { h ^= peerID.charCodeAt(i); h = Math.imul(h, 16777619); }
-  const a = ((h >>> 0) % 3600) / 3600 * Math.PI * 2;        // angle from the hash
-  const rad = 0.55 + (((h >>> 11) & 255) / 255) * 0.45;      // ring between .55 and 1 of the field radius
-  const ph = ((h >>> 19) & 255) / 255;                       // its own breathing phase
+  const a = ((h >>> 0) % 3600) / 3600 * Math.PI * 2;
+  const rad = 0.55 + (((h >>> 11) & 255) / 255) * 0.45;
+  const ph = ((h >>> 19) & 255) / 255;
   return [Math.cos(a) * rad, Math.sin(a) * rad, ph];
 }
 
-// ── ONE layout, TWO renderers ────────────────────────────────────────────────────────────────────
-// The chips live in the field's box (measured by the view, never assumed — it moves with the chrome and
-// the split shapes); the shader draws in viewport uv (origin at the viewport centre, unit = min(w,h),
-// y UP). Both must agree to the pixel, so the layout is done ONCE here in box pixels and converted for
-// the shader — the first cut let each side derive its own and the wells sat a hundred pixels from the
-// chips. `points[0]` is ME: the sweep and the ripple leave from it, and it is never drawn as a well.
 export const fieldBox = { x: 0, y: 0, w: 0, h: 0 };
 /** Pixel centre and radius of the field's layout circle, from the measured box. */
 export function fieldGeom() {
@@ -79,7 +54,7 @@ const toUv = (px, py) => {
 export function sites() {
   if (!fieldBox.w) return [];
   const { cx, cy } = fieldGeom();
-  const out = [...toUv(cx, cy), 0, 0];                       // slot 0 = the origin, z = 0: not a well
+  const out = [...toUv(cx, cy), 0, 0];
   for (const p of $peers.get().slice(0, 7)) {
     const id = p.peerID || "";
     const { px, py } = placeOf(id);
@@ -107,29 +82,18 @@ export function field() {
 
 
 const live = () => shell.present && shell.has("mesh.start");
-// The mock is ONLY for the eye and e2e (gate) and an explicit ?mock/?demo — NEVER a real browser or an APK
-// without the mesh flavour. A live user with no transport must see the honest empty state, not fabricated
-// peers and messages: an app that invents conversations is an app that lies.
 const demo = () => gate || (typeof location !== "undefined" && /[?&](mock|demo)=/.test(location.search));
 let cancels = [];
-// re-entrancy / debounce guards for start + scan-recovery (see rescan + visibilitychange)
 let starting = false;
 let rescanning = false;
 let hiddenAt = 0;
 
-// ── real transport (APK) ─────────────────────────────────────────────────────────────────────────
 async function startLive() {
   note("call", "mesh.start");
   const { peerID, nick } = await shell.call("mesh.start", {});
   note("ok", `mesh.start → peerID ${peerID || "—"} nick ${nick || "—"}`);
   $state.set({ ...$state.get(), running: true, myPeerID: peerID, nick });
-  // The shell asks Android for the four permissions and then runs the action REGARDLESS of the answer
-  // (ShellBridge.withPermissions). So a refused BLUETOOTH_ADVERTISE looks exactly like an empty room:
-  // the node starts, nothing is transmitted, nothing fails. Read back what the OS actually held.
   await checkHeld();
-  // EVERY subscribe is answered with a control frame — `stream(id, ackFrame())` runs before any logic, so
-  // the first thing each of these three streams delivers is `{ack:true}`, not data. Taking it for data put
-  // an empty "Invalid Date" bubble in the room and, worse, reset the neighbour count to zero on `peers`.
   const data = (name) => (fn) => (v) => { if (v && v.ack !== undefined) return note("ack", name); if (v) fn(v); };
   cancels.push(shell.subscribe("mesh.peers", {}, data("mesh.peers")((list) => {
     const peers = list?.peers || [];
@@ -156,8 +120,6 @@ async function startLive() {
   }), (e) => note("err", `mesh.receipts: ${faultOf(e).code} ${faultOf(e).detail}`)));
 }
 
-// What the OS actually granted, versus what the mesh capability rests on. A missing one is THE fault:
-// the node runs and stays silent, which no other signal in the app distinguishes from an empty room.
 async function checkHeld() {
   await refreshHeld();
   const held = heldPermissions();
@@ -168,69 +130,41 @@ async function checkHeld() {
 }
 
 export async function start() {
-  // `running` is only set true AFTER the awaited mesh.start; a synchronous `starting` latch closes that
-  // window so two triggers (e.g. two fast foreground returns) can't both run startLive and double-subscribe.
   if ($state.get().running || starting) return;
   starting = true;
   try {
-    // demo FIRST: under the eye/e2e `gate` makes the bridge report present with single-event catalogue mocks,
-    // which would show one stray message. Our own mock paints a full, deterministic conversation instead.
     if (demo()) return await startMock();
     if (live()) {
-      // Never let this reject into nothing: an unhandled rejection here left `running` false, the room
-      // showing "no one nearby", and the actual reason — a refused permission, a stale bridge — nowhere.
       try { return await startLive(); }
       catch (e) { const f = faultOf(e); $fault.set(f); note("err", `mesh.start: ${f.code} ${f.detail}`); return; }
     }
     note("idle", shell.present ? `no mesh.start on this bridge (v${shell.version})` : "no shell — browser");
-    // Honest idle: no transport here (a plain browser, or the APK before the mesh flavour exists). Running,
-    // but zero peers and zero messages — the room shows "quiet / no one nearby", which is the truth.
     $state.set({ ...$state.get(), running: true, myPeerID: "", nick: $state.get().nick || "" });
   } finally { starting = false; }
 }
 export function stop() { cancels.forEach((c) => c && c()); cancels = []; }
 
-// Manual rescan: when the app is backgrounded a while, Android throttles/stops the native BLE scan while
-// the mesh SERVICE object stays alive — so on return the room reads "no one nearby" though neighbours are
-// calling. The catch is native `mesh.start` is IDEMPOTENT: MeshLayer.start() early-returns when its
-// BluetoothMeshService already exists (`if (svc == null)` — edge/template/app/src/mesh/.../MeshLayer.java),
-// so a second `mesh.start` never re-`startServices()` and never re-arms the scanner. Only a FULL app
-// restart cleared it, because the process death nulled that service. So the transport must be torn DOWN
-// first: `mesh.stop` nulls the native service, then start()→mesh.start rebuilds it and re-arms scan +
-// advertise. Cancelling the page subscriptions alone (stop()) was never enough.
 export async function rescan() {
-  if (rescanning) return;                    // a rescan is already tearing down/rebuilding — don't stack
+  if (rescanning) return;
   rescanning = true;
   try {
     note("rescan", "manual restart of the mesh transport");
-    stop();                                  // drop the page's streams (also cancels the native subscriptions)
+    stop();
     if (live()) {
-      // Tear the native transport down so the next mesh.start is not a no-op and truly re-arms the scanner.
       note("call", "mesh.stop");
       try { const r = await shell.call("mesh.stop", {}); note("ok", `mesh.stop → running ${r?.running}`); }
       catch (e) { const f = faultOf(e); note("err", `mesh.stop: ${f.code} ${f.detail}`); }
     }
-    // Do NOT blank $peers/peerCount here: that made every recovery flash "no one nearby" and read as peers
-    // dropping. running:false is only so start() (which early-returns while running) will proceed; the fresh
-    // mesh.peers stream repopulates the room in place.
     $fault.set(null);
     $state.set({ ...$state.get(), running: false });
     await start();
   } finally { rescanning = false; }
 }
 
-// Backgrounding is what kills the scan (doze / background-scan throttling), and the page gets no signal
-// that it died — mesh.state still reports running because the native service object is alive. So the one
-// honest trigger the page HAS is return-to-foreground: rescan then, which tears the transport down and
-// rebuilds it (above). Live transport only — under the mock/gate/browser this would reset the screen for
-// nothing. Registered once at import; guarded for preflight (no document).
 if (typeof document !== "undefined" && typeof document.addEventListener === "function") {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
     if (document.visibilityState === "visible" && live() && $state.get().running) {
-      // Only rebuild if we were backgrounded long enough for Android to actually throttle/stop the scan.
-      // A brief glance away leaves a healthy transport — tearing it down then would BE the peer-drop the
-      // user sees. rescan() is also self-guarded against overlap.
       if (Date.now() - hiddenAt < 3000) return;
       note("wake", "foreground — rescanning the mesh transport");
       rescan();
@@ -247,7 +181,7 @@ export async function sendPublic(text) {
   text = text.trim(); if (!text) return;
   const msg = { id: rid(), from: $state.get().myPeerID, nick: $state.get().nick, text, ts: Date.now(), mine: true };
   $room.set([...$room.get(), msg]);
-  $queued.set($state.get().peerCount === 0);       // no one to hear it yet → it waits
+  $queued.set($state.get().peerCount === 0);
   if (!live()) return;
   note("out", `public: ${text}`);
   try { await shell.call("mesh.sendPublic", { text }); }
@@ -268,11 +202,6 @@ export async function sendPrivate(peerID, text) {
 
 const rid = () => Math.random().toString(36).slice(2, 10);
 
-// ── diagnosis ────────────────────────────────────────────────────────────────────────────────────
-// One reading of every gate between the page and the air, in the order they can fail. Nothing is
-// inferred: each field is what a call answered, or null because the call could not be made. The two
-// silent killers are first — a refused Android permission, and location services off, which makes a
-// BLE scan return an empty result with no error at all.
 export async function diagnose() {
   const d = {
     at: new Date().toISOString(),
@@ -280,9 +209,6 @@ export async function diagnose() {
     capability: shell.hasCapability("mesh") ? "granted" : `no — ${shell.whyCapability("mesh") || "unknown"}`,
     meshStart: shell.has("mesh.start") ? "available" : `no — ${shell.why("mesh.start") || "unknown"}`,
     needs: permAndroid("mesh"),
-    // What the INSTALLED apk actually grants, from its own baked-in bridge config. The page's own
-    // catalogue can say "available" while the Java side refuses: `allowed()` matches the action's
-    // capability against THIS string, so when the two disagree, this is the half that decides.
     caps: null, device: null,
     held: null, missing: null, locationOn: null, ble: null, mesh: null, bridgeLog: null,
     state: { ...$state.get() }, fault: $fault.get(),
@@ -328,21 +254,14 @@ export function report(d) {
   return L.join("\n");
 }
 
-// ── the mock (browser / eye / e2e) ─────────────────────────────────────────────────────────────
-// Deterministic under the gate so shots and e2e never flake; a light simulation in a plain browser so the
-// app is explorable. Two neighbours, one two hops away, a short public thread — a POPULATED screen.
 function startMock() {
   const me = "you";
   note("mock", "no transport — the deterministic demo is driving this screen");
   $state.set({ running: true, peerCount: 0, myPeerID: me, nick: $state.get().nick || "anon4f2a" });
-  // `?mock=empty` demos the empty state in the eye (no peers, no messages); `?mock=peers` the field with
-  // neighbours and no words yet — so every state of the map is shootable, not just the two easy ones.
   const q = typeof location !== "undefined" ? location.search : "";
   if (/[?&]mock=empty/.test(q)) return;
   const peersOnly = /[?&]mock=peers/.test(q);
   const seed = () => {
-    // The SAME shape the bridge sends — { peerID, nick } and nothing else, with peerIDs the length the
-    // transport really uses. A mock richer than the wire is a mock that hides the bug it was meant to show.
     note("peers", "2 · anon5aa3, мандрівник");
     $peers.set([
       { peerID: "a454fd4358ecdfbd", nick: "anon5aa3" },
@@ -361,8 +280,8 @@ function startMock() {
       { id: "d2", text: "привіт, шифровано", ts: Date.now() - 25000, mine: true, status: "read" },
     ] });
   };
-  if (gate) { seed(); return; }        // instant, fixed — the eye/e2e see the full screen
-  setTimeout(seed, 900);               // a plain browser watches neighbours "appear"
+  if (gate) { seed(); return; }
+  setTimeout(seed, 900);
 }
 function mockAck(peerID, id) {
   const bump = (status, d) => setTimeout(() => {

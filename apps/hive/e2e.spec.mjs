@@ -1,20 +1,13 @@
-// The radio does not exist in Chromium, so the app seeds a deterministic field under the gate — an empty
-// screen photographs exactly like a broken one, and a test against it asserts nothing.
-//
-// Every test names the tab it needs first: they share one page, and a test that inherits wherever the
-// previous one stopped fails for reasons unrelated to what it checks.
 export default [
   {
     name: "hive: every radio is a cell, and each one is counted on its own", run: async (h) => {
       await h.click('[data-tab="hive"]'); await h.wait(500);
       h.expect((await h.count("[data-mark]")) === 1, "соти не змонтувались");
       h.expect((await h.count("[data-live]")) >= 1, "немає елемента, який не існує без показань");
-      // One cell per device, drawn as SVG — so the picture is in the DOM and does not depend on WebGL.
       h.expect((await h.count("[data-cell]")) === 8, `очікував 8 комірок, знайшов ${await h.count("[data-cell]")}`);
       for (const k of ["ble", "wifi", "lte"]) {
         h.expect((await h.count(`[data-cell][data-kind="${k}"]`)) >= 1, `у сітці немає ${k}`);
       }
-      // BLE, Wi-Fi and cell must be tallied SEPARATELY — one total hides a radio that stopped answering.
       for (const k of ["ble", "wifi", "lte"]) {
         h.expect((await h.count(`[data-legend-kind="${k}"]`)) === 1, `у легенді немає ${k}`);
       }
@@ -24,28 +17,23 @@ export default [
   },
   {
     name: "list: rows carry a percentage, and a vendor only where the address has one", run: async (h) => {
-      await h.click('[data-tab="list"]'); await h.wait(900);   // the 519 KB registry loads once, here
+      await h.click('[data-tab="list"]'); await h.wait(900);
       const rows = await h.count("[data-dev]");
       h.expect(rows >= 8, `очікував усі три радіо у списку, знайшов ${rows}`);
       for (const k of ["ble", "wifi", "lte"]) {
         h.expect((await h.count(`[data-dev][data-kind="${k}"]`)) >= 1, `у списку немає ${k}`);
       }
-      // Every row states a percentage of its OWN radio's range.
       h.expect((await h.count("[data-pct]")) === rows, "є рядки без відсотка");
       h.expect(/%/.test(await h.text("[data-pct]")), "відсоток без знака");
 
-      // The honesty rule, asserted both ways: registered prefixes resolve, rotating addresses do not.
       const vendors = await h.count("[data-vendor]");
       h.expect(vendors >= 2, `виробника не показано для жодної справжньої адреси (${vendors})`);
       h.expect(vendors < rows, "виробника показано навіть для ротаційних адрес — це вигадка");
 
-      // The same rule for the cell radio: the serving cell states CID/LAC, its neighbour gave neither and
-      // must stay bare. A number printed there would be an identifier the radio never broadcast.
       h.expect((await h.count("[data-cellid]")) === 1, `очікував CID/LAC рівно в однієї соти, знайшов ${await h.count("[data-cellid]")}`);
       const cellid = await h.text("[data-cellid]");
       h.expect(/CID \d+ · LAC \d+/.test(cellid), `рядок соти без CID/LAC: ${cellid}`);
 
-      // No distance, anywhere. Bands and dBm only.
       const body = await h.text("[data-live]");
       h.expect(/dBm/.test(body), "немає вимірювання в dBm");
       h.expect(!/метр|metre|meter/i.test(body), `список заявив відстань: ${body.slice(0, 160)}`);
@@ -54,13 +42,10 @@ export default [
   {
     name: "list: the order is systemic, persisted, and does not reshuffle", run: async (h) => {
       await h.click('[data-tab="list"]'); await h.wait(400);
-      // The rendered text carries the order, so no new helper is needed to see a reshuffle.
       const before = await h.text("[data-live]");
       await h.wait(900);
       const after = await h.text("[data-live]");
       h.expect(before === after, "список пересортувався сам, без жодної зміни в даних");
-      // Order and radio filtering are the runtime's, not a hand-rolled control: spec.filters renders the
-      // header button and the sheet, and the sheet is history-backed like every other screen.
       h.expect((await h.count("#filter-btn")) === 1, "спека не дала системної кнопки фільтра");
       await h.click("#filter-btn"); await h.wait(300);
       h.expect((await h.count("#sheet[open]")) === 1, "аркуш фільтрів не відкрився");
@@ -78,12 +63,9 @@ export default [
       h.expect((await h.count("#pick[open]")) === 1, "аркуш вибору цілі не відкрився");
       h.expect((await h.count("[data-pick-dev]")) >= 4, "у виборі цілі немає BLE-пристроїв");
       await h.click("[data-pick-dev]"); await h.wait(400);
-      // A closed <dialog> stays in the DOM, so only the `open` attribute actually changes.
       h.expect((await h.count("#pick[open]")) === 0, "вибір цілі не закрив аркуш");
       h.expect((await h.count("[data-petal]")) === 1, "обмахування не намалювало пелюстку");
       h.expect((await h.count("[data-bearing]")) === 1, "пелюстка стягнулась, але азимут не показано");
-      // The hot/cold half of "lead me there": once a target is picked, its live strength sits in the
-      // dial's centre. The trend mark is NOT asserted — one gate sighting can never clear the 6 dB test.
       h.expect((await h.count("[data-strength]")) === 1, "у центрі дзиґи немає живого сигналу цілі");
     },
   },
@@ -92,7 +74,6 @@ export default [
       await h.click('[data-tab="guard"]'); await h.wait(400);
       h.expect((await h.count("[data-watch]")) >= 4, "список нагляду порожній");
       h.expect(/\d/.test(await h.text("[data-policy]")), "політика без чисел");
-      // Nothing has travelled under the gate, so the guard must stay quiet AND explain itself.
       h.expect((await h.count("[data-flag]")) === 0, "вартовий підняв тривогу без пройденого шляху");
       h.expect((await h.count("[data-sep]")) >= 1, "пристрій, що заявив про відділення, не позначено");
     },
@@ -103,8 +84,6 @@ export default [
       await h.click('[data-loc="en"]'); await h.wait(250);
       h.expect(/Hive|Hunt|Guard/i.test(await h.bodyText()), "не EN");
       await h.click('[data-loc="uk"]'); await h.wait(250);
-      // Case-insensitive: the dock uppercases in CSS and bodyText reads innerText, which applies
-      // text-transform, so a cased regex never matches "СОТИ".
       h.expect(/Соти|Пошук|Вартовий/i.test(await h.bodyText()), "не UA");
       await h.click('[data-tab="hive"]'); await h.wait(150);
     },
@@ -120,12 +99,6 @@ export default [
     },
   },
   {
-    // These two run LAST on purpose: they leave a find SELECTED, and the hunt screen's own test asserts that
-    // no petal exists until something is chosen. A suite that shares one page shares its state.
-    //
-    // A tap copies the whole find. The clipboard cannot be read back in a headless browser (paste is refused)
-    // and CI refuses the write as well, so the assertion is on the DOSSIER the view mirrors into the DOM —
-    // the address and its line count — while `data-copied-ok` carries whether the clipboard actually took it.
     name: "list: a tap copies the find and still aims the hunt", run: async (h) => {
       await h.click('[data-tab="list"]'); await h.wait(400);
       await h.tap('[data-dev="24:0A:C4:11:22:33"]'); await h.wait(400);
@@ -139,8 +112,6 @@ export default [
     },
   },
   {
-    // «Перевірити» has three answers and they must stay three: a place, "nobody surveyed it", and "the
-    // lookup is broken". The gate answers from a fixture, so this exercises the UI, not the network.
     name: "check: every row asks the world, and a find is placed on the map or the row says why not", run: async (h) => {
       await h.click('[data-tab="list"]'); await h.wait(400);
       const rows = await h.count("[data-row]");
@@ -150,7 +121,6 @@ export default [
       h.expect((await h.count("[data-where]")) === 1, "карта не відкрилась");
       await h.back(); await h.wait(300);
       h.expect((await h.count("[data-where]")) === 0, "Back не закрив карту");
-      // A cell the database does not know says so, in words, under its own row, and opens nothing.
       await h.tap('[data-check="lte:301"]'); await h.wait(700);
       h.expect((await h.attr('[data-row="lte:301"]', "data-verdict")) === "unknown", "невідома сота не назвалась невідомою");
       h.expect((await h.count('[data-row="lte:301"] [data-verdict-line]')) === 1, "немає пояснення під рядком соти");

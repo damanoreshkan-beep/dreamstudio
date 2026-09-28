@@ -1,22 +1,9 @@
-// arc — find a BOOK. Two requests: Wikipedia's search (which also carries the Wikidata QID and a
-// thumbnail), then ONE batched Wikidata lookup that types every candidate at once. Wikipedia's own search
-// is not book-only — "Dune" returns the landform, the film, the franchise and a disambiguation page — and
-// `haswbstatement:` is not parsed on en.wikipedia (measured: 0 hits), so the typing has to come from the
-// QID roundtrip. The allowlist behind `isBook` came from a P31 census over 39 known books, not a guess.
-// See apps/arc/RESEARCH.md.
-//
-// Grounding is always the ENGLISH article: en coverage is 82% against uk's 64%, and uk actively resolves
-// some titles to the FILM (`Там, де співають раки` → the adaptation, a plot summary of the wrong work).
-// The reader's language is a separate concern — the AI writes the acts in their locale.
 import { isBook } from "/_rt/acts.js";
 import { gate } from "/_rt/gate.js";
 import { CURATED, SHELVES } from "./curated.js";
 
 const WP = "https://en.wikipedia.org/w/api.php";
 const WD = "https://www.wikidata.org/w/api.php";
-// A browser cannot set User-Agent (forbidden header); `Api-User-Agent` is what the Wikimedia policy asks
-// browser applications to send instead. 2026 gateway limit for a browser client is 200 req/min — this app
-// spends 2 per search, so the limit is never the constraint, but identifying ourselves is still the deal.
 export const WIKI_HEADERS = { "Api-User-Agent": "microspec-arc/1.0 (https://github.com/damanoreshkan-beep/microspec)" };
 
 const jget = async (url, timeout = 10000) => {
@@ -29,16 +16,6 @@ const jget = async (url, timeout = 10000) => {
   } finally { clearTimeout(t); }
 };
 
-// A placeholder is BOARD, not decoration, and it is the SHELF's common look (54% of these books have no
-// thumbnail). The first cut painted a grey-brown face (hsl 24/12%/18–26%) — a lighter panel on a black page,
-// the one mistake the luminous material names first. This is the material's WELL instead (`sf-inset`, the
-// same three terms theme-lum.css composes: the recessed face, a dim rim, the dark inner top where the light
-// does not reach), with the first letter as a MARK in the accent — a filament with a soft bloom, like the
-// icons. Theme-aware inside an <img>: Chrome hands the embedding element's `color-scheme` to an SVG image,
-// so the `prefers-color-scheme: light` block follows `[data-theme]` (which sets color-scheme), not the OS —
-// paper gets the paper well and the tint instead of the bloom. Where that does not apply the well stays
-// black, which is what the app icons stand on anyway. No hue per title: two spines tell apart by their
-// letter, never by a colour that means nothing.
 export const spine = (title) => {
   const ch = (String(title || "").trim()[0] || "?").toUpperCase().replace(/[<>&]/g, "?");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="450" viewBox="0 0 300 450">`
@@ -54,18 +31,11 @@ export const spine = (title) => {
   return "data:image/svg+xml," + encodeURIComponent(svg);
 };
 
-// A book with no cover must still look like a book — Wikidata P18 is present on only 64% of them and the
-// search thumbnail on fewer still, so the placeholder is not an edge case, it is the common path.
 const coverFor = (title, thumb) => thumb || spine(title);
 
 export async function load(filters) {
   const q = (filters?.q || "").trim();
-  // The gate never touches the network and never types, so it gets the SHELVES — the real landing screen,
-  // built entirely from committed data. Shooting the search prompt instead would photograph the one screen
-  // that proves nothing.
   if (gate) return loadShelves();
-  // No query means BROWSE, not "prompt me to type": a catalogue is browsed first and searched second.
-  // `browse: true` on the tab is what tells the runtime that, and this is the stock it shows.
   if (!q) return loadShelves();
 
   const search = await jget(`${WP}?action=query&generator=search&gsrsearch=${encodeURIComponent(q)}`
@@ -75,12 +45,9 @@ export async function load(filters) {
   const qids = pages.map((p) => p.pageprops?.wikibase_item).filter(Boolean);
   if (!qids.length) return { items: [], meta: { q } };
 
-  // ONE call for every candidate — ten separate lookups would be ten round trips for the same answer.
   const ent = await jget(`${WD}?action=wbgetentities&ids=${qids.join("|")}&props=claims|labels`
     + `&languages=en|uk&format=json&formatversion=2&origin=*`);
 
-  // Authors arrive as QIDs; collect them and resolve their labels in a second batched call rather than
-  // showing a reader "Q7934" where the author's name belongs.
   const typed = new Map();
   const authorQids = new Set();
   for (const [id, e] of Object.entries(ent.entities || {})) {
@@ -97,7 +64,7 @@ export async function load(filters) {
       const a = await jget(`${WD}?action=wbgetentities&ids=${[...authorQids].join("|")}&props=labels`
         + `&languages=en|uk&format=json&formatversion=2&origin=*`);
       for (const [id, e] of Object.entries(a.entities || {})) names[id] = e.labels?.en?.value || e.labels?.uk?.value || "";
-    } catch { /* fail-open: a missing author name is a blank line, not a broken card */ }
+    } catch { }
   }
 
   const items = [];
@@ -121,41 +88,28 @@ export async function load(filters) {
   return { items, meta: { q, found: items.length } };
 }
 
-// ── the landing shelves ──────────────────────────────────────────────────────────────────────────────────
-// Everything the shelves need except the covers is already committed (title, pageid, author in both
-// locales, all pre-verified), so this is ONE batched request for every shelf at once — not one per shelf,
-// and certainly not one per book. If it fails, the shelves still render with generated tiles: a cover is an
-// enhancement, and 54% of these books have no Wikipedia thumbnail anyway.
 async function loadShelves() {
   const flat = SHELVES.flatMap((g) => CURATED[g].map((b) => ({ ...b, group: g })));
   let thumbs = {};
-  // The gate has no network. Generated tiles are not a degraded state here — 54% of these books have no
-  // Wikipedia thumbnail on a real device either, so this is what a real shelf largely looks like.
   if (!gate) try {
     const r = await jget(`${WP}?action=query&pageids=${flat.map((b) => b.pageid).join("|")}`
       + `&prop=pageimages&piprop=thumbnail&pithumbsize=320&format=json&formatversion=2&origin=*`, 12000);
     for (const p of r.query?.pages || []) if (p.thumbnail) thumbs[p.pageid] = p.thumbnail.source;
-  } catch { /* fail-open: generated tiles carry the shelf perfectly well */ }
+  } catch { }
   const items = flat.map((b) => ({
     id: b.id,
     pageid: b.pageid,
     title: b.title,
-    // The card subtitle is one pre-joined string (a card renders text, not fields), and the author is
-    // carried in both locales so a Ukrainian reader does not meet "Panas Myrnyi" on a Ukrainian shelf.
     byline: b.uk,
     bylineEn: b.en,
     cover: thumbs[b.pageid] || spine(b.title),
     hasCover: !!thumbs[b.pageid],
     url: `https://en.wikipedia.org/?curid=${b.pageid}`,
-    // one truthy flag per shelf — `sections` selects on a predicate, and a predicate is a truthy item key
     ...Object.fromEntries(SHELVES.map((g) => [`g_${g}`, g === b.group])),
   }));
   return { items, meta: { found: items.length } };
 }
 
-// ── the plot, fetched only for the book actually opened ──────────────────────────────────────────────────
-// Two more requests. The section is resolved BY NAME every time: the numeric index moved 2 → 3 on
-// `Dune (novel)` between two revisions four minutes apart, and `section=Plot` is rejected outright.
 import { findPlotSection, cleanPlotText, foldPlot } from "/_rt/acts.js";
 
 export async function loadPlot(title) {
@@ -166,8 +120,6 @@ export async function loadPlot(title) {
   const body = await jget(`${WP}?action=parse&page=${encodeURIComponent(title)}&section=${hit.index}`
     + `&prop=text&format=json&formatversion=2&origin=*`);
   const html = body.parse?.text || "";
-  // A real parser, not a regex: the section HTML carries <sup> citation markers (which textContent would
-  // render as "[12]"), <style> blobs, and tables. Strip the nodes BEFORE reading the text out of them.
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("sup, style, table, .mw-editsection, .reference, .hatnote").forEach((n) => n.remove());
   const text = cleanPlotText(doc.body.textContent, hit.line);

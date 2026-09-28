@@ -1,7 +1,3 @@
-// Air Quality — the live European Air Quality Index (EAQI 0–100+) for Kyiv as a colour-coded gauge, a
-// 24-hour forecast, the key pollutants each banded by its own EEA sub-index, and the pollen forecast.
-// Data from Open-Meteo Air Quality (CAMS Europe; CORS *, keyless, direct). A band is a MARK (arc, bar, dot)
-// and never a text colour; the banding maths lives in /_rt/air.js (unit-tested), not here.
 import { html } from "htm/preact";
 import { useState, useEffect } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -12,27 +8,18 @@ import { geo } from "/_rt/sensors.js";
 import { isGate, MOCK, gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const KYIV = { lat: 50.45, lng: 30.52, place: null, located: false }; // fallback — place null → T("place")
+const KYIV = { lat: 50.45, lng: 30.52, place: null, located: false };
 const urlFor = (lat, lng) =>
   `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lng}` +
   "&current=european_aqi,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,alder_pollen,birch_pollen,grass_pollen,mugwort_pollen,ragweed_pollen,olive_pollen" +
   "&hourly=european_aqi&timezone=auto&forecast_days=2";
 
-// per band 0..5 — the EEA ramp: good green → fair lime → moderate yellow → poor orange → very-poor red →
-// extreme purple. These are MARK colours ONLY (design.md: colour = meaning, never as text): the gauge arc,
-// the forecast bars and the dot beside every banded value. A mark answers to the 3:1 non-text floor and
-// every band clears it on both grounds. The text ramp that used to sit next to this is gone — the number,
-// the band word and each pollutant reading are INK now, and the band is said by the mark beside them, which
-// is the one representation that survives both themes without a per-theme retune.
 const AQ = ["#41C06F", "#9BCB3C", "#E4C13A", "#E7742E", "#EC5A4A", "#C94BBA"];
 const clamp = (b, n) => Math.max(0, Math.min(n, b));
 const fillFor = (b) => AQ[clamp(b, 5)];
 const AQI_KEYS = ["aqiGood", "aqiFair", "aqiModerate", "aqiPoor", "aqiVeryPoor", "aqiExtreme"];
-// pollen band 0..4 → an AQ mark (none = no colour); low green, moderate yellow, high orange, v.high red
 const POLLEN_DOT = [null, fillFor(0), fillFor(2), fillFor(3), fillFor(4)];
-// the band mark: a filled disc in the band's hue, the same size as the pollen dots below
 const dot = (fill) => html`<span class="w-2 h-2 rounded-full shrink-0" aria-hidden="true" style=${`background:${fill}`}></span>`;
-// the one micro-label recipe (design.md): mono, the density token, uppercased by CSS
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const POLLEN_KEYS = ["pnNone", "pnLow", "pnModerate", "pnHigh", "pnVeryHigh"];
 
@@ -54,11 +41,9 @@ const POLLENS = [
 
 const hhmm = (iso) => String(iso).slice(11, 16);
 
-// gate/mock sample — a "very poor" ozone day with active summer pollen, so the shot exercises the whole
-// colour ramp and the widest band word, and e2e is deterministic.
 function makeSample() {
   const base = "2026-07-17T";
-  const wave = [72, 68, 61, 55, 58, 66, 79, 88, 92, 86, 78, 70]; // 12 × 2h ≈ 24h
+  const wave = [72, 68, 61, 55, 58, 66, 79, 88, 92, 86, 78, 70];
   const hours = Array.from({ length: 24 }, (_, i) => ({
     time: `${base}${String(i).padStart(2, "0")}:00`,
     aqi: wave[Math.floor(i / 2)] ?? 70,
@@ -73,11 +58,6 @@ function makeSample() {
   };
 }
 
-// a 270° gauge arc: track + value arc (fill), proportional to AQI/100 (capped).
-// The track is `--sf-track-face`, the design system's ONE sanctioned tone step: a groove 7px wide cannot
-// hold a shadow pair, so theme.css defines a real colour for exactly this (it is what the range and the
-// progress bar sit in). It used to be `base-300` — the right idea reached for by hand, one shade off the
-// token every other trough in the farm uses, and therefore drifting the moment the palette moves.
 const gauge = (aqi, band) => {
   const R = 42, C = 2 * Math.PI * R, ARC = 0.75, frac = Math.min(1, aqi / 100);
   return html`<svg viewBox="0 0 100 100" class="w-36 h-36" aria-hidden="true">
@@ -92,8 +72,6 @@ export function air({ S }) {
   const [data, setData] = useState(isGate || MOCK ? makeSample() : null);
   const [err, setErr] = useState(false);
 
-  // Resolve the device location once (one fix is enough for a slow-moving reading); keep Kyiv on refusal.
-  // The city name comes from a keyless reverse geocoder in the active language — a data value, not a key.
   useEffect(() => {
     if (isGate || MOCK || !geo.supported) return;
     let stop = () => {};
@@ -106,12 +84,11 @@ export function air({ S }) {
           .then((g) => { const name = g.city || g.locality || g.principalSubdivision; if (name) setLoc((l) => ({ ...l, place: name })); })
           .catch(() => {});
       },
-      () => {}, // denied / unavailable → the Kyiv fallback stands
+      () => {},
     );
     return () => stop();
   }, []);
 
-  // Fetch air quality for the current coordinates — refires when the fix replaces the fallback.
   useEffect(() => {
     if (isGate || MOCK) return;
     let live = true;
@@ -128,18 +105,12 @@ export function air({ S }) {
       } catch { if (live) setErr(true); }
     };
     load();
-    const id = setInterval(load, 300000); // air quality moves slowly; a 5-min poll is ample
+    const id = setInterval(load, 300000);
     return () => { live = false; clearInterval(id); };
   }, [loc.lat, loc.lng]);
 
   const ready = useReveal(!!data);
-  // the runtime's own empty-state shape (render.js Empty): the data-empty hook hangs the scatter decor
   if (err && !data) return html`<div data-air data-ready="0" data-empty class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6"><span data-mascot aria-hidden="true"></span>${Icon("lucide:cloud-off", "text-4xl")}<span class="font-medium">${T(t, "statusError")}</span></div>`;
-  // structure-shaped skeleton: gauge ring + forecast band + two stat lists, with decoding value slots.
-  // The ring is the same trough token as the live gauge above, so the skeleton and the thing it stands in
-  // for are made of one material instead of two neighbouring greys. The forecast placeholder dropped its
-  // hairline: it is the WELL the decoding chart lands in, and `sf-inset` is the farm's word for a well —
-  // the border was an edge drawn around a recess that already has one.
   if (!ready) return html`<div data-air data-ready="0" class="flex flex-col gap-[calc(var(--ms-gap)*1.5)] items-center">
     <div class="w-36 h-36 rounded-full border-[6px] flex items-center justify-center" style="border-color:var(--sf-track-face)"><span class="text-5xl font-bold tabular-nums text-muted"><${Scramble} len=${2} /></span></div>
     <div class="text-lg font-bold text-muted"><${Scramble} len=${8} /></div>
@@ -150,7 +121,6 @@ export function air({ S }) {
   const c = data.current;
   const aqi = Math.round(c.european_aqi ?? 0), band = eaqiBand(c.european_aqi);
 
-  // 24h forecast bars, scaled so a spike above 100 still fits
   const hrs = data.hours || [];
   const H = 84, cap = Math.max(100, ...hrs.map((h) => h.aqi || 0)), yOf = (v) => H - (Math.min(cap, v) / cap) * (H - 4), bw = hrs.length ? 100 / hrs.length : 100;
   const ticks = hrs.map((h, i) => ({ i, label: hhmm(h.time) })).filter((_, i) => i % 6 === 0);
@@ -209,10 +179,6 @@ export function air({ S }) {
           <span class="text-sm font-semibold shrink-0">${T(t, POLLEN_KEYS[pb])}</span>
           <span class="tabular-nums font-mono text-[length:var(--ms-label)] text-muted text-right shrink-0 @max-[280px]:hidden">${Math.round(p.v)} ${T(t, "grains")}</span>
         </div>`;
-      // Nothing in the air. Every other row here carries a filled dot in its band colour, so the empty one
-      // is that same slot with nothing in it — a hole (`sf-inset`), not a third, greyer band. The
-      // `bg-base-content/30` it replaces read as a fourth severity below "low", which is the one thing it
-      // must not say. Row geometry, dot size and the dividers are untouched.
       }) : html`<div class="flex items-center gap-2 py-1.5 text-muted"><span class="w-2 h-2 rounded-full sf-inset shrink-0"></span><span>${T(t, "pnNone")}</span></div>`}
     </div>
   </div>`;

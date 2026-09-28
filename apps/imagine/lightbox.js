@@ -1,18 +1,3 @@
-// Lightbox — the pictures at FULL size: a fixed black layer over everything (dock included), AND the
-// browser's own fullscreen (Fullscreen API on the layer) so the status/nav bars go too — without it the layer
-// opened as a sheet under the system chrome. Shared by Твори and Онови. It is history-backed by the CALLER
-// (S.screen = "view"), per the routing invariant — Back closes it, never the app; the × closes it too.
-// Leaving fullscreen by any route (Back consumed by the browser, a swipe) closes the lightbox, so the two
-// never disagree.
-//
-// It takes the WHOLE set, not one picture. A race returns up to four variants and the screen behind this one
-// is already a snap scroller; opening full size on a single frozen image meant the one place you can actually
-// judge a result was the one place you could not compare them, and getting to the next variant meant closing
-// fullscreen, swiping, opening it again. Same snap-scroll gesture as the inline strip, entered at the slide
-// you tapped, and the index is handed back so the two stay on the same picture when it closes.
-//
-// A tap closes — but a SWIPE must not, so the close is on the scroller's click and guarded by how far the
-// scroll moved since pointerdown. Without that guard every swipe between variants dismissed the layer.
 import { html } from "htm/preact";
 import { useEffect, useRef } from "preact/hooks";
 import { sys } from "/_rt/i18n.js";
@@ -23,25 +8,22 @@ const fsSupported = typeof document !== "undefined" && !!(document.fullscreenEna
 export function Lightbox({ open, slides, src, index = 0, alt = "", onIndex, onClose }) {
   const ref = useRef();
   const scroller = useRef();
-  const drag = useRef({ from: 0, moved: false });   // a swipe between variants must not read as a tap-to-close
-  // one picture (a source image in Онови) is just a set of one — the caller should not have to care
+  const drag = useRef({ from: 0, moved: false });
   const list = (slides && slides.length ? slides : (src ? [{ url: src }] : []));
 
   useEffect(() => {
     if (!open || !list.length || !fsSupported) return;
     const el = ref.current; if (!el) return;
     let entered = false;
-    try { const r = el.requestFullscreen?.({ navigationUI: "hide" }) || el.webkitRequestFullscreen?.(); if (r && r.then) r.then(() => { entered = true; }, () => {}); else entered = true; } catch { /* a denied request leaves the fixed layer, which still covers the app */ }
+    try { const r = el.requestFullscreen?.({ navigationUI: "hide" }) || el.webkitRequestFullscreen?.(); if (r && r.then) r.then(() => { entered = true; }, () => {}); else entered = true; } catch { }
     const onChange = () => { if (entered && !document.fullscreenElement) { entered = false; onClose?.(); } };
     document.addEventListener("fullscreenchange", onChange);
     return () => {
       document.removeEventListener("fullscreenchange", onChange);
-      if (document.fullscreenElement === el) { try { document.exitFullscreen?.(); } catch { /* */ } }
+      if (document.fullscreenElement === el) { try { document.exitFullscreen?.(); } catch { } }
     };
   }, [open, list.length]);
 
-  // Open ON the picture that was tapped. Fullscreen resizes the layer, so the scroll has to be set after that
-  // settles or it lands on a stale width — hence the frame, not a bare assignment.
   useEffect(() => {
     if (!open) return;
     const el = scroller.current; if (!el) return;

@@ -1,22 +1,3 @@
-// apps/rave/viz.js — the app's audio-reactive 3D layer: a GALLERY of ten fundamentally different three.js
-// spectrum scenes behind ONE full-bleed stage. All ten read the SAME live signal — a Uint8Array FFT frame
-// tapped off the engine's master bus in view.js (bindAudio) — or, when there's no audio (paused, headless
-// gate), a deterministic seeded curve, so the visual is never a dead flatline. The perceptual DSP + the
-// reusable layout maths live in /_rt/spectrum.js (unit-tested); this file is the thin three.js binding.
-//
-// Following reference_webgl_threejs_in_farm: three is LAZY-imported inside the effect; init is PROBE-guarded
-// on getContext('webgl') — NOT gate-guarded — so CI's headless Chrome renders the real 3D, while preflight's
-// linkedom (no WebGL, no `three` in its import map) throws → caught → Canvas2D fallback. No GLSL: every scene
-// is built from InstancedMesh / Points / Line + MeshBasicMaterial (verifiable from a screenshot), and every
-// "shader displacement" from the references is done CPU-side by writing matrices/positions each frame.
-//
-// Perf discipline (research): ONE WebGLRenderer reused for the whole app; scenes are lazily built and fully
-// disposed on switch (never 10 live contexts → context loss). DPR capped at 1.5. Scratch objects hoisted per
-// scene, zero per-frame allocation. Additive back-shells (depthWrite:false) fake glow — no post-processing.
-// One module rAF "pump" computes the frame once and drives the active scene. Refs: Codrops 3D visualizer
-// (2025), Bruno Simon galaxy generator, Maxime Heckel vaporwave scene, Codrops infinite tubes / exploding
-// objects — all confirmed in apps/rave/RESEARCH.md; their GLSL is reproduced with CPU InstancedMesh/Points.
-
 import { html } from "htm/preact";
 import { useRef, useState, useEffect } from "preact/hooks";
 import { isGate } from "/_rt/gate.js";
@@ -24,51 +5,23 @@ import { DEFAULTS, logBandEdges, bandLevels, splitBands, spectralCentroid, Envel
 import { mulberry32 } from "/_rt/groove.js";
 import { compass, tilt } from "/_rt/sensors.js";
 
-const N = DEFAULTS.bars;                                        // 28 log-octave bands
+const N = DEFAULTS.bars;
 const TAU = Math.PI * 2;
-const DPR = () => Math.min(1.5, (typeof devicePixelRatio !== "undefined" && devicePixelRatio) || 1);   // heavy 3D → cap hard
+const DPR = () => Math.min(1.5, (typeof devicePixelRatio !== "undefined" && devicePixelRatio) || 1);
 const reducedMotion = typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 function hasWebGL() {
   try { const c = document.createElement("canvas"); return !!(c.getContext("webgl2") || c.getContext("webgl")); } catch { return false; }
 }
 
-// ---- palette: bass → amber (42°), treble → cyan (176°) — the farm's pair of light (luminous repaint,
-// 2026-08-31; it was purple→cyan). The spectral-centroid hue only nudges, so the scene stays ink + the pair
-// instead of a rave-rainbow. Saturation held ≤ 0.8. ----
 const H_BASS = 42, H_TREB = 176;
-// TWO TONES, not a ramp: a hue interpolated from 42° to 176° passes through green, which is in neither pole
-// (measured on the deployed ring — it came out lime). So the low half of any band is amber and the high half
-// is cyan, and the spectral centroid nudges each pole a few degrees rather than sliding between them.
-const bandHue = (frac, st) => (frac < 0.5 ? H_BASS : H_TREB) + (st.hue - 235) * 0.04;   // degrees
+const bandHue = (frac, st) => (frac < 0.5 ? H_BASS : H_TREB) + (st.hue - 235) * 0.04;
 
-// ---- one authored scale, two grounds ----------------------------------------------------------------
-// Every scene says the same thing with brightness: v ∈ 0..1 is "how loud/present is this element". On ink
-// that maps to LIGHT. On the light theme's #EEEEF1 it cannot: a 0.55-lightness line is invisible against a
-// near-white ground, and additive blending is a literal no-op there (white + anything is white), which is
-// why the whole gallery photographed as an empty sheet in light mode. So loudness maps to DARKNESS instead,
-// additive materials fall back to normal alpha, and hairline opacities are doubled because a 0.18 wireframe
-// over white is nothing. The flag is read from <html data-theme> (globe.js precedent) and the stage REBUILDS
-// the scene when it flips — the same path a scene switch already takes — so nothing is stale.
 const L = (light, v) => (light ? 0.66 - v * 0.5 : 0.26 + v * 0.52);
 const O = (light, v) => Math.min(1, light ? v * 2 : v);
 const BLEND = (THREE, light) => (light ? THREE.NormalBlending : THREE.AdditiveBlending);
-const FOG = (light) => (light ? 0xf6f4ee : 0x000000);   // the page's bases (luminous repaint): fog IS the page
+const FOG = (light) => (light ? 0xf6f4ee : 0x000000);
 export const isLightTheme = () => typeof document !== "undefined" && (document.documentElement.getAttribute("data-theme") || "").includes("light");
 
-// ---- the rig: a scene authors a DIRECTION and a subject BOX, never a distance ------------------------
-// three's `fov` is VERTICAL, so a camera distance that framed a subject on a wide preview crops it by the
-// aspect ratio on a phone — at 390×844 the horizontal field is 0.46× the vertical one. Every scene here was
-// authored as a literal `cam.position.set(…, 7.6)` and every one of them was sliced off at both rims: the
-// bar ring is 6.8 world units wide inside a frustum 3.8 units wide. frameFit derives the distance from BOTH
-// fields and lifts the subject clear of the scrim and the player island that own the lower third.
-// FIT DISCRETE THINGS, LET FIELDS BLEED. What read as broken was an OBJECT severed at the rim — a bar
-// chopped in half by the screen edge. A continuous field running off both sides (a dancefloor, a galaxy, a
-// waveform) reads as "it continues", and forcing one fully into a portrait frame is the opposite failure:
-// measured, a 16×16 floor fitted whole occupies 89% of the width and 21% of the HEIGHT — a thin strip in a
-// tall empty screen. So the field scenes declare a box SMALLER than they are (ribbon 4.2 of 6.5, vortex 4.6
-// of 6.6, matrix 6.0 of 9.9) and bleed the rest, landing at ~35% of the height instead of 21%.
-// Deliberately NOT rigged at all: terrain and tunnel are fly-throughs framed by their own fog, and fitting
-// them would park the camera outside the corridor it is supposed to be flying down.
 function Rig(THREE, cam, box, lift = 0.1) {
   const v = new THREE.Vector3(), tgt = new THREE.Vector3();
   let dist = 10, drop = 0;
@@ -78,11 +31,6 @@ function Rig(THREE, cam, box, lift = 0.1) {
       const f = frameFit(box[0], box[1], cam.fov, cam.aspect, { lift });
       dist = f.dist; drop = f.drop;
     },
-    // dx/dy/dz is the authored viewing DIRECTION — its length is now meaningless, only its angle survives.
-    // ox/oy is the parallax nudge and stays in WORLD units on purpose: as the camera pulls back for a narrow
-    // screen the nudge becomes proportionally smaller, which is the safe direction (RESEARCH.md, nausea).
-    // `k` is a dolly: a scene that pushes in on the kick keeps doing so, but as a FRACTION of the fitted
-    // distance instead of a literal "z − 0.6" that meant something different at every viewport.
     place(dx, dy, dz, ox = 0, oy = 0, k = 1) {
       v.set(dx, dy, dz).normalize().multiplyScalar(dist * k);
       cam.position.set(v.x + ox, v.y + oy, v.z);
@@ -91,13 +39,9 @@ function Rig(THREE, cam, box, lift = 0.1) {
   };
 }
 
-// ---- audio binding — view.js hands us a getter returning the live Uint8Array while playing, else null ----
 let _getBytes = null;
 export function bindAudio(fn) { _getBytes = fn; }
 
-// ---- immersion — gyro parallax + compass rotation, opt-in behind a gesture (iOS gates the permission).
-// heading0 is the DYNAMIC scene centre — captured the instant immersion turns on, so the world starts on
-// wherever you already face; we rotate only by the RELATIVE turn from there, heavily low-passed. ----
 const immersion = { on: false, beta: null, gamma: null, headingRaw: 0, heading0: null, turn: 0, reduced: reducedMotion, _t: null, _c: null };
 export const immersionState = immersion;
 export const immersionAvailable = tilt.supported && !isGate;
@@ -112,7 +56,6 @@ export async function enableImmersion() {
 }
 export function disableImmersion() { immersion._t?.(); immersion._c?.(); immersion.on = false; immersion._t = immersion._c = null; immersion.beta = immersion.gamma = null; immersion.heading0 = null; }
 
-// ---- the shared pump — one rAF, one FFT read, one enveloped frame; the active scene subscribes ----
 const EDGES = logBandEdges();
 const env = Envelope(0.55, 0.12, N);
 const subs = new Set();
@@ -121,8 +64,8 @@ let pumpRaf = null, phase = 0;
 function pump() {
   phase += 0.045;
   const live = _getBytes && !isGate ? _getBytes() : null;
-  const u8 = live || seedFrame(1024, phase);                   // paused/gate → gentle seeded idle
-  const levels = env.update(bandLevels(u8, EDGES));            // asymmetric attack-fast/release-slow, per band
+  const u8 = live || seedFrame(1024, phase);
+  const levels = env.update(bandLevels(u8, EDGES));
   const bands = splitBands(u8);
   const { hue } = spectralCentroid(u8);
   let target = 0;
@@ -132,7 +75,7 @@ function pump() {
   }
   immersion.turn += 0.05 * (target - immersion.turn);
   const st = { levels, bands, hue, phase, turn: immersion.turn };
-  for (const fn of subs) { try { fn(st); } catch { /* a dead surface must not stall the pump */ } }
+  for (const fn of subs) { try { fn(st); } catch { } }
   pumpRaf = requestAnimationFrame(pump);
 }
 function subscribe(fn) {
@@ -141,15 +84,8 @@ function subscribe(fn) {
   return () => { subs.delete(fn); if (!subs.size && pumpRaf) { cancelAnimationFrame(pumpRaf); pumpRaf = null; } };
 }
 
-// ======================= the ten scenes (InstancedMesh / Points / Line, no GLSL) =======================
-// Contract: make(THREE) → { scene, cam, frame(st, p), resize(w, h), dispose() }. frame() mutates geometry +
-// camera; the STAGE owns the shared renderer and does renderer.render(scene, cam). Each scene hoists its own
-// scratch (colour, Object3D, Vector3) so the frame loop never allocates.
-
 const glowMat = (THREE, light, opacity = 0.14) => new THREE.MeshBasicMaterial({ transparent: true, opacity: O(light, opacity), blending: BLEND(THREE, light), depthWrite: false, toneMapped: false });
 
-// 1 · RADIAL BAR RING — 28 bars on a circle grow up from a fixed baseline into an elegant purple→cyan crown,
-// seen from above so the ring reads as a disc (bars kept shorter than the radius); a wireframe icosa core.
 function makeRing(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(48, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const geo = new THREE.BoxGeometry(0.14, 1, 0.14); geo.translate(0, 0.5, 0);
@@ -157,8 +93,6 @@ function makeRing(THREE, light) {
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1.15, 1), new THREE.MeshBasicMaterial({ wireframe: true, transparent: true, opacity: O(light, 0.32), toneMapped: false }));
   group.add(bars, core);
   const R = 3.4, C = new THREE.Color(), d = new THREE.Object3D(); let spin = 0;
-  // seen from 34° above, so the disc projects roughly half as tall as it is wide — the box is what it
-  // LOOKS like on screen, not what it measures in world space.
   const rig = Rig(THREE, cam, [R + 0.1, 3.0]);
   for (let i = 0; i < N; i++) bars.setColorAt(i, C.setHSL(0.6, 0.7, 0.5));
   return {
@@ -183,8 +117,6 @@ function makeRing(THREE, light) {
   };
 }
 
-// 2 · SYNTHWAVE TERRAIN — two wireframe planes scroll toward the camera (modulo), heightfield from the bands,
-// a flat "road" down the middle, fog matched to the background so ridges dissolve into the horizon.
 function makeTerrain(THREE, light) {
   const scene = new THREE.Scene(); scene.fog = new THREE.Fog(FOG(light), 4, 13);
   const cam = new THREE.PerspectiveCamera(78, 1, 0.1, 24), group = new THREE.Group(); scene.add(group);
@@ -216,8 +148,6 @@ function makeTerrain(THREE, light) {
   };
 }
 
-// 3 · PARTICLE NEBULA — a volumetric SPHERE cloud (Fibonacci directions × per-point radius) that breathes
-// outward from its rest positions with the bass and drifts; near-white core, purple rim. Additive, no bloom.
 function makeNebula(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(55, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const COUNT = 4000, rng = mulberry32(0x9e3779b1);
@@ -235,7 +165,7 @@ function makeNebula(THREE, light) {
       const breathe = (1 + st.bands.bass * 0.4) * idle(st.phase, 0.97, 0.03);
       for (let i = 0; i < COUNT * 3; i++) pos[i] = base[i] * breathe;
       geo.attributes.position.needsUpdate = true;
-      if ((recolor = (recolor + 1) % 3) === 0) {               // throttle colour writes (matrices lead, colour lags)
+      if ((recolor = (recolor + 1) % 3) === 0) {
         cIn.setHSL(((bandHue(0.55, st)) % 360) / 360, 0.5, L(light, 0.92)); cOut.setHSL((H_BASS % 360) / 360, 0.8, L(light, 0.46));
         const maxR = 4;
         for (let i = 0; i < COUNT; i++) { const t = Math.min(1, rad[i] / maxR); col[i * 3] = cIn.r + (cOut.r - cIn.r) * t; col[i * 3 + 1] = cIn.g + (cOut.g - cIn.g) * t; col[i * 3 + 2] = cIn.b + (cOut.b - cIn.b) * t; }
@@ -249,8 +179,6 @@ function makeNebula(THREE, light) {
   };
 }
 
-// 4 · AUDIO TUNNEL — a stack of ring "slices" freezes the spectrum at spawn and carries it backward while the
-// camera flies forward through its own recent audio history; wide FOV + fog vanishing point sell the depth.
 function makeTunnel(THREE, light) {
   const scene = new THREE.Scene(); scene.fog = new THREE.Fog(FOG(light), 8, 30);
   const cam = new THREE.PerspectiveCamera(92, 1, 0.1, 40);
@@ -262,7 +190,7 @@ function makeTunnel(THREE, light) {
     const loop = new THREE.LineLoop(g, new THREE.LineBasicMaterial({ transparent: true, toneMapped: false }));
     loop.position.z = -k * DZ; loop.userData.age = k; scene.add(loop); rings.push(loop); colors.push(new THREE.Color(0x223));
   }
-  const stamp = (loop, st) => {                                 // freeze the current spectrum into this ring
+  const stamp = (loop, st) => {
     const arr = loop.geometry.attributes.position.array; let avg = 0;
     for (let s = 0; s <= SEG; s++) { const i = s % SEG, a = (i / SEG) * TAU, lv = st.levels[i] || 0; avg += lv; const r = 1.5 + lv * 1.3 + st.bands.bass * 0.4; arr[s * 3] = Math.cos(a) * r; arr[s * 3 + 1] = Math.sin(a) * r; arr[s * 3 + 2] = 0; }
     loop.geometry.attributes.position.needsUpdate = true;
@@ -286,8 +214,6 @@ function makeTunnel(THREE, light) {
   };
 }
 
-// 5 · SPHERE URCHIN — cones mounted on a low-poly icosahedron's even Fibonacci directions, oriented radially
-// with real quaternions and growing from their base at the surface; the whole urchin breathes on the kick.
 function makeUrchin(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(46, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const K = 60, UP = new THREE.Vector3(0, 1, 0), dirs = [];
@@ -309,7 +235,7 @@ function makeUrchin(THREE, light) {
         const band = sampleBand(st.levels, i / (K - 1)), len = (0.25 + band * 1.4 + st.bands.mid * 0.3) * br, hue = ((bandHue(i / (K - 1), st)) % 360) / 360;
         d.position.copy(dirs[i]); d.quaternion.setFromUnitVectors(UP, dirs[i]); d.scale.set(1, len, 1); d.updateMatrix();
         spikes.setMatrixAt(i, d.matrix); d.scale.set(1.5, len, 1.5); d.updateMatrix(); glow.setMatrixAt(i, d.matrix);
-        spikes.setColorAt(i, C.setHSL(hue, 0.8, L(light, 0.3 + band * 0.42))); glow.setColorAt(i, C.setHSL(hue, 0.85, L(light, 0.05)));   // dim colour so the additive halo tints, never blows to white
+        spikes.setColorAt(i, C.setHSL(hue, 0.8, L(light, 0.3 + band * 0.42))); glow.setColorAt(i, C.setHSL(hue, 0.85, L(light, 0.05)));
       }
       spikes.instanceMatrix.needsUpdate = glow.instanceMatrix.needsUpdate = true; if (spikes.instanceColor) spikes.instanceColor.needsUpdate = true; if (glow.instanceColor) glow.instanceColor.needsUpdate = true;
       core.scale.setScalar((1 + st.bands.bass * 0.18) * br);
@@ -320,8 +246,6 @@ function makeUrchin(THREE, light) {
   };
 }
 
-// 6 · DNA DOUBLE HELIX — two intertwined strands of instanced spheres, rungs a LineSegments ladder; the bass
-// inflates the whole radius, and only the loudest rungs light (a travelling ladder of colour, not all-on).
 function makeHelix(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(45, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const RUNGS = 56, HH = 15, sph = new THREE.SphereGeometry(1, 10, 10);
@@ -331,7 +255,6 @@ function makeHelix(THREE, light) {
   const rungs = new THREE.LineSegments(rg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: BLEND(THREE, light), depthWrite: false, toneMapped: false }));
   group.add(balls, rungs);
   const C = new THREE.Color(), d = new THREE.Object3D();
-  // the one scene the VERTICAL field binds on a phone: a 15-unit ladder in a 2.2-unit-radius helix.
   const rig = Rig(THREE, cam, [3.8, HH / 2 + 0.3]);
   return {
     scene, cam,
@@ -345,7 +268,7 @@ function makeHelix(THREE, light) {
           d.position.set(x, y, z); d.scale.setScalar(s); d.updateMatrix(); balls.setMatrixAt(idx, d.matrix);
           balls.setColorAt(idx, C.setHSL(((bandHue(t, st)) % 360) / 360, 0.5, L(light, 0.56 + band * 0.44)));
           rpos[idx * 3] = x; rpos[idx * 3 + 1] = y; rpos[idx * 3 + 2] = z;
-          const lit = band * band;                              // selective: only loud rungs glow
+          const lit = band * band;
           C.setHSL(((bandHue(t, st)) % 360) / 360, 0.8, L(light, 0.02 + lit * 0.86));
           rcol[idx * 3] = C.r; rcol[idx * 3 + 1] = C.g; rcol[idx * 3 + 2] = C.b;
         }
@@ -359,8 +282,6 @@ function makeHelix(THREE, light) {
   };
 }
 
-// 7 · FLOWING RIBBON — a single Catmull-Rom stroke synthesized from the 28 bands (no waveform exists),
-// centred vertically so silence sits mid-frame, living in 3D with a Z-wobble; a calligraphic phosphor line.
 function makeRibbon(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const CTRL = N, SAMPLES = 220, W = 13, A = 4.2;
@@ -372,8 +293,6 @@ function makeRibbon(THREE, light) {
   const glow = new THREE.Line(g, glowMat(THREE, light, 0.2)); glow.scale.set(1, 1.04, 1);
   group.add(glow, line);
   const C = new THREE.Color(), v = new THREE.Vector3();
-  // the widest subject in the gallery — a 13-unit stroke was showing its middle third and nothing else.
-  // A waveform is a FIELD, so it is framed to 4.2 of its 6.5 half-width and runs off both sides on purpose.
   const rig = Rig(THREE, cam, [4.2, 3.8]);
   return {
     scene, cam,
@@ -390,8 +309,6 @@ function makeRibbon(THREE, light) {
   };
 }
 
-// 8 · VORTEX GALAXY — a flat spiral disc of additive points (Bruno Simon's generator), spinning in a 3/4
-// view with a blown-out hot core; hue constrained to a purple→cyan band, never a rainbow pinwheel.
 function makeVortex(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(55, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const COUNT = 6000, base = galaxyDisc(COUNT, { radius: 6, branches: 5, spin: 1.1, randomness: 0.35, power: 3, thin: 0.35 }, mulberry32(0x1b3984));
@@ -401,8 +318,6 @@ function makeVortex(THREE, light) {
   const coreGeo = new THREE.SphereGeometry(0.35, 16, 16); const coreMesh = new THREE.Mesh(coreGeo, glowMat(THREE, light, 0.6));
   group.add(points, coreMesh);
   const cIn = new THREE.Color(), cOut = new THREE.Color(); let recolor = 0;
-  // a disc in a 3/4 view: 6.6 wide, squashed by the tilt to roughly 4 tall on screen. Framed to 4.6 so the
-  // arms leave the frame rather than shrinking the whole galaxy into a band.
   const rig = Rig(THREE, cam, [4.6, 4.0]);
   return {
     scene, cam,
@@ -415,7 +330,7 @@ function makeVortex(THREE, light) {
         for (let i = 0; i < COUNT; i++) { const r = Math.hypot(base[i * 3], base[i * 3 + 2]), t = Math.min(1, r / maxR); col[i * 3] = cIn.r + (cOut.r - cIn.r) * t; col[i * 3 + 1] = cIn.g + (cOut.g - cIn.g) * t; col[i * 3 + 2] = cIn.b + (cOut.b - cIn.b) * t; }
         geo.attributes.color.needsUpdate = true;
       }
-      coreMesh.scale.setScalar(0.8 + st.bands.bass * 0.7); coreMesh.material.opacity = O(light, 0.3 + st.bands.bass * 0.3);   // a soft bloom, not a hard white disc
+      coreMesh.scale.setScalar(0.8 + st.bands.bass * 0.7); coreMesh.material.opacity = O(light, 0.3 + st.bands.bass * 0.3);
       group.rotation.y += 0.0016 + st.turn * 0.5 + st.bands.treble * 0.004;
       rig.place(0, 6, 9, p.x, -p.y * 0.8);
     },
@@ -423,8 +338,6 @@ function makeVortex(THREE, light) {
   };
 }
 
-// 9 · CUBE MATRIX — a 16×16 LED dancefloor (one InstancedMesh); bass ripples from the centre outward by
-// RADIAL band mapping, heights LERP toward target (LED smoothness) and grow from the floor; low raking camera.
 function makeMatrix(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(60, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const G = 16, COUNT = G * G, SP = 1.25, geo = new THREE.BoxGeometry(1, 1, 1);
@@ -433,9 +346,6 @@ function makeMatrix(THREE, light) {
   const C = new THREE.Color(), d = new THREE.Object3D(), cur = new Float32Array(COUNT), frac = new Float32Array(COUNT), cx = (G - 1) / 2;
   const maxD = Math.hypot(cx, cx);
   for (let i = 0; i < COUNT; i++) { const gx = i % G, gz = (i / G) | 0; frac[i] = Math.hypot(gx - cx, gz - cx) / maxD; }
-  // a 16×16 floor at 1.25 spacing is 18.75 units across — by far the widest thing here, and the raking
-  // camera flattens it to about 5 on screen. A floor is a field: framed to 6.0, so it runs past both edges
-  // the way a dancefloor should, instead of sitting in the middle of the screen as a 21%-tall strip.
   const rig = Rig(THREE, cam, [6.0, 5.0]);
   return {
     scene, cam,
@@ -456,8 +366,6 @@ function makeMatrix(THREE, light) {
   };
 }
 
-// 10 · BLOOM / SHATTER — a wireframe icosahedron breathes, then SHATTERS on the kick (an asymmetric envelope:
-// snap out, slow reform), cross-fading the clean solid into its flying shards + orbiting debris and back.
 function makeBloom(THREE, light) {
   const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(50, 1, 0.1, 200), group = new THREE.Group(); scene.add(group);
   const coreGeo = new THREE.IcosahedronGeometry(2, 1), core = new THREE.Mesh(coreGeo, new THREE.MeshBasicMaterial({ wireframe: true, transparent: true, toneMapped: false }));
@@ -471,14 +379,12 @@ function makeBloom(THREE, light) {
   const debris = new THREE.Points(dg, new THREE.PointsMaterial({ size: 0.05, sizeAttenuation: true, transparent: true, opacity: 0.7, blending: BLEND(THREE, light), depthWrite: false, color: light ? 0x4a3a8f : 0xbfb2ff }));
   group.add(shell, core, shards, debris);
   const C = new THREE.Color(), d = new THREE.Object3D(), q = new THREE.Quaternion(); let explode = 0;
-  // framed for the resting solid plus a good part of the shatter — the shards fly to ~7 at full kick, and
-  // framing for THAT would leave the icosa a speck for the 90% of the time it is not exploding.
   const rig = Rig(THREE, cam, [4.4, 4.4]);
   return {
     scene, cam,
     resize: rig.resize,
     frame(st, p) {
-      const target = st.bands.bass; explode += (target > explode ? 0.2 : 0.06) * (target - explode);   // snap out, slow reform
+      const target = st.bands.bass; explode += (target > explode ? 0.2 : 0.06) * (target - explode);
       const e = Math.max(0, Math.min(1, explode));
       const br = idle(st.phase);
       core.scale.setScalar((1 + st.bands.mid * 0.4) * br); core.rotation.y += 0.006 + st.turn; core.rotation.x += 0.003;
@@ -490,7 +396,7 @@ function makeBloom(THREE, light) {
         shards.setColorAt(i, C.setHSL(((bandHue(i / SH, st)) % 360) / 360, 0.7, L(light, 0.2 + e * 0.55)));
       }
       shards.instanceMatrix.needsUpdate = true; if (shards.instanceColor) shards.instanceColor.needsUpdate = true; shards.material.opacity = Math.min(1, 0.2 + e);
-      debris.scale.setScalar(1 + st.bands.bass * 0.3); debris.rotation.y += 0.0015 + st.turn; debris.rotation.x = Math.sin(st.phase * 0.1) * 0.2;   // debris positions static; breathe via scale
+      debris.scale.setScalar(1 + st.bands.bass * 0.3); debris.rotation.y += 0.0015 + st.turn; debris.rotation.x = Math.sin(st.phase * 0.1) * 0.2;
       group.rotation.y += st.turn * 0.2;
       rig.place(0, 0, 1, p.x, p.y * -0.5, 1 - e * 0.18);
     },
@@ -498,7 +404,6 @@ function makeBloom(THREE, light) {
   };
 }
 
-// The gallery, in swipe order (each fundamentally different in topology + motion + material).
 export const VIZ = [
   { id: "ring", make: makeRing },
   { id: "terrain", make: makeTerrain },
@@ -513,10 +418,6 @@ export const VIZ = [
 ];
 export const VIZ_COUNT = VIZ.length;
 
-// ======================= Canvas2D fallback (preflight/linkedom · no WebGL) =======================
-// One generic radial spectrum for every scene — it only ever shows where WebGL is absent (preflight); on a
-// device and in CI's Chromium the real three.js scene renders. Guarded hard: linkedom returns a non-null 2d
-// stub, so bail unless it's a real context.
 function ctx2d(canvas) { try { const c = canvas.getContext("2d"); return c && typeof c.fillRect === "function" && typeof c.arc === "function" ? c : null; } catch { return null; } }
 function drawFallback(canvas, st, light) {
   const g = ctx2d(canvas); if (!g) return;
@@ -530,21 +431,15 @@ function drawFallback(canvas, st, light) {
   }
 }
 
-// ======================= the stage — one renderer, lazy scene, dispose on switch =======================
 function disposeScene(store) {
   const sc = store.scene; if (!sc) return;
-  try { sc.dispose?.(); sc.scene?.traverse((o) => { o.geometry?.dispose?.(); const m = o.material; if (Array.isArray(m)) m.forEach((x) => x?.dispose?.()); else m?.dispose?.(); }); } catch { /* */ }
-  store.scene = null; try { store.renderer?.renderLists?.dispose(); } catch { /* */ } }
+  try { sc.dispose?.(); sc.scene?.traverse((o) => { o.geometry?.dispose?.(); const m = o.material; if (Array.isArray(m)) m.forEach((x) => x?.dispose?.()); else m?.dispose?.(); }); } catch { }
+  store.scene = null; try { store.renderer?.renderLists?.dispose(); } catch { } }
 
-// Full-bleed spectrum background: fixed z-0, behind the floating islands (relative z-10). `index` picks the
-// active scene; changing it disposes the old scene and lazily builds the new one on the SHARED renderer.
 export function SpectrumStage({ index = 0 }) {
   const ref = useRef();
   const [light, setLight] = useState(isLightTheme);
   const store = useRef({ renderer: null, THREE: null, scene: null, index, light: isLightTheme(), unsub: null, ro: null, parallax: null }).current;
-  // A canvas cannot take a theme from CSS, so the flag is read off <html data-theme> and WATCHED — the same
-  // shape globe.js uses. Toggling the theme rebuilds the scene through the path a scene switch already
-  // takes, so the materials (blending, opacity) are rebuilt for the new ground rather than left stale.
   useEffect(() => {
     if (typeof MutationObserver === "undefined") return;
     const mo = new MutationObserver(() => setLight(isLightTheme()));
@@ -568,14 +463,13 @@ export function SpectrumStage({ index = 0 }) {
       store.parallax = Parallax({ maxDeg: 22, gain: 1, reduced: immersion.reduced });
       store.unsub = subscribe((st) => {
         const p = immersion.on ? store.parallax.update(immersion.beta, immersion.gamma) : store.parallax.update(0, 0);
-        if (store.scene && store.renderer) { try { store.scene.frame(st, p); store.renderer.render(store.scene.scene, store.scene.cam); } catch { /* */ } }
+        if (store.scene && store.renderer) { try { store.scene.frame(st, p); store.renderer.render(store.scene.scene, store.scene.cam); } catch { } }
         else drawFallback(canvas, st, store.light);
       });
       if (typeof ResizeObserver !== "undefined") { store.ro = new ResizeObserver(size); store.ro.observe(canvas); }
     })();
-    return () => { dead = true; store.unsub?.(); store.ro?.disconnect(); disposeScene(store); try { store.renderer?.dispose(); } catch { /* */ } store.renderer = null; };
+    return () => { dead = true; store.unsub?.(); store.ro?.disconnect(); disposeScene(store); try { store.renderer?.dispose(); } catch { } store.renderer = null; };
   }, []);
-  // live scene swap after mount (renderer + pump persist; only the scene graph is rebuilt)
   useEffect(() => { store.index = index; store.light = light; if (store.THREE && store.build) store.build(index); }, [index, light]);
   return html`<canvas ref=${ref} data-stage data-live aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>`;
 }

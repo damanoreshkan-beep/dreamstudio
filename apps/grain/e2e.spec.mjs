@@ -1,7 +1,3 @@
-// Grain — a recorded sample played as grain clouds. The gate has NO microphone, so the view seeds a
-// deterministic synthetic take (syntheticSample, 220 Hz) and everything below measures the POPULATED screen:
-// the waveform, the fields, the read head. Capture itself cannot be exercised headless — the mic prime and
-// the permission states are structure only.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-field]")) > 0 && (await h.count("[data-wave]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -13,7 +9,6 @@ export default [
       h.expect((await h.count("[data-scale]")) === 4, "немає 4 ладів");
       h.expect((await h.count("#play")) === 1, "немає транспорту");
       h.expect((await h.count("[data-rec]")) === 1, "немає кнопки запису");
-      // the gate's take is a struck 220 Hz bowl, so the pitch line must name a note, not "unpitched"
       h.expect(/A3/i.test(await h.text("[data-pitch]")), "детектор висоти не назвав ноту семпла");
     },
   },
@@ -71,7 +66,6 @@ export default [
       await ready(h);
       await h.tap("#keep"); await h.wait(400);
       await h.click('[data-tab="takes"]'); await h.wait(400);
-      // the gate seeds one fixture take, so a SAVE must make it two — >=1 would pass without saving anything
       h.expect((await h.count("[data-take]")) >= 2, "збережений запис не зʼявився поряд із фікстурою");
       h.expect((await h.count("[data-share]")) >= 1, "немає експорту WAV");
     },

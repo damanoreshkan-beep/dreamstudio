@@ -1,15 +1,4 @@
-// audience — how many people are actually watching a LAN station, from a request counter alone.
-//
-// The shell's server (template/…/LanServer.java) exposes ONE number: `hits`, a monotonic count of 200s it
-// has served. It cannot say who asked — there are no sockets, sessions or user agents on that surface. The
-// old wall app printed `hits` beside an eye glyph, which is a lie by a factor of the poll rate: at a 700ms
-// poll ONE viewer produces ~86 hits a minute, so a single person reads as a crowd.
-//
-// What the counter DOES carry honestly is a rate. Every viewer page polls on a fixed period, so each one
-// contributes exactly 1000/pollMs requests per second and the audience is the rate scaled by that period.
-// Deltas are noisy (a poll lands on either side of a sample boundary), so the rate is smoothed before it
-// becomes a person; rounding a jittering 1.4 up and down would flicker the number in front of the owner.
-const MIN_DT_MS = 1200;   // below this a single request's timing jitter dominates the delta
+const MIN_DT_MS = 1200;
 
 /** Requests per second between two {hits, at} samples. null when the pair cannot answer. */
 export function ratePerSec(prev, next) {
@@ -17,7 +6,7 @@ export function ratePerSec(prev, next) {
   const dt = next.at - prev.at;
   if (!(dt >= MIN_DT_MS)) return null;
   const dh = next.hits - prev.hits;
-  if (dh < 0) return null;                      // LanServer.start resets hits to 0 — a restart, not traffic
+  if (dh < 0) return null;
   return (dh * 1000) / dt;
 }
 
@@ -39,7 +28,6 @@ export function makeAudience(pollMs, { alpha = 0.45 } = {}) {
       const next = { hits, at };
       const r = ratePerSec(last, next);
       if (r == null) {
-        // A restart zeroes the counter; keeping the old rate would credit the new station with a crowd.
         if (last && hits < last.hits) rate = null;
         if (!last || next.at - last.at >= MIN_DT_MS || hits < last.hits) last = next;
         return this.viewers;

@@ -1,6 +1,3 @@
-// microspec runtime — earn unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assertEquals, assertAlmostEquals } from "jsr:@std/assert@1";
 import {
   CURRENCIES, MODES, DEFAULTS, normRate, perSecond, earned, hoardFill, lifetimeDepth,
@@ -9,13 +6,11 @@ import {
 
 const NBSP = "\u00A0";
 
-// ---- rate normalisation ------------------------------------------------------
-
 Deno.test("normRate: unknown mode and blank fields fall back to the mode default", () => {
   assertEquals(normRate({ mode: "weekly" }).mode, "month");
   assertEquals(normRate({ mode: "month", pay: "" }).pay, DEFAULTS.month.pay);
   assertEquals(normRate({ mode: "shift", hours: 0 }).hours, DEFAULTS.shift.hours);
-  assertEquals(normRate({ mode: "day", currency: "EUR" }).currency, "UAH");   // farm carries two here
+  assertEquals(normRate({ mode: "day", currency: "EUR" }).currency, "UAH");
   assertEquals(normRate(null).mode, "month");
 });
 
@@ -30,12 +25,8 @@ Deno.test("normRate: a comma decimal is a real keyboard on a uk phone", () => {
   assertEquals(normRate({ mode: "day", hours: "7,5" }).hours, 7.5);
 });
 
-// ---- the per-second rate -----------------------------------------------------
-
 Deno.test("perSecond: the work clock, not the calendar", () => {
-  // 30 000 / month over 21 days x 8 h = 604 800 s of work
   assertAlmostEquals(perSecond({ mode: "month", pay: 30000, days: 21, hours: 8 }), 30000 / 604800, 1e-12);
-  // a calendar month would be ~2.6M s — an order of magnitude apart, which is the whole point
   assertEquals(perSecond({ mode: "month", pay: 30000, days: 21, hours: 8 }) > 30000 / 2592000, true);
   assertAlmostEquals(perSecond({ mode: "shift", pay: 1600, hours: 12 }), 1600 / 43200, 1e-12);
   assertAlmostEquals(perSecond({ mode: "day", pay: 1400, hours: 8 }), 1400 / 28800, 1e-12);
@@ -50,11 +41,9 @@ Deno.test("perSecond: shift and day are the same formula at different block leng
 
 Deno.test("earned: elapsed milliseconds, clamped at zero", () => {
   assertAlmostEquals(earned(0.05, 60000), 3, 1e-12);
-  assertEquals(earned(0.05, -5000), 0);     // a clock skewed backwards must not owe money
+  assertEquals(earned(0.05, -5000), 0);
   assertEquals(earned(-1, 60000), 0);
 });
-
-// ---- the shader channels -----------------------------------------------------
 
 Deno.test("hoardFill: saturating on the WORK, so any salary fills in the same day", () => {
   const ps = 0.05;
@@ -62,7 +51,6 @@ Deno.test("hoardFill: saturating on the WORK, so any salary fills in the same da
   assertAlmostEquals(at(4), 0.632, 0.002);
   assertAlmostEquals(at(8), 0.865, 0.002);
   assertAlmostEquals(at(12), 0.950, 0.002);
-  // a salary 100x larger reaches the same height in the same time — the scale is hours, not money
   const rich = 5;
   assertAlmostEquals(hoardFill(earned(rich, 8 * 3600 * 1000), rich), at(8), 1e-9);
   assertEquals(hoardFill(0, ps), 0);
@@ -80,8 +68,6 @@ Deno.test("lifetimeDepth: one month of work ≈ 0.63, not one day", () => {
   assertAlmostEquals(lifetimeDepth(month, ps), 0.632, 0.002);
   assertEquals(lifetimeDepth(earned(ps, 8 * 3600 * 1000), ps) < 0.06, true);
 });
-
-// ---- formatting --------------------------------------------------------------
 
 Deno.test("rateDp: a small per-second rate keeps its information", () => {
   assertEquals(rateDp(2.5), 2);
@@ -113,18 +99,16 @@ Deno.test("fmtSpan: hours appear only once there are hours", () => {
   assertEquals(fmtSpan(59_000), "00:59");
   assertEquals(fmtSpan(12 * 60_000 + 4000), "12:04");
   assertEquals(fmtSpan(3 * 3600_000 + 12 * 60_000 + 4000), "3:12:04");
-  assertEquals(fmtSpan(9 * 3600_000), "9:00:00");     // player.js clock() would print "540:00"
+  assertEquals(fmtSpan(9 * 3600_000), "9:00:00");
   assertEquals(fmtSpan(-1), "00:00");
 });
-
-// ---- the vault ---------------------------------------------------------------
 
 Deno.test("vaultTotals: grouped per currency, in CURRENCIES order", () => {
   const t = vaultTotals([
     { currency: "USD", amount: 40, ms: 3600_000 },
     { currency: "UAH", amount: 1200, ms: 28800_000 },
     { currency: "UAH", amount: 300.5, ms: 7200_000 },
-    { currency: "PLN", amount: 99, ms: 1000 },        // unknown → folded into the first currency
+    { currency: "PLN", amount: 99, ms: 1000 },
   ]);
   assertEquals(t.map((x) => x.currency), CURRENCIES);
   assertEquals(t[0], { currency: "UAH", sum: 1599.5, ms: 36001_000, count: 3 });

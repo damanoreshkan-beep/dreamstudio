@@ -1,10 +1,3 @@
-// The gate seeds a fixed track and runs it forward ~150 frames before the first paint, with a
-// spear already in the air — a game photographed at rest is a photograph of a background, and
-// every check below (a11y, overflow, the shots, the taste pass) would then be measuring one.
-//
-// Nothing here asserts pixels. A canvas is opaque to every gate this farm has, so the engine
-// mirrors its state into data-* and that is the contract.
-
 const live = (h, k) => h.attr("[data-live-screen]", "data-" + k);
 const num = async (h, k) => +(await live(h, k));
 const ready = async (h) => {
@@ -44,11 +37,7 @@ export default [
       await ready(h);
       const before = await num(h, "dist");
       await h.keys(["ArrowRight", "ShiftLeft"], 900);
-      /* STRICTLY greater. `>=` was an assertion that cannot fail: it also holds when the player is
-         dead, or wedged against a wall, or when the keyboard never reached the mask at all. An
-         inequality that is true in the broken case is not a test. */
       h.expect((await num(h, "dist")) > before, "дистанція не зросла за 0.9с утримання — клавіатура не доходить до маски");
-      // assert DURING the hold — after the release there is nothing to see
       await h.keyDown("ArrowLeft");
       await h.wait(150);
       const lit = await h.hasClass('[data-pad="padLeft"]', "sf-pressed");
@@ -57,12 +46,6 @@ export default [
     },
   },
   {
-    /* The defect this exists for made the game's whole premise unplayable on a desktop, and every
-       gate was green. The throw key carried hunt's own SHOOT bit (32); the SHARED keyboard map in
-       dpad.js had no binding that could produce that bit, so a keyboard could move, jump, duck and
-       run, and could not throw a spear — in a game about throwing spears. The suite tapped the
-       on-screen key and watched the quiver go down, which exercises the touch path only. A control
-       is not wired until BOTH inputs reach the mask, so both are asserted here. */
     name: "клавіатура: спис кидається з клавіатури, не лише пальцем", run: async (h) => {
       await ready(h);
       const SHOOT = 32;
@@ -108,23 +91,8 @@ export default [
     },
   },
   {
-    /* THE screen test — the same one brick carries, because it is the same console and the same
-       complaint. The aperture used to be 55% of a body that shrink-wrapped its contents, so the
-       forest arrived at roughly 115 CSS px wide on a 390px phone and nothing in the gate suite
-       could say so: it did not overflow, it did not fail a11y, and it photographed as a console.
-       Fractions rather than pixels, so the check keeps meaning at every breakpoint. */
     name: "екран: гра отримує ширину вигляду", run: async (h) => {
       await ready(h);
-      /* The claim is about the PICTURE, not about the body — and the first version of this check
-         got that wrong in a way that a screenshot exposed and no measurement could. It asserted
-         that the console body fills the view, the body duly filled it, and the deployed shot
-         showed 300px of dead plastic between the screen and the deck: the canvas is bound by
-         WIDTH (the game is roughly square, a phone is not), so a taller body buys the game
-         nothing at all and only moves the emptiness inside the device. A gate that agrees with a
-         bad screenshot is set too low.
-         So: what share of the view's own width does the game actually get. That is the number the
-         complaint was about, it is true in both layouts, and it keeps meaning at every
-         breakpoint. Fractions, never pixels. */
       const viewW = await h.prop("#view", "clientWidth");
       const padL = parseFloat(await h.css("#view", "padding-left")) || 0;
       const padR = parseFloat(await h.css("#view", "padding-right")) || 0;
@@ -139,15 +107,6 @@ export default [
     },
   },
   {
-    /* The defect this exists for shipped with every gate green: the console body receives both the
-       plate colour (a custom property) and the deck hook's own style, and one silently replaced
-       the other. Every class was present, every JS-level difference still worked, and a11y and
-       overflow were unaffected. The only proof is the COMPUTED value on the element.
-
-       The plate matters more here than next door: this is the COLOUR game, and for the life of the
-       shell catalogue its aperture was painted the monochrome game's yellow-green LCD, because the
-       shell owned a tint and handed the same one to both. The plate travels from the GAME now, and
-       this asserts it arrived. */
     name: "корпус: колір панелі і touch-action обидва переживають злиття стилів", run: async (h) => {
       await ready(h);
       const tint = await h.css("[data-shell-body]", "--sh-tint");

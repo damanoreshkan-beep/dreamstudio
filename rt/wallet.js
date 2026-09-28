@@ -1,11 +1,3 @@
-// wallet.js — THE FARM WALLET, the client half (2026-09-15). One balance per account, kept and moved by the edge
-// (/feed/wallet — its prices, its ledger, its caps); every app that earns or spends coins binds this module with
-// its own id. The browser holds a DISPLAY copy and nothing else: nothing here adds or takes a coin on its own —
-// a purchase, a run's coins and a character's price are all the edge's answer, and the atom repaints from it.
-//
-// Signed out there is no wallet: `signedIn: false`, balance 0, nothing owned but what is free. A guest plays;
-// the coins of that run are not kept (owner, 2026-09-15). Under the gate the wallet is a fixed LOCAL one (no
-// network in CI), so the e2e still walks a purchase end to end through the same calls.
 import { atom } from "nanostores";
 import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
 import { session } from "@microspec/core/runtime/auth.js";
@@ -15,7 +7,6 @@ import { report } from "@microspec/core/runtime/telemetry.js";
 const H = { "content-type": "application/json" };
 const sidNow = () => { try { return localStorage.getItem("ms:gh:sid") || ""; } catch { return ""; } };
 
-// a buy's outcome from an edge status
 const buyOutcome = (status) => (status === 200 ? "ok" : status === 402 ? "poor" : status === 401 ? "eSignIn" : "error");
 
 /**
@@ -25,10 +16,10 @@ const buyOutcome = (status) => (status === 200 ? "ok" : status === 402 ? "poor" 
  */
 export function makeWallet(app, { gateBalance = 0 } = {}) {
   const $wallet = atom({ ready: gate, signedIn: gate, balance: gate ? gateBalance : 0, owned: [] });
-  const $bought = atom(0);   // the coins a Stars purchase just brought, for the toast
+  const $bought = atom(0);
   const set = (patch) => $wallet.set({ ...$wallet.get(), ...patch });
   const call = (route, body = {}) => fetch(`${VPS_PROXY}/wallet/${route}`, { method: "POST", headers: H, body: JSON.stringify({ app, ...body }) });
-  let awaitingPurchase = 0;   // a deadline: while it runs, a balance that grows is a purchase landing
+  let awaitingPurchase = 0;
 
   async function refresh() {
     if (gate) return;
@@ -41,7 +32,7 @@ export function makeWallet(app, { gateBalance = 0 } = {}) {
       const was = $wallet.get(), balance = Math.max(0, Number(j.balance) || 0);
       if (was.ready && was.signedIn && balance > was.balance && Date.now() < awaitingPurchase) { $bought.set(balance - was.balance); awaitingPurchase = 0; }
       set({ ready: true, signedIn: true, balance, owned: Array.isArray(j.owned) ? j.owned.map(String) : [] });
-    } catch { /* offline: the last answer stays on screen */ }
+    } catch { }
   }
 
   /** Does the viewer own `item` (or is it free — `price` 0)? */
@@ -75,8 +66,6 @@ export function makeWallet(app, { gateBalance = 0 } = {}) {
     const n = Math.max(0, Math.floor(Number(coins) || 0));
     if (gate) { set({ balance: $wallet.get().balance + n }); return { granted: n, kept: true }; }
     const ticket = await ticketP;
-    // every claim reports what happened (logs.sh <app> 1h wallet.earn) — a run whose coins did not land is a
-    // missing ticket, a refusal or a thrown call, and the number that tells them apart is here
     if (!ticket) { report("wallet.earn", { app, coins: n, ticket: false, signedIn: !!sidNow() }, "warn"); return { granted: 0, kept: !!sidNow() }; }
     try {
       const r = await call("earn", { ticket, coins: n });
@@ -95,7 +84,7 @@ export function makeWallet(app, { gateBalance = 0 } = {}) {
   }
 
   if (!gate && typeof document !== "undefined") {
-    setTimeout(refresh, 0);   // after /_rt/index.js has installed the sealed fetch that carries the sid
+    setTimeout(refresh, 0);
     let seen = sidNow();
     session.listen((s) => { const sid = s ? s.sid : ""; if (sid === seen) return; seen = sid; refresh(); });
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refresh(); });

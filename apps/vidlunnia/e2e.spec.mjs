@@ -1,5 +1,3 @@
-// Under the gate the microphone is a synthetic take (seeded on boot, data-live), the named-voice catalogue is a
-// four-voice mock and a job is a 90 ms wait that yields a synthetic WAV — no network, no GPU, no sign-in.
 const ready = async (h) => { for (let i = 0; i < 30; i++) { if ((await h.count("[data-take][data-live]")) > 0) break; await h.wait(200); } };
 
 export default [
@@ -29,7 +27,6 @@ export default [
     },
   },
   {
-    // the named voices: the sheet lists the app locale's language first; a named voice hides the styles
     name: "голоси: sheet за локаллю, іменований голос обирається, стилі ховаються, Back закриває", run: async (h) => {
       await ready(h);
       await h.click("[data-voice-pick]"); await h.wait(300);
@@ -68,7 +65,6 @@ export default [
     },
   },
   {
-    // the take can be thrown away (owner: "я не можу видалити свій запис"): the voice falls back to a preset
     name: "видалення запису: печатка зникає, голос стає пресетом, Мій зникає зі sheet", run: async (h) => {
       await ready(h);
       h.expect((await h.count("[data-delete-take]")) === 1, "немає кнопки видалення запису");
@@ -79,7 +75,7 @@ export default [
       await h.click("[data-voice-pick]"); await h.wait(250);
       h.expect((await h.count('[data-voice="mine"]')) === 0, "Мій лишився без запису");
       await h.back(); await h.wait(250);
-      await h.tap("[data-record]"); await h.wait(300);   // the gate seeds a fresh take at once
+      await h.tap("[data-record]"); await h.wait(300);
       h.expect((await h.count("[data-take][data-live]")) === 1, "новий запис не зʼявився");
     },
   },

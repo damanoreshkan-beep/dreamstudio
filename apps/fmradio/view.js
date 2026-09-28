@@ -1,11 +1,3 @@
-// FM Radio — a broadband-FM receiver for a HackRF One, decoded entirely on the device. WebUSB drives the
-// radio; a Web Worker (dsp.worker.js) streams the 2 Msps IQ, demodulates audio, decodes RDS metadata (station
-// name / genre / radiotext) off the composite, and runs the auto-scan. This view is the head unit: a
-// now-playing card, seek + band-scan, and the station list. See docs/research/hackrf-webusb-fm.md + rds-and-scan.md.
-//
-// Two realities: with a device attached the worker feeds real audio + RDS + scan results; under the headless
-// gate (and ?mock preview) there is no USB, so the view seeds a plausible station + a scan list so the
-// populated screen — the part every downstream gate measures — renders, marked data-live.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -23,8 +15,7 @@ import { usbSupported, USB_FILTERS } from "/_rt/hackrf.js";
 import { createUsbSession } from "/_rt/usbsession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
-// `length:` — a bare var() in text-[…] reads as a COLOUR to Tailwind v4 and the size falls back to the parent's
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
 const FM_LO = 87.5, FM_HI = 108.0, STEP_HZ = 100_000;
@@ -33,20 +24,18 @@ const fmMhz = (hz) => (hz / 1e6).toFixed(1);
 const JC = (init) => ({ encode: JSON.stringify, decode: (s) => { try { return JSON.parse(s); } catch { return init; } } });
 const EMPTY_RDS = { pi: 0, pty: 0, ptyName: "", ps: "", rt: "", tp: 0, ms: 0 };
 
-// ---- shared state (module scope, survives tab switches) ----
 const $playing = atom(false), $signal = atom(0);
 const $rds = atom({ ...EMPTY_RDS }), $stereo = atom(false), $scan = atom({ active: false, frac: 0 });
 const $freq = persistentAtom("fmradio:freq", 100e6, { encode: String, decode: Number });
 const $stations = persistentAtom("fmradio:stations", [], JC([]));
-const $known = persistentAtom("fmradio:known", {}, JC({}));   // accumulated station names, keyed by frequency
-const $saved = persistentAtom("fmradio:saved", [], JC([]));   // user favourites
+const $known = persistentAtom("fmradio:known", {}, JC({}));
+const $saved = persistentAtom("fmradio:saved", [], JC([]));
 const $vol = persistentAtom("fmradio:vol", 0.8, { encode: String, decode: Number });
 const $lna = persistentAtom("fmradio:lna", 16, { encode: String, decode: Number });
 const $vga = persistentAtom("fmradio:vga", 20, { encode: String, decode: Number });
 const $amp = persistentAtom("fmradio:amp", "0", { encode: String, decode: (s) => s === "1" });
 const $tc = persistentAtom("fmradio:tc", 50, { encode: String, decode: Number });
 
-// ---- audio (main thread): schedule the worker's 48 kHz chunks; a gain node is the mute. ----
 let audioCtx = null, gainNode = null, nextT = 0, wl = null, np = null;
 function ensureAudio() {
   if (audioCtx) return audioCtx;
@@ -66,9 +55,6 @@ function pushAudio(f32) {
 const rssiLevel = (db) => Math.max(0, Math.min(1, (db + 60) / 40));
 const npTitle = () => { const ps = $rds.get().ps; return ps ? `${ps} · ${fmMhz($freq.get())} FM` : `FM ${fmMhz($freq.get())} MHz`; };
 
-// The USB + worker lifecycle is /_rt/usbsession.js — five apps carried a byte-identical copy of it.
-// `onOpen` is where the AudioContext is built: after the device is granted (so a cancelled picker costs
-// nothing) and before the worker spawns (so its first audio chunk has somewhere to land).
 const rf = createUsbSession({
   atom,
   spawn: () => new Worker(new URL("./dsp.worker.js", import.meta.url), { type: "module" }),
@@ -88,12 +74,10 @@ const rf = createUsbSession({
   },
 });
 const $connected = rf.$connected, $usbOk = rf.$usbOk;
-// keep any station the scan found, carrying a known/accumulated PS name forward if we have one
 function mergeStations(found) {
   const known = $known.get();
   $stations.set(found.map((s) => ({ ...s, ps: known[s.freq]?.ps || "" })));
 }
-// accumulate a confirmed station name against its frequency, and propagate into the scan + saved lists
 function rememberStation(freq, s) {
   const k = { ...$known.get() }; k[freq] = { ps: s.ps, pi: s.pi, pty: s.pty }; $known.set(k);
   const patch = (atom) => { const list = atom.get(); const i = list.findIndex((x) => x.freq === freq); if (i >= 0 && list[i].ps !== s.ps) { const n = [...list]; n[i] = { ...n[i], ps: s.ps, pi: s.pi, pty: s.pty }; atom.set(n); } };
@@ -127,7 +111,6 @@ function setVol(v) { $vol.set(v); if (gainNode && $playing.get()) gainNode.gain.
 function pushGain() { rf.post({ type: "gain", lna: $lna.get(), vga: $vga.get(), amp: $amp.get() }); }
 function setTc(tc) { $tc.set(tc); rf.post({ type: "deemph", tcUs: tc }); }
 
-// ================= view =================
 export function fmradioView({ S, screen, openScreen, closeScreen, undo }) {
   const t = useStore(S.t), loc = useStore(S.locale);
   const connected = useStore($connected), usbOk = useStore($usbOk);
@@ -136,8 +119,6 @@ export function fmradioView({ S, screen, openScreen, closeScreen, undo }) {
   const known = useStore($known), savedList = useStore($saved);
   const demo = gate;
 
-  // Under the gate / ?mock there is no HackRF — seed a plausible tuned station + scan list so the populated
-  // head-unit renders (marked data-live) for the a11y / overflow / taste gates.
   useEffect(() => {
     if (!demo) return;
     $connected.set(true); $freq.set(100e6); $signal.set(0.74); $stereo.set(true);
@@ -164,11 +145,9 @@ export function fmradioView({ S, screen, openScreen, closeScreen, undo }) {
   }
 
   const genre = rds.ptyName && rds.pty ? rds.ptyName : "";
-  const name = rds.ps || known[freq]?.ps || "";        // live name, else the accumulated one for this frequency
-  const info = rds.rt || rds.scroll || "";             // RadioText, or the scrolling-PS text when the PS is dynamic
+  const name = rds.ps || known[freq]?.ps || "";
+  const info = rds.rt || rds.scroll || "";
   const savedNow = savedList.some((x) => x.freq === freq);
-  // The app's own controls ride the kit's Transport as `actions`: save (a pressed state), the settings sheet
-  // and power. Past `keep` they demote into the history-backed overflow sheet (S.screen "more"), never vanish.
   const actions = [
     { id: "save", icon: savedNow ? "lucide:bookmark-check" : "lucide:bookmark", label: T(t, "save"), onClick: () => toggleSave(undo), active: savedNow, pressed: savedNow, attr: { "data-save": true } },
     { id: "settings", icon: "lucide:sliders-horizontal", label: T(t, "settings"), onClick: () => { buzz(); openScreen("rf"); }, attr: { "data-settings": true, "aria-expanded": screen === "rf" } },
@@ -181,16 +160,13 @@ export function fmradioView({ S, screen, openScreen, closeScreen, undo }) {
         <div class="flex-1 min-w-0">
           <${Slider} id="band" attr="data-band" label=${T(t, "band")} min=${FM_LO} max=${FM_HI} step=${0.1} value=${(freq / 1e6).toFixed(1)} onInput=${(v) => setFreq(v * 1e6)} />
         </div>
-        ${/* the scan's progress is the rail below, not a spinning glyph on the verb */""}
+        ${""}
         <button data-scan aria-label=${T(t, "scan")} aria-busy=${scanSt.active} disabled=${scanSt.active} onClick=${scan} class="btn btn-sm gap-1.5 shrink-0">${Icon("lucide:radar", "text-base")}${T(t, "scan")}</button>
       </div>
-      ${/* A 6px rail cannot hold a shadow pair, so the groove takes the system's one sanctioned tone step
-           (--sf-track-face) instead of an ink alpha — the same face a range track uses. */""}
+      ${""}
       ${scanSt.active ? html`<div class="w-full h-1.5 rounded-full overflow-hidden" style="background:var(--sf-track-face)" data-scanbar><div class="h-full bg-primary transition-[width] duration-200" style=${`width:${Math.round((scanSt.frac || 0) * 100)}%`}></div></div>` : null}
       ${stations.length ? stations.slice().sort((a, b) => a.freq - b.freq).map((s) => {
     const on = Math.abs(s.freq - freq) < STEP_HZ / 2;
-    // The tuned station is a DEEPER extrusion carrying the accent tint, not a ringed row: with the hairline
-    // gone the depth step is what separates it from its neighbours, and aria-current still carries the state.
     return html`<button key=${s.freq} data-station=${fmMhz(s.freq)} aria-current=${on} onClick=${() => setFreq(s.freq)}
         class=${`flex items-center gap-3 rounded-[var(--ms-r)] px-[var(--ms-pad)] py-2.5 text-left transition-colors ${on ? "bg-primary/10 sf-e3" : "sf-raised sf-e2"}`}>
         <span class="font-mono tabular-nums text-lg w-16 shrink-0 ${on ? "text-primary" : ""}">${fmMhz(s.freq)}</span>
@@ -209,7 +185,7 @@ export function fmradioView({ S, screen, openScreen, closeScreen, undo }) {
               <span class=${`${LABEL} shrink-0`}>${T(t, "unitMhz")}</span>
               <span class="truncate font-semibold text-sm ml-0.5">${name || html`<span class="text-muted">${T(t, "tuning")}</span>`}</span>
               <span data-stereo class=${`shrink-0 ${stereo ? "text-primary" : "text-muted"}`} title=${T(t, stereo ? "stereo" : "mono")}>${Icon("lucide:radio", "text-sm")}</span>
-              ${/* The genre is a chip — a mono micro-label in a ghost badge, ink not colour: the pair of light is a mark, never text */""}
+              ${""}
               ${genre ? html`<span class=${`shrink-0 badge badge-ghost badge-sm ${LABEL} truncate max-w-[6rem]`} data-genre>${genre}</span>` : null}
             </div>
             ${info ? html`<div class="text-sm text-muted leading-snug truncate mt-0.5" data-rt>${info}</div>` : null}
@@ -226,8 +202,6 @@ export function fmradioView({ S, screen, openScreen, closeScreen, undo }) {
   </${Fragment}>`;
 }
 
-// Five bars, unchanged geometry. An unlit bar is 6px wide — far too thin for the shadow pair — so it takes
-// --sf-track-face, the system's one sanctioned tone step for a thin track, rather than an ink alpha.
 function SignalBars({ level, label }) {
   const bars = 5, lit = Math.round(level * bars);
   return html`<div class="flex items-end gap-[3px] h-7" role="img" aria-label=${label} data-signal>
@@ -235,11 +209,8 @@ function SignalBars({ level, label }) {
   </div>`;
 }
 
-// settings island → history-backed bottom sheet (S.screen="rf"): gains, de-emphasis, volume, disconnect.
 function SettingsSheet({ open, onClose, t, demo }) {
   const vol = useStore($vol), lna = useStore($lna), vga = useStore($vga), amp = useStore($amp), tc = useStore($tc);
-  // Kit sliders: the caption is the accessible name. A gain carries a real unit the receiver is set to, so
-  // its dB reading is part of the caption — one line, not a second readout beside the track.
   return html`<${Sheet} id="rfsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
     <${Slider} id="vol" attr="data-rf" label=${T(t, "volume")} min=${0} max=${1} step=${0.01} value=${vol} onInput=${setVol} />
     <${Slider} id="lna" attr="data-rf" label=${`${T(t, "gainLna")} · ${lna} dB`} min=${0} max=${40} step=${8} value=${lna} onInput=${(v) => { $lna.set(v); pushGain(); }} />
@@ -256,12 +227,10 @@ function SettingsSheet({ open, onClose, t, demo }) {
   </${Sheet}>`;
 }
 
-// Saved tab — the user's favourite stations. Tap opens on the Radio tab; delete is reversible (undo-toast).
 export function savedView({ S, undo }) {
   const t = useStore(S.t), saved = useStore($saved), freq = useStore($freq), known = useStore($known);
   const open = (s) => { buzz(); setFreq(s.freq); S.tab.set("tune"); };
   const del = (i) => { buzz(); const removed = saved[i]; $saved.set(saved.filter((_, k) => k !== i)); undo?.(() => $saved.set([...$saved.get(), removed].sort((a, b) => a.freq - b.freq)), removed.ps || fmMhz(removed.freq)); };
-  // The shell's own empty-state shape (data-empty + data-mascot): the theme scatters its light behind the glyph.
   if (!saved.length) return html`<div data-empty class="flex flex-col items-center text-muted py-16 gap-2 text-center px-6"><span data-mascot aria-hidden="true"></span>${Icon("lucide:bookmark", "text-4xl")}<span class="font-medium">${T(t, "savedEmpty")}</span></div>`;
   return html`<div class="flex flex-col gap-2 max-w-[440px] mx-auto w-full pb-6" data-saved-count=${saved.length}>
     ${saved.map((s, i) => {

@@ -1,5 +1,3 @@
-// The deck is static and in canonical order, so every check is deterministic without a seed. The spirit
-// speaks a fixed line under the gate (no network). Card art is the vendored public-domain RWS scans.
 export default [
   {
     name: "колода за структурою: 5 розділів, 78 карт", run: async (h) => {

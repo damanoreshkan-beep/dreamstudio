@@ -1,18 +1,11 @@
-// DreamStudio's materials — every theme MODULE in rt/ (rt/theme-<id>.css, registered in rt/themes.json) holds
-// the farm's universal invariants; the LUMINOUS contract (docs/research/luminous-icons.md) is pinned on
-// theme-lum.css alone. The core's runtime.css holds the structure and its own neutral suite.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 
 const RT = new URL("../", import.meta.url);
 const registry = JSON.parse(await Deno.readTextFile(new URL("themes.json", RT)));
 const themes = Object.fromEntries(await Promise.all(registry.map(async (m) => [m.id, await Deno.readTextFile(new URL(m.css, RT))])));
 
-// A theme is declared in MORE THAN ONE block (the palette, then the material's tokens), so reading "the
-// block after the selector" answers a different question than the one being asked. Collect them all —
-// and for a module that only @imports (plain), read the imported file's blocks through the core's copy.
 const CORE_RT = new URL("../node_modules/@microspec/core/packages/runtime/", RT);
 const expand = async (css) => {
-  // an @import is inlined BEFORE the importing text, as the cascade sees it — the brand's later declaration wins
   let head = "";
   for (const m of css.matchAll(/@import\s+"\.\/([\w.-]+\.css)";/g)) {
     const local = await Deno.readTextFile(new URL(m[1], RT)).catch(() => null);
@@ -32,7 +25,6 @@ const relLum = (p) => 0.2126 * lin(p[0]) + 0.7152 * lin(p[1]) + 0.0722 * lin(p[2
 const ratio = (a, b) => { const [x, y] = [relLum(a), relLum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); };
 const over = (fg, a, bg) => fg.map((v, i) => a * v + (1 - a) * bg[i]);
 const lastTokens = (css, theme) => {
-  // the LAST declaration wins in CSS, so the palette a brand declares after the import is the effective one
   const out = {};
   let i = -1;
   while ((i = css.indexOf(`[data-theme="${theme}"] {`, i + 1)) > -1) {
@@ -49,7 +41,6 @@ Deno.test("themes · the registry: every module exists, imports the structure fi
     assert(/^[a-z][a-z0-9-]*$/.test(m.id), `${m.id}: an id is a css-safe token`);
     assert(m.name?.en && m.name?.uk, `${m.id}: a name in both locales`);
     assert(/^@import "\.\/(runtime|theme-[\w-]+)\.css";/m.test(themes[m.id]), `${m.id}: a module @imports runtime.css (or another module) FIRST`);
-    // the card's round picture is the mascot in that theme — a named thumb that is not in rt/ is a broken image on every profile
     if (m.thumb) assert((await Deno.stat(new URL(m.thumb, RT))).size > 0, `${m.id}: thumb ${m.thumb} missing from rt/`);
   }
 });
@@ -76,7 +67,6 @@ Deno.test("themes · every material keeps the farm's laws: a ring on every surfa
       }
       const muted = rgb(t["--color-base-muted"]);
       for (const [surface, px] of Object.entries(bed)) assert(ratio(muted, px) >= 4.5, `${m.id}/${theme}: muted ink on ${surface} is ${ratio(muted, px).toFixed(2)}:1`);
-      // every sprite a material names must exist in rt/ — a url() to a missing file is a silent nothing
       for (const u of b.matchAll(/url\("\/_rt\/([\w.-]+\.webp)"\)/g)) {
         assert(await Deno.stat(new URL(u[1], RT)).then((s) => s.isFile, () => false), `${m.id}/${theme} names ${u[1]}, which is not in rt/`);
       }
@@ -107,13 +97,10 @@ Deno.test("themes · a textured theme measures its decor: every hook that names 
     for (const theme of ["signal", "signal-light"]) {
       const b = themeBlock(css, theme);
       const named = (v) => /url\(/.test(value(b, v));
-      // the header carries NO texture (owner 2026-09-02: "прибери текстури з хедеру системно") — the lip
-      // hook is gone from decor.css, so a theme naming the token would set a value nobody reads
       assert(!b.includes("--ds-lip:"), `${m.id}/${theme}: --ds-lip is banned — the header carries no texture`);
       if (named("--ds-strand")) for (const v of ["--ds-strand-y", "--ds-strand-y-wide", "--ds-strand-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-strand without ${v}`);
       if (named("--ds-scatter")) for (const v of ["--ds-scatter-pos", "--ds-scatter-size", "--ds-scatter-a"]) assert(b.includes(v + ":"), `${m.id}/${theme}: --ds-scatter without ${v}`);
       if (named("--ds-corner")) assert(b.includes("--ds-corner-a:"), `${m.id}/${theme}: --ds-corner without --ds-corner-a`);
-      // a hook with a sprite needs decor.css in the chain, or the token is a value nobody reads
       if (named("--ds-strand")) assert(/@import "\.\/decor\.css";/.test(themes[m.id]), `${m.id}: names sprites but does not import decor.css`);
     }
     for (const u of root.matchAll(/--ds-art-(?:day|night):\s*url\("\/_rt\/([\w.-]+\.webp)"\)/g)) {

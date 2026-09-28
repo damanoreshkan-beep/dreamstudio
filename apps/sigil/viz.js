@@ -1,19 +1,3 @@
-// apps/sigil/viz.js — the Forge's cosmic kaleidoscope + the theme-safe 2D renderer (fallback / thumbnails /
-// share). See apps/sigil/RESEARCH.md "Visual system v2".
-//
-// The scene lives on a canvas INSIDE the Forge view (fixed z-0, content z-10) — the app's body stays opaque,
-// so every tab's text keeps its contrast (an app-wide transparent backdrop fought the a11y gate; the cosmos
-// belongs on the hero screen). Probe-guarded on getContext('webgl') (NOT gate-guarded) → CI's headless Chrome
-// renders the real 3D; no WebGL → the Canvas2D kaleidoscope. No GLSL (Points / Sprites / meshes + additive
-// bloom, CPU-driven) so the `render=webgl` regression gate stays honest and every frame is verifiable.
-//
-// Layers, designed per-frame:
-//   • star field   — 3 parallax layers of additive Points: slow drift + opacity breathing + gyro parallax.
-//   • nebula       — 2 soft radial-gradient sprites (additive): drift + breathe.
-//   • kaleidoscope — the sigil tube in 6-fold mirror symmetry (a living mandala): counter-rotate + breathe.
-//   • cosmic draw  — eased drawRange 0→1; a bright forge-head sprite rides the curve, trailing spark sprites.
-// Theme-adaptive (ink=--color-base-content, accent=--color-primary): deep-space in dark, faint in light.
-
 import { html } from "htm/preact";
 import { useRef, useEffect } from "preact/hooks";
 import { isGate } from "/_rt/gate.js";
@@ -47,7 +31,6 @@ function radialTex(THREE, rgb) {
   const t = new THREE.CanvasTexture(c); t.needsUpdate = true; return t;
 }
 
-// ---- gyro immersion (optional; disabled in the gate) ----
 const immersion = { on: false, beta: 0, gamma: 0, reduced: reducedMotion, _t: null };
 export const immersionAvailable = tilt.supported && !isGate;
 export async function enableImmersion() {
@@ -60,7 +43,6 @@ export async function enableImmersion() {
 }
 export function disableImmersion() { immersion._t?.(); immersion.on = false; immersion._t = null; immersion.beta = immersion.gamma = 0; }
 
-// ---- scene builders ----
 function buildStars(THREE, scene, col) {
   const stars = [];
   const LAYERS = [{ n: 850, z: [-22, -12], size: 0.05, drift: 0.006, par: 0.05, op: col.dark ? 0.9 : 0.14 },
@@ -116,16 +98,12 @@ function buildMandala(THREE, col, sig) {
 }
 function disposeObj(o) { o.traverse((n) => { n.geometry?.dispose?.(); const m = n.material; if (Array.isArray(m)) m.forEach((x) => x?.dispose?.()); else m?.dispose?.(); }); }
 
-// =========================================================================================
-// SigilStage — self-contained: builds the cosmos + mandala on its OWN canvas (z-0 in the Forge view),
-// leaves the app body opaque. Carries the diagnostic marker (data-sigil / data-render / data-err).
-// =========================================================================================
 export function SigilStage({ sigil }) {
   const ref = useRef();
   const store = useRef({ THREE: null, renderer: null, scene: null, cam: null, stars: [], nebula: [], m: null, raf: null, ro: null, mo: null, t0: 0, err: null, col: null }).current;
   useEffect(() => {
     const canvas = ref.current; if (!canvas) return; let dead = false;
-    const mark = () => { try { canvas.dataset.haswebgl = hasWebGL() ? "yes" : "no"; canvas.dataset.render = store.scene ? "webgl" : "2d"; if (store.err) canvas.dataset.err = String(store.err.message || store.err).slice(0, 140); } catch { /* */ } };
+    const mark = () => { try { canvas.dataset.haswebgl = hasWebGL() ? "yes" : "no"; canvas.dataset.render = store.scene ? "webgl" : "2d"; if (store.err) canvas.dataset.err = String(store.err.message || store.err).slice(0, 140); } catch { } };
     const dims = () => { const r = canvas.getBoundingClientRect(); return [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; };
     const size = () => { const [w, h] = dims(), dpr = DPR(); canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); if (store.renderer) { store.renderer.setSize(canvas.width, canvas.height, false); store.cam.aspect = w / h; store.cam.updateProjectionMatrix(); } };
 
@@ -169,13 +147,12 @@ export function SigilStage({ sigil }) {
       mark();
     })();
 
-    return () => { dead = true; if (store.raf) cancelAnimationFrame(store.raf); store.ro?.disconnect(); store.mo?.disconnect(); if (store.scene) disposeObj(store.scene); try { store.renderer?.dispose?.(); } catch { /* */ } store.renderer = store.scene = store.m = null; };
+    return () => { dead = true; if (store.raf) cancelAnimationFrame(store.raf); store.ro?.disconnect(); store.mo?.disconnect(); if (store.scene) disposeObj(store.scene); try { store.renderer?.dispose?.(); } catch { } store.renderer = store.scene = store.m = null; };
   }, []);
   useEffect(() => { store.sigil = sigil; store.rebuildMandala?.(sigil); }, [sigil && sigil.seed]);
   return html`<canvas ref=${ref} data-sigil data-live aria-hidden="true" class="fixed inset-0 z-0 w-full h-full pointer-events-none"></canvas>`;
 }
 
-// one animation iteration: every layer, considered
 function frame(store, t) {
   const red = immersion.reduced;
   const gx = immersion.on ? Math.max(-1, Math.min(1, immersion.gamma / 45)) : 0;
@@ -209,9 +186,6 @@ function frame(store, t) {
   }
 }
 
-// =========================================================================================
-// 2D kaleidoscope renderer — fallback + grimoire thumbnails + shared talisman PNG.
-// =========================================================================================
 export function draw2D(canvas, sigil, opts = {}) {
   const ctx = canvas.getContext && canvas.getContext("2d");
   if (!ctx || !sigil) return;

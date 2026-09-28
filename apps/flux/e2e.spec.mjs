@@ -1,6 +1,3 @@
-// The gate has no camera; the Chromium gate paints a deterministic seeded composition on the canvas and
-// seeds the motion meter, so the shot and these checks see a populated screen. Audio/download not exercised.
-// The meter is `[data-readout]`, not `[data-live]`: the kit's CamStage stamps `data-live` on the stage itself.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-readout]")) > 0) break; await h.wait(400); } };
 
 export default [
@@ -16,8 +13,6 @@ export default [
   {
     name: "ghost тогл", run: async (h) => {
       await ready(h);
-      // STATE, not skin: the toggle is asserted through aria-pressed, so a material change (btn-ghost →
-      // a surface class) can never turn a passing test red for a reason the user cannot see.
       h.expect((await h.count('[data-ghost][aria-pressed="true"]')) === 1, "ghost не увімкнений спочатку");
       await h.tap("[data-ghost]"); await h.wait(150);
       h.expect((await h.count('[data-ghost][aria-pressed="false"]')) === 1, "ghost не перемкнувся");

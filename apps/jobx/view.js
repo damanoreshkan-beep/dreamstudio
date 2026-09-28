@@ -1,13 +1,3 @@
-// jobx — jobs on a 3D map of a city (Kyiv, Kharkiv, Odesa, Dnipro, Lviv). The map is the app's HERO BACKGROUND: a full-screen, theme-coloured 3D
-// city that fills the Map tab, with a single control island at the foot. Jobs are a separate List tab; a
-// vacancy's detail and the post form are BIG ROUTED PAGES (S.screen), never bottom-sheet modals.
-//
-// Theme-first: the map's whole palette is DERIVED from the active theme's tokens (--color-base-*, --app-accent)
-// and recomputed on every theme switch — light theme → a light city, dark → a dark city, always coherent with
-// the rest of the farm. Nothing about the map's colour is hardcoded.
-//
-// The WebGL map is a probe-guarded enhancement (glstage law): it runs on a live WebGL2 context, never under the
-// headless/CI gate — there the DOM (the List tab, the routed pages) is the truth the gate, axe and e2e see.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -20,25 +10,16 @@ import { gate, isGate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session } from "/_rt/auth.js";
 
-// The theme shipped as "ink" until 2026-09-25 — a name no stylesheet defines, so stock daisyUI took over
-// (violet primary, no garland). The runtime reads `jobx:theme` when start() builds the store, and this
-// module evaluates before that call (index.html imports view.js first), so a stored "ink" is rewritten here.
-try { if (typeof localStorage !== "undefined" && localStorage.getItem("jobx:theme") === "ink") localStorage.setItem("jobx:theme", "signal"); } catch { /* private mode */ }
+try { if (typeof localStorage !== "undefined" && localStorage.getItem("jobx:theme") === "ink") localStorage.setItem("jobx:theme", "signal"); } catch { }
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const EMPLOYMENT = ["full", "part", "remote", "contract", "internship"];
 const empKey = { full: "empFull", part: "empPart", remote: "empRemote", contract: "empContract", internship: "empInternship" };
 
-const GEO = "https://dreamstudio.mooo.com/geo";      // per-city static geometry: `${GEO}/${city}/…` (nginx, gzip)
-// deck.gl, dynamic-imported only behind a WebGL2 probe. Every @deck.gl package asks esm.sh for a luma.gl
-// RANGE (^9.4.0 / ~9.4.0), each resolved at its own cache moment: 2026-09-12 the client logged "Found
-// luma.gl 9.4.0 while initializing 9.4.1". `?deps=` pins one luma across the whole subgraph.
+const GEO = "https://dreamstudio.mooo.com/geo";
 const LUMA = "9.4.2";
 const DECK_URL = `https://esm.sh/deck.gl@9.4.0?deps=${["core", "engine", "shadertools", "webgl", "gpgpu", "gltf"].map((p) => `@luma.gl/${p}@${LUMA}`).join(",")}`;
 
-// The cities jobx covers. Each has a centre (the map's initial camera), a bbox (which jobs belong to it, and
-// the edge's post-validation), and a work.ua slug (the vacancy sync). Buildings + base geometry live at
-// `${GEO}/${id}/…` on the VPS. Kyiv is the default. The same registry shape lives in edge/jobs.js.
 const CITIES = {
   kyiv:    { uk: "Київ",   en: "Kyiv",    lat: 50.4501, lon: 30.5234, s: 50.213, w: 30.236, n: 50.591, e: 30.827 },
   kharkiv: { uk: "Харків", en: "Kharkiv", lat: 49.9935, lon: 36.2304, s: 49.90,  w: 36.10,  n: 50.08,  e: 36.40 },
@@ -50,13 +31,11 @@ const CITY_IDS = Object.keys(CITIES);
 const cityName = (id, loc) => { const c = CITIES[id] || CITIES.kyiv; return /uk/i.test(loc || "uk") ? c.uk : c.en; };
 const inCity = (j, id) => { const c = CITIES[id]; return !!c && Number.isFinite(j.lat) && Number.isFinite(j.lon) && j.lat >= c.s && j.lat <= c.n && j.lon >= c.w && j.lon <= c.e; };
 const viewFor = (id) => { const c = CITIES[id] || CITIES.kyiv; return { longitude: c.lon, latitude: c.lat, zoom: 11.0, pitch: 55, bearing: -18, minZoom: 10, maxZoom: 18 }; };
-const KYIV = CITIES.kyiv;   // legacy alias (kmFromCentre default)
-// The chosen city persists per viewer (localStorage), defaulting to Kyiv; the store drives map, list and posting.
+const KYIV = CITIES.kyiv;
 const readCity = () => { try { const c = localStorage.getItem("jobx.city"); return c && CITIES[c] ? c : "kyiv"; } catch { return "kyiv"; } };
 const $city = atom(readCity());
-$city.listen((c) => { try { localStorage.setItem("jobx.city", c); } catch { /* private mode */ } });
+$city.listen((c) => { try { localStorage.setItem("jobx.city", c); } catch { } });
 
-// Kyiv districts — a posted job picks one; its centre gives the point on the map (no map-tap needed on a page).
 const DISTRICTS = {
   shevchenkivskyi: { uk: "Шевченківський", en: "Shevchenkivskyi", lat: 50.452, lon: 30.480 },
   pecherskyi: { uk: "Печерський", en: "Pecherskyi", lat: 50.425, lon: 30.540 },
@@ -70,12 +49,6 @@ const DISTRICTS = {
   sviatoshynskyi: { uk: "Святошинський", en: "Sviatoshynskyi", lat: 50.455, lon: 30.360 },
 };
 
-// Landmark orientation medallions — a small premium set of AI-illustrated icons per city (a dark-glass coin
-// with a glowing gold rim + a stylised gold landmark), so the map reads at a glance ("that's Maidan"). Baked
-// here (never fetched at runtime); rendered as a NON-pickable deck layer, gated to the building zoom and
-// filtered to the active city (so only 3–8 show at once). Coords are the real landmark points; the icon file
-// is assets/lm-<id>.webp. One medallion works on BOTH themes (dark disc reads on the light map, gold rim/glow
-// reads on the dark map) — no per-theme variant.
 const LANDMARKS = {
   kyiv: [
     { id: "maidan", uk: "Майдан Незалежності", en: "Maidan Nezalezhnosti", lat: 50.45024, lon: 30.52406 },
@@ -109,18 +82,10 @@ const LANDMARKS = {
   ],
 };
 const lmUrl = (id) => new URL(`assets/lm-${id}.webp`, import.meta.url).href;
-const LM_ZOOM = 12.5;   // landmarks appear with the 3D buildings, never at the cluttered city-wide view
-const LM_Z = 120;       // medallions share the pills' ROOFTOP PLANE (metres): above the tallest common building
+const LM_ZOOM = 12.5;
+const LM_Z = 120;
 
-// ── state ────────────────────────────────────────────────────────────────────────────────────────────────
 const DEV_HOST = typeof location !== "undefined" && /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|\[?::1)/.test(location.hostname);
-// The fixture mirrors PRODUCTION's shape, not a tidy ideal: exact street addresses ("Київ, вулиця …"), a
-// salary with words after the number, a text-only salary, an unpriced job, an empty employment, work.ua rows
-// whose contact is the listing link, and two jobs at one point (a cluster). Every row shape the live feed
-// has produced is here, so the eye on `?mock` sees what the phone sees (2026-09-10: the tidy fixture hid
-// a raw salary string blowing the list row apart).
-// `ms` is SPREAD (hours to weeks) so the age labels, the newest-first order and the "new" dot all render
-// in the gate's shot; a fixture stamped NOW everywhere shows one label and every dot.
 const NOW = Date.now(), H = 3600_000;
 const MOCK_JOBS = [
   { id: "1", title: "Frontend-розробник", company: "Dreamware", lat: 50.4470, lon: 30.5060, address: "Київ, вулиця Богдана Хмельницького, 32", salary: "60 000–90 000 ₴", employment: "remote", description: "Preact, невеликі PWA, чистий код.\n\nГнучкий графік, дружня команда, віддалена робота.", contact: "@dreamware_jobs", poster: "Octocat", ms: NOW - 2 * H },
@@ -155,11 +120,6 @@ async function loadJobs() {
 }
 const jobById = (id) => $jobs.get().find((j) => String(j.id) === String(id)) || null;
 
-// ── theme-derived palette ────────────────────────────────────────────────────────────────────────────────
-// Read a CSS custom property and resolve it to sRGB. getComputedStyle returns the token verbatim — here that
-// is `oklch(…)`, not `rgb(…)` — so parsing the numbers directly would read oklch components as RGB (blue
-// buildings, brown water). Painting the resolved colour onto a 1×1 canvas and reading the pixel converts ANY
-// colour syntax (oklch, hex, rgb) to true sRGB bytes.
 let _ctx = null;
 function themeRGB(name, fb) {
   try {
@@ -175,9 +135,6 @@ function themeRGB(name, fb) {
   } catch { return fb; }
 }
 const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
-// The whole map, in the theme's gamut — and MEMOISED per theme: palette() runs on every rebuild, six token
-// reads through a canvas each time is waste, and a NEW object per call defeated deck's updateTriggers (a
-// fresh `pal` = every accessor re-ran on every rebuild). `key` is the identity the layers trigger on.
 let _pal = null;
 function palette() {
   const base2 = themeRGB("--color-base-200", [10, 10, 12]);
@@ -188,31 +145,23 @@ function palette() {
   const base3 = themeRGB("--color-base-300", [22, 22, 26]);
   const accent = themeRGB("--app-accent", [242, 184, 75]);
   const accent2 = themeRGB("--app-accent-2", [92, 228, 220]);
-  const dark = (ink[0] + ink[1] + ink[2]) / 3 > 140;    // light ink ⇒ dark theme
+  const dark = (ink[0] + ink[1] + ink[2]) / 3 > 140;
   const white = [255, 255, 255];
   return (_pal = {
     key, dark, bg: base2, ink, accent,
-    // Buildings: a SUBDUED mass a small step off the ground, the tall ones a touch lighter (height = the
-    // second colour), lit by the scene light — never outlined, never brighter than a road. The stage.
     building: mix(base2, ink, dark ? 0.09 : 0.15), buildingHi: dark ? mix(base2, ink, 0.26) : mix(base2, ink, 0.05),
-    // Colour = meaning: the jobs are the warm pole (accent), the river is the cool one (accent-2).
     water: [...mix(base3, accent2, dark ? 0.35 : 0.45), 210], waterLine: [...mix(base3, accent2, 0.6), 160],
-    // Roads: a hierarchy — the skeleton (motorway/primary) bright, the capillaries faint.
     roadMajor: [...mix(base2, ink, dark ? 0.62 : 0.6), 215], roadMid: [...mix(base2, ink, dark ? 0.46 : 0.42), 180], road: [...mix(base2, ink, dark ? 0.34 : 0.28), 140],
     district: [...ink, dark ? 55 : 50], districtText: [...ink, 200],
     stationRing: [...(dark ? base2 : white), 235],
-    // salary pills (Airbnb-style): a solid surface pill, accent border, ink text; clusters invert to accent;
-    // the selected one warms toward the accent. Leaders tie a pill to its block on the ground.
     pillBg: [...base1, 242], pillBgSel: [...mix(base1, accent, 0.28), 250], pillText: [...ink, 255], pillBorder: [...accent, 255],
     clusterBg: [...accent, 245], clusterText: [...(dark ? base2 : white), 255],
     accentHi: mix(accent, white, 0.35), leader: [...accent, 150], lmLeader: [...ink, 70],
     me: [...accent2, 255],
-    // landmark labels: neutral (ink on a base-100 pill, NO accent border) so they read as PLACES, not jobs.
     lmText: [...ink, 255], lmBg: [...base1, 224],
   });
 }
 
-// A compact salary for the pill — "60–90k ₴" / "45k ₴"; null when there's no number (→ a plain anchor dot).
 function shortSalary(s) {
   if (!s) return null;
   const nums = String(s).replace(/\s/g, "").match(/\d{3,}/g);
@@ -222,21 +171,10 @@ function shortSalary(s) {
   return nums.length >= 2 ? `${k(nums[0])}–${k(nums[1])} ${cur}` : `${k(nums[0])} ${cur}`;
 }
 
-// ── THE MAP'S HIERARCHY (owner, 2026-09-11: «3D-будинки другорядні — їх затуляє все; лейбли вище; метро видно»)
-// Everything that MEANS something draws OVER the building mass, never inside it:
-//   ground (districts · water · roads)  →  buildings (a subdued, lit mass; no outlines; depth-tested)
-//   →  metro (glow + core tubes, stations)  →  landmarks  →  job blocks, pulse, LEADER lines, pills
-// The informational layers set `depthTest:false` and come last in the list, so a tower can never bury a
-// pill, a metro line or a medallion. Pills float on a ROOFTOP PLANE (PILL_Z, above the tallest common
-// building) and a thin leader line ties each pill to its block on the ground — the altitude reads as a
-// pin, not as a mistake. Markers cluster in SCREEN space per camera — Airbnb's rule: two pills never
-// overlap (deck's CollisionFilterExtension hid every label on its first frame, visgl/deck.gl#10333/#10386).
-const PILL_H = 34, PILL_GAP = 8;    // a pill's height on screen and the air kept between two pills, px
-const BLOCK_H = 40, PILL_Z = 120;   // the accent block's height and the pill's altitude, metres (rooftop plane)
-const BLD_ZOOM = 12.5;              // buildings (tiles) + landmarks + stations appear from here; city-wide stays clean
-const LABEL_ZOOM = 13.2;            // district names live BELOW this zoom (the city-wide view), then step aside
-// A marker's label: a cluster shows its count, a single job its compact salary, an unpriced job nothing (a
-// bare block). Its width on screen follows the label, so the overlap test is the real footprint.
+const PILL_H = 34, PILL_GAP = 8;
+const BLOCK_H = 40, PILL_Z = 120;
+const BLD_ZOOM = 12.5;
+const LABEL_ZOOM = 13.2;
 const labelOf = (c) => (c.count > 1 ? String(c.count) : (shortSalary(c.jobs[0] && c.jobs[0].salary) || ""));
 const pillW = (lab) => (lab ? lab.length * 7.6 + 20 : 12);
 function clusterJobs(jobs, vp) {
@@ -249,41 +187,34 @@ function clusterJobs(jobs, vp) {
     for (const c of out) if (Math.abs(c.x - x) < (wj + pillW(labelOf(c))) / 2 + PILL_GAP && Math.abs(c.y - y) < PILL_H) { hit = c; break; }
     if (!hit) { out.push({ x, y, lon: j.lon, lat: j.lat, count: 1, jobs: [j] }); continue; }
     hit.jobs.push(j); hit.count++;
-    const k = 1 / hit.count;                                   // running mean: the pill sits among its jobs
+    const k = 1 / hit.count;
     hit.x += (x - hit.x) * k; hit.y += (y - hit.y) * k; hit.lon += (j.lon - hit.lon) * k; hit.lat += (j.lat - hit.lat) * k;
   }
   return out.map((c) => ({ coordinates: [c.lon, c.lat], count: c.count, jobs: c.jobs, x: c.x, y: c.y }));
 }
-// A landmark steps aside for a job pill: both live on the rooftop plane, and the job is the product.
 const landmarkFree = (lm, clusters, vp) => { const [x, y] = vp.project([lm.lon, lm.lat, LM_Z]); return !clusters.some((c) => Math.abs(c.x - x) < (pillW(labelOf(c)) / 2 + 40) && Math.abs(c.y - y) < 60); };
-// A metro station takes the colour of the nearest line vertex (the data ships stations grey and unnamed).
 function colourStations(metro) {
   if (!metro || !metro.stations || !metro.lines) return [];
   const pts = [];
   for (const f of metro.lines.features || []) { const c = f.properties && f.properties.color; if (!c) continue; const g = f.geometry; const lines = g.type === "LineString" ? [g.coordinates] : g.coordinates; for (const ln of lines) for (let i = 0; i < ln.length; i += 3) pts.push([ln[i][0], ln[i][1], c]); }
   return metro.stations.map((s) => { let best = null, bd = Infinity; for (const p of pts) { const d = (p[0] - s.coordinates[0]) ** 2 + (p[1] - s.coordinates[1]) ** 2; if (d < bd) { bd = d; best = p[2]; } } return { coordinates: s.coordinates, color: best || [150, 150, 150] }; });
 }
-// The ground: a theme-derived gradient on the canvas (deck clears transparent), a soft centre light and a
-// vignette — the field reads as a lit table, not a flat fill. Night ⇒ a breath of the accent at the centre.
 function groundCSS(pal) {
   const c = pal.dark ? mix(pal.bg, pal.accent, 0.07) : mix(pal.bg, [255, 255, 255], 0.35);
   const e = pal.dark ? mix(pal.bg, [0, 0, 0], 0.55) : mix(pal.bg, pal.ink, 0.1);
   return `radial-gradient(120% 90% at 50% 38%, rgb(${c.join(",")}) 0%, rgb(${pal.bg.join(",")}) 55%, rgb(${e.join(",")}) 100%)`;
 }
 
-// ── the 3D map (probe-guarded, lazy, theme-derived) ──────────────────────────────────────────────────────
 async function makeDeck(canvas, cityId) {
   if (isGate) return null;
   try { if (!canvas.getContext("webgl2")) return null; } catch { return null; }
   let D; try { D = await import(DECK_URL); } catch { return null; }
   if (!D || !D.Deck) return null;
 
-  const VIEW = viewFor(cityId);                 // camera centred on this city
-  const gbase = `${GEO}/${cityId}`;             // this city's geometry root on the VPS
+  const VIEW = viewFor(cityId);
+  const gbase = `${GEO}/${cityId}`;
   const geo = {};
   const grab = async (n) => { try { geo[n] = await (await fetch(`${gbase}/${n}.json`)).json(); } catch { geo[n] = null; } };
-  // Base layers: every city has water + roads; only Kyiv carries district outlines + a metro network, so the
-  // others don't fetch them (a 404 on a missing layer would be console noise). Buildings stream as tiles.
   const baseLayers = cityId === "kyiv" ? ["water", "roads", "districts", "metro"] : ["water", "roads"];
   await Promise.all(baseLayers.map(grab));
   const stations = colourStations(geo.metro);
@@ -292,22 +223,16 @@ async function makeDeck(canvas, cityId) {
   let zoom = VIEW.zoom, cLng = VIEW.longitude, cLat = VIEW.latitude, cPitch = VIEW.pitch, cBearing = VIEW.bearing;
   let pal = palette(), jobs = [], onPick = () => {}, curClusters = [], camSig = "", loc = "uk", me = null, selected = null;
   let staticLayers = [], dead = false;
-  const landmarks = LANDMARKS[cityId] || [];   // this city's orientation medallions (constant for this deck)
-  // The viewport for clustering is BUILT from the controller state, never read back from deck: getViewports()
-  // returns the PREVIOUS frame (measured 2026-09-11: zoom 11 while the camera was at 14.2), so a flight
-  // clustered the pills for a view that was gone.
+  const landmarks = LANDMARKS[cityId] || [];
   const viewportNow = () => new D.WebMercatorViewport({ width: canvas.clientWidth || 384, height: canvas.clientHeight || 832, longitude: cLng, latitude: cLat, zoom, pitch: cPitch, bearing: cBearing });
-  const OVER = { depthTest: false };            // "draws over the buildings" — the informational layers' contract
+  const OVER = { depthTest: false };
   const hw = (f) => (f.properties && f.properties.hw) || "";
   const bldColor = (f) => { const h = (f.properties && f.properties.h) || 12; return mix(pal.building, pal.buildingHi, Math.max(0, Math.min(1, (h - 8) / 70))); };
 
-  // The static stack (rebuilt on a camera step / theme / jobs); the pulse ring is the only per-frame layer.
   function layers() {
     const L = [], vp = viewportNow();
     if (geo.districts && zoom < 14) L.push(new D.GeoJsonLayer({ id: "districts", data: geo.districts, filled: false, stroked: true, getLineColor: pal.district, getLineWidth: 2, lineWidthMinPixels: 1, lineWidthMaxPixels: 2, pickable: false }));
     if (geo.water) L.push(new D.GeoJsonLayer({ id: "water", data: geo.water, filled: true, stroked: true, getFillColor: pal.water, getLineColor: pal.waterLine, lineWidthMinPixels: 1, pickable: false }));
-    // Roads: a HIERARCHY — motorways and primaries brighter and wider than the capillaries, so the city's
-    // skeleton reads at every zoom instead of one grey mesh.
     if (geo.roads) L.push(new D.GeoJsonLayer({
       id: "roads", data: geo.roads, filled: false, stroked: true, pickable: false,
       getLineColor: (f) => { const h = hw(f); return h === "motorway" || h === "trunk" || h === "primary" ? pal.roadMajor : h === "secondary" ? pal.roadMid : pal.road; },
@@ -315,8 +240,6 @@ async function makeDeck(canvas, cityId) {
       lineWidthUnits: "meters", lineWidthMinPixels: 0.6, lineWidthMaxPixels: 6, capRounded: true, jointRounded: true,
       updateTriggers: { getLineColor: [pal.key] },
     }));
-    // Buildings — vector tiles, drawn only past the zoom gate, SUBDUED: a lit mass a step off the ground,
-    // taller ones a touch lighter, no outlines, no specular — the stage, never the actor.
     if (zoom >= BLD_ZOOM) {
       L.push(new D.MVTLayer({
         id: "buildings", data: `${gbase}/tiles/{z}/{x}/{y}.pbf`, minZoom: 13, maxZoom: 16,
@@ -325,15 +248,12 @@ async function makeDeck(canvas, cityId) {
         pickable: false, updateTriggers: { getFillColor: [pal.key] },
       }));
     }
-    // Metro — OVER the buildings: a wide soft glow under a bright core, the real line colours; stations as
-    // dots in their line's colour once the 3D city is up. Never depth-tested: a tower cannot cover a line.
     if (geo.metro && geo.metro.lines) {
       const lineCol = (a) => (f) => { const c = (f.properties && f.properties.color) || pal.accent; return [c[0], c[1], c[2], a]; };
       L.push(new D.GeoJsonLayer({ id: "metro-glow", data: geo.metro.lines, filled: false, stroked: true, getLineColor: lineCol(pal.dark ? 75 : 85), getLineWidth: 26, lineWidthUnits: "meters", lineWidthMinPixels: 5, lineWidthMaxPixels: 16, capRounded: true, jointRounded: true, pickable: false, parameters: OVER }));
       L.push(new D.GeoJsonLayer({ id: "metro", data: geo.metro.lines, filled: false, stroked: true, getLineColor: lineCol(240), getLineWidth: 6, lineWidthUnits: "meters", lineWidthMinPixels: 1.8, lineWidthMaxPixels: 5, capRounded: true, jointRounded: true, pickable: false, parameters: OVER }));
       if (zoom >= 12 && stations.length) L.push(new D.ScatterplotLayer({ id: "stations", data: stations, getPosition: (d) => d.coordinates, getFillColor: (d) => d.color, getLineColor: pal.stationRing, stroked: true, lineWidthMinPixels: 2, getRadius: 34, radiusUnits: "meters", radiusMinPixels: 4, radiusMaxPixels: 8, pickable: false, parameters: OVER }));
     }
-    // District names on the city-wide view — orientation before the 3D city rises; they fade out as you zoom in.
     if (districtLabels.length && zoom < LABEL_ZOOM) {
       L.push(new D.TextLayer({
         id: "district-labels", data: districtLabels, pickable: false, billboard: true, sizeUnits: "pixels",
@@ -343,11 +263,8 @@ async function makeDeck(canvas, cityId) {
         parameters: OVER, updateTriggers: { getColor: [pal.key], outlineColor: [pal.key] },
       }));
     }
-    // Job markers: the accent block on the ground (a big tap target), a LEADER line up to the rooftop plane,
-    // and the salary/count pill there. All over the buildings. The clusters are also the CPU hit-test source.
     const cl = clusterJobs(jobs, vp);
     curClusters = cl;
-    // Landmark medallions (with the 3D city), stepping aside where a pill would sit on them.
     if (zoom >= LM_ZOOM && landmarks.length) {
       const lms = landmarks.filter((lm) => landmarkFree(lm, cl, vp));
       L.push(new D.IconLayer({ id: "landmarks", data: lms, pickable: false, billboard: true, sizeUnits: "pixels", getSize: 46, sizeMinPixels: 30, sizeMaxPixels: 56, getPosition: (d) => [d.lon, d.lat, LM_Z], getIcon: (d) => ({ url: lmUrl(d.id), width: 256, height: 256, anchorY: 128, mask: false }), parameters: OVER }));
@@ -381,22 +298,15 @@ async function makeDeck(canvas, cityId) {
     if (me) L.push(new D.ScatterplotLayer({ id: "me", data: [me], getPosition: (d) => d, getFillColor: pal.me, getLineColor: [255, 255, 255, 230], stroked: true, lineWidthMinPixels: 2, getRadius: 12, radiusUnits: "pixels", pickable: false, parameters: OVER }));
     return L;
   }
-  // The pulse: a breathing ring under every marker (the only layer that changes per frame — the static
-  // stack keeps its instances, so deck re-uploads nothing else). ~20 fps, and only while the tab is visible.
   const pulseLayer = (t) => new D.ScatterplotLayer({
     id: "pulse", data: curClusters, getPosition: (d) => d.coordinates, stroked: true, filled: false,
     getLineColor: [...pal.accent, Math.round(120 * (1 - t))], getRadius: 14 + 26 * t, radiusUnits: "pixels", lineWidthMinPixels: 1.5, lineWidthMaxPixels: 2,
     pickable: false, parameters: OVER, updateTriggers: { getRadius: [t], getLineColor: [t] },
   });
   const commit = () => { staticLayers = layers(); deck.setProps({ layers: [...staticLayers, pulseLayer(pulseT)] }); };
-  // 12 fps: a redraw is the whole scene (the tiles too), so the ring breathes slowly rather than burning a
-  // phone; off while hidden, off past 80 markers, and off (`still`) for a software-GL eye that cannot keep up.
   let pulseT = 0, pulseTimer = null, still = false;
   const pulse = () => { if (dead) return; if (!still && !document.hidden && curClusters.length && curClusters.length <= 80) { pulseT = (pulseT + 0.045) % 1; deck.setProps({ layers: [...staticLayers, pulseLayer(pulseT)] }); } pulseTimer = setTimeout(pulse, 80); };
 
-  // Resolve a tap to a marker WITHOUT the GPU picker (unreliable across the devices this ships to): project
-  // every marker with the viewport and take the nearest within a finger's radius — the pill on the rooftop
-  // plane, the leader between, or the block on the ground all count.
   function pickCluster(x, y) {
     if (!Number.isFinite(x) || !Number.isFinite(y) || !curClusters.length) return null;
     const vp = viewportNow();
@@ -407,7 +317,6 @@ async function makeDeck(canvas, cityId) {
       const [gx, gy] = vp.project([c.coordinates[0], c.coordinates[1], 0]);
       let dPill = Infinity;
       if (lab) { const hw2 = pillW(lab) / 2, hh = PILL_H / 2; dPill = Math.hypot(Math.max(Math.abs(x - px) - hw2, 0), Math.max(Math.abs(y - py) - hh, 0)); }
-      // the leader: distance from the tap to the segment ground→pill
       const vx = px - gx, vy = py - gy, len2 = vx * vx + vy * vy || 1; const tt = Math.max(0, Math.min(1, ((x - gx) * vx + (y - gy) * vy) / len2));
       const dLead = Math.hypot(x - (gx + vx * tt), y - (gy + vy * tt));
       const d = Math.min(dPill, Math.hypot(x - gx, y - gy), dLead + 4);
@@ -415,7 +324,6 @@ async function makeDeck(canvas, cityId) {
     }
     return bd <= 18 ? best : null;
   }
-  // The camera moves like a film camera: every programmatic move is a FLY (FlyToInterpolator), never a cut.
   const flyTo = (lon, lat, z, ms = 900) => { deck.setProps({ initialViewState: { longitude: lon, latitude: lat, zoom: z, pitch: cPitch, bearing: cBearing, minZoom: VIEW.minZoom, maxZoom: VIEW.maxZoom, transitionDuration: ms, transitionInterpolator: new D.FlyToInterpolator({ speed: 1.4 }) } }); };
   const deck = new D.Deck({
     canvas, initialViewState: VIEW, controller: { dragRotate: true, touchRotate: true, inertia: 300 }, views: new D.MapView({ repeat: false }),
@@ -425,7 +333,6 @@ async function makeDeck(canvas, cityId) {
     onClick: (info) => { const c = (info && info.object && info.object.jobs) ? info.object : pickCluster(info && info.x, info && info.y); if (c && c.jobs) onPick(c, { zoom, flyTo }); else onPick(null); },
     onViewStateChange: ({ viewState }) => {
       zoom = viewState.zoom; cLng = viewState.longitude; cLat = viewState.latitude; cPitch = viewState.pitch; cBearing = viewState.bearing;
-      // a step of zoom / tilt / turn, or a pan of ~a screen — re-cluster and re-gate the layers
       const sig = `${Math.round(zoom * 4)}|${Math.round(cPitch / 10)}|${Math.round(cBearing / 20)}|${Math.round(cLng * 40)}|${Math.round(cLat * 60)}`;
       if (sig !== camSig) { camSig = sig; commit(); }
     },
@@ -442,15 +349,14 @@ async function makeDeck(canvas, cityId) {
     flyTo,
     zoom: () => zoom,
     still(v) { still = !!v; },
-    destroy() { dead = true; clearTimeout(pulseTimer); try { deck.finalize(); } catch { /* */ } },
+    destroy() { dead = true; clearTimeout(pulseTimer); try { deck.finalize(); } catch { } },
   };
-  if (DEV_HOST) globalThis.__jobx = ctl;   // the eye: fly the camera from the console on a dev host
+  if (DEV_HOST) globalThis.__jobx = ctl;
   return ctl;
 }
 
 function MapStage({ isDark, city, jobs, onPick, loc, me, selected, ctlRef }) {
   const ref = useRef(null), ctl = useRef(null);
-  // A city switch REBUILDS the deck (new camera, new geometry + tile source); theme/jobs/locale just re-layer.
   useEffect(() => {
     let dead = false;
     (async () => { const c = await makeDeck(ref.current, city); if (dead) { c && c.destroy(); return; } ctl.current = c; if (ctlRef) ctlRef.current = c; if (c) { $glReady.set(true); c.rebuild({ pal: palette(), jobs, onPick, loc, me, selected }); } })();
@@ -460,20 +366,12 @@ function MapStage({ isDark, city, jobs, onPick, loc, me, selected, ctlRef }) {
   return html`<canvas ref=${ref} data-map class="absolute inset-0 w-full h-full block" aria-hidden="true"></canvas>`;
 }
 
-// ── shared bits ──────────────────────────────────────────────────────────────────────────────────────────
-// Distance from the job's OWN city centre (the one whose bbox holds it), so "km from centre" is honest in
-// every city, not measured from Kyiv.
 const cityOfPt = (lat, lon) => CITY_IDS.find((id) => inCity({ lat, lon }, id));
 const kmFromCentre = (lat, lon) => { if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null; const c = CITIES[cityOfPt(lat, lon) || "kyiv"]; return Math.round(Math.hypot((lat - c.lat) * 111.32, (lon - c.lon) * 111.32 * Math.cos(c.lat * Math.PI / 180)) * 10) / 10; };
 const applyLink = (c) => /^https?:\/\//i.test(c) ? c : /^@/.test(c) ? `https://t.me/${c.slice(1)}` : /@/.test(c) ? `mailto:${c}` : null;
-// The feed carries a city prefix ("Львів, вулиця …") that is noise in a row — the street is the information.
-// Strip any known city name; the detail page keeps the full address.
 const CITY_NAMES = CITY_IDS.flatMap((id) => [CITIES[id].uk, CITIES[id].en]);
 const streetOf = (a) => { let s = String(a || ""); for (const nm of CITY_NAMES) s = s.replace(new RegExp(`^\\s*${nm}\\s*,\\s*`, "i"), ""); return s; };
-// The words after the number's "·" ("… ·Після всіх відрахувань"): the note the source attached to the pay.
 const salaryNote = (s) => { const i = String(s || "").indexOf("·"); return i < 0 ? "" : String(s).slice(i + 1).trim(); };
-// A trailing parenthetical that names a PLACE ("Кухар (ст. м. Арсенальна)") is the address said twice in a
-// row; only a place is stripped ("(нічні зміни)" stays), and the detail keeps the full title.
 const PLACE_RE = /(?:^|[^\p{L}])(?:м\.|ст\.|ТРЦ|ТЦ|вул|р-н|метро|просп|бул|пл\.)/iu;
 const rowTitle = (s) => {
   const m = /^(.*\S)\s*\(([^()]*)\)\s*$/.exec(String(s || ""));
@@ -484,11 +382,6 @@ const rowTitle = (s) => {
 const DAY = 86400_000;
 const isNew = (j) => Number.isFinite(j.ms) && Date.now() - j.ms < DAY;
 
-// A row is scannable in one glance or it is not a row: the title may take two lines (a Ukrainian job title
-// is long, and a truncated one loses the role), the company one; the pay slot on the right holds the
-// COMPACT form ("60k–100k ₴"), or, when the source only said words, those words muted and cut — never a
-// blank where the feed said something (298 of 641 live rows, 2026-09-25). Under it the age, a mono
-// micro-label, with the accent dot as the mark of a job under a day old. The meta line never wraps.
 function JobRow({ t, j, loc, onOpen }) {
   const km = kmFromCentre(j.lat, j.lon), pay = shortSalary(j.salary), street = streetOf(j.address);
   const age = Number.isFinite(j.ms) ? ago(t, j.ms, loc) : "";
@@ -513,7 +406,6 @@ function JobRow({ t, j, loc, onOpen }) {
   </button>`;
 }
 
-// A big routed page shell — a full screen with a sticky header and a back button (never a bottom sheet).
 function Page({ t, title, onBack, children }) {
   return html`<div data-page class="fixed inset-0 z-40 bg-base-200 overflow-y-auto ms-detail-in">
     <header class="navbar sticky top-0 z-10 bg-base-100 sf-e2 px-2 gap-1 min-h-14" style="padding-top:env(safe-area-inset-top)">
@@ -528,10 +420,6 @@ function JobPage({ t, id, onBack }) {
   const j = jobById(id);
   if (!j) return html`<${Page} t=${t} title=${T(t, "job")} onBack=${onBack}><div class="text-muted py-10 text-center">—</div><//>`;
   const km = kmFromCentre(j.lat, j.lon), link = applyLink(j.contact), pay = shortSalary(j.salary), note = salaryNote(j.salary);
-  // The bar names the KIND of page; the title is the h1 below it — the same word twice, 40 px apart, was the
-  // one thing the eye saw first on this page. The address is a sentence-case meta line, never a badge (a
-  // badge uppercases a street name). The apply action is PINNED in a bottom island so it is reachable
-  // above a 1400-char description; the column's bottom padding keeps the last line clear of it.
   return html`<${Page} t=${t} title=${T(t, "job")} onBack=${onBack}>
     <div class="flex flex-col gap-[var(--ms-gap)] pb-[calc(var(--ms-ctl)+2rem)]">
       <div>
@@ -548,8 +436,7 @@ function JobPage({ t, id, onBack }) {
       ${j.description ? html`<p class="text-[0.98rem] leading-relaxed whitespace-pre-line text-base-content/90">${j.description}</p>` : null}
       ${j.poster ? html`<div class="text-[0.82rem] text-muted">${T(t, "postedBy")}: ${j.poster}</div>` : null}
     </div>
-    ${/* Not `pinned`: the page (z-40) covers the dock (z-30), so an island that clears --dock-h floats 87 px
-         above the bottom edge over the text (measured 2026-09-25). It sits at the edge, above the safe area. */""}
+    ${""}
     <div class="fixed inset-x-0 z-20 flex justify-center px-3 pointer-events-none" style="bottom:calc(env(safe-area-inset-bottom) + 0.75rem)">
       <${Island} tone="glass" className=${`pointer-events-auto ${link ? "!p-1 rounded-full w-full max-w-md" : "!p-2 rounded-[var(--ms-r)] w-full max-w-md"}`}>
         ${link
@@ -570,7 +457,6 @@ function PostPage({ t, loc, onBack }) {
   const submit = async () => {
     if ($posting.get()) return;
     if (!f.title.trim() || !f.company.trim() || !f.description.trim() || !f.contact.trim()) { $err.set("errFields"); return; }
-    // Place the job: in Kyiv the chosen district's centre; in the other cities the city centre (no districts).
     let lat, lon, address;
     if (city === "kyiv") { const d = DISTRICTS[f.district] || DISTRICTS.shevchenkivskyi; lat = d.lat; lon = d.lon; address = (loc === "en" ? d.en : d.uk); }
     else { const c = CITIES[city]; lat = c.lat; lon = c.lon; address = cityName(city, loc); }
@@ -615,8 +501,6 @@ function PostPage({ t, loc, onBack }) {
   <//>`;
 }
 
-// The city picker as a BIG routed page (never a modal): a list of cities; tapping one switches the map, the
-// list and where a new job is posted, and persists.
 function CityPage({ t, loc, onBack }) {
   const city = useStore($city);
   const jobs = useStore($jobs);
@@ -636,8 +520,6 @@ function CityPage({ t, loc, onBack }) {
   <//>`;
 }
 
-// Routed pages, shared by both tool tabs (only the active tab renders; S.screen is app-global + history-backed).
-// "search" is the list's unfolded field, routed so Back folds it — it is a state of the tab, not a page.
 function Screens({ t, loc, screen, close }) {
   if (screen === "search") return null;
   if (screen === "post") return html`<${PostPage} t=${t} loc=${loc} onBack=${close} />`;
@@ -646,11 +528,7 @@ function Screens({ t, loc, screen, close }) {
   return null;
 }
 
-// ── MAP tab — the hero background + a single control island ───────────────────────────────────────────────
-// A tap on a marker opens a PREVIEW in the bottom island (the job's title, company, pay — one more tap opens
-// the page); a cluster tapped from afar flies the camera in AND lists its jobs, so no vacancy is ever lost
-// behind a count. «Де я» flies to the viewer's own position (a cool dot, accent-2) when it is in this city.
-const $preview = atom(null);   // { coordinates, jobs } | null
+const $preview = atom(null);
 export function mapView({ t, S, screen, openScreen, closeScreen }) {
   const jobs = useStore($jobs);
   const city = useStore($city);
@@ -664,7 +542,7 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
   const isDark = !/light/i.test(String(theme || ""));
   useEffect(() => { loadJobs(); }, []);
   useEffect(() => { $preview.set(null); setMe(null); }, [city]);
-  const cityJobs = jobs.filter((j) => inCity(j, city));   // only this city's vacancies on this city's map
+  const cityJobs = jobs.filter((j) => inCity(j, city));
   const onPick = (c, cam) => {
     if (!c) { $preview.set(null); return; }
     $preview.set({ coordinates: c.coordinates, jobs: c.jobs });
@@ -680,11 +558,6 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
   };
   const openJob = (j) => { $preview.set(null); openScreen(`job:${j.id}`); };
 
-  // The map is the app's HERO: a fixed, EDGE-TO-EDGE field that fills the whole device — under the glass app
-  // bar and the floating dock, not boxed inside the padded content column. Everything else floats over it.
-  // The routed pages are SIBLINGS of the stage, never children: `z-0` makes the stage a stacking context, and
-  // a page inside it sits under the z-30 app bar no matter what z-index it declares — the bar's wordmark
-  // printed through the page's own header (measured 2026-09-10).
   return html`<${Fragment}>
     <div data-stage class="fixed inset-0 z-0 overflow-hidden bg-base-200">
       ${showMap ? html`<${MapStage} isDark=${isDark} city=${city} jobs=${cityJobs} loc=${loc} me=${me} selected=${preview && preview.coordinates} ctlRef=${ctlRef} onPick=${onPick} />` : null}
@@ -730,13 +603,6 @@ export function mapView({ t, S, screen, openScreen, closeScreen }) {
   <//>`;
 }
 
-// ── LIST tab — jobs as a big page of rows ────────────────────────────────────────────────────────────────
-// Newest first. The search is folded behind an icon beside the city pill and unfolds IN PLACE as a routed
-// state (`S.screen === "search"`), so system Back folds it; folding clears the query — a filter nobody can
-// see is a trap — while a job page opened from the results keeps it. Rows render in chunks of PAGE behind an
-// IntersectionObserver sentinel: 313 live rows at once made a 36 319 px document (measured 2026-09-25). The
-// sentinel is STATE, not a ref, so the observer arms only once the node exists (docs/GATE_BLINDSPOTS.md 4b),
-// and it is re-armed on every chunk because an observer that stays intersected never fires again.
 const PAGE = 40;
 const EMP_FILTERS = ["all", "remote", "full", "part"];
 export function listView({ t, S, screen, openScreen, closeScreen }) {
@@ -753,7 +619,7 @@ export function listView({ t, S, screen, openScreen, closeScreen }) {
   useEffect(() => { loadJobs(); }, []);
   useEffect(() => { if (!searching && !String(screen || "").startsWith("job:")) setQ(""); }, [screen]);
   useEffect(() => { if (searching && inputRef.current) inputRef.current.focus(); }, [searching]);
-  const cityJobs = jobs.filter((j) => inCity(j, city));   // list shows only the chosen city's vacancies
+  const cityJobs = jobs.filter((j) => inCity(j, city));
   const ql = q.trim().toLowerCase();
   const list = cityJobs
     .filter((j) => emp === "all" || j.employment === emp)
@@ -762,9 +628,6 @@ export function listView({ t, S, screen, openScreen, closeScreen }) {
   useEffect(() => { setShown(PAGE); }, [city, emp, ql]);
   useEffect(() => {
     if (!sentinel || shown >= list.length || typeof IntersectionObserver === "undefined") return;
-    // The root is the VIEWPORT, never the list box: this tab is not `fit`, so the box grows with its rows and
-    // the page scrolls — rooted on the box the sentinel is always "visible" and every chunk loads at once
-    // (320 rows, 37 974 px, measured on the overlay 2026-09-25).
     const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) setShown((n) => Math.min(n + PAGE, list.length)); }, { rootMargin: "600px" });
     io.observe(sentinel);
     return () => io.disconnect();

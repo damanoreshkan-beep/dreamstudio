@@ -1,7 +1,3 @@
-// APK Forge — turn a URL into an installable Android APK. The screen IS the forge: an identity preview
-// (icon + name + url) of the app you're about to make, the two things you control (URL, name), and one
-// action. The patch + v1-sign happens on the edge (pure Deno); this view only gathers inputs, previews the
-// icon (fetched via the edge, rasterised to PNG in-browser), and downloads the result. See RESEARCH.md.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -12,9 +8,6 @@ import { buildApk, fetchSiteIconPng, letterTilePng, adaptiveFromTile, downloadBl
 import { gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The tile colour is a CANVAS read of --app-accent (a MARK: the letter tile's ground, never text). The
-// literal is only the fallback for a headless DOM with no computed style, and it is the theme's own warm
-// pole so a gate render matches the product instead of a retired purple.
 const accent = () => (getComputedStyle(document.documentElement).getPropertyValue("--app-accent").trim() || "#F2B84B");
 const SEED_URL = "https://anubis.world";
 
@@ -28,14 +21,11 @@ export function forge({ S, toast }) {
   const [err, setErr] = useState(null);
   const editedName = useRef(gate);
 
-  // Name follows the URL's site name until the user edits it themselves.
   useEffect(() => {
     if (!url || editedName.current) return;
-    try { setName(siteName(url)); } catch { /* not a URL yet */ }
+    try { setName(siteName(url)); } catch { }
   }, [url]);
 
-  // Icon preview: the real site icon (via the edge) when live; a crafted letter tile in the gate / as
-  // fallback. Guarded — the headless preflight DOM has no canvas.
   useEffect(() => {
     let live = true;
     (async () => {
@@ -56,10 +46,9 @@ export function forge({ S, toast }) {
     setBusy(true); setErr(null); setDone(null);
     try {
       let iconB64 = icon;
-      if (!iconB64) { try { iconB64 = await letterTilePng(name, accent()); } catch { /* no icon */ } }
+      if (!iconB64) { try { iconB64 = await letterTilePng(name, accent()); } catch { } }
       if (!gate) {
-        // the site tile also becomes the adaptive icon (shrunk into the safe zone over its own corner colour)
-        let layers = {}; try { layers = await adaptiveFromTile(iconB64, accent()); } catch { /* legacy icon only */ }
+        let layers = {}; try { layers = await adaptiveFromTile(iconB64, accent()); } catch { }
         const blob = await buildApk({ url, name: name.trim(), iconB64, fgB64: layers.fg, bg: layers.bg });
         downloadBlob(blob, apkFilename(name));
       }
@@ -71,12 +60,7 @@ export function forge({ S, toast }) {
   };
 
   return html`<div data-forge-screen data-busy=${busy ? "1" : "0"} data-done=${done ? "1" : "0"} data-valid=${valid ? "1" : "0"} class="flex flex-col gap-[var(--ms-gap)] max-w-md w-full mx-auto">
-    ${/* The identity preview was a hand-rolled Panel — a solid surface in flow, grouping the icon with the
-         name and URL. It is the kit's now, so its radius and padding step with the density ladder and the
-         extrusion comes from `sf-raised` rather than a hairline drawn around it. The ROW inside stays the
-         app's: Panel owns the surface, never the arrangement. The icon sits in a WELL (`sf-inset`) — an
-         app's icon is something dropped into the tile, not a chip stuck onto it — at the Panel's inner
-         radius, concentric with the box around it. */""}
+    ${""}
     <${Panel} data-forge className="shrink-0">
       <div class="flex items-center gap-[var(--ms-gap)]">
         <div class="size-14 rounded-[var(--ms-r-in)] overflow-hidden sf-inset shrink-0 grid place-items-center">
@@ -91,8 +75,7 @@ export function forge({ S, toast }) {
       </div>
     <//>
 
-    ${/* Fields are WELLS: the material says "something goes in here", where `input-bordered` drew a hairline
-         standing in for the depth. Height and radius ride the density tokens. */""}
+    ${""}
     <input type="url" inputmode="url" value=${url} onInput=${(e) => setUrl(e.target.value)}
       placeholder=${T(t, "forgeUrlPlaceholder")} aria-label=${T(t, "forgeUrlLabel")}
       class="input w-full sf-inset border-0 h-[var(--ms-ctl)] rounded-[var(--ms-r)] font-mono text-sm shrink-0" />
@@ -101,18 +84,14 @@ export function forge({ S, toast }) {
       placeholder=${T(t, "forgeNamePlaceholder")} aria-label=${T(t, "forgeNameLabel")}
       class="input w-full sf-inset border-0 h-[var(--ms-ctl)] rounded-[var(--ms-r)] text-sm shrink-0" />
 
-    ${/* The post-build note was `bg-base-200` — a tone step meaning "one shade down from the page". base-100
-         and base-200 are the SAME colour under this material by design, so the block was invisible: a
-         paragraph floating in the gap between the name field and the button. It is a WELL now (`sf-inset`):
-         the note is not an object you act on, it is something the page holds. */""}
+    ${""}
     ${done
       ? html`<div data-built class="shrink-0 flex items-start gap-2 rounded-[var(--ms-r)] sf-inset px-[var(--ms-pad)] py-2.5 text-sm leading-snug text-muted">
           ${Icon("lucide:shield-alert", "text-[length:var(--ms-icon)] shrink-0 text-warning")}<span>${T(t, "forgeNote")}</span>
         </div>`
       : null}
 
-    ${/* Working: the verb stays, three dots breathe after it (af-dots, head.html) — a typographic pulse,
-         never a spinner and never a pulsing label. */""}
+    ${""}
     <button data-generate disabled=${!valid || busy} onClick=${generate}
       class="btn btn-primary rounded-full w-full gap-2 shrink-0">
       ${busy

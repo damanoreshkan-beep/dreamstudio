@@ -1,6 +1,3 @@
-// The picker's round pictures — mirage's curled fox in each theme's material (the owner's pick over the
-// cat, 2026-09-01): 1024 PNG master → 384 webp q80 into rt/theme-<id>.webp.
-//   deno run -A fox-thumbs.mjs <out-dir> lum=<png> paper=<png> ink=<png> mercury=<png> plain=<png>
 import { encode as encodeWebp } from "npm:@jsquash/webp@1.4.0";
 import { initWasm, Resvg } from "npm:@resvg/resvg-wasm@2.6.2";
 await initWasm(fetch("https://unpkg.com/@resvg/resvg-wasm@2.6.2/index_bg.wasm"));

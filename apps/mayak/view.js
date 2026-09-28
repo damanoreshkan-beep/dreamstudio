@@ -1,10 +1,3 @@
-// mayak — a beam across the network, told for people, not for engineers.
-//   map   — a search and a small one-line table of what's exposed; tapping a row opens its page with the map.
-//   state — the account card (plan, credits, limits).
-//   trace — a site's path and DNS, drawn as branches that grow in.
-// One key lives on the edge (microspec-edge: shodan.js → the isolated shodan process; net.js). On the edu plan
-// an unfiltered text query is free (~100 hosts, no query credit), so a category searches by its plain word and
-// the results are paged client-side, 20 at a time.
 import { html } from "htm/preact";
 import { useState, useMemo, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -24,7 +17,6 @@ const RED = "#F2777A";
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 const CAT_ICON = { camera: "lucide:cctv", database: "lucide:database", access: "lucide:monitor", files: "lucide:folder-open", device: "lucide:printer", vuln: "lucide:shield-alert" };
 const PAGE = 20;
-// A name server's hostname is jargon; a person recognises the company behind it (used by trace).
 const NS_ORG = { ultradns: "UltraDNS", awsdns: "AWS", cloudflare: "Cloudflare", googledomains: "Google", google: "Google", azure: "Azure", dnsimple: "DNSimple", nsone: "NS1", akamai: "Akamai", domaincontrol: "GoDaddy", dnsmadeeasy: "DNS Made Easy" };
 const nsOrg = (host) => {
   const parts = String(host || "").toLowerCase().split(".");
@@ -34,7 +26,6 @@ const nsOrg = (host) => {
 
 const color = (h) => h.vulns > 0 ? RED : ACCENT;
 
-// map — a search + a small table. Tapping a row routes to a full page (S.screen="host") that carries the globe.
 export function map({ S, openScreen, closeScreen }) {
   const t = useStore(S.t);
   const me = useStore(session);
@@ -49,8 +40,6 @@ export function map({ S, openScreen, closeScreen }) {
   const seq = useRef(0);
   const moreRef = useRef(null);
 
-  // One live query. Under the gate we never fetch — the fixture IS the screen. Signed out, the call 401s and the
-  // sealed transport raises the sign-in wall; on sign-in `session` changes and the mount effect re-runs.
   const runLive = async (query, kind) => {
     setShownN(PAGE);
     if (!query || gate) return;
@@ -79,12 +68,11 @@ export function map({ S, openScreen, closeScreen }) {
       runLive(liveOf(p), KIND_OF[p]);
     })();
     return () => { alive = false; };
-  }, [me]);   // eslint-disable-line
+  }, [me]);
 
   const pickCat = (id) => { setCat(id); setQ(""); const p = CATEGORIES.find((c) => c.id === id).presets[0]; runLive(liveOf(p), KIND_OF[p]); };
   const search = () => { const query = q.trim(); if (!query) return; setCat(null); runLive(parseQuery(query, "").query, null); };
 
-  // Under the gate the fixture is filtered by the chosen category so the e2e sees a deterministic subset.
   const all = useMemo(() => {
     if (!gate || !cat) return hosts;
     const kind = KIND_OF[CATEGORIES.find((c) => c.id === cat).presets[0]];
@@ -94,7 +82,6 @@ export function map({ S, openScreen, closeScreen }) {
   const shown = all.slice(0, shownN);
   const hasMore = shownN < all.length;
 
-  // Infinite scroll: the sentinel entering view loads the next 20. One page scroll, no nested scroller.
   useEffect(() => {
     const el = moreRef.current;
     if (!el || !hasMore) return;
@@ -108,7 +95,6 @@ export function map({ S, openScreen, closeScreen }) {
   const place = (h) => h.city || h.country || "";
   const summary = (h) => [place(h) ? T(t, "sumPlace", { city: place(h) }) : "", T(t, "sumPorts", { n: h.ports || 1 }), h.vulns > 0 ? T(t, "sumVulns", { n: h.vulns }) : T(t, "sumSafe")].filter(Boolean).join(". ") + ".";
 
-  // ── the detail page: the map for one host ──────────────────────────────────────────────────────────────
   if (screen === "host" && sel) {
     return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-host=${sel.ip}>
       <button class="btn btn-ghost btn-sm self-start gap-1.5 -ml-1" onClick=${() => closeScreen && closeScreen()} data-back>
@@ -128,7 +114,6 @@ export function map({ S, openScreen, closeScreen }) {
     </div>`;
   }
 
-  // ── the list page: search + a small one-line table ─────────────────────────────────────────────────────
   const skeleton = loading && !shown.length;
   const rowLine = (h) => html`<button key=${h.ip + ":" + h.port} data-result=${h.ip} onClick=${() => openHost(h)}
     class="flex items-center gap-2.5 w-full text-left py-1.5 px-1 rounded-[var(--ms-r-in)] hover:bg-base-content/5">
@@ -189,7 +174,7 @@ export function state({ S }) {
   useEffect(() => {
     let alive = true;
     (async () => {
-      if (gate) return;   // the gate's session is a mock; the fixture card is what it renders
+      if (gate) return;
       const s = me || await restore().catch(() => null);
       if (!s || !alive) return;
       try {
@@ -197,7 +182,7 @@ export function state({ S }) {
         if (!r.ok) return;
         const j = await r.json();
         if (alive && j && typeof j.scan_credits === "number") { setAcc(j); setLive(true); }
-      } catch { /* fixture stays */ }
+      } catch { }
     })();
     return () => { alive = false; };
   }, [me]);
@@ -232,9 +217,6 @@ export function state({ S }) {
   </div>`;
 }
 
-// trace — a site's path and names, as motion. DNS is a set of BRANCHES that grow out of the site node; the
-// route is a run of nodes whose latency bars sweep in. Browsers cannot traceroute, so both come from the edge
-// (/feed/net/trace, /feed/net/dns) — every process exits through the VPN, so the path leaves from OUR node.
 export function trace({ S }) {
   const t = useStore(S.t);
   const [mode, setMode] = useState("site");
@@ -262,7 +244,6 @@ export function trace({ S }) {
     } finally { setBusy(false); }
   };
 
-  // The branches sprout: each leaf fades and slides out from the trunk, staggered. The hop bars sweep to width.
   useEffect(() => {
     if (treeRef.current) {
       const leaves = treeRef.current.querySelectorAll("[data-leaf]");

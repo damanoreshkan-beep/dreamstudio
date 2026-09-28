@@ -1,17 +1,12 @@
-// microspec runtime — wish unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assertEquals } from "jsr:@std/assert@1";
 import { parsePrice, parseWishMeta, toNumber, sortWishes, wishTotals, fmtMoney } from "../wish.js";
-
-// ---- wish (wishlist logic) --------------------------------------------------
 
 Deno.test("toNumber: normalises grouped/decimal forms", () => {
   assertEquals(toNumber("1 299,00"), 1299);
   assertEquals(toNumber("1,299.00"), 1299);
   assertEquals(toNumber("14 200"), 14200);
   assertEquals(toNumber("199,90"), 199.9);
-  assertEquals(toNumber("14 200"), 14200);   // NBSP thousands (how many sites print UAH)
+  assertEquals(toNumber("14 200"), 14200);
   assertEquals(toNumber("nope"), null);
 });
 
@@ -35,7 +30,6 @@ Deno.test("parseWishMeta: pulls title + price + first image, all fail-open", () 
   assertEquals(m.price, 13999);
   assertEquals(m.currency, "UAH");
   assertEquals(m.image, "https://img.example/x.jpg");
-  // empty data → empty fields, never throws
   const e = parseWishMeta({}, "u");
   assertEquals(e.title, ""); assertEquals(e.price, null); assertEquals(e.image, "");
 });
@@ -53,9 +47,9 @@ Deno.test("sortWishes: most-wanted first, then newest; non-mutating", () => {
 Deno.test("wishTotals: groups non-granted by currency, skips granted/priceless", () => {
   const t = wishTotals([
     { price: 100, currency: "USD" },
-    { price: 50, currency: "USD", granted: true },   // granted → excluded
+    { price: 50, currency: "USD", granted: true },
     { price: 14200, currency: "UAH" },
-    { price: null, currency: "UAH" },                 // no price → excluded
+    { price: null, currency: "UAH" },
     { price: 200, currency: "USD" },
   ]);
   assertEquals(t, [{ currency: "UAH", sum: 14200, count: 1 }, { currency: "USD", sum: 300, count: 2 }]);

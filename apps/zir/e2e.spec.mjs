@@ -1,7 +1,3 @@
-// The gate has no network, no camera and no GPU minute to spend: state.js seeds the stage as DONE with a local
-// photo and its 4× twin, and every "enlarge" re-seeds locally after a short beat. The whole screen — the
-// compare, the readout, the actions, the options sheet, the full-size view, the new-photo chooser — is
-// exercised without a single call out.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-result]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -19,7 +15,6 @@ export default [
     },
   },
   {
-    // The picture is the subject: the stage must take the larger share of the view, the island what is left.
     name: "сцена отримує більшу частку екрана, ніж острів", run: async (h) => {
       await ready(h);
       const stage = await h.css("[data-stage-box]", "height"), island = await h.css("[data-island]", "height");
@@ -27,12 +22,9 @@ export default [
     },
   },
   {
-    // The divider starts in the middle and the enlarged picture is clipped to its left — the one geometry the
-    // gate can assert without a pointer drag (the helper taps centres; a centre tap moves nothing).
     name: "роздільник посередині, «після» обрізане до нього", run: async (h) => {
       await ready(h);
       h.expect(await h.attr("[data-compare]", "aria-valuenow") === "50", "роздільник не посередині");
-      // Chrome serialises the attribute as `inset(0px 50% 0px 0px)` — match the 50%, not the spelling (CI, 2026-09-02)
       h.expect(/inset\([^)]*\b50(\.0+)?%/.test(await h.attr("[data-after]", "style")), "«після» не обрізане до роздільника");
     },
   },

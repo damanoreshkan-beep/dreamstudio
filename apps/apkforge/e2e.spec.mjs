@@ -1,5 +1,3 @@
-// The gate seeds a URL + name (no network in the gate — buildApk is short-circuited), so the identity
-// preview renders populated and "Generate" reaches the ready state deterministically.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-forge]")) > 0) break; await h.wait(300); } };
 
 export default [

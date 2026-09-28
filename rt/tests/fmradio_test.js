@@ -1,17 +1,12 @@
-// microspec runtime — fmradio unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { iqFromBytes, firLowpass, deemphasisAlpha, fft, powerSpectrum, seedSpectrum, FmReceiver, IN_RATE, OUT_RATE, OFFSET_HZ } from "../fmradio.js";
 
-// ================= HackRF FM DSP (fmradio.js) =================
-
 Deno.test("iqFromBytes: signed int8 → ±1 float, interleaved I,Q", () => {
   const { i, q } = iqFromBytes(new Uint8Array([0, 64, 128, 192]));
-  assertEquals(i[0], 0);            // byte 0 → 0
-  assertEquals(q[0], 0.5);          // byte 64 → +0.5
-  assertEquals(i[1], -1);           // byte 128 = int8 -128 → -1.0
-  assertEquals(q[1], -0.5);         // byte 192 = int8 -64 → -0.5
+  assertEquals(i[0], 0);
+  assertEquals(q[0], 0.5);
+  assertEquals(i[1], -1);
+  assertEquals(q[1], -0.5);
 });
 
 Deno.test("firLowpass: symmetric, unity DC gain, correct length", () => {
@@ -31,27 +26,24 @@ Deno.test("deemphasisAlpha: matches 1/(1+fs·tc/1e6), in (0,1), larger tc → sm
 
 Deno.test("fft: matches a naive DFT within eps; single-bin sine lands in its bin", () => {
   const n = 16, re = new Float32Array(n), im = new Float32Array(n);
-  for (let k = 0; k < n; k++) re[k] = Math.cos(2 * Math.PI * 3 * k / n);   // pure bin-3 real tone
+  for (let k = 0; k < n; k++) re[k] = Math.cos(2 * Math.PI * 3 * k / n);
   const dftMag = (b) => { let r = 0, i = 0; for (let k = 0; k < n; k++) { const a = -2 * Math.PI * b * k / n; r += re[k] * Math.cos(a); i += re[k] * Math.sin(a); } return Math.hypot(r, i); };
   const expect = [...Array(n)].map((_, b) => dftMag(b));
   fft(re, im);
   for (let b = 0; b < n; b++) assert(Math.abs(Math.hypot(re[b], im[b]) - expect[b]) < 1e-3, `bin ${b} matches DFT`);
-  // energy at bins 3 and n-3 (real tone → symmetric), negligible elsewhere
   assert(Math.hypot(re[3], im[3]) > 5 && Math.hypot(re[13], im[13]) > 5);
   assert(Math.hypot(re[7], im[7]) < 1e-2);
 });
 
 Deno.test("powerSpectrum: fftshift puts a baseband (DC) tone in the centre bin", () => {
   const n = 256, i = new Float32Array(n), q = new Float32Array(n);
-  for (let k = 0; k < n; k++) { i[k] = 1; q[k] = 0; }               // DC → all energy at 0 Hz
+  for (let k = 0; k < n; k++) { i[k] = 1; q[k] = 0; }
   const mag = powerSpectrum(i, q, n, n);
   let peak = 0; for (let b = 1; b < n; b++) if (mag[b] > mag[peak]) peak = b;
   assertEquals(peak, n / 2, "DC lands in the centre after fftshift");
 });
 
 Deno.test("FmReceiver: an FM tone demodulates to that audio tone (end-to-end DSP)", () => {
-  // Synthesize a HackRF-style int8 IQ block: carrier at the OFFSET (so the receiver's digital shift brings it
-  // to baseband), FM-modulated by a 1 kHz tone. Then assert the demodulated audio's dominant bin ≈ 1 kHz.
   const fAudio = 1000, dev = 40_000, blocks = 4, per = 65536;
   const rx = new FmReceiver({ tcUs: 50 });
   let phase = 0, ph2 = 0, nAll = 0;
@@ -60,7 +52,7 @@ Deno.test("FmReceiver: an FM tone demodulates to that audio tone (end-to-end DSP
     const bytes = new Uint8Array(per * 2);
     for (let n = 0; n < per; n++, nAll++) {
       const msg = Math.sin(2 * Math.PI * fAudio * nAll / IN_RATE);
-      phase += 2 * Math.PI * (OFFSET_HZ + dev * msg) / IN_RATE;      // instantaneous carrier phase
+      phase += 2 * Math.PI * (OFFSET_HZ + dev * msg) / IN_RATE;
       const I = Math.cos(phase), Q = Math.sin(phase);
       bytes[2 * n] = (Math.max(-127, Math.min(127, Math.round(I * 120))) + 256) & 0xff;
       bytes[2 * n + 1] = (Math.max(-127, Math.min(127, Math.round(Q * 120))) + 256) & 0xff;
@@ -68,7 +60,6 @@ Deno.test("FmReceiver: an FM tone demodulates to that audio tone (end-to-end DSP
     const { audio } = rx.process(bytes);
     for (const s of audio) audioAll.push(s);
   }
-  // FFT the (settled) tail of the audio and find the dominant frequency
   const a = audioAll.slice(-8192);
   const size = 4096, re = new Float32Array(size), im = new Float32Array(size);
   for (let k = 0; k < size; k++) re[k] = a[a.length - size + k] || 0;

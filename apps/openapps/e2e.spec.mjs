@@ -1,6 +1,3 @@
-// Open apps — no view.js, so these assertions are about the `gallery` layout contract, the OS-topic filter
-// and the GitHub source. Unlike the old Chocolatey catalogue this source needs NO proxy: GitHub's Search API
-// sends `access-control-allow-origin: *`, so the fetch is direct.
 const ready = async (h) => { await h.waitFor(/\S{6}/, 20000); await h.wait(600); };
 
 export default [
@@ -8,13 +5,10 @@ export default [
     name: "Каталог: репозиторії приходять з GitHub", run: async (h) => {
       await ready(h);
       h.expect((await h.count(".aw-tap")) > 4, "каталог порожній — GitHub Search мовчить");
-      // The gallery is art-forward by contract: the owner avatar is the app's mark and must be present.
       h.expect((await h.count("main img")) > 3, "немає аватарів — сітка каталогу без арту безсенсова");
     },
   },
   {
-    // What separates `gallery` from the launcher `grid`: the line that tells two similar repos apart (owner)
-    // and a number that decides (stars).
     name: "gallery несе власника й зірки, не лише плитку", run: async (h) => {
       await ready(h);
       const txt = await h.text("main");
@@ -33,7 +27,6 @@ export default [
     },
   },
   {
-    // The OS filter is the whole point of the redesign: choosing a platform must re-query GitHub, not sieve.
     name: "фільтр платформи перезапитує GitHub", run: async (h) => {
       await ready(h);
       const before = await h.text("main");
@@ -45,23 +38,18 @@ export default [
     },
   },
   {
-    // Infinite scroll: the cursor round-trips as filters.cursor, so load-more must APPEND a distinct next
-    // page, not re-fetch page one. Regressed once when load() read the cursor as a positional arg (always
-    // undefined) and every page came back as page 1.
     name: "інфініт-пейджинг доклеює наступну сторінку", run: async (h) => {
       await ready(h);
       const before = await h.count(".aw-tap");
       h.expect(before >= 20, `перша сторінка замала: ${before}`);
       h.expect((await h.count("#loadmore")) === 1, "немає кнопки «показати ще» — next не віддається, пейджинг мертвий");
       await h.click("#loadmore");
-      // Poll for growth: the page-2 GitHub fetch can outlast a fixed wait on a cold CI runner.
       let after = before;
       for (let i = 0; i < 12 && after <= before; i++) { await h.wait(700); after = await h.count(".aw-tap"); }
       h.expect(after > before, `load-more не додав карток: було ${before}, стало ${after}`);
     },
   },
   {
-    // searchFetch: thousands of repos, so search must reach the server, not sieve 24 rows.
     name: "пошук іде на сервер, а не просіює екран", run: async (h) => {
       await ready(h);
       await h.type('input[type="search"]', "chatgpt"); await h.wait(3500);

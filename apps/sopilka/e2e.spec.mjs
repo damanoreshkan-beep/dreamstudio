@@ -1,6 +1,3 @@
-// Сопілка — a blown pipe. The gate cannot HEAR it (no gate can), so these assert the things that are
-// checkable: that the instrument is there, that its fingering is the real staircase, and that передування
-// re-pitches. The timbre itself is grounded in published fipple-flute acoustics and judged by a human.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-pipe]")) > 0) break; await h.wait(300); } };
 
 export default [

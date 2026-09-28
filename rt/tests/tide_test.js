@@ -1,6 +1,3 @@
-// microspec runtime — tide unit tests. Pure logic: no browser, no import map.
-//   deno test -A packages/runtime/runtime_test.js   (the barrel imports this file)
-
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import {
   CATEGORIES as tCATEGORIES, STATIONS as tSTATIONS, stationsIn as tStationsIn, stationById as tStationById,
@@ -22,8 +19,6 @@ Deno.test("tide registry — every station is https, unique, in a real category,
   assertEquals(tStationById("nope"), null);
 });
 
-// The i18n parity half needs the PRODUCT app's dictionaries — absent in the public framework tree (the
-// dreamstudio split); the product repo's CI runs it in full.
 const TIDE_I18N = new URL("../../../apps/tide/i18n/en.json", import.meta.url);
 const HAVE_TIDE = await Deno.stat(TIDE_I18N).then(() => true).catch(() => false);
 Deno.test({ name: "tide i18n — every category + genre key exists in BOTH locales", ignore: !HAVE_TIDE, fn: async () => {
@@ -101,28 +96,22 @@ Deno.test("tide reconnect — backoff caps at 15s; a drop holds the station, onl
 
 Deno.test("tide progressCheck: currentTime is the liveness signal, on timestamps not ticks", async () => {
   const { progressCheck } = await import("../tide.js");
-  // first look just plants the marker — nothing is dead before there is something to compare with
   const a = progressCheck({ time: 3, mark: null, now: 1000 });
   assertEquals(a.dead, false);
   assertEquals(a.mark, { time: 3, at: 1000 });
 
-  // it advanced: the marker MOVES, so the budget restarts from the moment sound was last proven
   const b = progressCheck({ time: 9, mark: a.mark, now: 5000 });
   assertEquals(b.dead, false);
   assertEquals(b.mark, { time: 9, at: 5000 });
 
-  // frozen position, still inside the budget — a buffer hiccup is not a dead stream
   const c = progressCheck({ time: 9, mark: b.mark, now: 11000 });
   assertEquals(c.dead, false);
   assertEquals(c.mark, b.mark, "a stalled check must not move the marker forward");
 
-  // frozen past the budget: dead, whatever the events said (a handover raises none of them)
   assertEquals(progressCheck({ time: 9, mark: b.mark, now: 13000 }).dead, true);
   assertEquals(progressCheck({ time: 9, mark: b.mark, now: 13001 }).dead, true);
 
-  // a renderer that was FROZEN comes back with a mark minutes old — that reconnects, it is not forgiven
   assertEquals(progressCheck({ time: 9, mark: b.mark, now: 605000 }).dead, true);
 
-  // a rewind (a fresh element reusing the marker) counts as no progress, never as negative time
   assertEquals(progressCheck({ time: 0, mark: b.mark, now: 5500 }).dead, false);
 });

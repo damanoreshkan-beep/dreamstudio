@@ -9,8 +9,6 @@ export default [
     },
   },
   {
-    // The drill-down contract: a tap opens the in-app detail; the outbound link lives INSIDE it. This test
-    // used to assert the opposite — that .card was an <a href> — so the gate was guarding the anti-pattern.
     name: "картка → деталі → кнопка відкрити вакансію", run: async (h) => {
       await load(h);
       h.expect((await h.count(".card[href]")) === 0, "картка — зовнішнє посилання; тап має вести в деталі");

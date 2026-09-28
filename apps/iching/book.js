@@ -1,20 +1,3 @@
-// The 64 hexagram names, in King Wen order. App-owned data, like apps/tarot's deck — the runtime
-// (/_rt/iching.js) owns only the math.
-//
-// Deliberately just the NAME: 名 and pinyin. No judgement text, no line texts, no English "meaning".
-//
-// That is a copyright decision as much as a design one. The Chinese original is ancient and free, but every
-// English translation carries its own copyright: Wilhelm/Baynes (1950) runs to at least 2045 in the US and
-// 2059 in life+70 jurisdictions, and the modern translations are all protected too. Legge 1882 IS public
-// domain and could have gone here — but it is archaic English that would then be machine-translated into
-// Ukrainian, which is two lossy steps away from a reader.
-//
-// So the app shows what it can compute EXACTLY — the hexagram, its trigrams, which lines move, what it
-// changes into — and asks the AI for a reading of that structure against the user's question, clearly
-// marked as generated. Nothing here pretends to be canonical text. `docs/research/iching.md` §4.
-//
-// Names cross-checked against Chinese Text Project; the ORDER is validated structurally by
-// packages/runtime/tests/iching_test.js, which is what actually guarantees index n is hexagram n+1.
 export const NAMES = [
   { cn: "乾", py: "qián" }, { cn: "坤", py: "kūn" }, { cn: "屯", py: "zhūn" }, { cn: "蒙", py: "méng" },
   { cn: "需", py: "xū" }, { cn: "訟", py: "sòng" }, { cn: "師", py: "shī" }, { cn: "比", py: "bǐ" },

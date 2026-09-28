@@ -1,7 +1,3 @@
-// FM radio for a HackRF over WebUSB. Headless has no device, so the view runs in demo mode (gate): it seeds a
-// tuned station (RDS name/genre/radiotext + stereo) and a scan list. These cases exercise that head-unit — the
-// now-playing card, seek + station list, the transport, the settings sheet (history-backed, Back closes), i18n
-// and the PWA modal.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-player]")) > 0) break; await h.wait(300); } };
 
 export default [
@@ -32,7 +28,7 @@ export default [
     name: "seek змінює частоту", run: async (h) => {
       await ready(h);
       const before = await h.bodyText();
-      await h.tap("#next"); await h.wait(150);   // the kit's Transport: seek up is its `next` key
+      await h.tap("#next"); await h.wait(150);
       h.expect((await h.bodyText()) !== before, "seek не змінив частоту");
     },
   },
@@ -78,7 +74,7 @@ export default [
       const before = await h.attr("[data-save]", "aria-pressed");
       await h.tap("[data-save]"); await h.wait(200);
       h.expect((await h.attr("[data-save]", "aria-pressed")) !== before, "зірка не перемкнулась");
-      await h.tap("[data-save]"); await h.wait(150);   // restore
+      await h.tap("[data-save]"); await h.wait(150);
     },
   },
   {

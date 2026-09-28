@@ -1,9 +1,3 @@
-// DreamStudio rt/ — the unit-test BARREL for the PRODUCT's runtime modules (the domain half of what used to
-// be packages/runtime: tide, astrology, the RF families, instruments, characters…). Same shape as the
-// framework's packages/runtime/runtime_test.js; the 8n8 `unit` node runs BOTH barrels when rt/ exists.
-// Core modules these tests reach (./audio.js, ./fmradio.js → …) resolve through the symlinks setup.sh
-// plants beside the real files — rt/ is a complete mirror of the runtime, half real, half linked.
-//   deno test -A rt/rt_test.js
 import "./tests/acts_test.js";
 import "./tests/afterbeat_test.js";
 import "./tests/afterdark_test.js";

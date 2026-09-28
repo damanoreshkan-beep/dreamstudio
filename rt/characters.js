@@ -1,13 +1,3 @@
-// microspec runtime — characters you can talk to (the edge's /feed/chars, /feed/chats, /feed/chat/stream).
-//
-// The client half of a stored, per-user feature: a shelf of characters (public ones + the user's own), the
-// user's conversations, and a streaming reply. Everything but the stream rides the sealed tunnel like every
-// other call to VPS_PROXY; the stream cannot (an SSE body is not one envelope) and is the one route on the
-// PLAIN list in sealedfetch.js — TLS + origin + session, like /feed/gh/*.
-//
-// GATE-SAFE. Under `gate` there is no network: a fixture shelf, a fixture thread, and a stream that types a
-// fixture reply on a timer — so the shot and the e2e see a POPULATED conversation, not a composer over
-// nothing (the empty state is the one screen nobody should be judging).
 import { atom } from "nanostores";
 import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
 import { gate } from "@microspec/core/runtime/gate.js";
@@ -23,7 +13,7 @@ async function post(path, body, timeout = 20000) {
   const to = setTimeout(() => ctrl.abort(), timeout);
   try {
     const r = await fetch(`${BASE}/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: ctrl.signal });
-    if (!r.ok) { const e = new Error(`${path} ${r.status}`); e.status = r.status; try { e.body = await r.json(); } catch { /* text */ } throw e; }
+    if (!r.ok) { const e = new Error(`${path} ${r.status}`); e.status = r.status; try { e.body = await r.json(); } catch { } throw e; }
     return await r.json();
   } catch (e) {
     if (e && typeof e.status === "number") throw e;
@@ -31,13 +21,7 @@ async function post(path, body, timeout = 20000) {
   } finally { clearTimeout(to); }
 }
 
-// ── the shelf ─────────────────────────────────────────────────────────────────────────────────────────────
-// One atom, module-scoped: the list is fetched once per session and a character created from search is
-// pushed into it, so the shelf the user returns to already has the new face without a refetch.
-export const $characters = atom(null);        // null = never loaded
-// The shelf holds a user's OWN rows too, so it belongs to a session: when the sid changes (sign-out, or
-// another account on the same device) the cache is dropped and the next load asks again. Keyed on the sid,
-// not the session object — restore() sets the same identity twice (optimistic, then revalidated).
+export const $characters = atom(null);
 let lastSid = session.get()?.sid || null;
 session.listen((s) => { const sid = s?.sid || null; if (sid !== lastSid) { lastSid = sid; $characters.set(null); } });
 
@@ -71,7 +55,7 @@ export async function create(key) {
   if (gate) { const c = FIXTURE_CHARACTERS[0]; return c; }
   const sid = sidOf();
   if (!sid) throw Object.assign(new Error("no session"), { status: 401 });
-  const j = await post("chars/create", { sid, key }, 90000);     // Wikipedia + a model writing the card
+  const j = await post("chars/create", { sid, key }, 90000);
   const c = trimCharacter(j.character);
   const cur = $characters.get() || [];
   if (!cur.some((x) => x.id === c.id)) $characters.set([c, ...cur]);
@@ -88,7 +72,6 @@ export async function deleteCharacter(id) {
   return !!j?.ok;
 }
 
-// ── conversations ─────────────────────────────────────────────────────────────────────────────────────────
 export async function chats() {
   if (gate) return FIXTURE_CHATS;
   const sid = sidOf();
@@ -112,7 +95,6 @@ export async function deleteChat(id) {
   return !!j?.ok;
 }
 
-// ── the stream ────────────────────────────────────────────────────────────────────────────────────────────
 /**
  * send({ characterId, chatId, text }, { onMeta, onDelta, signal }) → { chatId, by, complete, text }
  * Streams the reply; resolves when the stream ends. Throws with .status on a refused request.
@@ -144,10 +126,6 @@ export async function send({ characterId, chatId = null, text, locale = "en" }, 
   return { chatId: meta?.chatId ?? chatId, by: done?.by ?? null, complete: !!done?.complete, text: acc, messageId: done?.messageId ?? null };
 }
 
-// ── fixtures (gate only) ──────────────────────────────────────────────────────────────────────────────────
-// A deterministic shelf with the SHAPE production has: a real-looking name, a two-line tagline, a story, and
-// a data-URI portrait so no shot depends on the network. Names are real public figures — the app is about
-// them — the words are ours.
 const portrait = (hue, initials) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 450"><rect width="300" height="450" fill="hsl(${hue} 28% 22%)"/><circle cx="150" cy="170" r="70" fill="hsl(${hue} 30% 34%)"/><rect x="60" y="260" width="180" height="150" rx="60" fill="hsl(${hue} 30% 34%)"/><text x="150" y="190" text-anchor="middle" font-family="sans-serif" font-size="56" font-weight="700" fill="hsl(${hue} 20% 88%)">${initials}</text></svg>`)}`;
 
 export const FIXTURE_CHARACTERS = [
@@ -178,7 +156,6 @@ export const FIXTURE_CHATS = [
   { id: 2, character_id: 1, title: "Про професора Моріарті", updated_at: "2026-08-14T09:30:00Z", name: "Sherlock Holmes", name_uk: "Шерлок Холмс", avatar_url: FIXTURE_CHARACTERS[0].avatar, last: "Він павук у центрі павутини." },
 ];
 
-// Types the fixture reply word by word so the gate sees the same motion a real stream produces.
 async function fixtureStream(text, locale, { onMeta, onDelta, signal, chatId }) {
   const id = chatId || 1;
   onMeta?.({ chatId: id, userMessageId: 99 });

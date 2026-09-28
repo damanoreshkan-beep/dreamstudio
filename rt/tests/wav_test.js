@@ -1,4 +1,3 @@
-// rt/wav.js — the reference clip's shape: rate, resampler, WAV bytes, data: URL, the gate's voice.
 import { assert, assertEquals } from "jsr:@std/assert@1";
 import { REF_RATE, resample, referenceWav, wavDataUrl, mockVoice, envelope, decodeWav } from "../wav.js";
 

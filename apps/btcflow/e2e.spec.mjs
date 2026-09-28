@@ -1,6 +1,3 @@
-// Live Bitcoin tx flow (Blockchain.com WebSocket). On localhost the stream is synthetic (a raw WS from a
-// CI IP is nondeterministic), so the gate reviews a real, moving feed. Dense table + heat + chart + range
-// filter + search + sort — all systemic (declared in spec.json).
 const seed = async (h) => { for (let i = 0; i < 24; i++) { if ((await h.count("[data-row]")) > 3) break; await h.wait(300); } };
 
 export default [

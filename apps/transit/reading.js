@@ -1,9 +1,3 @@
-// The AI paragraph — shared by every reading surface in this app.
-//
-// It lived inside view.js until the compatibility tab needed one too, and match.js cannot import view.js:
-// view.js re-exports match.js, so that edge would close a cycle. Moved here verbatim rather than copied,
-// because the 12-second retry, the fail-open and the `wait` guard are exactly the details that drift when
-// there are two of something.
 import { html } from "htm/preact";
 import { useState, useEffect } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -14,12 +8,6 @@ import { gate } from "/_rt/gate.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-// Never a spinner — the sheet is already there and only this block is pending, so it carries text-shaped
-// skeletons at the length the answer will actually be. 12 s then a retry, fail-open.
-// `wait` holds the request back while a fact it depends on is still being computed. It matters more than it
-// looks: the exact-hit dates are part of BOTH the grounding block and its cache signature, so warming before
-// they land would spend one request on a reading of an incomplete chart and a second on the real one — and
-// cache both under different keys forever.
 export function Reading({ sig, input, loc, api, gateText, lines, t, wait = false }) {
   useStore(aiTick);
   const [failed, setFailed] = useState(false);

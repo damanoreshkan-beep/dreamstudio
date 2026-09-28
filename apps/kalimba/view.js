@@ -1,9 +1,3 @@
-// Kalimba — a playable thumb piano (mbira). A full-screen instrument (fixed layer between the app bar and
-// the dock) so it fills the viewport in BOTH orientations — turn the phone landscape and the 17 tines
-// spread wide under your fingers. Standard centre-out layout (lowest tine in the middle, scale alternating
-// outward). A tonality switch retunes every tine (major/minor/pentatonic/…); the demos are written as
-// scale-relative offsets so they play in any tuning. Every note is SYNTHESISED via /_rt/audio.js strike()
-// with a research-based bar-mode timbre (JASA "The tones of the kalimba") — no audio files, offline.
 import { html } from "htm/preact";
 import { useState, useRef, useEffect, useMemo } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -14,13 +8,11 @@ import { generateMelody } from "/_rt/melody.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-const TONIC = 60;                                                   // C4 in the centre, for every tuning
+const TONIC = 60;
 const PC = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const label = (m) => PC[m % 12] + (Math.floor(m / 12) - 1);
-// physical position of the k-th ascending note in the 17-tine centre-out layout (centre=8, alternating out)
 const POS = (k) => (k === 0 ? 8 : k % 2 ? 7 - (k - 1) / 2 : 8 + k / 2);
 
-// tonalities — interval steps (semitones) of one octave; the tuning repeats up the 17 tines
 const SCALES = [
   { id: "major", name: "sMajor", steps: [2, 2, 1, 2, 2, 2, 1] },
   { id: "minor", name: "sMinor", steps: [2, 1, 2, 2, 1, 2, 2] },
@@ -40,10 +32,6 @@ function buildTines(steps) {
   return out;
 }
 
-// VOICES — genuinely different timbres, not the same tone retuned: the lever is oscillator `type` + the
-// partial recipe + decay. Warm harmonic ring (classic) vs a short bright pluck (box) vs airy triangle
-// shimmer (glass) vs a dry wooden bar tuned to marimba's ~1:4:10 modes vs a long inharmonic bell vs a reedy
-// electric. Each is audibly its own instrument. `classic` stays the default (the warm one the owner liked).
 const VOICES = [
   { id: "classic", name: "vClassic", t: { type: "sine", dur: 2.1, attack: 0.002, peak: 0.45, partials: [[1, 1], [2.01, 0.55], [3.0, 0.22], [4.3, 0.1], [5.9, 0.05]] } },
   { id: "box", name: "vBox", t: { type: "sine", dur: 1.05, attack: 0.001, peak: 0.5, partials: [[1, 1], [2, 0.5], [4, 0.24], [6.5, 0.1], [9, 0.04]] } },
@@ -54,10 +42,6 @@ const VOICES = [
 ];
 const voiceById = (id) => VOICES.find((v) => v.id === id) || VOICES[0];
 
-// demos as scale-STEP offsets from a mid base → they play in whatever tuning is selected. Songs that carry a
-// `scale` are REAL tunes (they only sound right in one key), so tapping them retunes the board to match; the
-// scale-less demos stay tuning-relative. Avatar's melodies are pure C-major degrees 0..4 (C D E F G), which
-// is why they map straight onto the major tuning's scale degrees (kalimbatabs.net letter/number tabs).
 const BASE = 7;
 const SONGS = [
   { id: "gliss", name: "sGliss", step: 95, seq: Array.from({ length: 17 }, (_, k) => k - BASE) },
@@ -73,7 +57,7 @@ export function kalimba({ S }) {
   const [voice, setVoice] = useState("classic");
   const [lit, setLit] = useState(() => new Set());
   const [playing, setPlaying] = useState(null);
-  const [dim, setDim] = useState({ w: 0, h: 0 });                   // play-region size → the rotated board swaps it
+  const [dim, setDim] = useState({ w: 0, h: 0 });
   const eng = useRef(null), flashes = useRef([]), song = useRef([]), region = useRef(), ptr = useRef(new Map()), usingPtr = useRef(false), switching = useRef(false);
 
   const tines = useMemo(() => buildTines(STEPS[scale]), [scale]);
@@ -85,32 +69,24 @@ export function kalimba({ S }) {
   const hit = (e, tn) => { if (e && tn) e.strike(tn.freq, timbre); };
   const pluck = (pos) => { const tn = tines[pos]; hit(ensure(), tn); flash(pos); };
 
-  // Play on POINTER DOWN (no click-on-release lag), and hit-test each tine the finger slides over via
-  // elementFromPoint → glissando by dragging + true multi-touch (per-pointer last-tine), + fast repeats.
   const tineAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest && el.closest("[data-tine]"); return b ? Number(b.getAttribute("data-tine")) : null; };
-  const onDown = (e) => { const pos = tineAt(e.clientX, e.clientY); if (pos == null) return; usingPtr.current = true; e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* */ } ptr.current.set(e.pointerId, pos); pluck(pos); };
+  const onDown = (e) => { const pos = tineAt(e.clientX, e.clientY); if (pos == null) return; usingPtr.current = true; e.preventDefault(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch { } ptr.current.set(e.pointerId, pos); pluck(pos); };
   const onMove = (e) => { if (!ptr.current.has(e.pointerId)) return; const pos = tineAt(e.clientX, e.clientY); if (pos == null) return; if (ptr.current.get(e.pointerId) !== pos) { ptr.current.set(e.pointerId, pos); pluck(pos); } };
   const onLift = (e) => { ptr.current.delete(e.pointerId); };
-  // fallback for environments that don't emit pointer events (the headless gate's .click()); real devices
-  // fire pointerdown first → usingPtr guards against a double-trigger.
   const onClickBoard = (e) => { if (usingPtr.current) return; const b = e.target.closest && e.target.closest("[data-tine]"); if (b) pluck(Number(b.getAttribute("data-tine"))); };
 
   const stop = () => { song.current.forEach(clearTimeout); song.current = []; setPlaying(null); };
-  // ascending tine lookup for ANY tuning (a real song may retune the board out from under the memoised one)
   const baFor = (sc) => { const a = []; buildTines(STEPS[sc]).forEach((tn) => { a[tn.asc] = tn; }); return a; };
   const play = (s) => {
     stop(); const e = ensure(); setPlaying(s.id);
     const sc = s.scale || scale;
-    if (s.scale && s.scale !== scale) { switching.current = true; setScale(s.scale); }   // retune to the song's key
+    if (s.scale && s.scale !== scale) { switching.current = true; setScale(s.scale); }
     const ba = sc === scale ? byAsc : baFor(sc);
     s.seq.forEach((off, step) => song.current.push(setTimeout(() => {
       if (off != null) { const tn = ba[BASE + off]; if (tn) { hit(e, tn); flash(tn.pos); } }
       if (step === s.seq.length - 1) song.current.push(setTimeout(() => setPlaying(null), s.step + 200));
     }, step * s.step)));
   };
-  // Flow — auto-generate a sweet phrase over the CURRENT tuning via the unit-tested /_rt/melody.js search
-  // (consonance · voice-leading · resolution). The scale as ~1.4 octaves of degree offsets; generated
-  // indices ARE scale degrees, so they play straight through the same path as a song.
   const flow = () => {
     const steps = STEPS[scale]; const offs = [0]; let acc = 0;
     for (let k = 0; k < 9; k++) { acc += steps[k % steps.length]; offs.push(acc); }
@@ -118,7 +94,7 @@ export function kalimba({ S }) {
     play({ id: "flow", step: 300, seq: g.notes.map((n) => (n.rest ? null : n.i)) });
   };
 
-  useEffect(() => { if (switching.current) { switching.current = false; return; } stop(); }, [scale]);   // manual retune stops a demo; a song's own retune does not
+  useEffect(() => { if (switching.current) { switching.current = false; return; } stop(); }, [scale]);
   useEffect(() => { const el = region.current; if (!el) return; const apply = () => setDim({ w: el.clientWidth, h: el.clientHeight }); apply(); const ro = new ResizeObserver(apply); ro.observe(el); return () => ro.disconnect(); }, []);
   useEffect(() => () => { flashes.current.forEach(clearTimeout); song.current.forEach(clearTimeout); if (eng.current) eng.current.close(); }, []);
 
@@ -134,9 +110,7 @@ export function kalimba({ S }) {
         <div class="shrink-0 max-w-[55%]"><${Segmented} attr="data-scale" scroll size="sm" label=${T(t, "scale")}
           items=${SCALES.map((s) => ({ id: s.id, label: T(t, s.name) }))} value=${scale} onChange=${setScale} /></div>
       </div>
-      ${/* A demo is a one-of-N CHOICE, not a transport: the rail says which piece the board is playing, and
-           picking the one already playing stops it. That is the kit's Segmented — the per-song play/square
-           icons were a play control the farm would have had to maintain in a tenth place. */""}
+      ${""}
       <${Segmented} attr="data-song" scroll size="sm" label=${T(t, "sFlow")} value=${playing || ""}
         items=${[{ id: "flow", label: T(t, "sFlow"), icon: "lucide:sparkles", dot: playing === "flow" || undefined },
                  ...SONGS.map((s) => ({ id: s.id, label: T(t, s.name) }))]}

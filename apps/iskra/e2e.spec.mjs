@@ -1,5 +1,3 @@
-// WebSerial has no device under headless CI — the view gate-seeds "idle" (no ?st), so the e2e checks the
-// front-door render, i18n parity and the PWA install modal. The flash flow itself is proven on real hardware.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-dev]")) > 0) break; await h.wait(500); } };
 
 export default [

@@ -1,20 +1,3 @@
-// Book of Changes (易經) — a magical film, not an instrument panel (owner's brief, 2026-08-11: the old
-// island UI was rejected wholesale; RESEARCH.md logs the acts).
-//
-// THE FILM: the WebGPU current is the only set. Act I — the field, the cast hexagram luminous at centre,
-// one golden caret blinking in the question slot. Act II — the veil: a full-screen question written on a
-// golden line. Act III — the six lines shuffle LARGE while the field dances with them (the shader's seed
-// IS the six lines, so the slits of light in the current shuffle in step with the DOM figure), then glue
-// bottom-first. Act IV — the name appears, and the answer writes itself out like film subtitles.
-//
-// The honest math stays (/_rt/iching.js: yarrow 1:5:7:3 vs coins 1:3:3:1 — the odds ARE the tradition),
-// but it is spoken as an incantation under the shuffle, not laid out as a control row. The journal is the
-// oracle's MEMORY: a repeated question (normalized `qk`) replays its entry verbatim — same lines, same
-// stored text (`tx[locale]`, persisted the moment the answer lands, so replays work offline) — and may be
-// recast once per local day. The Book does not answer one question twice.
-//
-// DATA IS BOTTOM-FIRST, DISPLAY IS TOP-FIRST. lines[0] is the bottom line (初爻). Only the template
-// reverses; nothing else may, or the app silently reads the wrong line.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useState, useEffect, useRef } from "preact/hooks";
@@ -39,40 +22,29 @@ const packSeed = (ls) => { let n = 0; for (let i = 5; i >= 0; i--) n = n * 4 + (
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 const CASTS = collection("ichingCasts");
 
-// Same idiom as /_rt/skeleton.js: the gate and reduced-motion get the FINAL state instantly — no shuffle,
-// no typewriter, no entry animation — so shots and e2e stay deterministic.
 const reduced = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 const instant = () => gate || reduced();
 
 const $method = persistentAtom("iching:method", "yarrow");
-const $lines = atom(null);          // 6/7/8/9, bottom first — the current cast, or null
-const $last = atom(null);           // the journal row behind $lines (the "read again" target)
-const $view = atom(null);           // what the ceremony opens as: {mode:"ask"} | {mode:"read", row}
-const $sel = atom(null);            // the journal row the log sheet shows
-const $logv = atom(0);              // bumped when the journal changes, so the list reloads
-const $seedLines = atom(null);      // the shuffle's live lines — the FIELD follows them (seed = the cast)
+const $lines = atom(null);
+const $last = atom(null);
+const $view = atom(null);
+const $sel = atom(null);
+const $logv = atom(0);
+const $seedLines = atom(null);
 
 /** The dedupe key: one question is one entry, however it is spaced or capitalized. */
 const qkey = (s) => String(s || "").trim().replace(/\s+/g, " ").toLowerCase();
 /** Local calendar day — the recast budget is "once per day" in the owner's day, not UTC's. */
 const dayKey = (ts) => { const d = ts ? new Date(ts) : new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 
-// Under the gate the screen must be POPULATED — an empty caster photographs as a blank page and every
-// downstream check would then measure nothing. A fixed cast, chosen to exercise the interesting states:
-// two moving lines, so there is a second hexagram and a change to show.
 const GATE_LINES = [9, 8, 7, 6, 7, 8];
 
-// The ONE gate fixture: the journal list, the question lookup and the seeded $last all read it. g1 carries
-// an OLD day on purpose — replaying its question is the only way the e2e can see [data-recast] appear
-// (under the gate every answer text is identical, so the dedupe branch is proven by state, not by text).
-// n/to are DERIVED from the lines, never written beside them: the first version hand-wrote n:40 next to
-// lines that are hexagram 63, and the journal displayed the lie verbatim for as long as the app existed.
 const GATE_ROWS = [
   { id: "g1", at: 1765000000000, q: "Чи варто починати зараз", m: "yarrow", lines: [9, 8, 7, 6, 7, 8] },
   { id: "g2", at: 1764900000000, q: "", m: "coins", lines: [7, 7, 7, 8, 8, 8] },
 ].map((r) => { const rd = reading(r.lines); return { ...r, n: rd.number, to: rd.toNumber, tx: {}, day: dayKey(r.at), qk: qkey(r.q) }; });
 
-// Mirrors tarot's GATE_SUMMARY: the gate has no network, so the answer phase renders a fixed reading.
 const GATE_READING = {
   uk: "Вузол уже розвʼязується: те, що тримало тебе на місці, втрачає силу, і перший крок можна робити без поспіху. Не намагайся владнати все одразу — прибери одну перешкоду, і решта зрушить сама. Після грому дощ ущухає: дій спокійно, і дорога відкриється.",
   en: "The knot is already loosening: what held you in place is losing its grip, and the first step can be taken without haste. Do not try to settle everything at once — remove one obstacle and the rest will shift on its own. After thunder the rain eases: act calmly, and the road will open.",
@@ -83,8 +55,6 @@ const method = () => METHODS[$method.get()] ? $method.get() : "yarrow";
 /** The AI cache signature — every value that can change the answer, nothing else. */
 const sigOf = (row) => `${row.m}|${row.lines.join("")}|${row.q.trim()}`;
 
-// The facts handed to the model. Structure only — the app has no canonical text to give it, and saying
-// so in the prompt is what keeps the reading anchored to the cast rather than to a half-remembered book.
 function buildInput(row) {
   const r = reading(row.lines), name = nameOf(r.number), toName = r.toNumber ? nameOf(r.toNumber) : null;
   return [
@@ -96,17 +66,12 @@ function buildInput(row) {
   ].filter(Boolean).join("\n");
 }
 
-// The reading text for a journal row, from the durable copy outward: tx[locale] first (works offline),
-// then the runtime AI cache, then the wire. The moment a fetched answer lands it is WRITTEN INTO the row —
-// that persistence is what makes "the same question, the same answer" survive a cleared cache.
 function useReadingText(row, loc, active) {
   const tick = useStore(aiTick);
   const [failed, setFailed] = useState(false);
   const [landed, setLanded] = useState("");
   const [nonce, setNonce] = useState(0);
   const sig = row ? sigOf(row) : "";
-  // Keyed by SIGNATURE, not row id: a recast keeps the id but changes the lines, and a `landed` text left
-  // keyed to the id would replay yesterday's answer over the new cast.
   useEffect(() => { setLanded(""); setFailed(false); }, [sig, loc]);
   const stored = row?.tx?.[loc] || "";
   const text = !active || !row ? "" : gate ? (GATE_READING[loc] || GATE_READING.en) : (stored || landed || summary(sig, loc));
@@ -129,16 +94,6 @@ function useReadingText(row, loc, active) {
   return { text, failed, retry: () => setNonce((x) => x + 1) };
 }
 
-// ── the hexagram, drawn as SVG ───────────────────────────────────────────────────────────────────
-// One element instead of twelve divs, exact geometry at any size, and the CANONICAL notation for movement:
-//
-//   7  young yang   ▬▬▬▬▬        a whole bar
-//   8  young yin    ▬▬  ▬▬       a bar with a gap
-//   9  old yang     ▬▬○▬▬        whole, marked with a circle — it is about to open
-//   6  old yin      ▬▬✕▬▬        broken, marked with a cross — it is about to close
-//
-// The moving marks carry the ONE colour in the film (--app-accent, old gold): movement is the only thing
-// colour means here. Bars are currentColor — the surface decides the ink, this decides the shape.
 const W = 100, BAR = 6, PITCH = 11, GAP = 16, VB_H = PITCH * 6 - (PITCH - BAR);
 
 /**
@@ -146,16 +101,14 @@ const W = 100, BAR = 6, PITCH = 11, GAP = 16, VB_H = PITCH * 6 - (PITCH - BAR);
  * @param bits   0/1 bottom-first — a plain hexagram (the transformed one has no line values)
  */
 const HexSvg = ({ lines, bits, label, cls }) => {
-  const rows = lines ?? bits.map((b) => (b ? 7 : 8));      // bits render as static lines
-  // `data-line` / `data-moving` mark the CAST only — the transformed hexagram is where the cast is going,
-  // not a second throw; tagging it too once broke the e2e count for a real semantic reason.
-  const lineAttr = (i) => (lines ? i + 1 : null);          // null attributes are not rendered at all
+  const rows = lines ?? bits.map((b) => (b ? 7 : 8));
+  const lineAttr = (i) => (lines ? i + 1 : null);
   const movAttr = (moving) => (lines ? (moving ? "1" : "0") : null);
   return html`<svg viewBox=${`0 0 ${W} ${VB_H}`} class=${`w-full ${cls || ""}`} role="img"
     aria-label=${label || ""} fill="currentColor" data-hex=${lines ? "cast" : "to"}>
     ${rows.map((v, i) => {
       const yang = bitOf(v) === 1, moving = isMoving(v);
-      const y = (5 - i) * PITCH;                            // index 0 is the BOTTOM line → drawn last
+      const y = (5 - i) * PITCH;
       const mid = y + BAR / 2;
       return html`<${Fragment} key=${i}>
         ${yang
@@ -178,19 +131,14 @@ const HexSvg = ({ lines, bits, label, cls }) => {
   </svg>`;
 };
 
-// The golden caret — the film's through-line: it blinks in the question slot, waits on the writing line,
-// and types the answer. One mark, one colour, one meaning: here is where the Book speaks next.
 const Caret = (cls) => html`<span aria-hidden="true" class=${`ic-caret ${cls || ""}`}></span>`;
-// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
 
-// ── Act I — the field ────────────────────────────────────────────────────────────────────────────
 export function iching({ S, screen, openScreen, closeScreen }) {
   const t = useStore(S.t), loc = useStore(S.locale);
   const lines = useStore($lines);
   const shuffling = useStore($seedLines);
 
-  // Seed the gate's cast once, so the populated screen renders with no interaction and no randomness.
   useEffect(() => {
     if (gate && !$lines.get()) { $lines.set(GATE_LINES); $last.set(GATE_ROWS[0]); }
   }, []);
@@ -203,16 +151,10 @@ export function iching({ S, screen, openScreen, closeScreen }) {
   const openRead = () => { const row = $last.get(); if (!row) return openAsk(); $view.set({ mode: "read", row }); openScreen("ask"); };
 
   return html`<${Fragment}>
-    ${/* The current — and during the shuffle the FIELD follows the flickering lines, because the shader's
-          seed literally is the six line values. The page flow stays empty; the film is composed of fixed
-          layers between the measured chrome tokens (--hdr-h/--dock-h — published, never hand-written). */""}
+    ${""}
     <${HeroStage} shader=${new URL("hero.wgsl", import.meta.url)} seed=${packSeed(shuffling ?? (r ? r.lines : null) ?? [7, 7, 7, 7, 7, 7])} />
 
-    ${/* Everything visible sits in ONE .ms-stage — the class consumes the measured chrome contract
-          (--hdr-h/--dock-h/--dock-w), so the app never writes a chrome number. Centre: the cast, luminous
-          on a soft night pane — a real DOM ground (axe cannot see the canvas), so white ink is safe in
-          both themes; tapping the figure replays its reading. Foot: the question slot, the single control
-          on the set, the golden caret already blinking in it. */""}
+    ${""}
     <div class="ms-stage z-10 flex flex-col items-center pointer-events-none" data-ic-state=${shuffling ? "shuffle" : r ? "cast" : "empty"}>
       <div class="flex-1 min-h-0 w-full flex flex-col items-center justify-center px-6">
         ${r ? html`<button data-read data-live data-reading aria-label=${T(t, "readingOpen")} onClick=${openRead}
@@ -243,10 +185,6 @@ export function iching({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// ── the ceremony — Acts II–V, one transparent full-screen dialog over the living field ───────────
-// A `class="modal"` top-layer dialog (tarot's Ritual precedent), history-backed via S.screen so Back
-// closes it at any act. The box is TRANSPARENT: the film never cuts away from the current — a veil dims
-// it (lighter during the shuffle so the slits visibly dance), and every act plays over it.
 function Ceremony({ open, onClose, t, loc }) {
   const dref = useRef(), qRef = useRef(), actRef = useRef();
   const [phase, setPhase] = useState("ask");
@@ -266,7 +204,6 @@ function Ceremony({ open, onClose, t, loc }) {
     else { setRow(null); setReplay(false); setQText(""); setPhase("ask"); }
     if (!instant()) setTimeout(() => qRef.current?.focus?.(), 420);
   }, [open]);
-  // Each act enters like a cut in the film: rise and fade, one orchestrated move, nothing scattered.
   useEffect(() => {
     if (instant() || !open) return;
     const el = actRef.current;
@@ -276,14 +213,13 @@ function Ceremony({ open, onClose, t, loc }) {
   const begin = (entry, rep) => {
     setRow(entry); setReplay(rep);
     $lines.set(entry.lines); $last.set(entry);
-    if (!gate && !entry.tx?.[loc]) warmSummary(sigOf(entry), buildInput(entry), loc);   // the shuffle covers the wire's latency
+    if (!gate && !entry.tx?.[loc]) warmSummary(sigOf(entry), buildInput(entry), loc);
     setPhase(instant() ? "answer" : "cast");
   };
 
   const submit = async () => {
     const q = qText.trim(), qk = qkey(q);
     if (qk) {
-      // The Book does not answer one question twice: a known question replays its entry verbatim.
       const rows = gate ? GATE_ROWS : await CASTS.all().catch(() => []);
       const hit = rows.filter((x) => (x.qk ?? qkey(x.q)) === qk).sort((a, b) => b.at - a.at)[0];
       if (hit) return begin(hit, true);
@@ -294,8 +230,6 @@ function Ceremony({ open, onClose, t, loc }) {
     begin(entry, false);
   };
 
-  // Once per day: the entry is recast IN PLACE — new lines, new day, the stored text cleared. One question
-  // stays one entry; yesterday's answer is gone because the owner chose to throw again.
   const recast = () => {
     const r = reading(gate ? GATE_LINES : cast(method()));
     const upd = { ...row, at: Date.now(), day: dayKey(), m: method(), lines: r.lines, n: r.number, to: r.toNumber, tx: {} };
@@ -307,17 +241,12 @@ function Ceremony({ open, onClose, t, loc }) {
   const name = r ? nameOf(r.number) : null;
   const toName = r?.toNumber ? nameOf(r.toNumber) : null;
   const canRecast = phase === "answer" && row && row.day !== dayKey();
-  // The ceremony's word-buttons: the kit's ghost button as a mono pill — flat at rest (a word, not an
-  // object), the material's press under a finger; the ONE filled pill (close) is btn-primary = ink.
   const pill = "btn btn-ghost rounded-full px-6 font-mono uppercase tracking-[0.18em] text-sm font-normal";
 
   return html`<dialog id="ask" ref=${dref} class="modal" aria-label=${T(t, "askTitle")} onClose=${onClose}>
-    ${/* The box is TRANSPARENT so the film never cuts away from the current — inline, because .modal-box
-          paints an opaque base-100 unlayered and a utility class cannot beat it. The veil below is the
-          page's own ground at a known alpha (head.html .ic-veil), so the ink tokens read in BOTH themes:
-          night on black, paper on the light field — no re-scoped dark theme needed any more. */""}
+    ${""}
     <div ref=${boxRef} class="modal-box max-w-none w-screen h-[100dvh] max-h-none rounded-none p-0 overflow-hidden relative text-base-content [&_*]:!shadow-none" style="background:transparent">
-      ${/* The veil: thinner while the lines shuffle so the field visibly dances with them. */""}
+      ${""}
       <div aria-hidden="true" class="ic-veil absolute inset-0" data-thin=${phase === "cast" ? "" : null}></div>
       <div class="relative z-10 flex flex-col h-full px-6" style="padding-top:calc(env(safe-area-inset-top) + 0.5rem);padding-bottom:calc(env(safe-area-inset-bottom) + 1.25rem)">
         ${grip}
@@ -333,17 +262,15 @@ function Ceremony({ open, onClose, t, loc }) {
                 placeholder=${T(t, "question")} aria-label=${T(t, "question")}
                 class="w-full resize-none bg-transparent text-center text-2xl font-light leading-snug text-base-content placeholder:text-muted outline-none border-0 px-1"
                 style="caret-color:var(--app-accent)"></textarea>
-              ${/* The writing line — the golden hairline the answer will later type itself onto. */""}
+              ${""}
               <div aria-hidden="true" class="ic-line"></div>
             </div>
             <button data-cast onClick=${submit} class=${`${pill} self-center`}>
               ${T(t, "cast")}</button>
           </div>
-          ${/* The method, spoken quietly at the foot of the act — a choice, not a dashboard: the strip and
-                the exact ratios it implies, the one fact separating the two traditions. */""}
+          ${""}
           <div class="shrink-0 flex flex-col items-center gap-2 pb-2">
-            ${/* The strip needs a REAL width: under `items-center` it collapses to fit-content and its
-                  flex-1 buttons then ellipsize their own labels — the shot showed "Моне…". */""}
+            ${""}
             <div class="w-full max-w-[300px]"><${Segmented} attr="data-method" size="sm" variant="outline" label=${T(t, "methodLabel")}
               items=${[{ id: "yarrow", label: T(t, "methodYarrow") }, { id: "coins", label: T(t, "methodCoins") }]}
               value=${m} onChange=${(id) => $method.set(id)} /></div>
@@ -356,8 +283,7 @@ function Ceremony({ open, onClose, t, loc }) {
           const wm = METHODS[row.m] ?? METHODS.yarrow;
           return html`<div data-phase="cast" ref=${actRef} class="flex-1 min-h-0 flex flex-col items-center justify-center gap-7">
             <${CastPlay} lines=${row.lines} onDone=${() => setPhase("answer")} />
-            ${/* The odds as an incantation under the falling lines — the tradition's one honest number,
-                  spoken during the ritual instead of laid out as a dashboard row. */""}
+            ${""}
             <div class="ic-chip rounded-full px-4 py-1.5 font-mono text-[length:var(--ms-label)] tabular-nums text-base-content/75">
               ${T(t, row.m === "coins" ? "methodCoins" : "methodYarrow")} · ${T(t, "oddsYinYang")} ${wm.weights[6]}/${wm.total} · ${T(t, "oddsYangYin")} ${wm.weights[9]}/${wm.total}</div>
           </div>`;
@@ -390,8 +316,7 @@ function Ceremony({ open, onClose, t, loc }) {
           </div>
 
           <div class="shrink-0 flex flex-col items-center gap-3 pb-1">
-            ${/* Provenance, not decoration: the hexagram is computed exactly; the words are a model's, and
-                  the reader is told so. */""}
+            ${""}
             <div class="flex items-start gap-2 text-[length:var(--ms-label)] text-base-content/70 text-center">
               ${Icon("lucide:sparkles", "shrink-0 mt-0.5")}<span>${T(t, "readingGenerated")}</span>
             </div>
@@ -409,13 +334,6 @@ function Ceremony({ open, onClose, t, loc }) {
   </dialog>`;
 }
 
-// ── Act III — the shuffle and the glue ───────────────────────────────────────────────────────────
-// Six lines flicker through random values (90ms — a hard snap, the point is chaos) while the FIELD behind
-// dances with them ($seedLines drives the shader's seed). Then they lock to the real cast bottom-first
-// (初爻 first, as the stalks fall): a yin pair that became yang GLUES — the two halves slide together
-// (animated SVG x/width; Chromium animates geometry attributes, and a browser that does not simply snaps
-// to the exact final frame) and a full bar crossfades over the seam. One navigator.vibrate(6) per lock —
-// a state event, not a tap, so it does not collide with the systemic tap haptic. Mounted only when !instant().
 const HW = (W - GAP) / 2;
 function CastPlay({ lines, onDone }) {
   const [cur, setCur] = useState(() => lines.map(() => 7));
@@ -432,7 +350,7 @@ function CastPlay({ lines, onDone }) {
       lockRef.current = i + 1;
       setLocked(i + 1);
       step();
-      try { navigator.vibrate?.(6); } catch { /* */ }
+      try { navigator.vibrate?.(6); } catch { }
     }, 1000 + i * 280));
     const done = setTimeout(onDone, 1000 + 5 * 280 + 700);
     return () => { clearInterval(flick); timers.forEach(clearTimeout); clearTimeout(done); $seedLines.set(null); };
@@ -460,10 +378,6 @@ function CastPlay({ lines, onDone }) {
   </svg>`;
 };
 
-// ── Act V — the answer writes itself, like film subtitles ────────────────────────────────────────
-// App-local on purpose (RESEARCH.md): first consumer; promote to /_rt/skeleton.js when a second app wants
-// it. Speed adapts so any answer finishes in ~6-9s. Screen readers get the full text once (sr-only); the
-// typed copy is aria-hidden so nothing announces per-character.
 function Typewriter({ text }) {
   const [n, setN] = useState(() => (instant() ? text.length : 0));
   useEffect(() => {
@@ -481,7 +395,6 @@ function Typewriter({ text }) {
   </div>`;
 }
 
-// ── journal — the oracle's memory ────────────────────────────────────────────────────────────────
 export function ichingLog({ S, screen, openScreen, closeScreen, confirm, undo }) {
   const t = useStore(S.t), loc = useStore(S.locale);
   const v = useStore($logv);
@@ -523,7 +436,6 @@ export function ichingLog({ S, screen, openScreen, closeScreen, confirm, undo })
   return html`<div class="flex flex-col gap-2 max-w-[440px] mx-auto w-full" data-live data-log>
     ${rows.map((row) => {
       const nm = nameOf(row.n), to = row.to ? nameOf(row.to) : null;
-      // The QUESTION leads the row — the journal is remembered by what was asked, not by what fell.
       return html`<div key=${row.id} data-entry class="rounded-[var(--ms-r)] sf-raised sf-e2 px-[var(--ms-pad)] py-3 flex items-center gap-[var(--ms-gap)]">
         <button data-open class="flex-1 min-w-0 flex items-center gap-[var(--ms-gap)] text-left" onClick=${() => { $sel.set(row); openScreen("entry"); }}>
           <div class="w-10 shrink-0"><${HexSvg} lines=${row.lines} label=${nm.cn} cls="text-base-content/85" /></div>
@@ -544,8 +456,6 @@ export function ichingLog({ S, screen, openScreen, closeScreen, confirm, undo })
   </div>`;
 }
 
-// The journal entry's reading — the stored text (or a one-time fetch into it), plain, no ceremony: the
-// journal is the reference copy, the ceremony is the performance.
 function LogSheet({ open, onClose, row, t, loc }) {
   const nm = row ? nameOf(row.n) : null;
   const { text, failed, retry } = useReadingText(row, loc, open && !!row);

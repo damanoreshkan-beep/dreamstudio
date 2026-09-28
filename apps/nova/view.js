@@ -1,15 +1,3 @@
-// nova — lift up underrated GitHub developers. Sign in with GitHub, discover real people doing good work with
-// little recognition, DELIBERATELY star the ones you appreciate (one human tap, never automated/bulk), and —
-// the real charity — open their GitHub Sponsors / FUNDING links to support them with money. A star-field
-// finale celebrates the developers you lifted today.
-//
-// Two tool tabs share this one view (both view:"nova"), branched by the active tab id:
-//   • discover — the feed of underrated devs to lift; a starred dev LEAVES this list immediately.
-//   • lifted   — the separate list of everyone you've starred, and the entry point to the finale.
-// The starred set is a module-level persistent atom so it is shared across both tabs and survives a remount.
-//
-// What this is NOT: it never auto-stars random people. Mass-starring is GitHub "inauthentic activity" (ToS),
-// risks the account, and is hollow support. Every star here is one intentional action.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { atom } from "nanostores";
@@ -26,21 +14,17 @@ import { Scramble } from "/_rt/skeleton.js";
 import { Finale } from "./finale.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// the one micro-label recipe (design.md): mono, the density token — repo slugs, counts, the account line
 const LABEL = "font-mono text-[length:var(--ms-label)] tracking-wider";
 const repoKey = (d) => `${d.owner}/${d.repo}`;
 const num = (n) => { const v = Number(n) || 0; return v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(1)}k` : String(v); };
 const avatarSized = (u, s = 160) => (u ? `${u}${u.includes("?") ? "&" : "?"}size=${s}` : "");
 const liftedRecord = (d) => ({ owner: d.owner, repo: d.repo, name: d.name, avatar: d.avatar, url: d.url });
 
-// ── the starred ("lifted") set — module-level so both tabs share it and it survives remounts ──────────────
-// Under the gate we DON'T persist: every headless page-load starts from zero, so the e2e is deterministic.
 const SUP_KEY = "nova:supported";
 const initSupported = () => { if (gate) return {}; try { return JSON.parse(localStorage.getItem(SUP_KEY) || "{}"); } catch { return {}; } };
 export const supportedStore = atom(initSupported());
-function writeSupported(map) { supportedStore.set(map); if (!gate) { try { localStorage.setItem(SUP_KEY, JSON.stringify(map)); } catch { /* private mode */ } } }
+function writeSupported(map) { supportedStore.set(map); if (!gate) { try { localStorage.setItem(SUP_KEY, JSON.stringify(map)); } catch { } } }
 
-// ── discovery source ─────────────────────────────────────────────────────────────────────────────────────
 const API = "https://api.github.com/search/repositories";
 const daysAgoISO = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 const query = () => `good-first-issues:>1 stars:5..90 pushed:>${daysAgoISO(60)} fork:false archived:false`;
@@ -59,7 +43,6 @@ function toDev(it) {
   };
 }
 
-// A deterministic fixture so the login-gated feed renders under the gate with NO network.
 const MOCK_DEVS = [
   { owner: "amelia-rt", repo: "featherquery", name: "amelia-rt", avatar: "", url: "https://github.com/amelia-rt/featherquery", desc: "A 3 kB reactive query cache with zero dependencies.", stars: 34, forks: 4, lang: "TypeScript", score: 92, reasons: ["reasonFresh", "reasonFewStars", "reasonNeedsHelp", "reasonSolo", "reasonDocumented"] },
   { owner: "kwan-dev", repo: "tofu-lint", name: "kwan-dev", avatar: "", url: "https://github.com/kwan-dev/tofu-lint", desc: "A fast, friendly linter for Terraform/OpenTofu modules.", stars: 58, forks: 9, lang: "Go", score: 84, reasons: ["reasonFresh", "reasonNeedsHelp", "reasonSolo", "reasonDocumented", "reasonRising"] },
@@ -72,10 +55,6 @@ const MOCK_FUNDING = {
   "noor-b": [{ platform: "github", label: "GitHub Sponsors", handle: "noor-b", url: "https://github.com/sponsors/noor-b" }],
 };
 
-// Avatar with a graceful letterTile fallback (letterTile already returns a data URI). Round.
-// The disc under the face is the SLOT the avatar drops into — a recess (`sf-inset`), not a tone step. On a
-// replaced element the inset pair paints beneath the bitmap, so it is visible exactly while the slot is
-// empty (fetch in flight) and gone the moment the picture fills it.
 const Avatar = ({ src, seed, size = 52 }) => {
   const fallback = () => letterTile(seed || "?", { w: size, h: size, light: 30 });
   return html`<img src=${src || fallback()} alt="" width=${size} height=${size} loading="lazy"
@@ -93,9 +72,9 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
 
   const [devs, setDevs] = useState(gate ? MOCK_DEVS : null);
   const [err, setErr] = useState(false);
-  const [target, setTarget] = useState(null);       // dev whose support sheet is open
-  const [funding, setFunding] = useState(null);      // { loading } | array
-  const [busy, setBusy] = useState({});              // repoKey → true while a star toggle is in flight
+  const [target, setTarget] = useState(null);
+  const [funding, setFunding] = useState(null);
+  const [busy, setBusy] = useState({});
 
   useEffect(() => { restore().catch(() => {}); }, []);
 
@@ -125,8 +104,6 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
   const supportedList = Object.values(supported);
   const isSupported = (d) => !!supported[repoKey(d)];
 
-  // Star / unstar — a deliberate, optimistic toggle. Reverts on failure. A starred dev leaves discover and
-  // appears in the "lifted" tab; unstarring reverses it.
   const toggleStar = async (d) => {
     const key = repoKey(d);
     if (busy[key]) return;
@@ -163,11 +140,10 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
     setFunding(links);
   };
 
-  // ── signed-out hero ────────────────────────────────────────────────────────────────────────────────────
   if (!loggedIn) {
     return html`<div data-nova data-auth="0" class="min-h-[70vh] flex flex-col items-center justify-center text-center gap-[calc(var(--ms-gap)*2)] px-8">
       <div class="relative">
-        ${/* the star's bloom: the app's MARK colour as a glow behind a glyph — never behind text */ ""}
+        ${ ""}
         <div class="absolute inset-0 blur-2xl opacity-30" style="background:radial-gradient(circle,var(--app-accent),transparent 70%)"></div>
         <svg viewBox="0 0 24 24" class="relative w-16 h-16 text-primary" fill="currentColor"><path d="M12 1.6l2.6 6.9 7.4.4-5.8 4.6 2 7.1L12 17.9 5.8 20.6l2-7.1L2 8.9l7.4-.4z"/></svg>
       </div>
@@ -183,7 +159,6 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
     </div>`;
   }
 
-  // ── LIFTED tab — the separate list of everyone you've starred + the finale entry point ─────────────────
   if (tab?.id === "lifted") {
     return html`<div data-nova data-auth="1" data-tab="lifted" data-count=${supportedList.length} class="flex flex-col gap-[var(--ms-gap)]">
       <div>
@@ -191,8 +166,6 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
         <p class="text-sm text-muted mt-0.5">${T(t, "liftedSub").replace("{n}", String(supportedList.length))}</p>
       </div>
       ${supportedList.length === 0
-        // the runtime's own empty-state shape (render.js Empty): mascot hook + glyph + the words; the
-        // data-empty hook hangs the scatter decor behind it
         ? html`<div data-empty class="flex flex-col items-center text-muted text-center gap-2 py-16 px-6">
             <span data-mascot aria-hidden="true"></span>${Icon("lucide:star", "text-4xl")}
             <p class="text-sm leading-relaxed max-w-xs">${T(t, "liftedEmpty")}</p>
@@ -202,7 +175,7 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
               ${Icon("lucide:sparkles")} ${T(t, "reveal")}
             </button>
             <div class="flex flex-col gap-[var(--ms-gap)]">
-              ${/* a lifted developer is a Panel (the page extruded) — a flat card is invisible on a black page */ ""}
+              ${ ""}
               ${supportedList.map((d) => html`<${Panel}data-lifted key=${repoKey(d)}>
                 <div class="flex items-center gap-[var(--ms-gap)]">
                   <${Avatar} src=${avatarSized(d.avatar, 96)} seed=${d.owner} size=${42} />
@@ -216,14 +189,11 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
               <//>`)}
             </div>
           </${Fragment}>`}
-      ${/* The finale is MOUNTED by the routing atom, not by its own state: S.screen is history-backed, so the
-           system Back button closes it. Mounting (rather than an always-present open=false sheet) is what
-           starts and stops its rAF loop — a star-field repainting behind a closed dialog is a battery bill. */""}
+      ${""}
       ${screen === "finale" ? html`<${Finale} open devs=${supportedList} t=${t} onClose=${closeScreen} />` : null}
     </div>`;
   }
 
-  // ── DISCOVER tab — the feed of underrated devs to lift (starred ones are filtered OUT) ─────────────────
   const visible = (devs || []).filter((d) => !isSupported(d));
   const feedState = devs == null ? "loading" : err && !devs.length ? "error" : visible.length === 0 ? "empty" : "list";
   return html`<div data-nova data-auth="1" data-tab="discover" data-feed=${feedState} data-count=${visible.length} class="flex flex-col gap-[var(--ms-gap)]">
@@ -242,7 +212,6 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
     </div>
 
     ${devs == null
-      // the structure renders now: three card-shaped Panels with decoding slots where the values will land
       ? html`<div class="flex flex-col gap-[var(--ms-gap)]" aria-hidden="true">${[0, 1, 2].map((i) => html`<${Panel} key=${i}>
           <div class="flex items-start gap-[var(--ms-gap)]">
             <span class="w-[52px] h-[52px] rounded-full sf-inset shrink-0"></span>
@@ -263,22 +232,16 @@ export function nova({ S, tab, toast, openScreen, closeScreen }) {
                 onStar=${() => toggleStar(d)} onSupport=${() => openSupport(d)} />`)}
             </div>`}
 
-    ${/* open/onClose come from S.screen — the farm's routing atom — so the system Back closes the sheet
-         instead of exiting the app. The kit owns the shell; the contents below stay nova's. */""}
+    ${""}
     <${SupportSheet} open=${screen === "support" && !!target} onClose=${closeScreen} target=${target}
       funding=${funding} t=${t} starred=${!!target && isSupported(target)}
       busy=${!!target && !!busy[repoKey(target)]} onStar=${() => target && toggleStar(target)} />
   </div>`;
 }
 
-// The support sheet — WHO you're backing and the funding links parsed from their FUNDING.yml. The shell is
-// the kit's Sheet (grip, drag-to-dismiss, title row, close, backdrop, its own inner scroll); everything in
-// here is the app's. Nothing about the OAuth session touches this — it reads a dev record and renders links.
 function SupportSheet({ open, onClose, target, funding, t, starred, busy, onStar }) {
   const links = Array.isArray(funding) ? funding : [];
   const loading = !!(funding && funding.loading);
-  // No `subtitle` on the title row: owner/repo already sits under the avatar as a LINK to the repository, and
-  // drawing the same string twice — once inert, once tappable — is two representations of one thing.
   return html`<${Sheet} id="support-sheet" open=${open} onClose=${onClose} icon="lucide:heart-handshake"
     title=${T(t, "supportTitle")}>
     ${target ? html`<${Fragment}>
@@ -289,8 +252,7 @@ function SupportSheet({ open, onClose, target, funding, t, starred, busy, onStar
           <a href=${target.url} target="_blank" rel="noopener" class=${`${LABEL} text-secondary truncate block`}>${repoKey(target)}</a>
         </div>
       </div>
-      ${/* a funding link is a raised row inside the sheet, concentric with its box (--ms-r-in); the
-           skeleton is the same row with a decoding slot, so nothing shifts when the links land */ ""}
+      ${ ""}
       ${loading
         ? html`<div class="flex flex-col gap-2" aria-hidden="true">${[0, 1].map((i) => html`<div key=${i} class="flex items-center gap-3 px-4 h-[var(--ms-ctl)] rounded-[var(--ms-r-in)] sf-raised sf-e2 text-muted"><${Scramble} len=${14} /></div>`)}</div>`
         : links.length
@@ -318,10 +280,6 @@ function SupportSheet({ open, onClose, target, funding, t, starred, busy, onStar
   </${Sheet}>`;
 }
 
-// One developer card in the discover feed — avatar, identity, the repo, WHY they're underrated (reason chips
-// = the "analyze" surface), and the two deliberate actions: Star (lift with a star) and Support (funding).
-// The card is the kit's Panel (the page extruded) — a flat `card bg-base-100` is invisible on a page whose
-// base-100 IS the page; Panel's own @container drives the stats row's demotion.
 function DevCard({ d, t, busy, onStar, onSupport }) {
   return html`<${Panel}data-dev>
     <div class="flex items-start gap-[var(--ms-gap)]">
@@ -338,9 +296,7 @@ function DevCard({ d, t, busy, onStar, onSupport }) {
 
     ${d.desc ? html`<p class="text-sm text-base-content/80 leading-relaxed line-clamp-2">${d.desc}</p>` : null}
 
-    ${/* The reason chips are the Segmented outline recipe — the app's TINT under ink (--app-tint is the
-         16 % mark that is safe under text in both themes), a pill, no hairline. The accent never sits under
-         a word as a fill. */""}
+    ${""}
     ${d.reasons?.length ? html`<div class="flex flex-wrap gap-1.5">
       ${d.reasons.slice(0, 3).map((r) => html`<span key=${r} class="text-[length:var(--ms-label)] font-medium px-2 py-0.5 rounded-full bg-[var(--app-tint)] text-base-content">${T(t, r)}</span>`)}
     </div>` : null}

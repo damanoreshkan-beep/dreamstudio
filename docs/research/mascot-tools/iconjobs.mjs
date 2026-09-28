@@ -1,9 +1,3 @@
-// iconjobs — the MASTER STYLE PROMPT of the DreamStudio icons, as code (docs/research/luminous-icons.md,
-// round-3 block, VERIFIED on 24 icons + vydyvo/spirit/vidlunnia). A subject never carries style words; the
-// block never changes per app. Prints the JOBS json genraw.mjs consumes:
-//   deno run -A docs/research/mascot-tools/iconjobs.mjs <name>="<subject phrase>" … > icon-jobs.json
-// Subject rule: "the silhouette of <ONE strong shape> with <ONE distinguishing feature>", or "the outline of …
-// drawn as glowing lines" for anything the model knows as a material; no stand, no base, no scene.
 export const ICON_STYLE =
   "drawn only with thin glowing light filaments and luminous nodes, a hollow wireframe plexus of bright threads " +
   "and points of light, translucent, nothing solid, no paper, no metal, no glass, volumetric bloom, floating alone " +

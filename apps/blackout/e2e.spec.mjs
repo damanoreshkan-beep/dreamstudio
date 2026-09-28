@@ -1,6 +1,3 @@
-// blackout — under the gate the 3D stage is SKIPPED (Draco / GLBs over CDNs flake CI) and the HUD shows a fixed
-// mid-run frame, so everything is asserted through the DOM: the data-* atoms on [data-game], the four verbs
-// (keys → the mirrored lane and the act counter), the skin economy, the create sheet. Never the canvas.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-game]")) > 0) break; await h.wait(300); } };
 const g = (h, k) => h.attr("[data-game]", "data-" + k);
 const key = async (h, code) => { await h.keyDown(code); await h.keyUp(code); await h.wait(120); };
@@ -34,7 +31,7 @@ export default [
       await key(h, "KeyD");
       h.expect((await g(h, "lane")) === "3", "правіше третьої не буває");
       await key(h, "ArrowUp"); await key(h, "ArrowDown");
-      h.expect(+(await g(h, "acts")) === n0 + 8, `дій: ${await g(h, "acts")} (було ${n0})`);   // Space is a shot now, not a verb
+      h.expect(+(await g(h, "acts")) === n0 + 8, `дій: ${await g(h, "acts")} (було ${n0})`);
       await key(h, "ArrowLeft"); await key(h, "ArrowLeft");
       h.expect((await g(h, "lane")) === "1", "не повернулась на стартову доріжку");
     },

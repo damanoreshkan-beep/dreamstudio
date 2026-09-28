@@ -1,7 +1,3 @@
-// Відлуння — your voice, any language. One fit screen: the VOICE (a ring of your take, the mic in its centre)
-// in the void, the words + the voice row + the style cards + the transport in one island at the foot; ≤520px
-// tall the ring moves beside the island (.ms-side). The voice sheet lists the clone voices and the NAMED voices
-// by language (the app locale first). Precedents and measurements: apps/vidlunnia/RESEARCH.md.
 import { html } from "htm/preact";
 import { useEffect } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -19,9 +15,6 @@ const LANG_KEY = { uk: "lUk", en: "lEn" };
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 const card = (id) => new URL(`./assets/ch-${id}.webp`, import.meta.url).href;
 
-// THE RING — 48 radial bars: the live level while recording, the take's envelope once it exists (its "seal"),
-// a resting hairline before. Drawn with currentColor + opacity (Tailwind fill/stroke utilities are not emitted
-// reliably by the CDN build), the mark colour only while the voice is live or sealed.
 function Ring({ bars, live, sealed, idle }) {
   const R0 = 64, cx = 100, cy = 100;
   const lines = [];
@@ -37,7 +30,6 @@ function Ring({ bars, live, sealed, idle }) {
   </svg>`;
 }
 
-// the name of any voice id, in the current dictionary
 const voiceName = (t, id) => { const c = CLONES.find((v) => v.id === id); if (c) return T(t, c.key); const n = namedOf(id); return n ? n.name : ""; };
 
 export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
@@ -47,10 +39,8 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
   useEffect(() => { boot(loc); }, []);
   const recording = rec.state === "recording", decoding = rec.state === "decoding", working = gen.phase === "working";
   const bad = rec.err === "denied" || rec.err === "unavailable" || rec.err === "unsupported";
-  // the priming screen only when the mic was ASKED for and is blocked — the presets speak without it
   const prime = !take && bad;
   const clone = isClone(voice), mine = voice === "mine", named = clone ? null : namedOf(voice);
-  // the ring wears the voice that will speak: the take's seal, the preset's; a named voice rests (no clip of it here)
   const sealed = !recording && clone && (mine ? !!take : !!pv);
   const bars = recording ? rec.bars : mine ? (take?.bars || []) : (pv?.bars || []);
   const dur = mine ? take?.dur : pv?.dur;
@@ -101,16 +91,14 @@ export function vidlunnia({ t, S, screen, closeScreen, toast, undo }) {
         <textarea data-words rows="2" value=${words} spellcheck="false" aria-label=${T(t, "wordsLabel")} placeholder=${T(t, "wordsPlaceholder")}
           onInput=${(e) => $words.set(e.currentTarget.value.slice(0, 400))}
           class="vd-words w-full min-w-0 resize-none bg-transparent text-[0.95rem] leading-snug focus:outline-none placeholder:text-base-content/45"></textarea>
-        ${/* THE VOICE ROW — who speaks: a clone (yours / her / him, any language, styled) or a named speaker of a
-             language; the sheet lists them all, the app locale's language first */""}
+        ${""}
         <button data-voice-pick class="flex items-center gap-2 w-full min-w-0 text-left h-[var(--ms-ctl)]" onClick=${() => S.screen.set("voices")}>
           <span class=${`${label} shrink-0`}>${T(t, "voice")}</span>
           <span data-voice-name class="truncate text-sm">${voiceName(t, voice)}</span>
           ${named ? html`<span class=${`${label} shrink-0`}>${T(t, LANG_KEY[named.lang] || "lUk")}</span>` : null}
           ${Icon("lucide:chevron-right", "ml-auto text-base shrink-0 text-base-content/70")}
         </button>
-        ${/* THE STYLE CARDS — a character caricature over a clone voice (owner: "пресети стилю готових
-             знаменитих персонажів … мікрокартинки"); a named voice takes none, so the strip steps aside */""}
+        ${""}
         ${clone ? html`<div data-styles class="vd-cards flex gap-2 overflow-x-auto min-w-0 -mx-1 px-1 pb-1" role="group" aria-label=${T(t, "style")}>
           <button data-style="" aria-pressed=${!style} class=${`vd-card shrink-0 ${!style ? "vd-card-on" : ""}`} onClick=${() => selectStyle("")}>
             <span class="vd-card-pic grid place-items-center">${Icon("lucide:user-round", "text-xl")}</span>

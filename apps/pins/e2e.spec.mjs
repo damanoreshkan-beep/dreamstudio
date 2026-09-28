@@ -1,5 +1,3 @@
-// The gate has no network, so grab() seeds a deterministic pin (the shape readPins returns) and the shot
-// shows a RESOLVED pin rather than an empty field — the screen this app exists for.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-pin]")) > 0) break; await h.wait(400); } };
 
 export default [

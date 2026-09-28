@@ -1,7 +1,3 @@
-// GSM Scanner — sweeps a downlink GSM band with a HackRF (WebUSB) and shows the live band spectrum + the
-// active carriers (ARFCNs) around you. It receives the network's PUBLIC broadcast energy only — it does NOT
-// decode Cell-IDs, network identifiers, or any subscriber data (that needs the full gr-gsm stack and is
-// infeasible in-browser), and it never touches IMSIs. A Web Worker does the sweep. See docs/research/gsm-band-scanner.md.
 import { html } from "htm/preact";
 import { Fragment } from "preact";
 import { useEffect, useRef } from "preact/hooks";
@@ -16,9 +12,8 @@ import { usbSupported, USB_FILTERS } from "/_rt/hackrf.js";
 import { createUsbSession } from "/_rt/usbsession.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
-// The farm's mono micro-label: the SIZE is `length:` — `text-[var(--ms-label)]` would be a colour to Tailwind v4.
 const LABEL = "font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-base-content/70";
-const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { /* */ } };
+const buzz = (ms = 8) => { try { navigator.vibrate?.(ms); } catch { } };
 const fMhz = (hz) => (hz / 1e6).toFixed(1);
 const NORM_LO = -118, NORM_HI = -48;
 const norm = (db) => Math.max(0, Math.min(1, (db - NORM_LO) / (NORM_HI - NORM_LO)));
@@ -29,9 +24,6 @@ const $band = persistentAtom("gsmscan:band", "gsm900", { encode: String, decode:
 const $lna = persistentAtom("gsmscan:lna", 24, { encode: String, decode: Number });
 const $vga = persistentAtom("gsmscan:vga", 32, { encode: String, decode: Number });
 
-// The USB + worker lifecycle is /_rt/usbsession.js — five apps carried a byte-identical copy of it.
-// What stays here is the only part that was ever app-specific: what to tell the worker, what its
-// messages mean, and what to clear when the link drops.
 const rf = createUsbSession({
   atom,
   spawn: () => new Worker(new URL("./dsp.worker.js", import.meta.url), { type: "module" }),
@@ -51,12 +43,7 @@ const disconnect = () => { buzz(); rf.disconnect(); };
 function setBand(b) { buzz(); $band.set(b); $arfcns.set([]); $spectrum.set(null); rf.post({ type: "band", band: b }); }
 function pushGain() { rf.post({ type: "gain", lna: $lna.get(), vga: $vga.get() }); }
 
-// ---- band spectrum canvas (guarded for the linkedom 0×0 stub) ----
 function ctx2d(cv) { try { return cv && cv.getContext ? cv.getContext("2d") : null; } catch { return null; } }
-// A canvas cannot read a CSS class, so its colours are the COMPUTED tokens read off the element: the ink is
-// the canvas's own `color` (text-base-content, so it flips with the theme by itself) and the fill is the
-// app's mark colour (--app-accent). Returned as an "r,g,b" triplet the gradient alphas are composed onto;
-// the linkedom stub reports no colour, and the fallback is the neutral ink the shot is never seen with.
 function rgbTriplet(cv, prop) {
   try {
     const cs = getComputedStyle(cv);
@@ -65,7 +52,7 @@ function rgbTriplet(cv, prop) {
     if (hex) return [1, 3, 5].map((i) => parseInt(hex[1].slice(i, i + 2), 16)).join(",");
     const rgb = v.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/);
     if (rgb) return `${rgb[1]},${rgb[2]},${rgb[3]}`;
-  } catch { /* no layout here */ }
+  } catch { }
   return "128,128,128";
 }
 function drawSpectrum(cv, bins) {
@@ -83,30 +70,19 @@ function drawSpectrum(cv, bins) {
   for (let x = 0; x <= w; x++) { const v = norm(bins[Math.min(n - 1, (x / w * n) | 0)]); const y = h - v * h; x ? c.lineTo(x, y) : c.moveTo(x, y); }
   c.strokeStyle = `rgba(${ink},0.8)`; c.lineWidth = Math.max(1, h / 90); c.stroke();
 }
-// The canvas is sized from its BOX (its parent), never from itself. A canvas's own `clientWidth` reports its
-// INTRINSIC size — the `width` attribute — for as long as no CSS width applies, and this farm generates its
-// utility sheet in the browser, so on a cold open there is a window where none does. Measuring the canvas
-// inside that window and writing back clientWidth×DPR makes the element intrinsically 2× the 300px default:
-// 600px of layout in a 384px page, and the document scrolls with it. (lorawatch failed exactly that way, at
-// 384px and at the 200px glance; the parent's `overflow-hidden` has not applied in that window either, so
-// nothing clips it.) The box is a plain block with an inline height — right in that window too, and its
-// height does not come from the canvas, so the observer cannot feed itself.
-//   Both halves of the HiDPI pair are set: the CSS box in px, the backing store in device px.
 function useCanvas(draw, deps) {
   const ref = useRef(null), paint = useRef(draw);
   paint.current = draw;
   const fit = (cv) => {
     const box = cv.parentElement; if (!box) return false;
     const r = box.getBoundingClientRect(), w = Math.round(r.width), h = Math.round(r.height);
-    if (!w || !h) return false;                                    // not laid out yet — the observer calls back
+    if (!w || !h) return false;
     cv.style.display = "block"; cv.style.width = `${w}px`; cv.style.height = `${h}px`;
     const dpr = Math.min(2, (typeof devicePixelRatio !== "undefined" && devicePixelRatio) || 1);
     const ww = w * dpr, hh = h * dpr;
-    if (cv.width !== ww || cv.height !== hh) { cv.width = ww; cv.height = hh; }   // resizing the store clears it
+    if (cv.width !== ww || cv.height !== hh) { cv.width = ww; cv.height = hh; }
     return true;
   };
-  // Re-fit when the generated sheet lands, on rotation, and when the view is narrowed — the old code sized
-  // once and never again, so a rotate left the plot stretched at the old scale.
   useEffect(() => {
     const cv = ref.current, box = cv && cv.parentElement; if (!cv || !box) return;
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => { if (fit(cv)) paint.current(cv); }) : null;
@@ -117,7 +93,6 @@ function useCanvas(draw, deps) {
   return ref;
 }
 
-// deterministic demo band profile + carriers (gate/?mock) so the populated screen renders
 function seedBand(n, phase = 0) {
   const out = new Float32Array(n); const peaks = [0.12, 0.3, 0.52, 0.68, 0.85];
   for (let b = 0; b < n; b++) {
@@ -148,7 +123,7 @@ export function gsmscanView({ S, screen, openScreen, closeScreen }) {
   if (!connected) {
     const supported = usbSupported() && usbOk;
     return html`<div class="flex flex-col items-center justify-center text-center gap-5 pt-10 px-2 max-w-sm mx-auto" data-connect-state=${supported ? "ready" : "unsupported"}>
-      ${/* The subject's tile: the page raised on the deep rung, the glyph in the app's MARK colour (a graphic, never text). */""}
+      ${""}
       <div class="w-20 h-20 rounded-[var(--ms-r)] grid place-items-center sf-raised sf-e3 text-[var(--app-accent)]">${Icon("lucide:antenna", "text-4xl")}</div>
       <h2 class="text-2xl font-semibold">${T(t, "connectTitle")}</h2>
       <p class="text-base-content/70 leading-relaxed">${T(t, "connectBody")}</p>
@@ -168,14 +143,9 @@ export function gsmscanView({ S, screen, openScreen, closeScreen }) {
       </div>
 
       <!-- band spectrum -->
-      ${/* The spectrum card is the page extruded, not a pane of glass over it: the blur it used to carry
-           erased the very shadow pair that makes the surface read. The scale strip below keeps its rule —
-           that one is a STRUCTURAL divider between the plot and its axis, not the card's outline. */""}
+      ${""}
       <div class="w-full rounded-[var(--ms-r)] sf-raised sf-e2 overflow-hidden">
-        ${/* The plot's height is inline, not `h-24`: this box is what the canvas is measured against, so it
-             has to be the right size from the first frame — before the generated sheet exists — and it must
-             not take its height from the thing it sizes. The card cannot serve as that box: it also holds
-             the scale strip below, so its height comes back from its own content. */""}
+        ${""}
         <div style="height:6rem">
           <canvas ref=${useCanvas((cv) => drawSpectrum(cv, $spectrum.get()), [spectrum, theme])} class="block w-full h-full text-base-content" role="img" aria-label=${T(t, "spectrum")} data-spectrum></canvas>
         </div>
@@ -194,7 +164,7 @@ export function gsmscanView({ S, screen, openScreen, closeScreen }) {
           <span class="font-mono tabular-nums text-lg w-14 shrink-0">${a.arfcn}</span>
           <div class="flex-1 min-w-0 flex flex-col">
             <span class="font-mono tabular-nums text-sm truncate">${fMhz(a.freq)}<span class="text-muted"> MHz</span></span>
-            ${/* the beacon carrier (C0) is a fact about the channel, so it wears the info tone — meaning, not decoration */""}
+            ${""}
             ${a.bcch ? html`<span class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-info" data-bcch>BCCH · C0</span>` : null}
           </div>
           <${Bars} level=${norm(a.db)} label=${T(t, "sigLabel")} />
@@ -205,8 +175,7 @@ export function gsmscanView({ S, screen, openScreen, closeScreen }) {
     </div>
 
     <!-- floating control island: sweep status + settings + power -->
-    ${/* The sweep's state is the WORD and a lit glyph (the app's mark colour while a sweep runs), never a
-         spinning icon — a spinner by another name. */""}
+    ${""}
     <${Island} pinned data-player className="w-full max-w-[440px] flex items-center gap-2.5">
         ${Icon("lucide:radar", `text-lg shrink-0 ${sweep.active ? "text-[var(--app-accent)]" : "text-muted"}`)}
         <span class="flex-1 min-w-0 text-sm font-medium truncate">${T(t, "scanning")} <span class="font-mono text-[length:var(--ms-label)] text-base-content/70">${BANDS[band].label}</span></span>
@@ -218,10 +187,6 @@ export function gsmscanView({ S, screen, openScreen, closeScreen }) {
   </${Fragment}>`;
 }
 
-// Four bars, same widths and same 40/60/80/100% ladder — only what the UNLIT bar is made of changed. It was
-// `bg-base-content/15`, an ink alpha standing in for an empty slot; a 6px-wide bar cannot hold the shadow
-// pair, so it takes --sf-track-face, the system's one sanctioned tone step (pulse's LED, rave's step rails,
-// air's gauge groove all read the same token). Lit stays bg-primary — that one IS meaning.
 function Bars({ level, label }) {
   const bars = 4, lit = Math.round(level * bars);
   return html`<div class="flex items-end gap-[3px] h-6 shrink-0" role="img" aria-label=${label} data-signal>
@@ -231,8 +196,6 @@ function Bars({ level, label }) {
 
 function SettingsSheet({ open, onClose, t, demo }) {
   const lna = useStore($lna), vga = useStore($vga);
-  // The kit's Slider: the caption is the accessible name and the value is deliberately not printed — a dB
-  // readout the owner cannot act on was hint text with extra steps; the spectrum shows what the gain does.
   return html`<${Sheet} id="rfsheet" open=${open} onClose=${onClose} title=${T(t, "settings")} icon="lucide:sliders-horizontal">
     <${Slider} attr="data-gain" id="lna" label=${T(t, "gainLna")} value=${lna} min=${0} max=${40} step=${8} onInput=${(v) => { $lna.set(v); pushGain(); }} />
     <${Slider} attr="data-gain" id="vga" label=${T(t, "gainVga")} value=${vga} min=${0} max=${62} step=${2} onInput=${(v) => { $vga.set(v); pushGain(); }} />

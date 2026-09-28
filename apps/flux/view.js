@@ -1,10 +1,3 @@
-// Flux (Потік) — paint with motion. The front camera's frame-to-frame difference (/_rt/motion.js, unit-
-// tested) says WHERE you moved; the app splats a soft, additively-blended glow there in the world's own
-// colours, and the trails fade — your movement leaves light. Save the frame as a wallpaper. The stream is
-// the kit's ONE camera element (/_rt/camstage.js): it owns the priming, the lifecycle and the wake lock and
-// SHOWS the picture itself (the ghost is that picture dimmed); flux owns only the paint. The gate has no
-// camera and linkedom has no canvas, so both are guarded: in the Chromium gate the stage stands aside and we
-// paint a deterministic seeded composition (real canvas), in preflight we simply mount the DOM.
 import { html } from "htm/preact";
 import { useState, useEffect, useRef } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
@@ -16,13 +9,10 @@ import { createEngine, midiToFreq, filter } from "/_rt/audio.js";
 import { gate } from "/_rt/gate.js";
 import { downloadUrl } from "/_rt/apk.js";
 
-// C major pentatonic over two octaves — the vertical position of the movement picks a note, so it always
-// sounds musical. Top of frame = high.
 const PITCHES = [48, 50, 52, 55, 57, 60, 62, 64, 67, 69];
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
 
-// gate seed: a deterministic glowing ribbon (a Lissajous path), so the shot shows a real painted canvas.
 function paintSeed(ctx, w, h) {
   ctx.clearRect(0, 0, w, h);
   ctx.globalCompositeOperation = "lighter";
@@ -45,23 +35,20 @@ export function flux({ S }) {
   const [ghost, setGhost] = useState(true);
   const [sound, setSound] = useState(false);
   const [err, setErr] = useState(null);
-  const [ready, setReady] = useState(false);      // the stage says a picture exists (in the gate: from mount)
-  const [cam, setCam] = useState(null);           // the playing element CamStage hands out
+  const [ready, setReady] = useState(false);
+  const [cam, setCam] = useState(null);
   const sampleRef = useRef(), paintRef = useRef(), prevRef = useRef(null), rafRef = useRef(0);
   const engRef = useRef(null), oscRef = useRef(null), filtRef = useRef(null), sgainRef = useRef(null), soundRef = useRef(false);
   soundRef.current = sound;
 
   const fit = () => { const c = paintRef.current; if (!c) return; const r = c.getBoundingClientRect?.(); if (r && r.width) { c.width = Math.round(r.width); c.height = Math.round(r.height); } };
 
-  // gate: paint the seeded composition once (Chromium has canvas; linkedom returns null → guarded skip)
   useEffect(() => {
     if (!gate) return;
     fit();
-    // linkedom (preflight) returns a partial 2d stub whose createRadialGradient is undefined — guard by trying.
-    try { const c = paintRef.current, ctx = c?.getContext?.("2d"); if (ctx) paintSeed(ctx, c.width || 360, c.height || 480); } catch { /* no real canvas here */ }
+    try { const c = paintRef.current, ctx = c?.getContext?.("2d"); if (ctx) paintSeed(ctx, c.width || 360, c.height || 480); } catch { }
   }, []);
 
-  // live: per-frame motion painting off the element the stage is playing
   useEffect(() => {
     if (!cam) return;
     let liveFlag = true;
@@ -81,9 +68,9 @@ export function flux({ S }) {
           setEnergy(en);
           prevRef.current = cur.slice(0);
           const pw = pc.width, ph = pc.height;
-          pctx.globalCompositeOperation = "destination-out";           // fade the old trails toward transparent
+          pctx.globalCompositeOperation = "destination-out";
           pctx.fillStyle = "rgba(0,0,0,0.055)"; pctx.fillRect(0, 0, pw, ph);
-          pctx.globalCompositeOperation = "lighter";                   // additive glow (rear camera → no mirror)
+          pctx.globalCompositeOperation = "lighter";
           const stepN = Math.max(1, Math.floor(cells.length / 240));
           for (let i = 0; i < cells.length; i += stepN) {
             const c = cells[i], x = c.x * pw, y = c.y * ph, rad = 3 + c.m * 13;
@@ -92,7 +79,6 @@ export function flux({ S }) {
             pctx.fillStyle = g; pctx.beginPath(); pctx.arc(x, y, rad, 0, 7); pctx.fill();
           }
           pctx.globalCompositeOperation = "source-over";
-          // sound: the movement plays. Y → pitch (top = high, in a pentatonic scale), energy → brightness + gain.
           if (soundRef.current && engRef.current && oscRef.current) {
             const ctx = engRef.current.ctx, now = ctx.currentTime, cen = centroidOf(cells);
             const note = PITCHES[Math.max(0, Math.min(PITCHES.length - 1, Math.floor((1 - cen.y) * PITCHES.length)))];
@@ -100,9 +86,9 @@ export function flux({ S }) {
               oscRef.current.frequency.setTargetAtTime(midiToFreq(note), now, 0.08);
               filtRef.current.frequency.setTargetAtTime(400 + en * 3200, now, 0.1);
               sgainRef.current.gain.setTargetAtTime(Math.min(0.18, en * 0.5), now, 0.12);
-            } catch { /* node gone */ }
+            } catch { }
           }
-        } catch { /* transient decode/read */ }
+        } catch { }
       }
       rafRef.current = requestAnimationFrame(step);
     };
@@ -118,10 +104,10 @@ export function flux({ S }) {
       const o = out.getContext("2d"); o.fillStyle = "#000000"; o.fillRect(0, 0, out.width, out.height); o.drawImage(c, 0, 0);
       downloadUrl(out.toDataURL("image/png"), "flux.png");
       S.toast?.(T(t, "toastSaved"));
-    } catch { /* export blocked */ }
+    } catch { }
   };
   const toggleSound = () => {
-    if (sound) { try { sgainRef.current?.gain.setTargetAtTime(0, engRef.current.ctx.currentTime, 0.2); } catch { /* */ } setSound(false); return; }
+    if (sound) { try { sgainRef.current?.gain.setTargetAtTime(0, engRef.current.ctx.currentTime, 0.2); } catch { } setSound(false); return; }
     try {
       if (!engRef.current) {
         const eng = createEngine({ noise: false }); if (!eng) return;
@@ -132,20 +118,12 @@ export function flux({ S }) {
         engRef.current = eng; oscRef.current = osc; filtRef.current = f; sgainRef.current = g;
       }
       engRef.current.resume(); setSound(true);
-    } catch { /* audio unavailable */ }
+    } catch { }
   };
-  useEffect(() => () => { try { oscRef.current?.stop(); engRef.current?.close(); } catch { /* */ } }, []);
+  useEffect(() => () => { try { oscRef.current?.stop(); engRef.current?.close(); } catch { } }, []);
 
   return html`<div class="ms-stage z-20 bg-base-100 flex flex-col" data-flux=${err ? "error" : ready ? "live" : "prime"} data-energy=${Math.round(energy * 100)}>
-    ${/* The stage is MEDIA, not a surface: additive light is painted on a black ground (the export fills the
-         same black), so the ground stays black in both themes and the meter over it is white ink over a
-         picture — the same rule as a caption over a video frame. The kit's CamStage is that media: it shows
-         the picture (the ghost = the same picture dimmed, through `picClassName`) and flux's paint sits above
-         it at z-[2] — above the stage's own gesture layer (z-[1]). The stage is a box of the screen, not the
-         whole one, so `primeFull` pins the priming screen to the .ms-stage the way it was pinned before the
-         migration. No `still`: in the gate the stage stands aside and the seeded
-         ribbon below IS the shot. Neither fullscreen nor gestures: a resize would wipe the painting the app
-         exists to save, and a tap on a canvas of light must not mean focus. */""}
+    ${""}
     <div class="relative flex-1 min-h-0 overflow-hidden bg-black">
       <${CamStage} loc=${loc} reason=${T(t, "primeReason")} onSettings=${() => S.screen.set("perms")} primeFull
           facing="environment" still=${null} show=${true} fullscreen=${false} gestures=${false}
@@ -159,16 +137,9 @@ export function flux({ S }) {
       <//>
     </div>
 
-    ${/* The control deck is the kit's Island, floating over the picture, pinned above the dock off the
-         MEASURED chrome tokens — the stage runs under it edge to edge, the way a camera's controls sit over
-         its viewfinder. The glass tone, not the over-media one: the ground under it is black paint in both
-         themes, so the page's own surface (black with a lit rim / paper) reads against it either way, and
-         the primary (ink) button keeps its contrast on it in the light theme. */""}
+    ${""}
     <${Island} pinned className="flex items-center justify-center gap-[var(--ms-gap)]">
-      ${/* Two INDEPENDENT toggles (camera ghost, sound) and two actions (clear, save) — not a one-of-N
-           choice, so deliberately NOT a `Segmented`: a strip would claim the four are alternatives and that
-           picking one un-picks the rest, which is false in both directions here. `.btn` already carries the
-           raised/pressed states from theme.css, so the material needs no app class. */""}
+      ${""}
       <button data-ghost aria-label=${T(t, "ghost")} aria-pressed=${ghost} onClick=${() => setGhost((g) => !g)} class=${`btn btn-circle btn-sm ${ghost ? "btn-primary" : "btn-ghost"}`}>${Icon(ghost ? "lucide:eye" : "lucide:eye-off", "text-lg")}</button>
       <button data-sound aria-label=${T(t, "sound")} aria-pressed=${sound} onClick=${toggleSound} class=${`btn btn-circle btn-sm ${sound ? "btn-primary" : "btn-ghost"}`}>${Icon(sound ? "lucide:volume-2" : "lucide:volume-x", "text-lg")}</button>
       <button data-clear aria-label=${T(t, "clear")} data-haptic="bump" onClick=${clear} class="btn btn-ghost btn-sm btn-circle">${Icon("lucide:trash-2", "text-lg")}</button>

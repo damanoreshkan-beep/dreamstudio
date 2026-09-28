@@ -1,5 +1,3 @@
-// Frontier — live GitHub Search data via the proxy. Poll on [data-fav] (real repo cards); the loading
-// Skeleton also renders .card divs, so never gate on .card alone.
 const load = async (h) => { for (let i = 0; i < 24; i++) { if ((await h.count("[data-fav]")) > 0) break; await h.wait(500); } };
 
 export default [

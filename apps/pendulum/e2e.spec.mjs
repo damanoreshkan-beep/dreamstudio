@@ -1,7 +1,3 @@
-// The pendulum swings on a rAF loop; the pole word lives inside the bob and fades by swing position.
-// Tapping the stage turns to the next duality (with a bloom). No pause, no transport bar. Under the gate
-// there is no WebGL, so the DOM fallback pendulum renders with the same data-stage / data-bob / data-pole
-// hooks. No emoji — the only imagery is the pendulum.
 const ready = async (h) => { for (let i = 0; i < 20; i++) { if ((await h.count("[data-stage]")) > 0) break; await h.wait(500); } };
 
 export default [
@@ -11,7 +7,6 @@ export default [
       h.expect((await h.count("[data-stage]")) === 1, "немає сцени маятника");
       h.expect((await h.count("[data-bob]")) === 1, "немає тягарця");
       h.expect((await h.count("[data-pole]")) === 2, "мають бути дві протилежності в DOM");
-      // Only the pole the pendulum is drawn toward is shown at a time (the other fades to nothing).
       h.expect((await h.text("[data-pole-a]")).trim().length > 0, "видима протилежність порожня");
     },
   },

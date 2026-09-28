@@ -1,10 +1,3 @@
-// microspec runtime — tide: the currents registry + the pure maths behind the stage (SYSTEMIC, unit-tested).
-//
-// The registry is DATA with a measured `cors` flag per station (apps/tide/RESEARCH.md, 2026-08-18): a
-// cross-origin <audio> without CORS plays but a MediaElementSource over it outputs silence, and
-// `crossOrigin="anonymous"` refuses to load it at all — so the flag decides whether the analyser graph is
-// built. Every URL is https (a mixed-content stream fails silently on the https host; the unit test pins it).
-
 export const CATEGORIES = [
   { id: "deep", key: "cDeep", hue: 214 },
   { id: "groove", key: "cGroove", hue: 28 },
@@ -18,7 +11,6 @@ const soma = (id, cat, name, genre, host = "ice2") =>
   ({ id, cat, name, genre, url: `https://${host}.somafm.com/${id}-128-mp3`, cors: true, soma: id, logo: `https://api.somafm.com/logos/256/${id}256.png` });
 
 export const STATIONS = [
-  // deep — ambient / sleep / space
   soma("dronezone", "deep", "Drone Zone", "gAmbient"),
   soma("deepspaceone", "deep", "Deep Space One", "gAmbient", "ice1"),
   soma("darkzone", "deep", "The Dark Zone", "gAmbient"),
@@ -30,7 +22,6 @@ export const STATIONS = [
   { id: "ggn", cat: "deep", name: "Ambient Modern", genre: "gAmbient", url: "https://radio.stereoscenic.com/ggn-h", cors: true },
   { id: "calmsleep", cat: "deep", name: "Calm Sleep", genre: "gSleep", url: "https://streams.calmradio.com:30628/stream", cors: true },
   { id: "spa", cat: "deep", name: "1.FM Spa", genre: "gSpa", url: "https://strm112.1.fm/spa_mobile_mp3", cors: true },
-  // groove — downtempo / house / lounge
   soma("groovesalad", "groove", "Groove Salad", "gDowntempo"),
   soma("groovesalad2", "groove", "Groove Salad 2", "gDowntempo"),
   soma("gsclassic", "groove", "Groove Salad Classic", "gDowntempo"),
@@ -42,7 +33,6 @@ export const STATIONS = [
   soma("bossa", "groove", "Bossa Beyond", "gBossa"),
   { id: "rpmellow", cat: "groove", name: "Radio Paradise Mellow", genre: "gMellow", url: "https://stream.radioparadise.com/mellow-128", cors: true },
   { id: "loungefm", cat: "groove", name: "Lounge FM Chill Out", genre: "gChillout", url: "https://cast.mediaonline.net.ua/chillout320", cors: true },
-  // signal — techno / idm / electronic
   soma("defcon", "signal", "DEF CON Radio", "gElectro"),
   soma("thetrip", "signal", "The Trip", "gProgHouse"),
   soma("cliqhop", "signal", "cliqhop idm", "gIdm"),
@@ -53,14 +43,12 @@ export const STATIONS = [
   { id: "technobase", cat: "signal", name: "TechnoBase.FM", genre: "gHandsUp", url: "https://listen.technobase.fm/tunein-mp3", cors: true },
   { id: "trancebase", cat: "signal", name: "TranceBase.FM", genre: "gTrance", url: "https://listen.trancebase.fm/tunein-mp3", cors: true },
   { id: "recorddance", cat: "signal", name: "Record Dance", genre: "gDance", url: "https://online.radiorecord.com.ua/rr_320", cors: true },
-  // bass — dnb / hardstyle / uk bass
   { id: "bassdrive", cat: "bass", name: "Bassdrive", genre: "gDnb", url: "https://chi.bassdrive.co/", cors: true },
   { id: "kool", cat: "bass", name: "Kool FM", genre: "gJungle", url: "https://admin.stream.rinse.fm/proxy/kool/stream", cors: false },
   { id: "ukbass", cat: "bass", name: "UK Bass Radio", genre: "gUkBass", url: "https://s2.ssl-stream.com/listen/uk_bass_radio/stream", cors: true },
   { id: "brokenbeats", cat: "bass", name: "Brokenbeats", genre: "gDnb", url: "https://stream.brokenbeats.net/tune", cors: true },
   { id: "hardbase", cat: "bass", name: "HardBase.FM", genre: "gHardstyle", url: "https://listen.hardbase.fm/tunein-mp3", cors: true },
   soma("dubstep", "bass", "Dub Step Beyond", "gDubstep"),
-  // ua — Ukrainian FM (https twins of the panel's http URLs; no CORS on the *.ua icecasts)
   { id: "hitfm", cat: "ua", name: "Hit FM", genre: "gPop", url: "https://online.hitfm.ua/HitFM_HD", cors: false },
   { id: "kissukr", cat: "ua", name: "Kiss FM Ukrainian", genre: "gDance", url: "https://online.kissfm.ua/KissFM_Ukr", cors: false },
   { id: "kissdeep", cat: "ua", name: "Kiss FM Deep", genre: "gDeepHouse", url: "https://online.kissfm.ua/KissFM_Deep", cors: false },
@@ -73,7 +61,6 @@ export const STATIONS = [
   { id: "melodia", cat: "ua", name: "Melodia FM", genre: "gPop", url: "https://online.melodiafm.ua/MelodiaFM", cors: false },
   { id: "nrj", cat: "ua", name: "NRJ Ukraine", genre: "gDance", url: "https://cast.mediaonline.net.ua/nrj320", cors: true },
   { id: "nv", cat: "ua", name: "Radio NV", genre: "gTalk", url: "https://online-radio.nv.ua/radionv.mp3", cors: false },
-  // roots — rock / soul / folk / reggae / jazz
   soma("indiepop", "roots", "Indie Pop Rocks!", "gIndie"),
   soma("seventies", "roots", "Left Coast 70s", "gRock70"),
   soma("folkfwd", "roots", "Folk Forward", "gFolk"),
@@ -104,14 +91,12 @@ export function somaChannels(json) {
     if (!c || !c.id) continue;
     const n = parseInt(c.listeners, 10);
     const lp = String(c.lastPlaying || "").trim();
-    // lastPlaying is "Artist - Title" (a spaced hyphen); an unspaced hyphen belongs to the name
     const m = /^(.*?)\s+-\s+(.*)$/.exec(lp);
     out[c.id] = { listeners: Number.isFinite(n) ? n : null, now: lp ? (m ? { artist: m[1], title: m[2] } : { artist: "", title: lp }) : null };
   }
   return out;
 }
 
-// ── the stage's signal maths ─────────────────────────────────────────────────────────────────────────
 /** Asymmetric one-pole follower: rise with `attack`, fall with `release` (VU feel). Pure, per frame. */
 export const settle = (cur, target, attack = 0.25, release = 0.05) => cur + (target - cur) * (target > cur ? attack : release);
 
@@ -134,11 +119,9 @@ export function hslRgb(h, s, l) {
   return [f(0), f(8), f(4)];
 }
 
-// ── gate fixtures — the populated screen, deterministic, no network ──────────────────────────────────
 export const FIXTURE_NOW = { title: "Something Better (Cydelix Remix)", artist: "Kick Bong" };
 export const FIXTURE_LISTENERS = { dronezone: 777, deepspaceone: 391, groovesalad: 1619, defcon: 196, spacestation: 309, secretagent: 237, lush: 217 };
 
-// ── the reconnect policy (the element's drop-outs, not the UI) ────────────────────────────────────────
 /** Backoff between reconnect attempts to the SAME station: 1s · 2s · 4s · 8s · 15s cap, in ms. */
 export const retryDelay = (attempt) => Math.min(15000, 1000 * 2 ** Math.max(0, attempt));
 
