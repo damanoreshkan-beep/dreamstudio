@@ -54,6 +54,7 @@ const endOfMonth = (ahead) => { const d = new Date(); return new Date(Date.UTC(d
 const endOfQuarter = (ahead) => { const d = new Date(); const q = Math.floor(d.getUTCMonth() / 3) + ahead; return new Date(Date.UTC(d.getUTCFullYear(), q * 3 + 3, 0)).toISOString(); };
 function fixture(now) {
   const H = 3600000, D = 86400000;
+  const eom = Date.parse(endOfMonth(0)) > now + D ? Date.parse(endOfMonth(0)) : Date.parse(endOfMonth(1));
   const rows = [
     ["Falcon 9 Block 5 | Starlink Group 12-4", "SpaceX", "Falcon 9 Block 5", now + 2 * H, "MIN", "Go", "LEO",
       site(1, "Cape Canaveral SFS, FL, USA", "Space Launch Complex 40", 28.5619, -80.5772, "USA")],
@@ -63,7 +64,7 @@ function fixture(now) {
       site(3, "Baikonur Cosmodrome, Kazakhstan", "31/6", 45.996, 63.564, "KAZ")],
     ["Long March 8A | Unknown Payload", "CASC", "Long March 8A", now + 12 * D, "HR", "TBD", "LEO",
       site(4, "Wenchang Space Launch Site, China", "Commercial LC-1", 19.5973, 110.9308, "CHN")],
-    ["Ariane 62 | Metop-SG B1", "Arianespace", "Ariane 62", Date.parse(endOfMonth(0)), "M", "TBD", "PO",
+    ["Ariane 62 | Metop-SG B1", "Arianespace", "Ariane 62", eom, "M", "TBD", "PO",
       site(5, "Guiana Space Centre, French Guiana", "Ariane Launch Area 4", 5.2394, -52.7686, "GUF")],
     ["Starship | Flight 15", "SpaceX", "Starship", Date.parse(endOfQuarter(1)), "Q4", "TBD", "Sub",
       site(1, "Cape Canaveral SFS, FL, USA", "Space Launch Complex 40", 28.5619, -80.5772, "USA")],
