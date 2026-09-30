@@ -54,9 +54,9 @@ const endOfMonth = (ahead) => { const d = new Date(); return new Date(Date.UTC(d
 const endOfQuarter = (ahead) => { const d = new Date(); const q = Math.floor(d.getUTCMonth() / 3) + ahead; return new Date(Date.UTC(d.getUTCFullYear(), q * 3 + 3, 0)).toISOString(); };
 function fixture(now) {
   const H = 3600000, D = 86400000;
-  const eom = Date.parse(endOfMonth(0)) > now + D ? Date.parse(endOfMonth(0)) : Date.parse(endOfMonth(1));
+  const eom = Date.parse(endOfMonth(0)) + D - 1;
   const rows = [
-    ["Falcon 9 Block 5 | Starlink Group 12-4", "SpaceX", "Falcon 9 Block 5", now + 2 * H, "MIN", "Go", "LEO",
+    ["Falcon 9 Block 5 | Starlink Group 12-4", "SpaceX", "Falcon 9 Block 5", Math.min(now + 2 * H, (now + eom) / 2), "MIN", "Go", "LEO",
       site(1, "Cape Canaveral SFS, FL, USA", "Space Launch Complex 40", 28.5619, -80.5772, "USA")],
     ["Electron | Owl For One", "Rocket Lab", "Electron", now + 3 * D + 5 * H, "HR", "TBC", "SSO",
       site(2, "Mahia Peninsula, New Zealand", "Rocket Lab Launch Complex 1A", -39.2616, 177.8649, "NZL")],
