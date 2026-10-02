@@ -53,6 +53,10 @@ jobs:
           name: dist-eye
           path: dist-eye/
           retention-days: 14
+      # What the store had already told people, read BEFORE the new files land: the announcement below is the
+      # difference, so one entry is announced once, by the deploy that carried it.
+      - name: The changelog as it is live
+        run: deno run -A tools/announce.mjs --snapshot "$RUNNER_TEMP/changelog.live.json"
       - name: Ship dist/ (secrets only — no infrastructure in the tree)
         env:
           VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
@@ -69,3 +73,11 @@ jobs:
           sleep 2
           curl -fsS -o /dev/null https://dreamstudio.mooo.com/store/
           test "$(curl -fsS https://dreamstudio.mooo.com/_rt/build.js)" = "$(cat dist/_rt/build.js)"
+      # Only a deploy that reached this line is announced: every step above has passed and the live site
+      # answered with this build. A failed announcement never fails the deploy.
+      - name: Tell the owner what changed for people (Telegram, the DreamStudio bot)
+        continue-on-error: true
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: deno run -A tools/announce.mjs "$RUNNER_TEMP/changelog.live.json"

@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "spirit",
-  version: "2b7b4a3887",
+  version: "a4806f43ec",
   precache: [
     "./",
     "./i18n/en.json",
@@ -16,6 +16,7 @@ self.MS = {
     "./view.js",
     "/_rt/account.js",
     "/_rt/ai-core.js",
+    "/_rt/ai-tarot.js",
     "/_rt/apk.js",
     "/_rt/auth.js",
     "/_rt/authwall.js",
@@ -54,6 +55,7 @@ self.MS = {
     "/_rt/skeleton.js",
     "/_rt/store.js",
     "/_rt/swipe.js",
+    "/_rt/tarotdeck.js",
     "/_rt/telemetry.js",
     "/_rt/theme-lum.css",
     "/_rt/theme.css",
@@ -61,6 +63,7 @@ self.MS = {
     "/_rt/tma.js",
     "/_rt/translate.js",
     "/_rt/ui.js",
+    "/_rt/update.js",
     "/_rt/usage.js",
     "/_rt/validate.js",
     "/_rt/version.js",

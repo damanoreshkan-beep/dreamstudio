@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "earshot",
-  version: "77f3e96188",
+  version: "a548e1d6a5",
   precache: [
     "./",
     "./i18n/en.json",
@@ -24,6 +24,7 @@ self.MS = {
     "/_rt/dash.js",
     "/_rt/db.js",
     "/_rt/decor.css",
+    "/_rt/earshot.js",
     "/_rt/enrich.js",
     "/_rt/feed.js",
     "/_rt/gate.js",
@@ -41,6 +42,7 @@ self.MS = {
     "/_rt/profile.js",
     "/_rt/qrcode.js",
     "/_rt/qrgen.vendor.js",
+    "/_rt/radar.js",
     "/_rt/render-ctx.js",
     "/_rt/render.js",
     "/_rt/runtime.css",
@@ -61,6 +63,7 @@ self.MS = {
     "/_rt/tma.js",
     "/_rt/translate.js",
     "/_rt/ui.js",
+    "/_rt/update.js",
     "/_rt/usage.js",
     "/_rt/validate.js",
     "/_rt/version.js",

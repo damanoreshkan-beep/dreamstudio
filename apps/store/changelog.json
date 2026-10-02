@@ -1,0 +1,23 @@
+[
+  {
+    "id": "2026-10-02-quiet-updates",
+    "date": "2026-10-02",
+    "app": "store",
+    "uk": "Застосунки більше не набридають повідомленням «нова версія»: оновлення ставляться самі, тихо, під час наступного запуску.",
+    "en": "Apps no longer nag you about a \"new version\": updates install themselves quietly the next time you open the app."
+  },
+  {
+    "id": "2026-10-02-plain-words",
+    "date": "2026-10-02",
+    "app": "store",
+    "uk": "Описи застосунків переписано простими словами, а там, де бракувало знімків екрана, вони з'явилися.",
+    "en": "App descriptions are rewritten in plain words, and missing screenshots have been added."
+  },
+  {
+    "id": "2026-10-02-moto",
+    "date": "2026-10-02",
+    "app": "moto",
+    "uk": "Новий застосунок — спідометр для мотоцикла: чотири панелі на вибір, кут нахилу в поворотах, розгін 0–100 і журнал поїздок.",
+    "en": "New app — a motorcycle speedometer: four dashboards to choose from, lean angle in corners, a 0–100 timer and a ride log."
+  }
+]

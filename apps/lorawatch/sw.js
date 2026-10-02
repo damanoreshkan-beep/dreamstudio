@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "lorawatch",
-  version: "e867c23db4",
+  version: "1f9f666ef8",
   precache: [
     "./",
     "./i18n/en.json",
@@ -26,13 +26,16 @@ self.MS = {
     "/_rt/decor.css",
     "/_rt/enrich.js",
     "/_rt/feed.js",
+    "/_rt/fmradio.js",
     "/_rt/gate.js",
     "/_rt/geomag.js",
     "/_rt/gesture.js",
+    "/_rt/hackrf.js",
     "/_rt/hero.js",
     "/_rt/i18n.js",
     "/_rt/index.js",
     "/_rt/list.js",
+    "/_rt/lora.js",
     "/_rt/material.js",
     "/_rt/overlay.js",
     "/_rt/permissions.js",
@@ -61,6 +64,7 @@ self.MS = {
     "/_rt/tma.js",
     "/_rt/translate.js",
     "/_rt/ui.js",
+    "/_rt/update.js",
     "/_rt/usage.js",
     "/_rt/usbsession.js",
     "/_rt/validate.js",

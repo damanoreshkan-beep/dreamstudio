@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "vidlunnia",
-  version: "3366383392",
+  version: "383162754f",
   precache: [
     "./",
     "./characters.js",
@@ -33,6 +33,7 @@ self.MS = {
     "/_rt/gate.js",
     "/_rt/geomag.js",
     "/_rt/gesture.js",
+    "/_rt/grain.js",
     "/_rt/groove.js",
     "/_rt/hero.js",
     "/_rt/i18n.js",
@@ -67,11 +68,13 @@ self.MS = {
     "/_rt/tma.js",
     "/_rt/translate.js",
     "/_rt/ui.js",
+    "/_rt/update.js",
     "/_rt/usage.js",
     "/_rt/validate.js",
     "/_rt/version.js",
     "/_rt/video.js",
     "/_rt/watch.js",
+    "/_rt/wav.js",
     "/_rt/weather.js",
     "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4",
     "https://cdn.jsdelivr.net/npm/daisyui@5",

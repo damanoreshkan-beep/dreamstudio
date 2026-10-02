@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "moto",
-  version: "9c194b9492",
+  version: "b605bd9e73",
   precache: [
     "./",
     "./engine.js",
@@ -48,6 +48,7 @@ self.MS = {
     "/_rt/qrgen.vendor.js",
     "/_rt/render-ctx.js",
     "/_rt/render.js",
+    "/_rt/ride.js",
     "/_rt/runtime.css",
     "/_rt/screens.js",
     "/_rt/sealed.js",
@@ -64,8 +65,10 @@ self.MS = {
     "/_rt/theme.css",
     "/_rt/themes.json",
     "/_rt/tma.js",
+    "/_rt/trace.js",
     "/_rt/translate.js",
     "/_rt/ui.js",
+    "/_rt/update.js",
     "/_rt/usage.js",
     "/_rt/validate.js",
     "/_rt/version.js",
