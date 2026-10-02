@@ -43,6 +43,7 @@ import "./tests/portid_test.js";
 import "./tests/pwned_test.js";
 import "./tests/radar_test.js";
 import "./tests/rds_test.js";
+import "./tests/ride_test.js";
 import "./tests/ripple_test.js";
 import "./tests/rtlsdr_test.js";
 import "./tests/scan433_test.js";

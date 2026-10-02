@@ -1,0 +1,42 @@
+{
+  "id": "moto",
+  "theme": "signal",
+  "category": "tools",
+  "accent": "#FF7A1A",
+  "tabs": [
+    {
+      "id": "ride",
+      "type": "tool",
+      "icon": "lucide:gauge",
+      "label": "tabRide",
+      "view": "motoRide",
+      "fit": true,
+      "needs": [
+        "geo",
+        "motion",
+        "wakeLock"
+      ]
+    },
+    {
+      "id": "log",
+      "type": "tool",
+      "icon": "lucide:calendar-days",
+      "label": "tabLog",
+      "view": "motoLog"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:gauge",
+    "theme": true,
+    "lang": true,
+    "install": true
+  },
+  "added": "2026-10-02"
+}
