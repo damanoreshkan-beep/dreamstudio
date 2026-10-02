@@ -4,7 +4,7 @@
 
 # GSM-сканер
 
-**Скануй GSM-діапазон навколо тебе своїм HackRF**
+**Подивись, які мобільні вежі працюють довкола тебе. Потрібен приймач HackRF.**
 
 ![](https://img.shields.io/badge/-hackrf-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

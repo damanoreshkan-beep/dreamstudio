@@ -4,7 +4,7 @@
 
 # Фронтир
 
-**Фронтир OSS — свіжі проривні проєкти з GitHub: мова, зорі, форки й опис українською**
+**Свіжі проривні проєкти з GitHub. Що нового з'явилось і чому про це говорять — з описом українською.**
 
 ![](https://img.shields.io/badge/-feeds-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

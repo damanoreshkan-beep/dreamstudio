@@ -4,7 +4,7 @@
 
 # Компас
 
-**Компас, що показує ІСТИННУ північ, а не магнітну. Схилення рахується на пристрої за World Magnetic Model 2025 (NGA/NOAA) — 90 коефіцієнтів, звірених зі 100 еталонами NOAA. Без інтернету, без ключів**
+**Компас, що показує справжню північ, а не магнітну. Точний у будь-якій точці світу й працює без інтернету.**
 
 ![](https://img.shields.io/badge/-tools-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

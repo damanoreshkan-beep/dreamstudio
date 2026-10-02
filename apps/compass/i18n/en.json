@@ -31,7 +31,7 @@
   "model": "WMM2025 · NOAA/NGA · on-device",
   "profTheme": "Dark theme",
   "profLang": "Language",
-  "profTagline": "A compass that points at TRUE north, not magnetic. Declination is computed on-device from the World Magnetic Model 2025 (NGA/NOAA) — 90 coefficients, checked against NOAA's own 100 test points. No internet, no keys",
+  "profTagline": "A compass that points to true north, not magnetic. Accurate anywhere in the world, and it works with no internet.",
   "install": "Install app",
   "installTitle": "Install",
   "installBtn": "Install",

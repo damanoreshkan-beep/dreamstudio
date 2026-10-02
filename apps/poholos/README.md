@@ -4,7 +4,7 @@
 
 # Поголос
 
-**Off-grid чат по Bluetooth: повідомлення йдуть від телефона до телефона, стрибками, без інтернету й без сервера. Сумісний з bitchat.**
+**Чат без інтернету — по Bluetooth, від телефона до телефона. Повідомлення стрибають між людьми поруч, без мережі й без сервера. Сумісний із bitchat.**
 
 ![](https://img.shields.io/badge/-tools-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

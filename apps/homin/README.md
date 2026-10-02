@@ -4,7 +4,7 @@
 
 # Гомін
 
-**Усе, що говорить на 433 МГц**
+**Почуй пульти, датчики й метеостанції довкола. Усе, що тихо перемовляється по радіо поруч із тобою. Потрібен приймач HackRF.**
 
 ![](https://img.shields.io/badge/-hackrf-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

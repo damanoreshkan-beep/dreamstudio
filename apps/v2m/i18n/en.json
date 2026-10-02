@@ -31,7 +31,7 @@
   "noAudio": "Audio is unavailable in this browser",
   "profTheme": "Dark theme",
   "profLang": "Language",
-  "profTagline": "A player for Farbrausch V2 (.v2m) chiptunes — the demoscene synth that packs whole songs into a few kilobytes. The store reads the modland V2 archive live: a tune is typically 20–60 KB, tens of times smaller than the same music as an MP3, so it downloads instantly and stays for good. The V2 synthesizer runs in the browser as a hand-built WebAssembly module rendering PCM on an AudioWorklet; the player draws the tune's own bytes in 3D. Background playback with lock-screen controls. Offline.",
+  "profTagline": "A player for legendary demoscene music. Whole tracks weigh a few kilobytes, so they download instantly and stay for good; plays in the background with lock-screen controls.",
   "install": "Install app",
   "installTitle": "Install",
   "installBtn": "Install",

@@ -4,7 +4,7 @@
 
 # Звуки
 
-**20 ambient-звуків для сну й фокусу — вода, погода, природа, тони, шум, машини — усе синтезується наживо, без файлів, офлайн**
+**20 звуків для сну й зосередження. Вода, погода, природа, шум і машини — змішуй свої та слухай без інтернету.**
 
 ![](https://img.shields.io/badge/-sound-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

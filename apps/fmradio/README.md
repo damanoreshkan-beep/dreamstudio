@@ -4,7 +4,7 @@
 
 # FM-радіо
 
-**Живе FM, декодоване на пристрої з твого HackRF**
+**Справжнє FM-радіо у твоєму телефоні. Потрібен приймач HackRF.**
 
 ![](https://img.shields.io/badge/-hackrf-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

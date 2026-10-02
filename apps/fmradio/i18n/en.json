@@ -10,7 +10,7 @@
   "save": "Save station",
   "savedEmpty": "No saved stations yet",
   "del": "Delete",
-  "profTagline": "Live FM, decoded on-device from your HackRF",
+  "profTagline": "Real FM radio on your phone. Needs a HackRF receiver.",
   "profTheme": "Dark theme",
   "profLang": "Language",
   "install": "Install",

@@ -4,7 +4,7 @@
 
 # Зламано?
 
-**Перевір, чи пароль у витоку — не надсилаючи його (k-анонімність)**
+**Перевір, чи твій пароль потрапив у витік. Сам пароль нікуди не надсилається.**
 
 ![](https://img.shields.io/badge/-tools-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

@@ -6,7 +6,7 @@
   "toastRemoved": "Removed",
   "tabScan": "Scan",
   "tabMe": "Profile",
-  "profTagline": "Sweep the GSM band around you with your HackRF",
+  "profTagline": "See which cell towers are working around you. Needs a HackRF receiver.",
   "profTheme": "Dark theme",
   "profLang": "Language",
   "install": "Install",

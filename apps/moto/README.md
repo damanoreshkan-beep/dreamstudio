@@ -4,7 +4,7 @@
 
 # Спідометр
 
-**Мотоспідометр із чотирма панелями — кут нахилу, пробіг, таймер 0–100, сигнал швидкості й журнал поїздок по днях**
+**Спідометр для мотоцикла з чотирма панелями на вибір. Кут нахилу в поворотах, пробіг, розгін 0–100, сигнал перевищення швидкості й журнал поїздок по днях.**
 
 ![](https://img.shields.io/badge/-tools-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

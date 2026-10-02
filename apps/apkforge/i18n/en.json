@@ -1,6 +1,6 @@
 {
   "title": "APK Forge",
-  "profTagline": "Turn any web app into an installable Android APK — right here, no build server. Enter a URL, get a signed WebView-wrapper APK with the site's name and icon, ready to sideload.",
+  "profTagline": "Turn any website into an Android app. Paste its address and get a ready file with the site's name and icon to install on your phone.",
   "tabForge": "Forge",
   "tabMe": "Me",
   "refresh": "Refresh",

@@ -35,7 +35,7 @@
   "kindVoice": "Voice",
   "kindBurst": "Device",
   "kindUnknown": "Unclassified",
-  "profTagline": "Everything talking on 433 MHz",
+  "profTagline": "Hear the remotes, sensors and weather stations around you. Everything quietly talking over the radio nearby. Needs a HackRF receiver.",
   "profTheme": "Dark theme",
   "profLang": "Language",
   "install": "Install",

@@ -4,7 +4,7 @@
 
 # LoRa Watch
 
-**Дивись і декодуй LoRa у діапазоні 868 МГц своїм HackRF**
+**Побач сигнали LoRa довкола себе — датчики, лічильники, трекери. Потрібен приймач HackRF.**
 
 ![](https://img.shields.io/badge/-hackrf-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

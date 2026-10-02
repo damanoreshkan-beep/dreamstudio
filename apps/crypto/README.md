@@ -4,7 +4,7 @@
 
 # Крипто-тікер
 
-**Живі ціни топ-криптовалют у реальному часі — WebSocket, без затримок**
+**Ціни головних криптовалют наживо. Оновлюються щосекунди, без затримок.**
 
 ![](https://img.shields.io/badge/-money-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

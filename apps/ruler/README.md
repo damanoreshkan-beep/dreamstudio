@@ -4,7 +4,7 @@
 
 # GPS-лінійка
 
-**GPS-лінійка — вимірюй відстані й площі ламаною по координатах: сегменти, загальна довжина, площа, точність GPS**
+**Виміряй відстань або площу, просто пройшовши маршрут. Став точки по дорозі — застосунок порахує довжину, площу й покаже точність GPS.**
 
 ![](https://img.shields.io/badge/-tools-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

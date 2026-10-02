@@ -4,7 +4,7 @@
 
 # Нейронки
 
-**Каталог свіжих моделей і Spaces з Hugging Face — тип, завантаження, вподобання й опис українською**
+**Каталог свіжих нейромереж із Hugging Face. Що вміє кожна і скільки людей нею вже користується — з описом українською.**
 
 ![](https://img.shields.io/badge/-feeds-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

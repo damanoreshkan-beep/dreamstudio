@@ -15,7 +15,7 @@
   "errorHint": "Check connection and refresh",
   "profTheme": "Dark theme",
   "profLang": "Language",
-  "profTagline": "Live top-crypto prices in real time — WebSocket, no polling",
+  "profTagline": "Live prices of the top cryptocurrencies. Updated every second, with no delay.",
   "profSource": "Source — Binance WebSocket",
   "install": "Install app",
   "installTitle": "Install",

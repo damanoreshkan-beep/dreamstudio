@@ -6,10 +6,10 @@
       "en": "Outposts & Stations",
       "uk": "Аванпости і станції"
     },
-    "tagline": "Програмний генератор саундскейпів космічних станцій для фокусу та сну. Ступи на реакторне ядро, командний місток, кріовідсік чи покинутий фрахтовик — гул корпусу, вентиляція, розстроєний дрон реактора, сервоприводи, телеметрія й сигнал далекого космосу синтезуються наживо з рівномірно-темперованих строїв, без файлів, офлайн. Шість макро-фейдерів формують мікс; станції плавно перетікають одна в одну.",
+    "tagline": "Звуки космічних станцій для зосередження і сну. Реакторний відсік, командний місток, кріокапсули чи покинутий корабель — гул корпусу, вентиляція й далекі сигнали. Грає без інтернету.",
     "taglines": {
-      "en": "A software generator of sci-fi station ambience for focus and sleep. Board a reactor core, a command bridge, a cryo bay or a derelict freighter — its hull rumble, ventilation, detuned reactor drone, servos, telemetry and deep-space signal are synthesised live from equal-temperament tunings, no files, offline. Six macro faders shape the mix; stations morph seamlessly.",
-      "uk": "Програмний генератор саундскейпів космічних станцій для фокусу та сну. Ступи на реакторне ядро, командний місток, кріовідсік чи покинутий фрахтовик — гул корпусу, вентиляція, розстроєний дрон реактора, сервоприводи, телеметрія й сигнал далекого космосу синтезуються наживо з рівномірно-темперованих строїв, без файлів, офлайн. Шість макро-фейдерів формують мікс; станції плавно перетікають одна в одну."
+      "en": "Space-station soundscapes for focus and sleep. A reactor core, a command bridge, a cryo bay or a derelict freighter — hull rumble, ventilation and distant signals. Plays with no internet.",
+      "uk": "Звуки космічних станцій для зосередження і сну. Реакторний відсік, командний місток, кріокапсули чи покинутий корабель — гул корпусу, вентиляція й далекі сигнали. Грає без інтернету."
     },
     "glyph": "lucide:orbit",
     "art": "<circle cx=\"12\" cy=\"12\" r=\"2.4\"/>\n<ellipse cx=\"12\" cy=\"12\" rx=\"10\" ry=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" opacity=\"0.7\"/>\n<ellipse cx=\"12\" cy=\"12\" rx=\"10\" ry=\"4\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.3\" opacity=\"0.4\" transform=\"rotate(60 12 12)\"/>",
@@ -78,7 +78,7 @@
     },
     "tagline": "Відкриті застосунки з GitHub за платформами — Windows, macOS, Linux, Android: зірки, мова, ліцензія",
     "taglines": {
-      "en": "Open-source apps from GitHub, by platform — Windows, macOS, Linux, Android: stars, language, license",
+      "en": "Free apps from GitHub, by platform — Windows, macOS, Linux, Android: stars, language, license",
       "uk": "Відкриті застосунки з GitHub за платформами — Windows, macOS, Linux, Android: зірки, мова, ліцензія"
     },
     "glyph": "lucide:layout-grid",
@@ -223,10 +223,10 @@
       "en": "Voice to Text",
       "uk": "Голос у текст"
     },
-    "tagline": "Перетворює голосове повідомлення з Телеграму на текст повністю офлайн. Поділіться голосівкою просто в застосунок або відкрийте аудіофайл — мовлення розпізнається на вашому пристрої, без хмари й без акаунта: українська, російська та англійська з автоматичним вибором мови. Модель кожної мови завантажується один раз і далі працює без мережі.",
+    "tagline": "Перетворює голосові з Телеграму на текст. Поділися голосівкою в застосунок — і читай замість слухати. Українська, російська й англійська; усе відбувається на твоєму телефоні, без хмари й акаунта.",
     "taglines": {
-      "en": "Turn a Telegram voice message into text, fully offline. Share a voice note straight into the app or open an audio file; speech is recognised on your device — no cloud, no account — in Ukrainian, Russian and English, with the language chosen automatically. Each language model downloads once and then works with the network unplugged.",
-      "uk": "Перетворює голосове повідомлення з Телеграму на текст повністю офлайн. Поділіться голосівкою просто в застосунок або відкрийте аудіофайл — мовлення розпізнається на вашому пристрої, без хмари й без акаунта: українська, російська та англійська з автоматичним вибором мови. Модель кожної мови завантажується один раз і далі працює без мережі."
+      "en": "Turns Telegram voice messages into text. Share a voice note into the app and read it instead of listening. Ukrainian, Russian and English; it all happens on your phone, with no cloud and no account.",
+      "uk": "Перетворює голосові з Телеграму на текст. Поділися голосівкою в застосунок — і читай замість слухати. Українська, російська й англійська; усе відбувається на твоєму телефоні, без хмари й акаунта."
     },
     "glyph": "lucide:captions",
     "art": "<rect width=\"18\" height=\"14\" x=\"3\" y=\"5\" rx=\"2\" ry=\"2\"/><path d=\"M7 15h4m4 0h2M7 11h2m4 0h4\"/>",
@@ -257,10 +257,10 @@
       "en": "Homin",
       "uk": "Гомін"
     },
-    "tagline": "Усе, що говорить на 433 МГц",
+    "tagline": "Почуй пульти, датчики й метеостанції довкола. Усе, що тихо перемовляється по радіо поруч із тобою. Потрібен приймач HackRF.",
     "taglines": {
-      "en": "Everything talking on 433 MHz",
-      "uk": "Усе, що говорить на 433 МГц"
+      "en": "Hear the remotes, sensors and weather stations around you. Everything quietly talking over the radio nearby. Needs a HackRF receiver.",
+      "uk": "Почуй пульти, датчики й метеостанції довкола. Усе, що тихо перемовляється по радіо поруч із тобою. Потрібен приймач HackRF."
     },
     "glyph": "lucide:radar",
     "art": "<circle cx=\"12\" cy=\"12\" r=\"1.6\"/><path d=\"M12 6.5a5.5 5.5 0 0 1 5.5 5.5\"/><path d=\"M12 2.5A9.5 9.5 0 0 1 21.5 12\"/><path d=\"M12 17.5A5.5 5.5 0 0 1 6.5 12\"/><path d=\"M12 21.5A9.5 9.5 0 0 1 2.5 12\"/>",
@@ -301,10 +301,10 @@
       "en": "Horoscope",
       "uk": "Гороскоп"
     },
-    "tagline": "Справжній щоденний гороскоп твого знака — вчора, сьогодні й завтра — із зоряними рейтингами дня, від horoscope.com. Кешується на пристрої, тож останнє читання лишається доступним офлайн. Обери знак один раз — решту зроблять зорі.",
+    "tagline": "Щоденний гороскоп твого знака — вчора, сьогодні й завтра. Із зоряними оцінками дня; останній прогноз лишається з тобою навіть без інтернету.",
     "taglines": {
-      "en": "Your sign's real daily reading — yesterday, today and tomorrow — with the day's star ratings, from horoscope.com. Cached on your device, so the last reading stays readable offline. Pick your sign once; the stars do the rest.",
-      "uk": "Справжній щоденний гороскоп твого знака — вчора, сьогодні й завтра — із зоряними рейтингами дня, від horoscope.com. Кешується на пристрої, тож останнє читання лишається доступним офлайн. Обери знак один раз — решту зроблять зорі."
+      "en": "Your sign's daily horoscope — yesterday, today and tomorrow. With star ratings for the day; the last reading stays with you even with no internet.",
+      "uk": "Щоденний гороскоп твого знака — вчора, сьогодні й завтра. Із зоряними оцінками дня; останній прогноз лишається з тобою навіть без інтернету."
     },
     "glyph": "lucide:moon-star",
     "art": "<path d=\"M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z\"/>\n<path d=\"M20 3v4\"/>\n<path d=\"M22 5h-4\"/>",
@@ -476,10 +476,10 @@
       "en": "Habits",
       "uk": "Звички"
     },
-    "tagline": "Трекер звичок — серії, календарний heatmap і повний офлайн; дані лишаються на пристрої",
+    "tagline": "Трекер звичок, який читається одним поглядом. Серії днів і календар прогресу; працює без інтернету, а дані лишаються на твоєму телефоні.",
     "taglines": {
-      "en": "A habit tracker — streaks, a calendar heatmap and full offline; your data stays on the device",
-      "uk": "Трекер звичок — серії, календарний heatmap і повний офлайн; дані лишаються на пристрої"
+      "en": "A habit tracker you can read at a glance. Day streaks and a progress calendar; works with no internet, and your data stays on your phone.",
+      "uk": "Трекер звичок, який читається одним поглядом. Серії днів і календар прогресу; працює без інтернету, а дані лишаються на твоєму телефоні."
     },
     "glyph": "lucide:sprout",
     "art": "<rect x=\"4\" y=\"4\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"10\" y=\"4\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"16\" y=\"4\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"4\" y=\"10\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"10\" y=\"10\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"16\" y=\"10\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"4\" y=\"16\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"10\" y=\"16\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/><rect x=\"16\" y=\"16\" width=\"4.5\" height=\"4.5\" rx=\"1.3\"/>",
@@ -509,10 +509,10 @@
       "en": "Ambient",
       "uk": "Звуки"
     },
-    "tagline": "20 ambient-звуків для сну й фокусу — вода, погода, природа, тони, шум, машини — усе синтезується наживо, без файлів, офлайн",
+    "tagline": "20 звуків для сну й зосередження. Вода, погода, природа, шум і машини — змішуй свої та слухай без інтернету.",
     "taglines": {
-      "en": "20 ambient sounds for sleep and focus — water, weather, nature, tones, noise, machines — all synthesised live, no files, offline",
-      "uk": "20 ambient-звуків для сну й фокусу — вода, погода, природа, тони, шум, машини — усе синтезується наживо, без файлів, офлайн"
+      "en": "20 sounds for sleep and focus. Water, weather, nature, noise and machines — mix your own and listen with no internet.",
+      "uk": "20 звуків для сну й зосередження. Вода, погода, природа, шум і машини — змішуй свої та слухай без інтернету."
     },
     "glyph": "lucide:audio-lines",
     "art": "<line x1=\"5\" y1=\"10\" x2=\"5\" y2=\"14\"/><line x1=\"9.5\" y1=\"6\" x2=\"9.5\" y2=\"18\"/><line x1=\"14.5\" y1=\"8.5\" x2=\"14.5\" y2=\"15.5\"/><line x1=\"19\" y1=\"11\" x2=\"19\" y2=\"13\"/>",
@@ -542,10 +542,10 @@
       "en": "Grain",
       "uk": "Зерно"
     },
-    "tagline": "Запиши дві секунди світу — двері, чашку, дощ, власний голос — і грай ним. Зерно ріже запис на короткі зерна у вікні Ганна й повертає їх хмарою, яку ти вдаряєш на восьми полях у своєму ладі: коренем є сам запис, тож безтоновий удар працює як чаша і йому ніколи не приписують ноту, якої немає. Нахил гне розмір зерна й тон, Потік пише фразу, а почуте експортується у WAV. Запис і обробка на твоєму пристрої, офлайн.",
+    "tagline": "Запиши дві секунди світу — двері, чашку, дощ, свій голос — і грай ними як інструментом. Вісім полів під пальцями, нахил телефона змінює звук, а зігране можна зберегти.",
     "taglines": {
-      "en": "Record two seconds of the world — a door, a cup, rain, your own voice — and play it. Grain slices the take into short windowed grains and streams them back as a cloud you strike on eight fields, tuned to your scale: the recording itself is the root, so an unpitched slam works like a struck bowl and is never given a note it does not have. Tilt bends grain size and tone, Flow writes a phrase, and what you hear exports as a WAV. Recorded and processed on your device, offline.",
-      "uk": "Запиши дві секунди світу — двері, чашку, дощ, власний голос — і грай ним. Зерно ріже запис на короткі зерна у вікні Ганна й повертає їх хмарою, яку ти вдаряєш на восьми полях у своєму ладі: коренем є сам запис, тож безтоновий удар працює як чаша і йому ніколи не приписують ноту, якої немає. Нахил гне розмір зерна й тон, Потік пише фразу, а почуте експортується у WAV. Запис і обробка на твоєму пристрої, офлайн."
+      "en": "Record two seconds of the world — a door, a cup, rain, your own voice — and play it like an instrument. Eight pads under your fingers, tilt changes the sound, and you can save what you played.",
+      "uk": "Запиши дві секунди світу — двері, чашку, дощ, свій голос — і грай ними як інструментом. Вісім полів під пальцями, нахил телефона змінює звук, а зігране можна зберегти."
     },
     "glyph": "lucide:mic",
     "art": "<path d=\"M3 12h1.6\"/><path d=\"M7 8.2v7.6\"/><path d=\"M10.4 4.6v14.8\"/><path d=\"M13.8 7v10\"/><path d=\"M17.2 9.6v4.8\"/><path d=\"M20.6 11.4v1.2\"/>",
@@ -621,10 +621,10 @@
       "en": "Pwned?",
       "uk": "Зламано?"
     },
-    "tagline": "Перевір, чи пароль у витоку — не надсилаючи його (k-анонімність)",
+    "tagline": "Перевір, чи твій пароль потрапив у витік. Сам пароль нікуди не надсилається.",
     "taglines": {
-      "en": "Check if a password leaked — without ever sending it (k-anonymity)",
-      "uk": "Перевір, чи пароль у витоку — не надсилаючи його (k-анонімність)"
+      "en": "Check whether your password has leaked. The password itself is never sent anywhere.",
+      "uk": "Перевір, чи твій пароль потрапив у витік. Сам пароль нікуди не надсилається."
     },
     "glyph": "lucide:shield-check",
     "art": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\"/><path d=\"m9 12 2 2 4-4\"/>",
@@ -670,7 +670,9 @@
         "Прошити"
       ]
     },
-    "shots": [],
+    "shots": [
+      "flash"
+    ],
     "bg": "#0A0A0B",
     "fg": "#F2B84B",
     "href": "./iskra/",
@@ -686,10 +688,10 @@
       "en": "Kalimba",
       "uk": "Калімба"
     },
-    "tagline": "Калімба на 17 пелюсток на весь екран — грай горизонтально, перемикай лади й обирай із 6 різних голосів (класик, скринька, скло, марімба, дзвін, електро). Грай готові пісні (Аватар: «Листя з лози») або дай Потоку згенерувати мелодію (науково обґрунтований мелодичний пошук: консонанс, голосоведення, розв'язання). Кожна нота синтезується наживо, без файлів, офлайн.",
+    "tagline": "Калімба на весь екран: 17 пелюсток під пальцями. Шість голосів, різні строї, готові пісні — або дай їй самій зіграти мелодію. Грає без інтернету.",
     "taglines": {
-      "en": "A full-screen 17-tine thumb piano — play in landscape, switch tunings, and pick from 6 distinct voices (classic, music box, glass, marimba, bell, electric). Play ready songs (Avatar: Leaves from the Vine) or let Flow auto-generate a melody (a research-backed melodic search: consonance, voice-leading, resolution). Every note synthesised live, no files, offline.",
-      "uk": "Калімба на 17 пелюсток на весь екран — грай горизонтально, перемикай лади й обирай із 6 різних голосів (класик, скринька, скло, марімба, дзвін, електро). Грай готові пісні (Аватар: «Листя з лози») або дай Потоку згенерувати мелодію (науково обґрунтований мелодичний пошук: консонанс, голосоведення, розв'язання). Кожна нота синтезується наживо, без файлів, офлайн."
+      "en": "A full-screen kalimba: 17 tines under your thumbs. Six voices, several tunings, ready songs — or let it play a melody by itself. Works with no internet.",
+      "uk": "Калімба на весь екран: 17 пелюсток під пальцями. Шість голосів, різні строї, готові пісні — або дай їй самій зіграти мелодію. Грає без інтернету."
     },
     "glyph": "lucide:piano",
     "art": "<rect x=\"4\" y=\"11\" width=\"16\" height=\"9\" rx=\"2.5\"/><line x1=\"7\" y1=\"13\" x2=\"7\" y2=\"7\"/><line x1=\"9.5\" y1=\"13\" x2=\"9.5\" y2=\"5\"/><line x1=\"12\" y1=\"13\" x2=\"12\" y2=\"3.5\"/><line x1=\"14.5\" y1=\"13\" x2=\"14.5\" y2=\"5\"/><line x1=\"17\" y1=\"13\" x2=\"17\" y2=\"7\"/>",
@@ -719,10 +721,10 @@
       "en": "Camera",
       "uk": "Камера"
     },
-    "tagline": "Кишенькова камера-консоль, напхана налаштуваннями — фільтри, експозиція, зум, ліхтарик, таймер, сітка, дзеркало, передня/задня та кадр 1:1 / 4:3 / повний — за одним квадратним видошукачем і великою кнопкою затвора. Знімки лишаються на пристрої, нічого не вивантажується.",
+    "tagline": "Кишенькова камера з усіма налаштуваннями під пальцем. Фільтри, експозиція, зум, ліхтарик, таймер, сітка й дзеркало. Знімки лишаються на твоєму телефоні.",
     "taglines": {
-      "en": "A pocket camera console, loaded with controls — filters, exposure, zoom, torch, timer, grid, mirror, front/back and a 1:1 / 4:3 / full frame — behind a single square viewfinder and a big shutter. Capture stays on your device; nothing is uploaded.",
-      "uk": "Кишенькова камера-консоль, напхана налаштуваннями — фільтри, експозиція, зум, ліхтарик, таймер, сітка, дзеркало, передня/задня та кадр 1:1 / 4:3 / повний — за одним квадратним видошукачем і великою кнопкою затвора. Знімки лишаються на пристрої, нічого не вивантажується."
+      "en": "A pocket camera with every control under your thumb. Filters, exposure, zoom, torch, timer, grid and mirror. Your photos stay on your phone.",
+      "uk": "Кишенькова камера з усіма налаштуваннями під пальцем. Фільтри, експозиція, зум, ліхтарик, таймер, сітка й дзеркало. Знімки лишаються на твоєму телефоні."
     },
     "glyph": "lucide:camera",
     "art": "<circle cx=\"12\" cy=\"12\" r=\"8.4\" opacity=\"0.24\"/>\n<circle cx=\"12\" cy=\"12\" r=\"4.6\"/>\n<circle cx=\"12\" cy=\"12\" r=\"1.7\" opacity=\"0.55\"/>",
@@ -755,10 +757,10 @@
       "en": "Cinema",
       "uk": "Кіно"
     },
-    "tagline": "Кіно — фільми суспільного надбання з Internet Archive: дивись просто в застосунку, продовжуй з того місця, де зупинився",
+    "tagline": "Класика кіно, яку можна дивитися безкоштовно. Фільми з Internet Archive просто в застосунку — продовжуй з того місця, де зупинився.",
     "taglines": {
-      "en": "Cinema — public-domain feature films from the Internet Archive: watch right in the app, pick up where you left off",
-      "uk": "Кіно — фільми суспільного надбання з Internet Archive: дивись просто в застосунку, продовжуй з того місця, де зупинився"
+      "en": "Classic films you can watch for free. Movies from the Internet Archive right in the app — pick up where you left off.",
+      "uk": "Класика кіно, яку можна дивитися безкоштовно. Фільми з Internet Archive просто в застосунку — продовжуй з того місця, де зупинився."
     },
     "glyph": "lucide:clapperboard",
     "art": "<path d=\"M3.2 6.4 20.1 3.1a1.6 1.6 0 0 1 1.9 1.3l.5 2.6L4.6 10.6 3.2 6.4z\"/><path d=\"M2.4 12h19.2v7.3a1.7 1.7 0 0 1-1.7 1.7H4.1a1.7 1.7 0 0 1-1.7-1.7V12z\" opacity=\".55\"/><path d=\"m7.9 4.6 1.8 4.3-2.3.5-1.8-4.4zM13 3.6l1.8 4.3-2.3.5-1.8-4.4z\"/><path d=\"M10.2 14.4 15.6 17l-5.4 2.6z\"/>",
@@ -791,10 +793,10 @@
       "en": "Remote Cloner",
       "uk": "Клонер пультів"
     },
-    "tagline": "Захопи та відтвори свої фіксовані-код пульти через HackRF",
+    "tagline": "Збережи сигнал свого пульта від воріт чи шлагбаума й відтвори його з телефона. Потрібен приймач HackRF.",
     "taglines": {
-      "en": "Capture and replay your own fixed-code remotes with a HackRF",
-      "uk": "Захопи та відтвори свої фіксовані-код пульти через HackRF"
+      "en": "Save the signal of your own gate or barrier remote and replay it from your phone. Needs a HackRF receiver.",
+      "uk": "Збережи сигнал свого пульта від воріт чи шлагбаума й відтвори його з телефона. Потрібен приймач HackRF."
     },
     "glyph": "lucide:radio-receiver",
     "art": "<path d=\"M5 16v2\"/><path d=\"M19 16v2\"/><rect x=\"2\" y=\"8\" width=\"20\" height=\"8\" rx=\"2\"/><path d=\"M18 12h.01\"/>",
@@ -826,10 +828,10 @@
       "en": "Book of Changes",
       "uk": "Книга Перемін"
     },
-    "tagline": "Книга Перемін кидає гексаграму так, як це робили стеблами деревію або трьома монетами — і ці два методи дають РІЗНІ шанси, а не однакові. У стеблах ян переходить в інь утричі частіше, ніж інь у ян; монети симетричні. Застосунок рахує чесно: гексаграму, її триграми, рухомі лінії та другу гексаграму, у яку вона переходить. Тлумачення складає модель поверх цієї структури й позначене як згенероване — канонічного тексту тут немає.",
+    "tagline": "Книга Перемін: постав питання й кинь гексаграму. Чесний жереб стеблами деревію або трьома монетами, рухомі лінії та друга гексаграма — і зрозуміле тлумачення.",
     "taglines": {
-      "en": "The Book of Changes casts a hexagram the way it was cast with yarrow stalks or three coins — and those two methods carry DIFFERENT odds, not the same ones. With stalks, yang turns to yin three times as often as yin turns to yang; coins are symmetric. The app computes honestly: the hexagram, its trigrams, the moving lines, and the second hexagram it changes into. The interpretation is written by a model on top of that structure and marked as generated — there is no canonical text here.",
-      "uk": "Книга Перемін кидає гексаграму так, як це робили стеблами деревію або трьома монетами — і ці два методи дають РІЗНІ шанси, а не однакові. У стеблах ян переходить в інь утричі частіше, ніж інь у ян; монети симетричні. Застосунок рахує чесно: гексаграму, її триграми, рухомі лінії та другу гексаграму, у яку вона переходить. Тлумачення складає модель поверх цієї структури й позначене як згенероване — канонічного тексту тут немає."
+      "en": "The Book of Changes: ask a question and cast a hexagram. An honest cast with yarrow stalks or three coins, moving lines and the second hexagram — with a clear reading.",
+      "uk": "Книга Перемін: постав питання й кинь гексаграму. Чесний жереб стеблами деревію або трьома монетами, рухомі лінії та друга гексаграма — і зрозуміле тлумачення."
     },
     "glyph": "lucide:layers",
     "art": "<path d=\"M4 4h6.2\"/>\n<path d=\"M13.8 4H20\"/>\n<path d=\"M4 7.2h6.2\"/>\n<path d=\"M13.8 7.2H20\"/>\n<path d=\"M4 10.4h6.2\"/>\n<path d=\"M13.8 10.4H20\"/>\n<path d=\"M4 13.6h16\"/>\n<path d=\"M4 16.8h16\"/>\n<path d=\"M4 20h16\"/>",
@@ -931,10 +933,10 @@
       "en": "Compass",
       "uk": "Компас"
     },
-    "tagline": "Компас, що показує ІСТИННУ північ, а не магнітну. Схилення рахується на пристрої за World Magnetic Model 2025 (NGA/NOAA) — 90 коефіцієнтів, звірених зі 100 еталонами NOAA. Без інтернету, без ключів",
+    "tagline": "Компас, що показує справжню північ, а не магнітну. Точний у будь-якій точці світу й працює без інтернету.",
     "taglines": {
-      "en": "A compass that points at TRUE north, not magnetic. Declination is computed on-device from the World Magnetic Model 2025 (NGA/NOAA) — 90 coefficients, checked against NOAA's own 100 test points. No internet, no keys",
-      "uk": "Компас, що показує ІСТИННУ північ, а не магнітну. Схилення рахується на пристрої за World Magnetic Model 2025 (NGA/NOAA) — 90 коефіцієнтів, звірених зі 100 еталонами NOAA. Без інтернету, без ключів"
+      "en": "A compass that points to true north, not magnetic. Accurate anywhere in the world, and it works with no internet.",
+      "uk": "Компас, що показує справжню північ, а не магнітну. Точний у будь-якій точці світу й працює без інтернету."
     },
     "glyph": "lucide:compass",
     "art": "<path d=\"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z\" /><circle cx=\"12\" cy=\"12\" r=\"10\" />",
@@ -992,6 +994,8 @@
     },
     "shots": [
       "up",
+      "map",
+      "cal",
       "saved"
     ],
     "bg": "#0A0A0B",
@@ -1008,10 +1012,10 @@
       "en": "Crypto Ticker",
       "uk": "Крипто-тікер"
     },
-    "tagline": "Живі ціни топ-криптовалют у реальному часі — WebSocket, без затримок",
+    "tagline": "Ціни головних криптовалют наживо. Оновлюються щосекунди, без затримок.",
     "taglines": {
-      "en": "Live top-crypto prices in real time — WebSocket, no polling",
-      "uk": "Живі ціни топ-криптовалют у реальному часі — WebSocket, без затримок"
+      "en": "Live prices of the top cryptocurrencies. Updated every second, with no delay.",
+      "uk": "Ціни головних криптовалют наживо. Оновлюються щосекунди, без затримок."
     },
     "glyph": "lucide:candlestick-chart",
     "art": "<path d=\"M9 5v4\"/><rect width=\"4\" height=\"6\" x=\"7\" y=\"9\" rx=\"1\"/><path d=\"M9 15v2\"/><path d=\"M17 3v2\"/><rect width=\"4\" height=\"8\" x=\"15\" y=\"5\" rx=\"1\"/><path d=\"M17 13v3\"/><path d=\"M3 3v18h18\"/>",
@@ -1185,10 +1189,10 @@
       "en": "Pendulum",
       "uk": "Маятник"
     },
-    "tagline": "Споглядальний маятник, що гойдається між протилежностями — один подих на кожен змах. Втягуєш думку — викидаєш; воля до життя і воля до смерті, створення і руйнування, усе і ніщо. Дихай разом із ним. Повністю на пристрої та офлайн.",
+    "tagline": "Споглядальний маятник, що гойдається між протилежностями — один подих на кожен змах. Втягуєш думку — викидаєш; створення і руйнування, усе і ніщо. Дихай разом із ним.",
     "taglines": {
-      "en": "A contemplative pendulum that swings between opposites — one breath to each swing. Draw a thought in, cast it out; will to life and will to death, creation and ruin, everything and nothing. Breathe with it. Entirely on your device and offline.",
-      "uk": "Споглядальний маятник, що гойдається між протилежностями — один подих на кожен змах. Втягуєш думку — викидаєш; воля до життя і воля до смерті, створення і руйнування, усе і ніщо. Дихай разом із ним. Повністю на пристрої та офлайн."
+      "en": "A contemplative pendulum that swings between opposites — one breath to each swing. Draw a thought in, cast it out; creation and ruin, everything and nothing. Breathe with it.",
+      "uk": "Споглядальний маятник, що гойдається між протилежностями — один подих на кожен змах. Втягуєш думку — викидаєш; створення і руйнування, усе і ніщо. Дихай разом із ним."
     },
     "glyph": "lucide:infinity",
     "art": "<circle cx=\"12\" cy=\"4.4\" r=\"1.05\"/>\n<path d=\"M12 5 L16.7 17.2\"/>\n<circle cx=\"16.9\" cy=\"17.8\" r=\"2.6\"/>\n<path d=\"M12 5 L7.3 17.2\" opacity=\"0.34\"/>\n<path d=\"M6.6 19.4 Q12 22.2 17.4 19.4\" opacity=\"0.3\"/>",
@@ -1218,10 +1222,10 @@
       "en": "Neural Nets",
       "uk": "Нейронки"
     },
-    "tagline": "Каталог свіжих моделей і Spaces з Hugging Face — тип, завантаження, вподобання й опис українською",
+    "tagline": "Каталог свіжих нейромереж із Hugging Face. Що вміє кожна і скільки людей нею вже користується — з описом українською.",
     "taglines": {
-      "en": "A catalog of fresh Hugging Face models & Spaces — kind, downloads, likes and a translated description",
-      "uk": "Каталог свіжих моделей і Spaces з Hugging Face — тип, завантаження, вподобання й опис українською"
+      "en": "A catalog of fresh AI models from Hugging Face. What each one does and how many people already use it.",
+      "uk": "Каталог свіжих нейромереж із Hugging Face. Що вміє кожна і скільки людей нею вже користується — з описом українською."
     },
     "glyph": "lucide:sparkles",
     "art": "<path d=\"M13 2c.35 4.2 2.95 6.8 7.15 7.15C15.95 9.5 13.35 12.1 13 16.3c-.35-4.2-2.95-6.8-7.15-7.15C10.05 8.8 12.65 6.2 13 2z\"/><path d=\"M6.5 14.5c.2 2.4 1.7 3.9 4.1 4.1-2.4.2-3.9 1.7-4.1 4.1-.2-2.4-1.7-3.9-4.1-4.1 2.4-.2 3.9-1.7 4.1-4.1z\"/>",
@@ -1397,10 +1401,10 @@
       "uk": "Поголос",
       "en": "Poholos"
     },
-    "tagline": "Off-grid чат по Bluetooth: повідомлення йдуть від телефона до телефона, стрибками, без інтернету й без сервера. Сумісний з bitchat.",
+    "tagline": "Чат без інтернету — по Bluetooth, від телефона до телефона. Повідомлення стрибають між людьми поруч, без мережі й без сервера. Сумісний із bitchat.",
     "taglines": {
-      "uk": "Off-grid чат по Bluetooth: повідомлення йдуть від телефона до телефона, стрибками, без інтернету й без сервера. Сумісний з bitchat.",
-      "en": "Off-grid Bluetooth chat: messages hop phone to phone, no internet and no server. Compatible with bitchat."
+      "uk": "Чат без інтернету — по Bluetooth, від телефона до телефона. Повідомлення стрибають між людьми поруч, без мережі й без сервера. Сумісний із bitchat.",
+      "en": "Chat with no internet — over Bluetooth, phone to phone. Messages hop between people nearby, with no network and no server. Works with bitchat."
     },
     "glyph": "lucide:radio",
     "art": "<circle cx=\"12\" cy=\"12\" r=\"2\"/>\n<path d=\"M7.5 16.5a6 6 0 0 1 0-9\"/>\n<path d=\"M16.5 7.5a6 6 0 0 1 0 9\"/>\n<path d=\"M4.8 19.2a10 10 0 0 1 0-14.4\"/>\n<path d=\"M19.2 4.8a10 10 0 0 1 0 14.4\"/>",
@@ -1420,7 +1424,10 @@
       ]
     },
     "shots": [
-      "room"
+      "room",
+      "pub",
+      "dm",
+      "logs"
     ],
     "bg": "#000000",
     "fg": "#4FD6E0",
@@ -1613,10 +1620,10 @@
       "en": "Rave",
       "uk": "Рейв"
     },
-    "tagline": "Техно-грув-бокс: плеєр із науково обґрунтованим генератором (евклідові ритми, синкопа, оцінка груву), повна матриця 22 голоси x 16 кроків, спільний FX-рек (drive, crush, delay, reverb, майстер-фільтр, swing) і збережені біти. Тіло — повноекранний 3D-спектр: десять сцен, які гортаєш, і кожна реагує на живий мікс. Синтез наживо легкими голосами, без семплів, офлайн.",
+    "tagline": "Техно-студія в кишені. Складай біти на сітці, додавай ефекти, зберігай — або дай генератору зіграти самому. А над усім — 3D-сцена, що танцює під твій мікс.",
     "taglines": {
-      "en": "A techno groove box: a player with a research-backed generator (Euclidean rhythms, syncopation, groove scoring), a full 22-voice x 16-step pad matrix, a shared FX rack (drive, crush, delay, reverb, master filter, swing) and saved beats. The body is a full-bleed 3D spectrum — ten scenes you swipe between, reacting to the live mix. Synthesised live with light voices, no samples, offline.",
-      "uk": "Техно-грув-бокс: плеєр із науково обґрунтованим генератором (евклідові ритми, синкопа, оцінка груву), повна матриця 22 голоси x 16 кроків, спільний FX-рек (drive, crush, delay, reverb, майстер-фільтр, swing) і збережені біти. Тіло — повноекранний 3D-спектр: десять сцен, які гортаєш, і кожна реагує на живий мікс. Синтез наживо легкими голосами, без семплів, офлайн."
+      "en": "A techno studio in your pocket. Build beats on a grid, add effects, save them — or let the generator play by itself. Above it all, a 3D scene dances to your mix.",
+      "uk": "Техно-студія в кишені. Складай біти на сітці, додавай ефекти, зберігай — або дай генератору зіграти самому. А над усім — 3D-сцена, що танцює під твій мікс."
     },
     "glyph": "lucide:audio-waveform",
     "art": "<path d=\"M2 12 L6 12 L6 6 L10 6 L10 18 L14 18 L14 9 L18 9 L18 12 L22 12\"/>",
@@ -1697,7 +1704,7 @@
     },
     "tagline": "Кіно з тексту або фото: напиши, що відбувається, або дай кадр — і він оживе на кілька секунд.",
     "taglines": {
-      "en": "Film from words or a photo: say what happens, or hand over a frame, and it comes alive for a few seconds.",
+      "en": "Film from words or a photo. Say what happens, or hand over a frame, and it comes alive for a few seconds.",
       "uk": "Кіно з тексту або фото: напиши, що відбувається, або дай кадр — і він оживе на кілька секунд."
     },
     "glyph": "lucide:clapperboard",
@@ -1841,10 +1848,10 @@
       "en": "Sonar",
       "uk": "Сонар"
     },
-    "tagline": "Сонар перетворює телефон на ультразвуковий датчик руху. Динамік випромінює рівний тон близько 19 кГц, а мікрофон ловить доплерівські бічні смуги, які відбиває все, що рухається. Застосунок вивчає, як звучить нерухома кімната, і показує рух відносно неї — з напрямком, коли сигнал однозначний, і чесно нічого понад те: без відстані, без пеленга, без швидкості. Усе обчислюється на пристрої: запис не зберігається й нікуди не надсилається.",
+    "tagline": "Перетвори телефон на датчик руху. Він нечутно «прослуховує» кімнату й показує, коли поруч щось рухається. Нічого не записується й нікуди не надсилається.",
     "taglines": {
-      "en": "Sonar turns the phone into an ultrasonic motion sensor. It emits a steady tone near 19 kHz from the speaker and watches the microphone for the Doppler sidebands anything moving reflects back. It learns what a still room scores, then reports motion relative to that — with direction when the signal is decisive, and honestly nothing else: no distance, no bearing, no speed. Everything is computed on the device; no recording is kept and nothing is uploaded.",
-      "uk": "Сонар перетворює телефон на ультразвуковий датчик руху. Динамік випромінює рівний тон близько 19 кГц, а мікрофон ловить доплерівські бічні смуги, які відбиває все, що рухається. Застосунок вивчає, як звучить нерухома кімната, і показує рух відносно неї — з напрямком, коли сигнал однозначний, і чесно нічого понад те: без відстані, без пеленга, без швидкості. Усе обчислюється на пристрої: запис не зберігається й нікуди не надсилається."
+      "en": "Turn your phone into a motion sensor. It listens to the room with a tone you cannot hear and shows when something moves nearby. Nothing is recorded or sent anywhere.",
+      "uk": "Перетвори телефон на датчик руху. Він нечутно «прослуховує» кімнату й показує, коли поруч щось рухається. Нічого не записується й нікуди не надсилається."
     },
     "glyph": "lucide:radio",
     "art": "<path d=\"M12 12h.01\"/><path d=\"M8.4 8.4a5 5 0 0 0 0 7.2\"/><path d=\"M15.6 8.4a5 5 0 0 1 0 7.2\"/><path d=\"M5.6 5.6a9 9 0 0 0 0 12.8\"/><path d=\"M18.4 5.6a9 9 0 0 1 0 12.8\"/>",
@@ -1920,10 +1927,10 @@
       "en": "Sopilka",
       "uk": "Сопілка"
     },
-    "tagline": "Українська сопілка-прима — діатонічна, 6 отворів, до-мажор. Аплікатура як на справжній: закриваєш отвори згори, ковзаєш пальцем — і нота тягнеться легато. Синтезується наживо, без семплів, офлайн",
+    "tagline": "Українська сопілка у твоєму телефоні. Закривай отвори пальцями, як на справжній, і грай мелодії — ноти плавно перетікають одна в одну.",
     "taglines": {
-      "en": "The Ukrainian sopilka — diatonic prima, six holes, C major. Real fingering: cover the holes from the top, slide a finger and the note glides legato. Synthesised live, no samples, offline",
-      "uk": "Українська сопілка-прима — діатонічна, 6 отворів, до-мажор. Аплікатура як на справжній: закриваєш отвори згори, ковзаєш пальцем — і нота тягнеться легато. Синтезується наживо, без семплів, офлайн"
+      "en": "A Ukrainian sopilka flute on your phone. Cover the holes with your fingers like on the real one and play — the notes glide into each other.",
+      "uk": "Українська сопілка у твоєму телефоні. Закривай отвори пальцями, як на справжній, і грай мелодії — ноти плавно перетікають одна в одну."
     },
     "glyph": "lucide:audio-lines",
     "art": "<path d=\"M2 10v3\" /><path d=\"M6 6v11\" /><path d=\"M10 3v18\" /><path d=\"M14 8v7\" /><path d=\"M18 5v13\" /><path d=\"M22 10v3\" />",
@@ -2002,7 +2009,7 @@
     },
     "tagline": "Список бажань — кілька списків, ціни й пріоритети, повний офлайн; дані лишаються на пристрої",
     "taglines": {
-      "en": "A wishlist — multiple lists, prices and priorities, full offline; your data stays on the device",
+      "en": "A wishlist that keeps everything in order. Several lists, prices and priorities; works with no internet, and your data stays on your phone.",
       "uk": "Список бажань — кілька списків, ціни й пріоритети, повний офлайн; дані лишаються на пристрої"
     },
     "glyph": "lucide:sparkles",
@@ -2033,14 +2040,14 @@
       "en": "Speedometer",
       "uk": "Спідометр"
     },
-    "tagline": "Мотоспідометр із чотирма панелями — кут нахилу, пробіг, таймер 0–100, сигнал швидкості й журнал поїздок по днях",
+    "tagline": "Спідометр для мотоцикла з чотирма панелями на вибір. Кут нахилу в поворотах, пробіг, розгін 0–100, сигнал перевищення швидкості й журнал поїздок по днях.",
     "taglines": {
-      "en": "Motorcycle speedometer with four dashboards — lean angle, trip stats, 0–100 timer, speed alert and a ride log by day",
-      "uk": "Мотоспідометр із чотирма панелями — кут нахилу, пробіг, таймер 0–100, сигнал швидкості й журнал поїздок по днях"
+      "en": "A motorcycle speedometer with four dashboards to choose from. Lean angle in corners, distance, a 0–100 timer, a speed alert and a ride log by day.",
+      "uk": "Спідометр для мотоцикла з чотирма панелями на вибір. Кут нахилу в поворотах, пробіг, розгін 0–100, сигнал перевищення швидкості й журнал поїздок по днях."
     },
     "glyph": "lucide:gauge",
     "art": "<path d=\"m12 14 4-4\" /><path d=\"M3.34 19a10 10 0 1 1 17.32 0\" />",
-    "icon": false,
+    "icon": true,
     "screens": {
       "en": [
         "Ride",
@@ -2051,11 +2058,14 @@
         "Журнал"
       ]
     },
-    "shots": [],
+    "shots": [
+      "ride",
+      "log"
+    ],
     "bg": "#14110F",
     "fg": "#FF7A1A",
     "href": "./moto/",
-    "version": "1.0",
+    "version": "1.1",
     "category": "tools",
     "needs": [
       "geo",
@@ -2107,10 +2117,10 @@
       "en": "Tarot",
       "uk": "Таро"
     },
-    "tagline": "Витягни карти колоди Райдера-Вейта-Сміт для розкладу — карта дня або один із дев'яти розкладів: від швидкого трикартового до Вибору, Зірки, Піраміди душі зі старших арканів і повного Кельтського хреста. Кожен розклад просто пояснює, на що відповідає. Класичні ілюстрації 1909 року й канонічні значення, повністю на пристрої та офлайн.",
+    "tagline": "Розклади на картах Таро Райдера-Вейта. Карта дня або один із дев'яти розкладів — від швидких трьох карт до Кельтського хреста, з поясненням кожної позиції. Працює без інтернету.",
     "taglines": {
-      "en": "Draw the Rider-Waite-Smith deck for a reading — a card of the day or one of nine spreads, from a quick three-card to the crossroads, the star, the Major-Arcana Soul Pyramid and the full Celtic Cross. Each spread says plainly what it answers. Classic 1909 imagery and canonical meanings, entirely on your device and offline.",
-      "uk": "Витягни карти колоди Райдера-Вейта-Сміт для розкладу — карта дня або один із дев'яти розкладів: від швидкого трикартового до Вибору, Зірки, Піраміди душі зі старших арканів і повного Кельтського хреста. Кожен розклад просто пояснює, на що відповідає. Класичні ілюстрації 1909 року й канонічні значення, повністю на пристрої та офлайн."
+      "en": "Readings with the Rider-Waite tarot deck. A card of the day or one of nine spreads — from a quick three cards to the Celtic Cross, each position explained. Works with no internet.",
+      "uk": "Розклади на картах Таро Райдера-Вейта. Карта дня або один із дев'яти розкладів — від швидких трьох карт до Кельтського хреста, з поясненням кожної позиції. Працює без інтернету."
     },
     "glyph": "lucide:sparkles",
     "art": "<g transform=\"rotate(-15 12 13)\"><rect x=\"4\" y=\"6.5\" width=\"9\" height=\"12.5\" rx=\"1.6\"/></g>\n<rect x=\"10.5\" y=\"5\" width=\"9\" height=\"14\" rx=\"1.7\"/>\n<path d=\"M15 9v3.4\"/>\n<path d=\"M13.3 10.7h3.4\"/>",
@@ -2225,10 +2235,10 @@
       "en": "Imagine",
       "uk": "Уяви"
     },
-    "tagline": "Введи опис — отримай зображення в точних пропорціях твого екрана й найвищій роздільності, яку дозволяє FLUX.2: шпалери саме під цей телефон. Ключ живе на нашому сервері, ніколи не в застосунку.",
+    "tagline": "Опиши картинку словами — і отримай шпалери саме під свій екран. Найвища якість і точні пропорції твого телефона.",
     "taglines": {
-      "en": "Type a prompt, get an image at your screen's exact proportions and the highest resolution FLUX.2 allows — a wallpaper made for this phone. The key lives on our server, never in the app.",
-      "uk": "Введи опис — отримай зображення в точних пропорціях твого екрана й найвищій роздільності, яку дозволяє FLUX.2: шпалери саме під цей телефон. Ключ живе на нашому сервері, ніколи не в застосунку."
+      "en": "Describe a picture in words and get a wallpaper made for your screen. Top quality, in your phone's exact proportions.",
+      "uk": "Опиши картинку словами — і отримай шпалери саме під свій екран. Найвища якість і точні пропорції твого телефона."
     },
     "glyph": "lucide:sparkles",
     "art": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\"/>\n<path d=\"M20 3v4\"/>\n<path d=\"M22 5h-4\"/>\n<path d=\"M4 17v2\"/>\n<path d=\"M5 18H3\"/>",
@@ -2266,10 +2276,10 @@
       "en": "Frontier",
       "uk": "Фронтир"
     },
-    "tagline": "Фронтир OSS — свіжі проривні проєкти з GitHub: мова, зорі, форки й опис українською",
+    "tagline": "Свіжі проривні проєкти з GitHub. Що нового з'явилось і чому про це говорять — з описом українською.",
     "taglines": {
-      "en": "OSS frontier — fresh breakthrough GitHub projects: language, stars, forks and a translated description",
-      "uk": "Фронтир OSS — свіжі проривні проєкти з GitHub: мова, зорі, форки й опис українською"
+      "en": "Fresh breakout projects from GitHub. What just appeared and why people are talking about it.",
+      "uk": "Свіжі проривні проєкти з GitHub. Що нового з'явилось і чому про це говорять — з описом українською."
     },
     "glyph": "lucide:git-branch",
     "art": "<path d=\"M13.6 2.3c3.6 2.9 5.4 6.7 5.4 11.2L16.7 16H10l-2.3-2.5c0-4.5 1.8-8.3 5.5-11.2a.6.6 0 0 1 .4 0zM8.7 17.7 6 22l4.3-1.7zM17.3 17.7 20 22l-4.3-1.7z\"/>",
@@ -2302,10 +2312,10 @@
       "en": "Handpan",
       "uk": "Хендпан"
     },
-    "tagline": "Хендпан, на якому можна грати: удар по тон-полю дає солодкий гармонічний дзвін 1:2:3 (основна, октава, дуодецима), 10 налаштованих строїв і 5 голосів, Потік автоматично генерує медитативну лінію (науково обґрунтований мелодичний пошук — консонанс, голосоведення, розв'язання), запиши власні лупи ударами й тчи їх на сітці. Синтез наживо, без семплів, офлайн.",
+    "tagline": "Хендпан, на якому справді можна грати. Торкайся полів — і він дзвенить, як справжній: 10 строїв, 5 голосів, запис власних мелодій і режим, що сам веде спокійну лінію.",
     "taglines": {
-      "en": "A playable handpan: strike the tone fields for the sweet 1:2:3 harmonic ring (fundamental, octave, twelfth), pick from 10 tuned scales and 5 voices, let Flow auto-generate a meditative line (a research-backed melodic search — consonance, voice-leading, resolution), record your own loops by striking, and weave them on a grid. Synthesised live, no samples, offline.",
-      "uk": "Хендпан, на якому можна грати: удар по тон-полю дає солодкий гармонічний дзвін 1:2:3 (основна, октава, дуодецима), 10 налаштованих строїв і 5 голосів, Потік автоматично генерує медитативну лінію (науково обґрунтований мелодичний пошук — консонанс, голосоведення, розв'язання), запиши власні лупи ударами й тчи їх на сітці. Синтез наживо, без семплів, офлайн."
+      "en": "A handpan you can really play. Tap the fields and it rings like the real thing: 10 scales, 5 voices, record your own melodies or let it lead a calm line by itself.",
+      "uk": "Хендпан, на якому справді можна грати. Торкайся полів — і він дзвенить, як справжній: 10 строїв, 5 голосів, запис власних мелодій і режим, що сам веде спокійну лінію."
     },
     "glyph": "lucide:disc-3",
     "art": "<circle cx=\"12\" cy=\"12\" r=\"9.3\"/><circle cx=\"12\" cy=\"12\" r=\"2.15\"/><circle cx=\"12\" cy=\"4.7\" r=\"1.15\"/><circle cx=\"18\" cy=\"9.1\" r=\"1.15\"/><circle cx=\"16.2\" cy=\"16.7\" r=\"1.15\"/><circle cx=\"7.8\" cy=\"16.7\" r=\"1.15\"/><circle cx=\"6\" cy=\"9.1\" r=\"1.15\"/>",
@@ -2448,7 +2458,7 @@
     },
     "tagline": "Живий техно-потік за повноекранним рейвом: лазери, дим і 3D-сцена, що танцює в такт біту. Ніч, що ніколи не світлішає; нахил телефона рухає сцену.",
     "taglines": {
-      "en": "A live techno stream behind a full-screen rave: lasers, haze and a 3D stage dancing to the beat. A night that never lightens; tilting the phone moves the stage.",
+      "en": "A live techno stream behind a full-screen rave. Lasers, smoke and a 3D scene dancing to the beat; tilt the phone and the scene moves.",
       "uk": "Живий техно-потік за повноекранним рейвом: лазери, дим і 3D-сцена, що танцює в такт біту. Ніч, що ніколи не світлішає; нахил телефона рухає сцену."
     },
     "glyph": "lucide:disc-3",
@@ -2465,7 +2475,8 @@
       ]
     },
     "shots": [
-      "stage"
+      "stage",
+      "cast"
     ],
     "bg": "#0A0510",
     "fg": "#FF3EB5",
@@ -2486,10 +2497,10 @@
       "en": "APK Forge",
       "uk": "APK Forge"
     },
-    "tagline": "Перетвори будь-який веб-застосунок на встановлюваний Android-APK — прямо тут, без сервера збірки. Введи URL і отримай підписаний WebView-APK з назвою та іконкою сайту, готовий до sideload.",
+    "tagline": "Зроби з будь-якого сайту застосунок для Android. Встав адресу — і отримай готовий файл із назвою та іконкою сайту, який ставиться на телефон.",
     "taglines": {
-      "en": "Turn any web app into an installable Android APK — right here, no build server. Enter a URL, get a signed WebView-wrapper APK with the site's name and icon, ready to sideload.",
-      "uk": "Перетвори будь-який веб-застосунок на встановлюваний Android-APK — прямо тут, без сервера збірки. Введи URL і отримай підписаний WebView-APK з назвою та іконкою сайту, готовий до sideload."
+      "en": "Turn any website into an Android app. Paste its address and get a ready file with the site's name and icon to install on your phone.",
+      "uk": "Зроби з будь-якого сайту застосунок для Android. Встав адресу — і отримай готовий файл із назвою та іконкою сайту, який ставиться на телефон."
     },
     "glyph": "lucide:package",
     "art": "<path d=\"m7.5 4.27 9 5.15\"/>\n<path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/>\n<path d=\"m3.3 7 8.7 5 8.7-5\"/>\n<path d=\"M12 22V12\"/>",
@@ -2555,10 +2566,10 @@
       "en": "Drift",
       "uk": "Drift"
     },
-    "tagline": "Генеративний ембієнт-двигун — нескінченні, неповторювані, математично консонансні треки, що складаються наживо в браузері. Десять різних світів (глибокий космічний дрон, теплий плівковий луп, кришталеве скло, океанічний свел, дзен-щипок, космічний хор, тампура в чистому строї, неокласичні струнні, лоу-фай пил, лідійське мерехтіння), десять змінних звукових пакетів і три макроси. Консонанс — через прості цілочисельні співвідношення, акорди ведуться голосами задля «утримуваного дрону», а копрайм-лупи Браяна Іно роблять так, що воно ніколи не повторюється. Усе синтезовано, без файлів, офлайн.",
+    "tagline": "Нескінченна спокійна музика, що ніколи не повторюється. Десять настроїв — від глибокого космосу до теплого лоу-фаю — для роботи, сну й тиші. Грає без інтернету.",
     "taglines": {
-      "en": "A generative ambient engine — endless, never-repeating, mathematically consonant tracks composed live in the browser. Ten distinct worlds (deep-space drone, warm tape loop, crystalline glass, oceanic swell, zen pluck, cosmic choir, just-intoned tanpura, neo-classical strings, lo-fi dust, Lydian shimmer), ten swappable sound-packs, and three macros. Consonance by small-integer ratios, chords voice-led for a held-drone glue, Brian-Eno coprime loops so it never loops. All synthesised, no files, offline.",
-      "uk": "Генеративний ембієнт-двигун — нескінченні, неповторювані, математично консонансні треки, що складаються наживо в браузері. Десять різних світів (глибокий космічний дрон, теплий плівковий луп, кришталеве скло, океанічний свел, дзен-щипок, космічний хор, тампура в чистому строї, неокласичні струнні, лоу-фай пил, лідійське мерехтіння), десять змінних звукових пакетів і три макроси. Консонанс — через прості цілочисельні співвідношення, акорди ведуться голосами задля «утримуваного дрону», а копрайм-лупи Браяна Іно роблять так, що воно ніколи не повторюється. Усе синтезовано, без файлів, офлайн."
+      "en": "Endless calm music that never repeats. Ten moods — from deep space to warm lo-fi — for work, sleep and quiet. Plays with no internet.",
+      "uk": "Нескінченна спокійна музика, що ніколи не повторюється. Десять настроїв — від глибокого космосу до теплого лоу-фаю — для роботи, сну й тиші. Грає без інтернету."
     },
     "glyph": "lucide:audio-waveform",
     "art": "<path d=\"M2 9 C5 5.5, 7 5.5, 10 9 S15 12.5, 18 9 S21 5.5, 22 7\"/><path d=\"M2 13 C5 9.5, 7 9.5, 10 13 S15 16.5, 18 13 S21 9.5, 22 11\"/><path d=\"M2 17 C5 13.5, 7 13.5, 10 17 S15 20.5, 18 17 S21 13.5, 22 15\"/>",
@@ -2593,10 +2604,10 @@
       "en": "FM Radio",
       "uk": "FM-радіо"
     },
-    "tagline": "Живе FM, декодоване на пристрої з твого HackRF",
+    "tagline": "Справжнє FM-радіо у твоєму телефоні. Потрібен приймач HackRF.",
     "taglines": {
-      "en": "Live FM, decoded on-device from your HackRF",
-      "uk": "Живе FM, декодоване на пристрої з твого HackRF"
+      "en": "Real FM radio on your phone. Needs a HackRF receiver.",
+      "uk": "Справжнє FM-радіо у твоєму телефоні. Потрібен приймач HackRF."
     },
     "glyph": "lucide:radio",
     "art": "<path d=\"M4.9 16.1C1 12.2 1 5.8 4.9 1.9\"/><path d=\"M7.8 4.7a6.14 6.14 0 0 0-.8 7.5\"/><circle cx=\"12\" cy=\"9\" r=\"2\"/><path d=\"M16.2 4.8c2 2 2.26 5.11 .8 7.47\"/><path d=\"M19.1 1.9c3.9 3.9 3.9 10.3 0 14.2\"/><path d=\"M9.5 18h5\"/><path d=\"m8 22 4-11 4 11\"/>",
@@ -2632,10 +2643,10 @@
       "en": "GPS Ruler",
       "uk": "GPS-лінійка"
     },
-    "tagline": "GPS-лінійка — вимірюй відстані й площі ламаною по координатах: сегменти, загальна довжина, площа, точність GPS",
+    "tagline": "Виміряй відстань або площу, просто пройшовши маршрут. Став точки по дорозі — застосунок порахує довжину, площу й покаже точність GPS.",
     "taglines": {
-      "en": "GPS ruler — measure distances and areas as a coordinate polyline: segments, total length, area, GPS accuracy",
-      "uk": "GPS-лінійка — вимірюй відстані й площі ламаною по координатах: сегменти, загальна довжина, площа, точність GPS"
+      "en": "Measure a distance or an area just by walking it. Drop points as you go — the app adds up the length and the area, and shows the GPS accuracy.",
+      "uk": "Виміряй відстань або площу, просто пройшовши маршрут. Став точки по дорозі — застосунок порахує довжину, площу й покаже точність GPS."
     },
     "glyph": "lucide:ruler",
     "art": "<path d=\"M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z\"/><path d=\"m14.5 12.5 2-2\"/><path d=\"m11.5 9.5 2-2\"/><path d=\"m8.5 6.5 2-2\"/><path d=\"m17.5 15.5 2-2\"/>",
@@ -2667,10 +2678,10 @@
       "en": "GSM Scanner",
       "uk": "GSM-сканер"
     },
-    "tagline": "Скануй GSM-діапазон навколо тебе своїм HackRF",
+    "tagline": "Подивись, які мобільні вежі працюють довкола тебе. Потрібен приймач HackRF.",
     "taglines": {
-      "en": "Sweep the GSM band around you with your HackRF",
-      "uk": "Скануй GSM-діапазон навколо тебе своїм HackRF"
+      "en": "See which cell towers are working around you. Needs a HackRF receiver.",
+      "uk": "Подивись, які мобільні вежі працюють довкола тебе. Потрібен приймач HackRF."
     },
     "glyph": "lucide:antenna",
     "art": "<path d=\"M2 12 7 2\"/><path d=\"m7 12 5-10\"/><path d=\"m12 12 5-10\"/><path d=\"m17 12 5-10\"/><path d=\"M4.5 7h15\"/><path d=\"M12 16v6\"/>",
@@ -2738,10 +2749,10 @@
       "en": "IPTV",
       "uk": "IPTV"
     },
-    "tagline": "Прямий ефір публічних IPTV-каналів зі списку iptv-org — за країнами й категоріями, з плеєром",
+    "tagline": "Прямий ефір телеканалів з усього світу. Обирай країну чи жанр і дивись одразу в застосунку.",
     "taglines": {
-      "en": "Live public IPTV channels from the iptv-org index — by country and category, with a player",
-      "uk": "Прямий ефір публічних IPTV-каналів зі списку iptv-org — за країнами й категоріями, з плеєром"
+      "en": "Live TV channels from around the world. Pick a country or a genre and watch right in the app.",
+      "uk": "Прямий ефір телеканалів з усього світу. Обирай країну чи жанр і дивись одразу в застосунку."
     },
     "glyph": "lucide:tv",
     "art": "<path d=\"M4 5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H4zm6.2 3.1 4.6 2.9-4.6 2.9V8.1z\"/><path d=\"M8 20h8v1.4H8z\"/>",
@@ -2811,10 +2822,10 @@
       "en": "LoRa Watch",
       "uk": "LoRa Watch"
     },
-    "tagline": "Дивись і декодуй LoRa у діапазоні 868 МГц своїм HackRF",
+    "tagline": "Побач сигнали LoRa довкола себе — датчики, лічильники, трекери. Потрібен приймач HackRF.",
     "taglines": {
-      "en": "See and decode LoRa in the 868 MHz band with your HackRF",
-      "uk": "Дивись і декодуй LoRa у діапазоні 868 МГц своїм HackRF"
+      "en": "See the LoRa signals around you — sensors, meters, trackers. Needs a HackRF receiver.",
+      "uk": "Побач сигнали LoRa довкола себе — датчики, лічильники, трекери. Потрібен приймач HackRF."
     },
     "glyph": "lucide:radio",
     "art": "<path d=\"M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1\"/><path d=\"M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1\"/><path d=\"M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1\"/>",
@@ -2998,10 +3009,10 @@
       "en": "QR Scanner",
       "uk": "QR-сканер"
     },
-    "tagline": "Скануй QR і бач, куди веде посилання — хост, повний URL і вердикт безпеки — ще до того, як тапнеш. Ловить прийоми квішингу: скорочені посилання, схожі (гомографні) домени, приховані справжні хости, незахищені коди й коди, що виконують дію. Задня камера, на пристрої, офлайн; працює з нативним сканером або вбудованим резервним.",
+    "tagline": "Скануй QR і бач, куди веде посилання, ще до переходу. Попереджає про підробні адреси, скорочені лінки й небезпечні коди. Працює без інтернету.",
     "taglines": {
-      "en": "Scan a QR and see where the link goes — the host, the full URL and a safety verdict — before you ever tap it. Catches quishing tricks: shortened links, look-alike (homograph) domains, hidden real hosts, insecure and code-running codes. Rear camera, on-device, offline; works with the native scanner or a bundled fallback.",
-      "uk": "Скануй QR і бач, куди веде посилання — хост, повний URL і вердикт безпеки — ще до того, як тапнеш. Ловить прийоми квішингу: скорочені посилання, схожі (гомографні) домени, приховані справжні хости, незахищені коди й коди, що виконують дію. Задня камера, на пристрої, офлайн; працює з нативним сканером або вбудованим резервним."
+      "en": "Scan a QR code and see where the link leads before you open it. Warns about look-alike addresses, shortened links and dangerous codes. Works with no internet.",
+      "uk": "Скануй QR і бач, куди веде посилання, ще до переходу. Попереджає про підробні адреси, скорочені лінки й небезпечні коди. Працює без інтернету."
     },
     "glyph": "lucide:scan-line",
     "art": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2\"/>\n<path d=\"M17 3h2a2 2 0 0 1 2 2v2\"/>\n<path d=\"M21 17v2a2 2 0 0 1-2 2h-2\"/>\n<path d=\"M7 21H5a2 2 0 0 1-2-2v-2\"/>\n<path d=\"M7 12h10\"/>",
@@ -3034,10 +3045,10 @@
       "en": "Reel",
       "uk": "Reel"
     },
-    "tagline": "Встав будь-який URL сторінки — і кожне відео на ній стає повноекранною стрічкою, що гортається сама; наступні сторінки підвантажуються, поки ти свайпаєш.",
+    "tagline": "Встав посилання на сторінку — і кожне відео на ній стане повноекранною стрічкою. Гортається сама, а наступні сторінки підвантажуються, поки ти свайпаєш.",
     "taglines": {
-      "en": "Paste any page URL and every video on it becomes a full-screen, auto-scrolling reel — the next pages load themselves as you swipe.",
-      "uk": "Встав будь-який URL сторінки — і кожне відео на ній стає повноекранною стрічкою, що гортається сама; наступні сторінки підвантажуються, поки ти свайпаєш."
+      "en": "Paste a link to any page and every video on it becomes a full-screen feed. It scrolls by itself, and the next pages load as you swipe.",
+      "uk": "Встав посилання на сторінку — і кожне відео на ній стане повноекранною стрічкою. Гортається сама, а наступні сторінки підвантажуються, поки ти свайпаєш."
     },
     "glyph": "lucide:clapperboard",
     "art": "<path d=\"M9 6.3v11.4a1 1 0 0 0 1.53.85l9-5.7a1 1 0 0 0 0-1.7l-9-5.7A1 1 0 0 0 9 6.3z\"/>",
@@ -3073,10 +3084,10 @@
       "en": "Tide",
       "uk": "Tide"
     },
-    "tagline": "Живі течії звуку за WebGL-полем, що несе палітру кожної станції й дихає разом із сигналом. Шість течій — Deep, Groove, Signal, Bass, Україна, Roots — шістдесят станцій, плавні переходи, керування з екрана блокування.",
+    "tagline": "Живе радіо, яке видно: шістдесят станцій у шести течіях. Deep, Groove, Signal, Bass, Україна, Roots — плавні переходи між станціями й керування з екрана блокування.",
     "taglines": {
-      "en": "Live currents of sound behind a WebGL field that carries each station's palette and breathes with the signal. Six currents — Deep, Groove, Signal, Bass, Ukraine, Roots — sixty stations, cross-faded switches, lock-screen controls.",
-      "uk": "Живі течії звуку за WebGL-полем, що несе палітру кожної станції й дихає разом із сигналом. Шість течій — Deep, Groove, Signal, Bass, Україна, Roots — шістдесят станцій, плавні переходи, керування з екрана блокування."
+      "en": "Live radio you can see: sixty stations in six currents. Deep, Groove, Signal, Bass, Ukraine, Roots — smooth cross-fades between stations and lock-screen controls.",
+      "uk": "Живе радіо, яке видно: шістдесят станцій у шести течіях. Deep, Groove, Signal, Bass, Україна, Roots — плавні переходи між станціями й керування з екрана блокування."
     },
     "glyph": "lucide:audio-lines",
     "art": "<path d=\"M2 10v3\"/><path d=\"M6 6v11\"/><path d=\"M10 3v18\"/><path d=\"M14 8v7\"/><path d=\"M18 5v13\"/><path d=\"M22 10v3\"/>",
@@ -3110,10 +3121,10 @@
       "en": "trail",
       "uk": "trail"
     },
-    "tagline": "День, записаний самим телефоном, а потім надрукований. Встановлений застосунок тримає фонову службу, тож трек переживає вимкнений екран — а там, де запис не слухав, лінія рветься, замість вигадувати середину. Місяць днів стає одним аркушем: кожен день — одна позначка, усі в одному масштабі, тож довгий день і виглядає довгим. Запис і малювання на твоєму пристрої, офлайн, і нікуди не вивантажується.",
+    "tagline": "Твій день, записаний телефоном і намальований однією лінією. Місяць стає аркушем, де довгий день і виглядає довгим. Усе лишається на твоєму телефоні.",
     "taglines": {
-      "en": "A day recorded by the phone itself, then printed. The installed app keeps a foreground service running, so the track survives the screen going off — and where the recorder was not listening the line breaks instead of inventing the middle. A month of days becomes one sheet: every day a single mark, all of them at one scale, so a long day looks long. Recorded and drawn on your device, offline, and never uploaded anywhere.",
-      "uk": "День, записаний самим телефоном, а потім надрукований. Встановлений застосунок тримає фонову службу, тож трек переживає вимкнений екран — а там, де запис не слухав, лінія рветься, замість вигадувати середину. Місяць днів стає одним аркушем: кожен день — одна позначка, усі в одному масштабі, тож довгий день і виглядає довгим. Запис і малювання на твоєму пристрої, офлайн, і нікуди не вивантажується."
+      "en": "Your day, recorded by the phone and drawn as one line. A month becomes a sheet where a long day looks long. Everything stays on your phone.",
+      "uk": "Твій день, записаний телефоном і намальований однією лінією. Місяць стає аркушем, де довгий день і виглядає довгим. Усе лишається на твоєму телефоні."
     },
     "glyph": "lucide:route",
     "art": "<circle cx=\"6\" cy=\"19\" r=\"3\"/><path d=\"M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15\"/><circle cx=\"18\" cy=\"5\" r=\"3\"/>",
@@ -3146,10 +3157,10 @@
       "en": "V2 Player",
       "uk": "V2 Плеєр"
     },
-    "tagline": "Плеєр чіптюнів Farbrausch V2 (.v2m) — демосценний синтезатор, що вміщує цілі композиції в кілька кілобайтів. Магазин читає архів modland V2 наживо: трек зазвичай 20–60 КБ, у десятки разів менше за ту саму музику в MP3, тому качається миттєво й лишається назавжди. Синтезатор V2 працює в браузері як власноруч зібраний WebAssembly-модуль, що рендерить PCM на AudioWorklet; плеєр малює власні байти треку в 3D. Фонове відтворення з керуванням на локскріні. Офлайн.",
+    "tagline": "Плеєр легендарної музики демосцени. Цілі композиції важать кілька кілобайтів, тож качаються миттєво й лишаються назавжди; грає у фоні, з керуванням на екрані блокування.",
     "taglines": {
-      "en": "A player for Farbrausch V2 (.v2m) chiptunes — the demoscene synth that packs whole songs into a few kilobytes. The store reads the modland V2 archive live: a tune is typically 20–60 KB, tens of times smaller than the same music as an MP3, so it downloads instantly and stays for good. The V2 synthesizer runs in the browser as a hand-built WebAssembly module rendering PCM on an AudioWorklet; the player draws the tune's own bytes in 3D. Background playback with lock-screen controls. Offline.",
-      "uk": "Плеєр чіптюнів Farbrausch V2 (.v2m) — демосценний синтезатор, що вміщує цілі композиції в кілька кілобайтів. Магазин читає архів modland V2 наживо: трек зазвичай 20–60 КБ, у десятки разів менше за ту саму музику в MP3, тому качається миттєво й лишається назавжди. Синтезатор V2 працює в браузері як власноруч зібраний WebAssembly-модуль, що рендерить PCM на AudioWorklet; плеєр малює власні байти треку в 3D. Фонове відтворення з керуванням на локскріні. Офлайн."
+      "en": "A player for legendary demoscene music. Whole tracks weigh a few kilobytes, so they download instantly and stay for good; plays in the background with lock-screen controls.",
+      "uk": "Плеєр легендарної музики демосцени. Цілі композиції важать кілька кілобайтів, тож качаються миттєво й лишаються назавжди; грає у фоні, з керуванням на екрані блокування."
     },
     "glyph": "lucide:disc-3",
     "art": "<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M6 12c0-1.657.672-3.157 1.757-4.243\"/><circle cx=\"12\" cy=\"12\" r=\"2\"/><path d=\"M18 12c0 1.657-.672 3.157-1.757 4.243\"/>",

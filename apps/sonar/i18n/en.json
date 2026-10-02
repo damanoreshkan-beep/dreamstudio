@@ -49,7 +49,7 @@
   "errDenied": "Microphone blocked",
   "errUnavailable": "No microphone here",
   "errUnsupported": "This browser cannot capture audio",
-  "profTagline": "Sonar turns the phone into an ultrasonic motion sensor. It emits a steady tone near 19 kHz from the speaker and watches the microphone for the Doppler sidebands anything moving reflects back. It learns what a still room scores, then reports motion relative to that — with direction when the signal is decisive, and honestly nothing else: no distance, no bearing, no speed. Everything is computed on the device; no recording is kept and nothing is uploaded.",
+  "profTagline": "Turn your phone into a motion sensor. It listens to the room with a tone you cannot hear and shows when something moves nearby. Nothing is recorded or sent anywhere.",
   "profTheme": "Dark theme",
   "profLang": "Language",
   "install": "Install app",

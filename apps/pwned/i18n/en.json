@@ -21,7 +21,7 @@
   "step4": "The match is found locally",
   "profTheme": "Dark theme",
   "profLang": "Language",
-  "profTagline": "Check if a password leaked — without ever sending it (k-anonymity)",
+  "profTagline": "Check whether your password has leaked. The password itself is never sent anywhere.",
   "install": "Install app",
   "installTitle": "Install",
   "installBtn": "Install",

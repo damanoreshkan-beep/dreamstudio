@@ -1,6 +1,6 @@
 {
   "title": "QR Scanner",
-  "profTagline": "Scan a QR and see where the link goes — the host, the full URL and a safety verdict — before you ever tap it. Catches quishing tricks: shortened links, look-alike (homograph) domains, hidden real hosts, insecure and code-running codes. Rear camera, on-device, offline; works with the native scanner or a bundled fallback.",
+  "profTagline": "Scan a QR code and see where the link leads before you open it. Warns about look-alike addresses, shortened links and dangerous codes. Works with no internet.",
   "tabScan": "Scan",
   "tabMe": "Me",
   "primeReason": "To read QR codes with the rear camera",

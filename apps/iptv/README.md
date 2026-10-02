@@ -4,7 +4,7 @@
 
 # IPTV
 
-**Прямий ефір публічних IPTV-каналів зі списку iptv-org — за країнами й категоріями, з плеєром**
+**Прямий ефір телеканалів з усього світу. Обирай країну чи жанр і дивись одразу в застосунку.**
 
 ![](https://img.shields.io/badge/-feeds-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 

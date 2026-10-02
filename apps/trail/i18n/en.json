@@ -38,7 +38,7 @@
   "deleteBody": "The track and the poster drawn from it. This cannot be undone.",
   "deleteVerb": "Delete",
   "deleted": "Day deleted",
-  "profTagline": "A day recorded by the phone itself, then printed. The installed app keeps a foreground service running, so the track survives the screen going off — and where the recorder was not listening the line breaks instead of inventing the middle. A month of days becomes one sheet: every day a single mark, all of them at one scale, so a long day looks long. Recorded and drawn on your device, offline, and never uploaded anywhere.",
+  "profTagline": "Your day, recorded by the phone and drawn as one line. A month becomes a sheet where a long day looks long. Everything stays on your phone.",
   "profTheme": "Dark theme",
   "profLang": "Language",
   "install": "Install app",
