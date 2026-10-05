@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-05-takt",
+    "date": "2026-10-05",
+    "app": "takt",
+    "uk": "Новий застосунок — Такт: одна кнопка, і техно-радіо грає без перерви, а світло на екрані живе в такт музиці й ніколи не повторюється.",
+    "en": "New app — Takt: one button and techno radio plays non-stop, while the light on the screen lives to the beat and never repeats."
+  },
+  {
     "id": "2026-10-02-quiet-updates",
     "date": "2026-10-02",
     "app": "store",

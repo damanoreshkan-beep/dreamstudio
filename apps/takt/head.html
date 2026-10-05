@@ -1,0 +1,6 @@
+  <style>
+    /* While it plays and nobody touches the screen, the runtime's navbar and dock fade so the field fills
+       the glass. Nothing is removed (axe and the e2e still see them); a touch brings them back. */
+    :root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock],:root[data-immersive] [data-dock-fade]{opacity:0;pointer-events:none;transition:opacity .6s ease}
+    @media(prefers-reduced-motion:reduce){:root[data-immersive] header.navbar,:root[data-immersive] nav[data-dock]{transition:none}}
+  </style>

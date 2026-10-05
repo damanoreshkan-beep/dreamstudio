@@ -26,8 +26,10 @@ const TODAY_DAYS = 2;
 const ageDays = (a) => Math.max(0, Math.floor((Date.now() - Date.parse(a.added + "T00:00:00")) / 86400000));
 const isNewborn = (a) => !!a.added && ageDays(a) < TODAY_DAYS;
 const NEWBORN = apps.filter(isNewborn).sort((x, y) => y.added.localeCompare(x.added) || x.title.localeCompare(y.title, "uk"));
-const CURATED = (spec.featured || []).map((id) => apps.find((a) => a.id === id)).filter((a) => a && !isNewborn(a));
-const FEATURED = [...NEWBORN, ...CURATED];
+// The first curated id is the LEAD: it keeps the big card whatever is born after it (owner, 2026-10-05).
+const LEAD = apps.find((a) => a.id === (spec.featured || [])[0]) || null;
+const CURATED = (spec.featured || []).slice(1).map((id) => apps.find((a) => a.id === id)).filter((a) => a && !isNewborn(a));
+const FEATURED = [...(LEAD ? [LEAD] : []), ...NEWBORN.filter((a) => a !== LEAD), ...CURATED];
 const isFeatured = (a) => FEATURED.some((f) => f.id === a.id);
 const ROWS_PER_SECTION = 3;
 const FRESH_DAYS = 21, FRESH_MAX = 9, PER_SLIDE = 3;

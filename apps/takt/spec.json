@@ -1,0 +1,38 @@
+{
+  "id": "takt",
+  "theme": "signal",
+  "category": "sound",
+  "accent": "#B8FF2E",
+  "tabs": [
+    {
+      "id": "air",
+      "type": "tool",
+      "icon": "lucide:audio-waveform",
+      "label": "tabAir",
+      "view": "takt",
+      "fit": true,
+      "needs": [
+        "wakeLock"
+      ]
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:audio-waveform",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "source": {
+      "label": "profSource",
+      "url": "https://www.rm.fm/techno",
+      "icon": "lucide:radio"
+    }
+  },
+  "added": "2026-10-05"
+}

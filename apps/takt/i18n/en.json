@@ -1,0 +1,19 @@
+{
+  "title": "Takt",
+  "tabAir": "On air",
+  "tabMe": "Me",
+  "profTheme": "Dark theme",
+  "profLang": "Language",
+  "profTagline": "One button and techno radio plays non-stop. The light on the screen lives to the beat: it never repeats, yet always keeps time.",
+  "install": "Install app",
+  "installTitle": "Install Takt",
+  "installBtn": "Install",
+  "installDesc": "Opens like an app, straight on air",
+  "installIosHint": "In Safari: tap Share, then Add to Home Screen.",
+  "installGenericHint": "In the browser menu choose Install or Add to Home Screen.",
+  "close": "Close",
+  "refresh": "Refresh",
+  "toastSaved": "Saved",
+  "toastRemoved": "Removed",
+  "profSource": "Stream by RauteMusik.FM"
+}
