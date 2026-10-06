@@ -122,30 +122,6 @@ export default [
     },
   },
   {
-    name: "нуар: перемикач у шторці знебарвлює саме кадр, лишає хром кольоровим і переживає перезапуск", run: async (h) => {
-      await ready(h);
-      h.expect(await settles(h, 3), "стрічка не влаштувалась на 3 слайдах");
-      h.expect((await h.css("[data-reel]", "filter")) === "none", "кадр знебарвлений ще до вмикання нуару");
-      await openMore(h);
-      h.expect((await h.count("[data-noir]")) === 1, "у шторці «Ще» нема перемикача нуару");
-      h.expect((await h.prop("[data-noir]", "checked")) === false, "перемикач нуару стоїть увімкненим за замовчуванням");
-      await h.tap("[data-noir]"); await h.wait(400);
-      h.expect(/grayscale\(1\)/.test(await h.css("[data-reel]", "filter")), "нуар увімкнено, а слайд лишився кольоровим — CSS не доїхав до кадру");
-      h.expect((await h.css("[data-more]", "filter")) === "none", "фільтр дістав і острівець — правило зачепило корінь, а не саму стрічку");
-      await h.back(); await h.wait(400);
-      h.expect(/grayscale\(1\)/.test(await h.css("[data-reel]", "filter")), "нуар вимкнувся разом зі шторкою");
-      await h.reload(); await ready(h);
-      h.expect(await settles(h, 3), "після перезапуску стрічка не влаштувалась");
-      h.expect(/grayscale\(1\)/.test(await h.css("[data-reel]", "filter")), "нуар не пережив перезапуск — режим не зберігається");
-      await openMore(h);
-      h.expect((await h.prop("[data-noir]", "checked")) === true, "режим увімкнений, а перемикач у шторці цього не показує");
-      await h.tap("[data-noir]"); await h.wait(400);
-      h.expect((await h.css("[data-reel]", "filter")) === "none", "нуар не вимикається — кадр лишився чорно-білим");
-      await h.back(); await h.wait(400);
-      h.expect((await h.count("[data-noir]")) === 0, "шторка лишилась відкритою — наступний системний Back дістанеться їй, а не рівню стрічки");
-    },
-  },
-  {
     name: "провалювання: акаунт відкривається як нове джерело з людською назвою, назад — той самий список", run: async (h) => {
       await ready(h);
       await settles(h, 3);
@@ -328,26 +304,6 @@ export default [
       await h.tap("[data-sess-forget]"); await h.wait(400);
       h.expect((await h.count("#sess-input")) === 0, "«Забути» не закрило шит");
       h.expect((await h.count('[data-session][aria-pressed="true"]')) === 0, "«Забути» не зняло позначку з ключа");
-    },
-  },
-  {
-    name: "нуар: сітка лайків теж знебарвлюється, а її контроли лишаються кольоровими", run: async (h) => {
-      await h.tap('[data-tab="reel"]'); await h.wait(400);
-      await ready(h);
-      await openMore(h);
-      await h.tap("[data-noir]"); await h.wait(400);
-      h.expect(/grayscale\(1\)/.test(await h.css("[data-reel]", "filter")), "нуар не увімкнувся — далі міряти нема чого");
-      await h.back(); await h.wait(400);
-      await h.tap('[data-tab="liked"]'); await h.wait(600);
-      h.expect((await h.count("[data-liked] img")) >= 1, "у сітці лайків нема жодного постера");
-      h.expect(/grayscale\(1\)/.test(await h.css("[data-liked] img", "filter")),
-        `нуар увімкнено, а постер у лайках лишився кольоровим (filter: ${await h.css("[data-liked] img", "filter")})`);
-      h.expect((await h.css("[data-liked] button", "filter")) === "none", "фільтр дістав і контроли плитки — правило зачепило забагато");
-      await h.tap('[data-tab="reel"]'); await h.wait(500);
-      await openMore(h);
-      await h.tap("[data-noir]"); await h.wait(400);
-      await h.back(); await h.wait(400);
-      h.expect((await h.count("[data-noir]")) === 0, "шторка лишилась відкритою — наступний Back дістанеться їй");
     },
   },
   {

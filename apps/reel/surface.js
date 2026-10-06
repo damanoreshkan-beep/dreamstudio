@@ -8,7 +8,7 @@ import { sourceTitle } from "/_rt/sitelabel.js";
 import { usePanX } from "/_rt/gesture.js";
 import { Pixels } from "/_rt/skeleton.js";
 import { Icon } from "./util.js";
-import { $src, $mono, $subs, markWatched, $items, $next, $loading, $err, $active, $ephemeral, $srcTitle, $frames, $restoreTo, $feedChannel } from "./store.js";
+import { $src, $subs, markWatched, $items, $next, $loading, $err, $active, $ephemeral, $srcTitle, $frames, $restoreTo, $feedChannel } from "./store.js";
 import { bindNav, popFrame, diveTarget, diveTo, checkBlankPosters, loadSource } from "./feed.js";
 import { FullClip, Slide } from "./player.js";
 import { Favicon, SourceIsland } from "./island.js";
@@ -17,14 +17,6 @@ import { MoreSheet } from "./sheets.js";
 const PRELOAD = 1;
 
 let booted = false;
-
-export function useMonoFlag() {
-  const mono = useStore($mono);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (mono === "1") root.setAttribute("data-mono", "1"); else root.removeAttribute("data-mono");
-  }, [mono]);
-}
 
 function DragReveal({ underRef, diveRef, backRef, target, targetLabel, prev }) {
   return html`<div ref=${underRef} aria-hidden="true" class="fixed inset-0 z-0 sf-inset opacity-0">
@@ -48,7 +40,6 @@ export function FeedSurface({ S, t, toast }) {
   const screen = useStore(S.screen);
   const suspended = screen === "full";
   const clean = useStore(S.clean);
-  const mono = useStore($mono);
   const underRef = useRef(), diveRef = useRef(), backRef = useRef();
   const target = diveTarget(items[active], src);
   const targetLabel = target ? sourceTitle(target, { hint: items[active]?.title }) : "";
@@ -75,7 +66,6 @@ export function FeedSurface({ S, t, toast }) {
     root.setAttribute("data-feed", "");
     return () => { root.removeAttribute("data-feed"); S.clean.set(false); };
   }, [S]);
-  useMonoFlag();
   useEffect(() => { void checkBlankPosters(); }, [items]);
   useEffect(() => { if (next && active >= items.length - 3) loadSource(next, true); }, [active, items.length, next]);
   useEffect(() => { const it = items[active]; if (!it || gate) return; const id = setTimeout(() => markWatched(it.orig || it.video), 2500); return () => clearTimeout(id); }, [active, items]);

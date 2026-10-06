@@ -9,7 +9,6 @@ import { collection, idbSupported } from "/_rt/db.js";
 import { DEFAULT_SRC, GREY_PX, MOCK, GATE_SEARCH, GATE_SUBS, GATE_CAST } from "./presets.js";
 
 export const $src = persistentAtom("reel:src", DEFAULT_SRC);
-export const $mono = persistentAtom("reel:mono", "0");
 
 const subsDB = collection("reelSubs");
 

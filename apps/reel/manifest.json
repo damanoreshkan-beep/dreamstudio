@@ -1,7 +1,7 @@
 {
   "name": "Reel",
   "short_name": "Reel",
-  "description": "Встав будь-який URL сторінки — і кожне відео на ній стає повноекранною стрічкою, що гортається сама; наступні сторінки підвантажуються, поки ти свайпаєш.",
+  "description": "Встав посилання на сторінку — і кожне відео на ній стане повноекранною стрічкою. Гортається сама, а наступні сторінки підвантажуються, поки ти свайпаєш.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
@@ -9,15 +9,6 @@
   "theme_color": "#000000",
   "background_color": "#000000",
   "lang": "uk",
-  "share_target": {
-    "action": "./",
-    "method": "GET",
-    "params": {
-      "title": "sh_title",
-      "text": "sh_text",
-      "url": "sh_url"
-    }
-  },
   "icons": [
     {
       "src": "icon.svg",
@@ -48,5 +39,14 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": {
+      "title": "sh_title",
+      "text": "sh_text",
+      "url": "sh_url"
+    }
+  }
 }

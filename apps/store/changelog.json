@@ -1,5 +1,19 @@
 [
   {
+    "id": "2026-10-06-player",
+    "date": "2026-10-06",
+    "app": "reel",
+    "uk": "У плеєрі є кнопка «на весь екран», а затиснувши кадр пальцем, ти його збільшуєш, як лупою; відпустив — усе на місці.",
+    "en": "The player has a fill-the-screen button, and holding a finger on the picture magnifies it like a loupe; let go and it is back."
+  },
+  {
+    "id": "2026-10-06-tone",
+    "date": "2026-10-06",
+    "app": "store",
+    "uk": "У профілі кожного застосунку — режим екрана: звичайний, нуар, зелений і жовтий. Обираєш один раз — діє всюди. Нуар із Reel переїхав сюди.",
+    "en": "Every app's profile now has a screen mode: normal, noir, green and amber. Pick once, it applies everywhere. Reel's noir moved here."
+  },
+  {
     "id": "2026-10-06-muzak-signin",
     "date": "2026-10-06",
     "app": "muzak",

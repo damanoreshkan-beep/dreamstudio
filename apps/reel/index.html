@@ -43,6 +43,9 @@
       "motion": "https://esm.sh/motion@11.18.2",
       "lodash-es": "https://esm.sh/lodash-es@4.17.21",
       "three": "https://esm.sh/three@0.171.0",
+      "three/addons/": "https://esm.sh/three@0.171.0/examples/jsm/",
+      "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8.20.1/dist/pixi.min.mjs",
+      "pixi-filters": "https://cdn.jsdelivr.net/npm/pixi-filters@6.1.5/dist/pixi-filters.min.mjs",
       "d3-geo": "https://esm.sh/d3-geo@3",
       "topojson-client": "https://esm.sh/topojson-client@3",
       "@microspec/core/runtime/": "/_rt/"
@@ -78,16 +81,6 @@
     @media (max-height: 560px){
       :root[data-feed] header.navbar{display:none}
     }
-    /* Noir. The filter sits on the SLIDE, not on the <video>, and that is not a style choice: the ambient
-       backdrop carries its own `filter: blur()`, and `:root[data-mono] video` (0,1,1) outranks Tailwind's
-       `.blur-2xl` (0,1,0) — it would replace the blur instead of adding to it. One pass over the section
-       drains video, poster and backdrop while their own filters stay intact. The island is a SIBLING of
-       [data-reel], so its favicon and play button keep their colour, where colour means source and action. */
-    :root[data-mono] [data-reel],
-    :root[data-mono] [role="dialog"] video,
-    /* …and the liked grid, which is nothing but frames of the same clips (owner, 2026-09-21). The IMG only:
-       the heart on each tile is an action and the caption is text, and colour is what makes an action one. */
-    :root[data-mono] [data-liked] img{filter:grayscale(1)}
   </style>
 </head>
 <body class="bg-base-200 min-h-dvh">

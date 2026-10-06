@@ -7,7 +7,7 @@ import { $likes, unlike, $items, $next, $loading, $err, $active, $ephemeral, $re
 import { pushFrame } from "./feed.js";
 import { useShareIntake } from "./share.js";
 import { SourceSheet } from "./sheets.js";
-import { useMonoFlag, FeedSurface } from "./surface.js";
+import { FeedSurface } from "./surface.js";
 
 export function reel({ S, toast }) {
   const t = useStore(S.t), screen = useStore(S.screen);
@@ -21,7 +21,6 @@ export function reel({ S, toast }) {
 export function liked({ S, toast }) {
   const t = useStore(S.t), likes = useStore($likes), owner = useStore($owner);
   useShareIntake(S, toast);
-  useMonoFlag();
   const sorted = [...likes].sort((a, b) => (b.ts || 0) - (a.ts || 0));
   if (owner === "liked") return html`<${FeedSurface} S=${S} t=${t} toast=${toast} />`;
   const playAt = (i) => {
