@@ -10,7 +10,10 @@
       "type": "tool",
       "icon": "lucide:download",
       "label": "tabSong",
-      "view": "muzak"
+      "view": "muzak",
+      "needs": [
+        "auth"
+      ]
     },
     {
       "id": "me",

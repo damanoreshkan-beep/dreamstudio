@@ -27,7 +27,7 @@ async function find(link) {
   try {
     const r = await fetch(`${VPS_PROXY}/music/meta?url=${encodeURIComponent(link)}`, { signal: AbortSignal.timeout(40000) });
     if (my !== seq) return;
-    if (!r.ok) { $meta.set(null); $err.set(errorKey(r.status)); return; }
+    if (!r.ok) { $meta.set(null); const k = errorKey(r.status); if (k) $err.set(k); return; }
     $meta.set(await r.json());
   } catch { if (my === seq) { $meta.set(null); $err.set("errMeta"); } }
   finally { if (my === seq) $busy.set(""); }
@@ -39,7 +39,7 @@ async function save(link, meta, toast, t) {
   try {
     if (gate) { toast?.(T(t, "saved")); return; }
     const r = await fetch(`${VPS_PROXY}/music/file?url=${encodeURIComponent(link)}`, { signal: AbortSignal.timeout(200000) });
-    if (!r.ok) { $err.set(errorKey(r.status) === "errMeta" ? "errFile" : errorKey(r.status)); return; }
+    if (!r.ok) { const k = errorKey(r.status); if (k) $err.set(k === "errMeta" ? "errFile" : k); return; }
     const blob = await r.blob();
     const name = `${[meta.artist, meta.title].filter(Boolean).join(" - ") || meta.id}.mp3`.replace(/[\\/:*?"<>|]/g, "");
     const a = document.createElement("a");

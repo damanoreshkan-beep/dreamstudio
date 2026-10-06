@@ -14,5 +14,5 @@ Deno.test("clock and byline: 3:33, and only what the song knows", () => {
 });
 
 Deno.test("errorKey: the edge's status becomes a sentence key", () => {
-  assertEquals([400, 413, 429, 502, 0].map(errorKey), ["errLink", "errLong", "errBusy", "errMeta", "errMeta"]);
+  assertEquals([400, 401, 413, 429, 502, 0].map(errorKey), ["errLink", "", "errLong", "errBusy", "errMeta", "errMeta"]);
 });

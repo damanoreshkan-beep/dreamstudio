@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-06-muzak-signin",
+    "date": "2026-10-06",
+    "app": "muzak",
+    "uk": "Музак скачує пісні лише після входу в акаунт — так сервіс не завалять чужі боти, і він лишається швидким для своїх.",
+    "en": "Muzak downloads songs only when you are signed in — so bots cannot flood it and it stays fast for you."
+  },
+  {
     "id": "2026-10-06-takt-beat",
     "date": "2026-10-06",
     "app": "takt",
