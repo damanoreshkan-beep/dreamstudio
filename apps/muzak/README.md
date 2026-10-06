@@ -1,22 +1,20 @@
-# Muzak
+<div align="center">
 
-Download songs from YouTube Music as MP3 files.
+<img src="icon.svg" width="84" height="84" alt="Музак">
 
-## Features
+# Музак
 
-- Paste YouTube Music or YouTube links
-- View song metadata (title, artist, duration, thumbnail)
-- One-click download to device
-- Clean, minimal UI
-- Works offline (cached)
+**Скачуй пісні з YouTube Music. Вставь посилання, побачиш обкладинку і мету — скачав.**
 
-## Backend
+![](https://img.shields.io/badge/-media-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 
-Uses `yt-dlp` on the backend via `/feed/music/{metadata,download}` routes. No storage—files are downloaded on-demand and deleted after streaming.
+</div>
 
-## Usage
+---
 
-1. Paste a YouTube Music or YouTube link
-2. View metadata and thumbnail
-3. Click Download
-4. MP3 saves to your device
+**Capabilities** —  ·  **Offline** yes  ·  **Installable** yes
+
+Part of the **[microspec farm](../../)** — an AI-authored, gated micro-PWA. Every screen is accessible,
+responsive, installable and offline by construction. Browse the whole set from the **[store](../store/)**.
+
+<sub>Generated from `spec.json` + `i18n/` by `deploy/readme.mjs` — edit the app, not this file.</sub>

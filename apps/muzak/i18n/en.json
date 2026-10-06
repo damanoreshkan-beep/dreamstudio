@@ -1,6 +1,7 @@
 {
   "title": "Muzak",
   "description": "Download songs from YouTube Music",
+  "profTagline": "Download songs from YouTube Music. Paste a link, see the cover and metadata, download.",
   "pasteUrl": "Paste a song link",
   "paste": "Paste",
   "loading": "Loading…",

@@ -5,7 +5,6 @@
   "start_url": "/store/muzak/",
   "scope": "/store/muzak/",
   "display": "fullscreen",
-  "orientation": "portrait-primary",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
