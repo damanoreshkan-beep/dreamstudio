@@ -6,7 +6,6 @@
   "tabState": "State",
   "tabPath": "Path",
   "tabMe": "Me",
-
   "pick": "What to show on the map",
   "found": "Found",
   "noHosts": "Nothing found",
@@ -25,7 +24,9 @@
   "results": "Findings",
   "searchBtn": "Search",
   "searchHint": "An IP, a domain, or your own Shodan query",
-
+  "region": "Region",
+  "shareHost": "Share",
+  "shareCopied": "Copied",
   "cat.cameras": "Cameras",
   "cat.databases": "Databases",
   "cat.access": "Access",
@@ -62,7 +63,6 @@
   "cat.vulnerable.vuln_bluekeep": "BlueKeep",
   "cat.vulnerable.vuln_eternalblue": "EternalBlue",
   "cat.vulnerable.vuln_log4shell": "Log4Shell",
-
   "kind.camera": "Camera",
   "kind.database": "Database",
   "kind.access": "Access",
@@ -73,7 +73,6 @@
   "sumPorts": "Open ports: {n}",
   "sumSafe": "No known vulnerabilities",
   "sumVulns": "Vulnerabilities: {n}",
-
   "sPlan": "Plan",
   "sQuery": "Query credits",
   "sScan": "Scan credits",
@@ -83,7 +82,6 @@
   "sUnlocked": "Unlocked",
   "yes": "yes",
   "no": "no",
-
   "toSite": "To a site",
   "toMe": "To me",
   "targetPlaceholder": "a site, e.g. example.com",
@@ -103,7 +101,6 @@
   "lblAddr6": "IPv6 address",
   "lblNames": "Who runs its names",
   "hopHidden": "hidden node",
-
   "profSource": "Source",
   "profTheme": "Dark theme",
   "profLang": "Language",

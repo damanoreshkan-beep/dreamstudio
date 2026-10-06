@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "afterdark",
-  version: "a421a31ee8",
+  version: "33888e2ab1",
   precache: [
     "./",
     "./afterdark.frag",
@@ -34,7 +34,6 @@ self.MS = {
     "/_rt/chrome.js",
     "/_rt/coins.js",
     "/_rt/coinsheet.js",
-    "/_rt/cutout.js",
     "/_rt/dash.js",
     "/_rt/db.js",
     "/_rt/decor.css",

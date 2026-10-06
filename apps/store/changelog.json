@@ -1,5 +1,19 @@
 [
   {
+    "id": "2026-10-06-fullbleed",
+    "date": "2026-10-06",
+    "app": "store",
+    "uk": "Застосунки акуратніше лягають на весь екран: смуга статусбара тепер збігається кольором із темою, без чорної плити над світлим застосунком.",
+    "en": "Apps sit more cleanly edge-to-edge: the status-bar strip now matches the theme colour, no black slab over a light app."
+  },
+  {
+    "id": "2026-10-06-mayak-list",
+    "date": "2026-10-06",
+    "app": "mayak",
+    "uk": "Маяк: пошук тепер великим полем на довгі запити, фільтр за країною, довгі IPv6 на два рядки, а на картці вузла — кнопка поділитися всією знахідкою.",
+    "en": "Mayak: a big multi-line search box for long queries, a country filter, long IPv6 on two lines, and a share button on a host card that sends the whole finding."
+  },
+  {
     "id": "2026-10-06-cutout",
     "date": "2026-10-06",
     "app": "store",

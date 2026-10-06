@@ -8,7 +8,8 @@ import { Panel, Island, Segmented } from "/_rt/ui.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session, restore } from "/_rt/auth.js";
 import { gate } from "/_rt/gate.js";
-import { CATEGORIES, KIND_OF, presetQuery, parseQuery, freeTerm } from "./categories.js";
+import { shell } from "/_rt/shell.js";
+import { CATEGORIES, COUNTRIES, KIND_OF, presetQuery, parseQuery, freeTerm } from "./categories.js";
 import fixture from "./fixture.json" with { type: "json" };
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -26,11 +27,32 @@ const nsOrg = (host) => {
 
 const color = (h) => h.vulns > 0 ? RED : ACCENT;
 
-export function map({ S, openScreen, closeScreen }) {
+// The country's name in the reader's language; "" is everywhere. Never a hardcoded dictionary.
+function regionName(cc, loc, everywhere) {
+  if (!cc) return everywhere;
+  try { return new Intl.DisplayNames([loc === "uk" ? "uk" : "en"], { type: "region" }).of(cc) || cc; } catch { return cc; }
+}
+
+// Everything the scan knows about a host, as text a person can keep — the owner wanted to send it to Telegram.
+function hostText(h, t, loc) {
+  const L = [];
+  L.push(`${T(t, "kind." + (h.kind || "access"))}${h.product ? " · " + h.product : ""}`);
+  L.push(`${h.ip}${h.port ? ":" + h.port : ""}`);
+  if (h.org) L.push(h.org);
+  const place = [h.city, regionName(h.country, loc, "")].filter(Boolean).join(", ");
+  if (place) L.push(place);
+  if (h.lat != null && h.lon != null) L.push(`${h.lat}, ${h.lon}`);
+  L.push(`Shodan: https://www.shodan.io/host/${h.ip}`);
+  return L.join("\n");
+}
+
+export function map({ S, toast, openScreen, closeScreen }) {
   const t = useStore(S.t);
+  const loc = useStore(S.locale);
   const me = useStore(session);
   const screen = useStore(S.screen);
   const [q, setQ] = useState("");
+  const [country, setCountry] = useState("");
   const [cat, setCat] = useState(gate ? null : "cameras");
   const [hosts, setHosts] = useState(gate ? fixture.matches : []);
   const [loading, setLoading] = useState(!gate);
@@ -40,13 +62,13 @@ export function map({ S, openScreen, closeScreen }) {
   const seq = useRef(0);
   const moreRef = useRef(null);
 
-  const runLive = async (query, kind) => {
+  const runLive = async (query, kind, cc = "") => {
     setShownN(PAGE);
     if (!query || gate) return;
     const my = ++seq.current;
     setReason(""); setLoading(true);
     try {
-      const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: "" }) });
+      const r = await fetch(VPS_PROXY + "/shodan/search", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ query, country: cc || "" }) });
       const j = await r.json().catch(() => null);
       if (my !== seq.current) return;
       if (r.ok && j && Array.isArray(j.matches)) {
@@ -56,7 +78,8 @@ export function map({ S, openScreen, closeScreen }) {
     } catch { if (my === seq.current) setReason("updFail"); }
     finally { if (my === seq.current) setLoading(false); }
   };
-  const liveOf = (p) => freeTerm(p) || presetQuery(p, "");
+  // With a country chosen the preset becomes a filtered query (needs credits); without one it stays the free word.
+  const liveOf = (p, cc) => (cc ? presetQuery(p, cc) : (freeTerm(p) || presetQuery(p, "")));
 
   useEffect(() => {
     if (gate) return;
@@ -65,13 +88,25 @@ export function map({ S, openScreen, closeScreen }) {
       if (!me) await restore().catch(() => null);
       if (!alive) return;
       const p = CATEGORIES.find((c) => c.id === (cat || "cameras")).presets[0];
-      runLive(liveOf(p), KIND_OF[p]);
+      runLive(liveOf(p, country), KIND_OF[p], country);
     })();
     return () => { alive = false; };
   }, [me]);
 
-  const pickCat = (id) => { setCat(id); setQ(""); const p = CATEGORIES.find((c) => c.id === id).presets[0]; runLive(liveOf(p), KIND_OF[p]); };
-  const search = () => { const query = q.trim(); if (!query) return; setCat(null); runLive(parseQuery(query, "").query, null); };
+  const pickCat = (id) => { setCat(id); setQ(""); const p = CATEGORIES.find((c) => c.id === id).presets[0]; runLive(liveOf(p, country), KIND_OF[p], country); };
+  const search = () => { const query = q.trim(); if (!query) return; setCat(null); runLive(parseQuery(query, country).query, null, country); };
+  // A new country re-runs whatever is on screen: the typed query, or the current category's preset.
+  const pickCountry = (cc) => {
+    setCountry(cc);
+    if (q.trim()) runLive(parseQuery(q.trim(), cc).query, null, cc);
+    else { const p = CATEGORIES.find((c) => c.id === (cat || "cameras")).presets[0]; runLive(liveOf(p, cc), KIND_OF[p], cc); }
+  };
+  const shareHost = async (h) => {
+    const text = hostText(h, t, loc), title = `${h.ip}${h.port ? ":" + h.port : ""}`;
+    if (shell.has("share.send")) { try { await shell.call("share.send", { title, text }); return; } catch { } }
+    if (typeof navigator !== "undefined" && navigator.share) { try { await navigator.share({ title, text }); return; } catch (e) { if (e?.name === "AbortError") return; } }
+    try { await navigator.clipboard.writeText(text); toast && toast(T(t, "shareCopied")); } catch { }
+  };
 
   const all = useMemo(() => {
     if (!gate || !cat) return hosts;
@@ -97,9 +132,14 @@ export function map({ S, openScreen, closeScreen }) {
 
   if (screen === "host" && sel) {
     return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-host=${sel.ip}>
-      <button class="btn btn-ghost btn-sm self-start gap-1.5 -ml-1" onClick=${() => closeScreen && closeScreen()} data-back>
-        ${Icon("lucide:arrow-left", "text-lg")} ${T(t, "back")}
-      </button>
+      <div class="flex items-center justify-between gap-2">
+        <button class="btn btn-ghost btn-sm gap-1.5 -ml-1" onClick=${() => closeScreen && closeScreen()} data-back>
+          ${Icon("lucide:arrow-left", "text-lg")} ${T(t, "back")}
+        </button>
+        <button class="btn btn-ghost btn-sm gap-1.5" data-share onClick=${() => shareHost(sel)} aria-label=${T(t, "shareHost")}>
+          ${Icon("lucide:share-2", "text-base")} ${T(t, "shareHost")}
+        </button>
+      </div>
       <${Globe} points=${[{ lat: sel.lat, lon: sel.lon, r: 6, color: color(sel), pulse: true }]} focus=${{ lat: sel.lat, lon: sel.lon }} spin=${false} />
       <${Panel}>
         <div class="flex items-start gap-3">
@@ -115,23 +155,39 @@ export function map({ S, openScreen, closeScreen }) {
   }
 
   const skeleton = loading && !shown.length;
+  // items-start + a wrapping min-w-0 column: a 39-char IPv6 breaks onto a second line instead of pushing the row wide.
   const rowLine = (h) => html`<button key=${h.ip + ":" + h.port} data-result=${h.ip} onClick=${() => openHost(h)}
-    class="flex items-center gap-2.5 w-full text-left py-1.5 px-1 rounded-[var(--ms-r-in)] hover:bg-base-content/5">
-    <span class="shrink-0 w-5 text-center" style=${{ color: color(h) }}>${Icon(CAT_ICON[h.kind] || "lucide:radio-tower", "text-base")}</span>
-    <span class="font-mono text-sm shrink-0">${h.ip}</span>
-    <span class="text-sm text-muted truncate grow">${h.product || kindWord(h)}${place(h) ? " · " + place(h) : ""}</span>
-    ${h.vulns > 0 ? html`<span class="shrink-0" style=${{ color: RED }}>${Icon("lucide:shield-alert", "text-sm")}</span>` : null}
-    ${Icon("lucide:chevron-right", "text-base text-base-content/40 shrink-0")}
+    class="flex items-start gap-2.5 w-full text-left py-1.5 px-1 rounded-[var(--ms-r-in)] hover:bg-base-content/5">
+    <span class="shrink-0 w-5 text-center mt-0.5" style=${{ color: color(h) }}>${Icon(CAT_ICON[h.kind] || "lucide:radio-tower", "text-base")}</span>
+    <span class="min-w-0 grow">
+      <span class="font-mono text-sm break-all">${h.ip}${h.port ? ":" + h.port : ""}</span>
+      <span class="block text-sm text-muted truncate">${h.product || kindWord(h)}${place(h) ? " · " + place(h) : ""}</span>
+    </span>
+    ${h.vulns > 0 ? html`<span class="shrink-0 mt-0.5" style=${{ color: RED }}>${Icon("lucide:shield-alert", "text-sm")}</span>` : null}
+    ${Icon("lucide:chevron-right", "text-base text-base-content/40 shrink-0 mt-0.5")}
   </button>`;
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-shown=${shown.length} data-cat=${cat || ""} data-total=${all.length}>
     <${Island}>
-      <label class="input flex items-center gap-2 h-[var(--ms-ctl)] rounded-[var(--ms-r-in)]">
-        ${Icon("lucide:search", "text-lg text-base-content/70")}
-        <input id="host-search" type="search" autocomplete="off" class="grow bg-transparent outline-none" value=${q}
-          onInput=${(e) => setQ(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter") search(); }} placeholder=${T(t, "searchPlaceholder")} />
-        ${q.trim() ? html`<button class="btn btn-ghost btn-xs btn-circle shrink-0" onClick=${search} aria-label=${T(t, "searchBtn")}>${Icon("lucide:arrow-right", "text-base")}</button>` : null}
-      </label>
+      ${/* A textarea, not an input: a Shodan query can be long and multi-token. It grows to the text (2–5 rows),
+           Enter searches, Shift+Enter is a newline. */""}
+      <div class="sf-inset rounded-[var(--ms-r-in)] flex items-start gap-2 p-2">
+        ${Icon("lucide:search", "text-lg text-base-content/70 mt-1 shrink-0")}
+        <textarea id="host-search" rows="1" autocomplete="off" spellcheck="false"
+          class="grow bg-transparent outline-none resize-none font-mono text-sm leading-snug max-h-32 py-1"
+          value=${q} onInput=${(e) => { setQ(e.target.value); const el = e.target; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 128) + "px"; }}
+          onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); search(); } }}
+          placeholder=${T(t, "searchPlaceholder")}></textarea>
+        ${q.trim() ? html`<button class="btn btn-ghost btn-xs btn-circle shrink-0 mt-0.5" onClick=${search} aria-label=${T(t, "searchBtn")}>${Icon("lucide:arrow-right", "text-base")}</button>` : null}
+      </div>
+      <div class="mt-2 flex items-center gap-2">
+        ${Icon("lucide:map-pin", "text-base text-base-content/70 shrink-0")}
+        <select id="region" data-region=${country || "all"} aria-label=${T(t, "region")} value=${country}
+          class="select select-sm sf-inset rounded-[var(--ms-r-in)] grow min-w-0 font-medium"
+          onChange=${(e) => pickCountry(e.target.value)}>
+          ${COUNTRIES.map((cc) => html`<option key=${cc || "all"} value=${cc}>${regionName(cc, loc, T(t, "everywhere"))}</option>`)}
+        </select>
+      </div>
       <div class="mt-2 flex gap-1.5 overflow-x-auto -mx-1 px-1">
         ${CATEGORIES.map((c) => {
           const on = c.id === cat;

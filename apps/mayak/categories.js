@@ -31,6 +31,10 @@ export const PRESETS = {
   vuln_log4shell: "vuln:CVE-2021-44228",
 };
 
+// The country filter's choices (ISO-2, Shodan's `country:` facet). "" is everywhere; UA leads. The names are
+// never hardcoded — the view asks Intl.DisplayNames in the reader's own language.
+export const COUNTRIES = ["", "UA", "US", "DE", "GB", "FR", "PL", "NL", "RU", "CN", "JP", "CA", "BR", "IN", "KR", "IT", "ES", "SE", "CH", "AU", "TR", "IL", "SG", "AE", "CZ", "RO", "FI", "NO", "DK", "KP"];
+
 export const CATEGORIES = [
   { id: "cameras", icon: "lucide:cctv", presets: ["camera", "cam_dahua", "cam_hik", "cam_axis", "cam_onvif", "cam_screenshot"] },
   { id: "databases", icon: "lucide:database", presets: ["databases", "db_mongo", "mongo_open", "db_redis", "db_mysql", "db_postgres", "elastic"] },
