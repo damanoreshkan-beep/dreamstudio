@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-06-mayak-peek",
+    "date": "2026-10-06",
+    "app": "mayak",
+    "uk": "На картці вузла з’явилася кнопка «Відкрити» — сторінка хоста показується в захищеній пісочниці просто в застосунку: без скриптів, куки й входу, тільки перегляд.",
+    "en": "A host card now has an Open button — the host page is shown in a locked sandbox right in the app: no scripts, cookies or login, view only."
+  },
+  {
     "id": "2026-10-06-mayak-presets",
     "date": "2026-10-06",
     "app": "mayak",

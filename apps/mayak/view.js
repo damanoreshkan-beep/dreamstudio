@@ -133,16 +133,36 @@ export function map({ S, toast, openScreen, closeScreen }) {
   const place = (h) => h.city || h.country || "";
   const summary = (h) => [place(h) ? T(t, "sumPlace", { city: place(h) }) : "", T(t, "sumPorts", { n: h.ports || 1 }), h.vulns > 0 ? T(t, "sumVulns", { n: h.vulns }) : T(t, "sumSafe")].filter(Boolean).join(". ") + ".";
 
-  if (screen === "host" && sel) {
+  if ((screen === "host" || screen === "peek") && sel) {
     return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-host=${sel.ip}>
       <div class="flex items-center justify-between gap-2">
         <button class="btn btn-ghost btn-sm gap-1.5 -ml-1" onClick=${() => closeScreen && closeScreen()} data-back>
           ${Icon("lucide:arrow-left", "text-lg")} ${T(t, "back")}
         </button>
-        <button class="btn btn-ghost btn-sm gap-1.5" data-share onClick=${() => shareHost(sel)} aria-label=${T(t, "shareHost")}>
-          ${Icon("lucide:share-2", "text-base")} ${T(t, "shareHost")}
-        </button>
+        <div class="flex items-center gap-1">
+          <button class="btn btn-ghost btn-sm gap-1.5" data-peek onClick=${() => openScreen && openScreen("peek")} aria-label=${T(t, "peekOpen")}>
+            ${Icon("lucide:globe", "text-base")} ${T(t, "peekOpen")}
+          </button>
+          <button class="btn btn-ghost btn-sm gap-1.5" data-share onClick=${() => shareHost(sel)} aria-label=${T(t, "shareHost")}>
+            ${Icon("lucide:share-2", "text-base")} ${T(t, "shareHost")}
+          </button>
+        </div>
       </div>
+      <${Sheet} id="peek" open=${screen === "peek"} onClose=${() => openScreen && openScreen("host")}
+        title=${`${sel.ip}${sel.port ? ":" + sel.port : ""}`} icon="lucide:globe" locale=${loc}>
+        <div class="flex flex-col gap-2" data-peek-sheet>
+          <div class="flex items-start gap-2 text-xs text-muted leading-snug">
+            ${Icon("lucide:shield", "text-sm shrink-0 mt-0.5")}
+            <span>${T(t, "peekHint")}</span>
+          </div>
+          <div class="rounded-[var(--ms-r-in)] overflow-hidden sf-inset bg-black" style="height:62dvh">
+            ${gate ? html`<div class="w-full h-full grid place-items-center text-muted text-sm">${T(t, "sample")}</div>`
+              : html`<iframe data-peek-frame src=${`${VPS_PROXY}/peek?ip=${encodeURIComponent(sel.ip)}&port=${encodeURIComponent(sel.port || 80)}`}
+                  sandbox="" referrerpolicy="no-referrer" loading="lazy" credentialless="true"
+                  class="w-full h-full border-0 bg-white" title=${T(t, "peekTitle")}></iframe>`}
+          </div>
+        </div>
+      <//>
       <${Globe} points=${[{ lat: sel.lat, lon: sel.lon, r: 6, color: color(sel), pulse: true }]} focus=${{ lat: sel.lat, lon: sel.lon }} spin=${false} />
       <${Panel}>
         <div class="flex items-start gap-3">
