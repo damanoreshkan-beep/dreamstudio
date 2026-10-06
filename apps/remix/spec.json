@@ -1,0 +1,31 @@
+{
+  "id": "remix",
+  "theme": "signal",
+  "category": "sound",
+  "accent": "#FF7AB6",
+  "share": true,
+  "tabs": [
+    {
+      "id": "mix",
+      "type": "tool",
+      "icon": "lucide:disc-3",
+      "label": "tabMix",
+      "view": "remix"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:disc-3",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any"
+  },
+  "added": "2026-10-07"
+}

@@ -68,6 +68,7 @@
     "/_rt/pwned.js": "./rt/pwned.js",
     "/_rt/radar.js": "./rt/radar.js",
     "/_rt/rds.js": "./rt/rds.js",
+    "/_rt/remix.js": "./rt/remix.js",
     "/_rt/ride.js": "./rt/ride.js",
     "/_rt/ripple.js": "./rt/ripple.js",
     "/_rt/rtlsdr.js": "./rt/rtlsdr.js",
