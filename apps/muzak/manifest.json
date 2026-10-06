@@ -39,5 +39,14 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "./",
+    "method": "GET",
+    "params": {
+      "title": "sh_title",
+      "text": "sh_text",
+      "url": "sh_url"
+    }
+  }
 }

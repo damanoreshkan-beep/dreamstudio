@@ -6,6 +6,7 @@ import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { Panel } from "/_rt/ui.js";
+import { takeShared, firstLink } from "/_rt/share.js";
 import { videoId, clock, byline, errorKey, FIXTURE_LINK, FIXTURE_META } from "/_rt/muzak.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
@@ -14,6 +15,8 @@ const $meta = atom(gate ? FIXTURE_META : null);
 const $busy = atom("");        // "" | "meta" | "file"
 const $err = atom("");
 let seq = 0;
+// A link shared from another app (the OS share sheet, spec.share) is the whole gesture: it lands in the field and is looked up at once.
+takeShared((s) => { const link = firstLink(s) || String(s.text || "").trim(); if (link) { $link.set(link); find(link); } });
 
 async function find(link) {
   const id = videoId(link);

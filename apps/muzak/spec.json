@@ -3,6 +3,7 @@
   "theme": "signal",
   "category": "sound",
   "accent": "#F2B84B",
+  "share": true,
   "tabs": [
     {
       "id": "song",

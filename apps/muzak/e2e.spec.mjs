@@ -32,6 +32,14 @@ export default [
     },
   },
   {
+    name: "шерінг: посилання з іншого застосунку лягає в поле і одразу шукається; адреса очищена", run: async (h) => {
+      await h.goto("sh_text=" + encodeURIComponent("дивись https://youtu.be/dQw4w9WgXcQ"), 800); await ready(h); await h.wait(300);
+      h.expect((await h.prop("[data-link]", "value")).includes("youtu.be/dQw4w9WgXcQ"), "посилання не лягло в поле");
+      h.expect((await h.attr("[data-muzak]", "data-song")) === "dQw4w9WgXcQ", "картка не знайшлась");
+      h.expect(!(await h.prop("body", "baseURI")).includes("sh_text"), "sh_text лишився в адресі");
+    },
+  },
+  {
     name: "i18n EN/UA", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);

@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-06-muzak-share",
+    "date": "2026-10-06",
+    "app": "muzak",
+    "uk": "Музак тепер є в меню «Поділитися»: поділись посиланням з YouTube Music — і пісня одразу знайдеться.",
+    "en": "Muzak is now in the Share menu: share a YouTube Music link and the song is found at once."
+  },
+  {
     "id": "2026-10-06-muzak",
     "date": "2026-10-06",
     "app": "muzak",
