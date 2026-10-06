@@ -1,10 +1,14 @@
 {
   "name": "Фронтир",
   "short_name": "Фронтир",
-  "description": "Фронтир OSS — свіжі проривні проєкти з GitHub: мова, зорі, форки й опис українською",
+  "description": "Свіжі проривні проєкти з GitHub. Що нового з'явилось і чому про це говорять — з описом українською.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

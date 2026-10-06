@@ -1,10 +1,14 @@
 {
   "name": "Поголос",
   "short_name": "Поголос",
-  "description": "Off-grid чат по Bluetooth: повідомлення йдуть від телефона до телефона, стрибками, без інтернету й без сервера. Сумісний з bitchat.",
+  "description": "Чат без інтернету — по Bluetooth, від телефона до телефона. Повідомлення стрибають між людьми поруч, без мережі й без сервера. Сумісний із bitchat.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

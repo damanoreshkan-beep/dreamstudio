@@ -43,6 +43,9 @@
       "motion": "https://esm.sh/motion@11.18.2",
       "lodash-es": "https://esm.sh/lodash-es@4.17.21",
       "three": "https://esm.sh/three@0.171.0",
+      "three/addons/": "https://esm.sh/three@0.171.0/examples/jsm/",
+      "pixi.js": "https://cdn.jsdelivr.net/npm/pixi.js@8.20.1/dist/pixi.min.mjs",
+      "pixi-filters": "https://cdn.jsdelivr.net/npm/pixi-filters@6.1.5/dist/pixi-filters.min.mjs",
       "d3-geo": "https://esm.sh/d3-geo@3",
       "topojson-client": "https://esm.sh/topojson-client@3",
       "@microspec/core/runtime/": "/_rt/"
@@ -57,8 +60,8 @@
     import spec from "./spec.json" with { type: "json" };
     import en from "./i18n/en.json" with { type: "json" };
     import uk from "./i18n/uk.json" with { type: "json" };
-    import { load } from "./data.js";
     import * as views from "./view.js";
+    import { load } from "./data.js";
     import { start } from "/_rt/index.js";
     start({ ...spec, i18n: { en, uk } }, { load, views });
   </script>

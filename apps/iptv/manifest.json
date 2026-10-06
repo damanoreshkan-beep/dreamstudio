@@ -1,10 +1,14 @@
 {
   "name": "IPTV",
   "short_name": "IPTV",
-  "description": "Прямий ефір публічних IPTV-каналів зі списку iptv-org — за країнами й категоріями, з плеєром",
+  "description": "Прямий ефір телеканалів з усього світу. Обирай країну чи жанр і дивись одразу в застосунку.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

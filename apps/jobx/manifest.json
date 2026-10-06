@@ -1,10 +1,14 @@
 {
   "name": "jobx",
   "short_name": "jobx",
-  "description": "Робота на 3D-карті Києва — від людей, для людей.",
+  "description": "Робота на 3D-карті міста — від людей, для людей.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

@@ -1,10 +1,14 @@
 {
   "name": "Компас",
   "short_name": "Компас",
-  "description": "Компас, що показує ІСТИННУ північ, а не магнітну. Схилення рахується на пристрої за World Magnetic Model 2025 (NGA/NOAA) — 90 коефіцієнтів, звірених зі 100 еталонами NOAA. Без інтернету, без ключів",
+  "description": "Компас, що показує справжню північ, а не магнітну. Точний у будь-якій точці світу й працює без інтернету.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

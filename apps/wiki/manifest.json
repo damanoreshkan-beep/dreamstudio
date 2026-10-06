@@ -5,6 +5,10 @@
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#F6F4EE",
   "background_color": "#F6F4EE",

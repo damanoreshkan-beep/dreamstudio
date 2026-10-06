@@ -1,10 +1,14 @@
 {
   "name": "Звуки",
   "short_name": "Звуки",
-  "description": "20 ambient-звуків для сну й фокусу — вода, погода, природа, тони, шум, машини — усе синтезується наживо, без файлів, офлайн",
+  "description": "20 звуків для сну й зосередження. Вода, погода, природа, шум і машини — змішуй свої та слухай без інтернету.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

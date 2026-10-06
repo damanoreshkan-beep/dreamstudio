@@ -1,10 +1,14 @@
 {
   "name": "Зламано?",
   "short_name": "Зламано?",
-  "description": "Перевір, чи пароль у витоку — не надсилаючи його (k-анонімність)",
+  "description": "Перевір, чи твій пароль потрапив у витік. Сам пароль нікуди не надсилається.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

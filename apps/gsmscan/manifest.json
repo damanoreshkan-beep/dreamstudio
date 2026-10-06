@@ -1,10 +1,14 @@
 {
   "name": "GSM-сканер",
   "short_name": "GSM-сканер",
-  "description": "Скануй GSM-діапазон навколо тебе своїм HackRF",
+  "description": "Подивись, які мобільні вежі працюють довкола тебе. Потрібен приймач HackRF.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

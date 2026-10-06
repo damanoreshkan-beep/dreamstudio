@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "pipette",
-  version: "3ded2dd223",
+  version: "a05fb03164",
   precache: [
     "./",
     "./i18n/en.json",
@@ -24,6 +24,7 @@ self.MS = {
     "/_rt/camstage.js",
     "/_rt/chrome.js",
     "/_rt/colour.js",
+    "/_rt/cutout.js",
     "/_rt/dash.js",
     "/_rt/db.js",
     "/_rt/decor.css",

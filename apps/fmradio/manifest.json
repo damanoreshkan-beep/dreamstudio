@@ -1,10 +1,14 @@
 {
   "name": "FM-радіо",
   "short_name": "FM-радіо",
-  "description": "Живе FM, декодоване на пристрої з твого HackRF",
+  "description": "Справжнє FM-радіо у твоєму телефоні. Потрібен приймач HackRF.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

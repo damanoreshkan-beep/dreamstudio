@@ -1,10 +1,14 @@
 {
   "name": "Гомін",
   "short_name": "Гомін",
-  "description": "Усе, що говорить на 433 МГц",
+  "description": "Почуй пульти, датчики й метеостанції довкола. Усе, що тихо перемовляється по радіо поруч із тобою. Потрібен приймач HackRF.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

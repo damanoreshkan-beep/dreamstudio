@@ -1,10 +1,14 @@
 {
   "name": "Кіно",
   "short_name": "Кіно",
-  "description": "Кіно — фільми суспільного надбання з Internet Archive: дивись просто в застосунку, продовжуй з того місця, де зупинився",
+  "description": "Класика кіно, яку можна дивитися безкоштовно. Фільми з Internet Archive просто в застосунку — продовжуй з того місця, де зупинився.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

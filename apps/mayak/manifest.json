@@ -1,10 +1,14 @@
 {
   "name": "Маяк",
   "short_name": "Маяк",
-  "description": "Промінь по мережі: хости на глобусі, стан ключа, шлях до будь-якого вузла",
+  "description": "Промінь по мережі: що відкрито у світі, стан ключа, шлях до будь-якого сайту",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

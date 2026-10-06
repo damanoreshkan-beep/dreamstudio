@@ -1,10 +1,14 @@
 {
   "name": "APK Forge",
   "short_name": "APK Forge",
-  "description": "Перетвори будь-який веб-застосунок на встановлюваний Android-APK — прямо тут, без сервера збірки. Введи URL і отримай підписаний WebView-APK з назвою та іконкою сайту, готовий до sideload.",
+  "description": "Зроби з будь-якого сайту застосунок для Android. Встав адресу — і отримай готовий файл із назвою та іконкою сайту, який ставиться на телефон.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

@@ -1,10 +1,14 @@
 {
   "name": "LoRa Watch",
   "short_name": "LoRa Watch",
-  "description": "Дивись і декодуй LoRa у діапазоні 868 МГц своїм HackRF",
+  "description": "Побач сигнали LoRa довкола себе — датчики, лічильники, трекери. Потрібен приймач HackRF.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",
