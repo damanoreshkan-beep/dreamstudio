@@ -1,0 +1,34 @@
+{
+  "name": "Muzak",
+  "short_name": "Muzak",
+  "description": "Download songs from YouTube Music",
+  "start_url": "/store/muzak/",
+  "scope": "/store/muzak/",
+  "display": "fullscreen",
+  "orientation": "portrait-primary",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["music", "productivity"],
+  "screenshots": [
+    {
+      "src": "/store/muzak/assets/shot-muzak--air.webp",
+      "sizes": "540x720",
+      "type": "image/webp",
+      "form_factor": "narrow"
+    },
+    {
+      "src": "/store/muzak/assets/shot-muzak--air--light.webp",
+      "sizes": "540x720",
+      "type": "image/webp",
+      "form_factor": "narrow"
+    }
+  ]
+}

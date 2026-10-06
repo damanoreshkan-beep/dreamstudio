@@ -1,0 +1,18 @@
+{
+  "title": "Музак",
+  "description": "Скачуй пісні з YouTube Music",
+  "pasteUrl": "Вставь посилання на пісню",
+  "paste": "Вставити",
+  "loading": "Завантажую…",
+  "fetchingMeta": "Беру метадані…",
+  "download": "Скачати",
+  "downloading": "Скачується…",
+  "errorInvalidUrl": "Введи коректне посилання на YouTube",
+  "errorNetworkError": "Помилка мережі. Спробуй ще раз",
+  "errorDownloadFailed": "Скачування не вдалося",
+  "errorMetaFailed": "Не можу взяти метадані пісні",
+  "empty": "Вставь посилання на пісню з YouTube Music",
+  "artist": "Артист",
+  "duration": "Тривалість",
+  "copied": "Скопійовано"
+}

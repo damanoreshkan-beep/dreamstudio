@@ -1,0 +1,18 @@
+{
+  "title": "Muzak",
+  "description": "Download songs from YouTube Music",
+  "pasteUrl": "Paste a song link",
+  "paste": "Paste",
+  "loading": "Loading…",
+  "fetchingMeta": "Fetching metadata…",
+  "download": "Download",
+  "downloading": "Downloading…",
+  "errorInvalidUrl": "Enter a valid YouTube link",
+  "errorNetworkError": "Network error. Try again",
+  "errorDownloadFailed": "Download failed",
+  "errorMetaFailed": "Failed to fetch song metadata",
+  "empty": "Paste a YouTube Music link to start",
+  "artist": "Artist",
+  "duration": "Duration",
+  "copied": "Copied"
+}

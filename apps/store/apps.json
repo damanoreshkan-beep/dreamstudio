@@ -3226,5 +3226,41 @@
     "needs": [
       "wakeLock"
     ]
+  },
+  {
+    "id": "muzak",
+    "title": "Музак",
+    "titles": {
+      "en": "Muzak",
+      "uk": "Музак"
+    },
+    "tagline": "Скачуй пісні з YouTube Music. Вставь посилання, побачиш обкладинку і мету — скачав.",
+    "taglines": {
+      "en": "Download songs from YouTube Music. Paste a link, see the cover and metadata, download.",
+      "uk": "Скачуй пісні з YouTube Music. Вставь посилання, побачиш обкладинку і мету — скачав."
+    },
+    "glyph": "lucide:music",
+    "art": "<circle cx=\"12\" cy=\"12\" r=\"2.4\"/><path d=\"M12 2v8m4-6v10\"/>",
+    "icon": true,
+    "screens": {
+      "en": [
+        "Download",
+        "Metadata"
+      ],
+      "uk": [
+        "Скачування",
+        "Метадані"
+      ]
+    },
+    "shots": [
+      "download",
+      "meta"
+    ],
+    "bg": "#000000",
+    "fg": "#f2b84b",
+    "href": "./muzak/",
+    "version": "1.0",
+    "category": "media",
+    "needs": []
   }
 ]
