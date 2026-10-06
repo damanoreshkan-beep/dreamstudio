@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-06-muzak",
+    "date": "2026-10-06",
+    "app": "muzak",
+    "uk": "Новий застосунок — Музак: вставив посилання з YouTube Music і отримав пісню як mp3 з обкладинкою, назвою й виконавцем усередині.",
+    "en": "New app — Muzak: paste a YouTube Music link and get the song as an mp3 with its cover, title and artist inside."
+  },
+  {
     "id": "2026-10-05-takt",
     "date": "2026-10-05",
     "app": "takt",

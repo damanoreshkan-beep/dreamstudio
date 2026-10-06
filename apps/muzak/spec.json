@@ -1,6 +1,29 @@
 {
-  "title": "Muzak",
-  "icon": "icon.webp",
-  "category": "media",
-  "ordinal": 50
+  "id": "muzak",
+  "theme": "signal",
+  "category": "sound",
+  "accent": "#F2B84B",
+  "tabs": [
+    {
+      "id": "song",
+      "type": "tool",
+      "icon": "lucide:download",
+      "label": "tabSong",
+      "view": "muzak"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:download",
+    "theme": true,
+    "lang": true,
+    "install": true
+  },
+  "added": "2026-10-06"
 }

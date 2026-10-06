@@ -33,6 +33,7 @@ import "./tests/ism433_test.js";
 import "./tests/langid_test.js";
 import "./tests/lora_test.js";
 import "./tests/motion_test.js";
+import "./tests/muzak_test.js";
 import "./tests/natal_test.js";
 import "./tests/ook_test.js";
 import "./tests/oui_test.js";

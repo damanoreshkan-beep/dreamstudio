@@ -1,33 +1,43 @@
 {
-  "name": "Muzak",
-  "short_name": "Muzak",
-  "description": "Download songs from YouTube Music",
-  "start_url": "/store/muzak/",
-  "scope": "/store/muzak/",
+  "name": "Музак",
+  "short_name": "Музак",
+  "description": "Вставив посилання з YouTube Music — отримав пісню як mp3 з обкладинкою. Назва, виконавець і альбом уже всередині файлу.",
+  "start_url": "./",
+  "scope": "./",
   "display": "fullscreen",
-  "background_color": "#000000",
+  "orientation": "any",
   "theme_color": "#000000",
+  "background_color": "#000000",
+  "lang": "uk",
   "icons": [
     {
-      "src": "icon.webp",
-      "sizes": "512x512",
-      "type": "image/webp",
-      "purpose": "any"
-    }
-  ],
-  "categories": ["music", "productivity"],
-  "screenshots": [
-    {
-      "src": "/store/muzak/assets/shot-muzak--air.webp",
-      "sizes": "540x720",
-      "type": "image/webp",
-      "form_factor": "narrow"
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
     },
     {
-      "src": "/store/muzak/assets/shot-muzak--air--light.webp",
-      "sizes": "540x720",
-      "type": "image/webp",
-      "form_factor": "narrow"
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

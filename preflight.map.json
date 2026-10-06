@@ -57,6 +57,7 @@
     "/_rt/langid.js": "./rt/langid.js",
     "/_rt/lora.js": "./rt/lora.js",
     "/_rt/motion.js": "./rt/motion.js",
+    "/_rt/muzak.js": "./rt/muzak.js",
     "/_rt/natal.js": "./rt/natal.js",
     "/_rt/ook.js": "./rt/ook.js",
     "/_rt/oui.js": "./rt/oui.js",
