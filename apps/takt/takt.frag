@@ -88,7 +88,8 @@ void main(){
   float light = env.x, drive = ink.z, flash = ink.w;
   vec4 LA = points[0], PA = points[1], LB = points[2], PB = points[3];
   float zoom = points[4].x, spin = points[4].y, phrase = points[4].z, bar = points[4].w, flick = points[5].x;
-  p *= 1.0 - 0.06*pulse;                                          // the kick pulls the field in
+  float punch = pow(1.0 - beat, 3.0);                             // the beat clock's own kick: hard at the downbeat, gone by the next
+  p *= 1.0 - 0.05*pulse - 0.07*punch;                             // the kick pulls the field in
   int fa = int(ink.x + 0.5), fb = int(ink.y + 0.5);
   float v = field(fa, p, LA, zoom, spin, flick, beat, bar, pulse);
   vec4 P = PA;
@@ -100,7 +101,7 @@ void main(){
   vec3 hue = pal(v + phrase*0.05, P);                            // the hue rides the value; the value is the light
   float l = smoothstep(0.2, 0.85, v); l *= l;
   float core = pow(v, 6.0)*0.7;
-  float gain = (0.75 + 0.25*drive)*(0.9 + 0.25*pulse);
+  float gain = (0.75 + 0.25*drive)*(0.85 + 0.25*pulse + 0.3*punch);
   vec3 neon = (hue*l + mix(hue, vec3(1.0), 0.6)*core)*gain + flash*0.9;   // dark theme: neon on black, white-hot cores
   vec3 paper = mix(vec3(0.95), hue*0.45, (l + core*0.5)*gain);    // light theme: the same field as ink on paper
   vec3 col = mix(neon, paper, light);

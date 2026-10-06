@@ -22,11 +22,14 @@ signal). `lead` = `outputLatency + baseLatency + 1/60` so the visuals anticipate
 ## The conductor — `rt/takt.js`
 Order is the beat grid; randomness is an R3 quasirandom sequence (Roberts: `frac(0.5 + n·(1/g, 1/g², 1/g³))`,
 `g = 1.2207440846`), so picks are evenly spread and never clump or repeat a run. Schedule:
-- every **beat**: `flick` advances (cells re-roll, lattice rows step, a few cells blink)
-- every **bar** (4): hue drifts 0.012 in the look's direction, warp mutates ±0.075
-- every **16 beats**: palette jump (hue +0.18–0.68, new spread and saturation)
-- every **32 beats** (an 8-bar phrase): a new family, chosen by a Markov table that forbids a self-loop,
-  halves the family before last and prefers hard after soft; it arrives over 4 beats as a block dissolve
+- every **beat**: a LUNGE — zoom and the bar's turn jump by one step, fast at the kick and settled before
+  the next (`1 − (1 − phase)³`), and the field punches in 7 % and brightens 30 % at the downbeat, decaying
+  with the beat clock itself; `flick` advances (cells re-roll, lattice rows step, a few cells blink).
+  Owner, 2026-10-06: a continuous drift "barely floats" even when it is measured in beats — motion has to land ON the grid.
+- every **bar** (4): hue drifts 0.02 in the look's direction, warp mutates ±0.15
+- every **8 beats**: palette jump (hue +0.18–0.68, new spread and saturation)
+- every **16 beats** (a 4-bar phrase): a new family, chosen by a Markov table that forbids a self-loop,
+  halves the family before last and prefers hard after soft; it arrives over 2 beats as a block dissolve
   (14 blocks per frame-height, random order by hash)
 - a **drop** — a bar whose 2-beat energy is > 1.4× the 32-beat mean after ≥ 2 quiet bars (< 0.7×) — is a
   hard cut: new family at once, white flash decaying at 4/s, and the phrase clock re-anchors there.

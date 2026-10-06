@@ -1,5 +1,12 @@
 [
   {
+    "id": "2026-10-06-takt-beat",
+    "date": "2026-10-06",
+    "app": "takt",
+    "uk": "Такт б'є в такт: поле стрибає на кожну долю, картина змінюється кожні чотири такти. А коли грає й ти не торкаєшся екрана — ховається навіть кнопка.",
+    "en": "Takt hits the beat: the field jumps on every beat and the picture changes every four bars. Left untouched while playing, even the button hides."
+  },
+  {
     "id": "2026-10-06-muzak-share",
     "date": "2026-10-06",
     "app": "muzak",

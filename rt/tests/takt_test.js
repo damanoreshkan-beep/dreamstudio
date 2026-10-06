@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { FAMILIES, PHRASE, PALETTE_EVERY, FADE_BEATS, r3, nextFamily, look, createScore, stepScore } from "../takt.js";
+import { FAMILIES, PHRASE, PALETTE_EVERY, FADE_BEATS, ZOOM_PER_BEAT, r3, nextFamily, look, createScore, stepScore, lunge } from "../takt.js";
 
 const FR = 60, BPM = 128;
 // Runs the score beat by beat at 60 fps; `energy(beatIndex)` shapes the music.
@@ -91,11 +91,16 @@ Deno.test("drop: a loud bar after two quiet bars cuts hard — new family, flash
   assert(s.flash < 0.01, "flash did not decay");
 });
 
-Deno.test("steady music: no cut, zoom advances a quarter per beat, same seed = same score", () => {
+Deno.test("lunge: starts fast, lands at 1, never overshoots", () => {
+  assertEquals(lunge(0), 0); assertEquals(lunge(1), 1);
+  assert(lunge(0.25) > 0.55 && lunge(0.5) > 0.85 && lunge(1.5) === 1 && lunge(-1) === 0);
+});
+
+Deno.test("steady music: no cut, zoom lunges one step per beat, same seed = same score", () => {
   const a = createScore(0.33), b = createScore(0.33);
   const oa = run(a, 40, () => 0.35), ob = run(b, 40, () => 0.35);
   assertEquals(a.cuts, 0);
-  assert(Math.abs(a.zoom - 10) < 0.3, `zoom ${a.zoom}`);
+  assert(Math.abs(a.zoom - 40 * ZOOM_PER_BEAT) < 0.3, `zoom ${a.zoom}`);
   assertEquals(oa.points, ob.points);
   assertEquals(oa.ink, ob.ink);
 });

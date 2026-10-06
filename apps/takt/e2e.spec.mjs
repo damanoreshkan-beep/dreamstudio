@@ -6,6 +6,7 @@ export default [
     name: "ефір: поле + одна кнопка, під гейтом грає без мережі, панель на місці", run: async (h) => {
       await ready(h); await h.wait(400);
       h.expect((await h.count("[data-stage]")) === 1, "немає полотна поля");
+      h.expect(!(await h.attr("[data-stage]", "data-err")), "шейдер не зібрався: " + (await h.attr("[data-stage]", "data-err")));
       h.expect((await h.count("#play")) === 1, "немає кнопки відтворення");
       h.expect((await h.count("#prev")) + (await h.count("#next")) === 0, "зайві клавіші транспорту");
       h.expect((await h.attr(wrap, "data-state")) === "live", "стан не live під гейтом");
