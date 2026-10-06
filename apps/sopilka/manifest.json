@@ -4,11 +4,7 @@
   "description": "Українська сопілка у твоєму телефоні. Закривай отвори пальцями, як на справжній, і грай мелодії — ноти плавно перетікають одна в одну.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

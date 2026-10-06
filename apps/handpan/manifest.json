@@ -4,11 +4,7 @@
   "description": "Хендпан, на якому справді можна грати. Торкайся полів — і він дзвенить, як справжній: 10 строїв, 5 голосів, запис власних мелодій і режим, що сам веде спокійну лінію.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

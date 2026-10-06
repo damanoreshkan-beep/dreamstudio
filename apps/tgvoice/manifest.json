@@ -4,11 +4,7 @@
   "description": "Перетворює голосові з Телеграму на текст. Поділися голосівкою в застосунок — і читай замість слухати. Українська, російська й англійська; усе відбувається на твоєму телефоні, без хмари й акаунта.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

@@ -4,11 +4,7 @@
   "description": "Розклади на картах Таро Райдера-Вейта. Карта дня або один із дев'яти розкладів — від швидких трьох карт до Кельтського хреста, з поясненням кожної позиції. Працює без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

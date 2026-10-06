@@ -4,11 +4,7 @@
   "description": "Вивчай колоду: усі 78 карт Райдера-Вейта за структурою, кожна на весь екран — переверни її, і дух карти дасть розсудливу пораду для обох положень.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

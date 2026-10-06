@@ -4,11 +4,7 @@
   "description": "Відкриті застосунки з GitHub за платформами — Windows, macOS, Linux, Android: зірки, мова, ліцензія",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

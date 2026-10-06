@@ -4,11 +4,7 @@
   "description": "Перетвори телефон на датчик руху. Він нечутно «прослуховує» кімнату й показує, коли поруч щось рухається. Нічого не записується й нікуди не надсилається.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

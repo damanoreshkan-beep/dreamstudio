@@ -4,11 +4,7 @@
   "description": "Кіно з тексту або фото: напиши, що відбувається, або дай кадр — і він оживе на кілька секунд.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

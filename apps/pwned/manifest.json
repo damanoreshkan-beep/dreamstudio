@@ -4,11 +4,7 @@
   "description": "Перевір, чи твій пароль потрапив у витік. Сам пароль нікуди не надсилається.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

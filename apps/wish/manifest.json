@@ -4,11 +4,7 @@
   "description": "Список бажань — кілька списків, ціни й пріоритети, повний офлайн; дані лишаються на пристрої",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

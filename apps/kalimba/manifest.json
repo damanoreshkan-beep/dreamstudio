@@ -4,11 +4,7 @@
   "description": "Калімба на весь екран: 17 пелюсток під пальцями. Шість голосів, різні строї, готові пісні — або дай їй самій зіграти мелодію. Грає без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

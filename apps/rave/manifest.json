@@ -4,11 +4,7 @@
   "description": "Техно-студія в кишені. Складай біти на сітці, додавай ефекти, зберігай — або дай генератору зіграти самому. А над усім — 3D-сцена, що танцює під твій мікс.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

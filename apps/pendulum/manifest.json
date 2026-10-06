@@ -4,11 +4,7 @@
   "description": "Споглядальний маятник, що гойдається між протилежностями — один подих на кожен змах. Втягуєш думку — викидаєш; створення і руйнування, усе і ніщо. Дихай разом із ним.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

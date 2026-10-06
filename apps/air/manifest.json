@@ -4,11 +4,7 @@
   "description": "Якість повітря наживо — європейський індекс, ключові забрудники та прогноз пилку",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

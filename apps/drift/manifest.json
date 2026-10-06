@@ -4,11 +4,7 @@
   "description": "Нескінченна спокійна музика, що ніколи не повторюється. Десять настроїв — від глибокого космосу до теплого лоу-фаю — для роботи, сну й тиші. Грає без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

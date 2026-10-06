@@ -4,11 +4,7 @@
   "description": "Місто гасне за спиною, а з темряви біжать ті, кого вона вже забрала. Біжи, поки світять ліхтарі — і зроби бігуна зі своїх слів або зі свого фото.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

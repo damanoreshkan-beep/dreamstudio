@@ -4,11 +4,7 @@
   "description": "20 звуків для сну й зосередження. Вода, погода, природа, шум і машини — змішуй свої та слухай без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

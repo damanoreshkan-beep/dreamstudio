@@ -4,11 +4,7 @@
   "description": "Звуки космічних станцій для зосередження і сну. Реакторний відсік, командний місток, кріокапсули чи покинутий корабель — гул корпусу, вентиляція й далекі сигнали. Грає без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

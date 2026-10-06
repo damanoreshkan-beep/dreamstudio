@@ -4,11 +4,7 @@
   "description": "Книга Перемін: постав питання й кинь гексаграму. Чесний жереб стеблами деревію або трьома монетами, рухомі лінії та друга гексаграма — і зрозуміле тлумачення.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

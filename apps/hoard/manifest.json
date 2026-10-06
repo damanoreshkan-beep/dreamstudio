@@ -4,11 +4,7 @@
   "description": "Ставка перетворюється на живе золото — воно тече, доки ти працюєш, і лягає у скарбницю",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

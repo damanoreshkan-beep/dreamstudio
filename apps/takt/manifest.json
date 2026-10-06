@@ -4,11 +4,7 @@
   "description": "Одна кнопка — і техно-радіо грає без перерви. Світло на екрані живе в такт музиці: ніколи не повторюється, але завжди тримає ритм.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

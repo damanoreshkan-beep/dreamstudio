@@ -4,11 +4,7 @@
   "description": "Редагування Вікіпедії з усього світу в реальному часі — пульс людських знань",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

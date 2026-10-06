@@ -4,11 +4,7 @@
   "description": "Свіжі проривні проєкти з GitHub. Що нового з'явилось і чому про це говорять — з описом українською.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

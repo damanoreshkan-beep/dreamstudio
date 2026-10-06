@@ -4,11 +4,7 @@
   "description": "Щоденний гороскоп твого знака — вчора, сьогодні й завтра. Із зоряними оцінками дня; останній прогноз лишається з тобою навіть без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

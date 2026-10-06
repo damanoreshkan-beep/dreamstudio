@@ -4,11 +4,7 @@
   "description": "Встав посилання на сторінку — і кожне відео на ній стане повноекранною стрічкою. Гортається сама, а наступні сторінки підвантажуються, поки ти свайпаєш.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

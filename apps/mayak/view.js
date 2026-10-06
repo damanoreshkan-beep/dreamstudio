@@ -4,7 +4,7 @@ import { useStore } from "@nanostores/preact";
 import { animate, stagger } from "motion";
 import { T } from "/_rt/i18n.js";
 import { Globe } from "/_rt/globe.js";
-import { Panel, Island, Segmented } from "/_rt/ui.js";
+import { Panel, Island, Segmented, Sheet } from "/_rt/ui.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { session, restore } from "/_rt/auth.js";
 import { gate } from "/_rt/gate.js";
@@ -93,7 +93,10 @@ export function map({ S, toast, openScreen, closeScreen }) {
     return () => { alive = false; };
   }, [me]);
 
+  const catOfPreset = (p) => (CATEGORIES.find((c) => c.presets.includes(p)) || CATEGORIES[0]).id;
   const pickCat = (id) => { setCat(id); setQ(""); const p = CATEGORIES.find((c) => c.id === id).presets[0]; runLive(liveOf(p, country), KIND_OF[p], country); };
+  // A specific sweet from the library: run its query, highlight its category, close the sheet.
+  const runPreset = (p) => { setCat(catOfPreset(p)); setQ(""); runLive(liveOf(p, country), KIND_OF[p], country); closeScreen && closeScreen(); };
   const search = () => { const query = q.trim(); if (!query) return; setCat(null); runLive(parseQuery(query, country).query, null, country); };
   // A new country re-runs whatever is on screen: the typed query, or the current category's preset.
   const pickCountry = (cc) => {
@@ -189,6 +192,11 @@ export function map({ S, toast, openScreen, closeScreen }) {
         </select>
       </div>
       <div class="mt-2 flex gap-1.5 overflow-x-auto -mx-1 px-1">
+        <button data-presets-btn aria-label=${T(t, "presetsTitle")}
+          class="flex items-center gap-1.5 shrink-0 rounded-full px-3 h-8 text-sm sf-raised"
+          onClick=${() => openScreen && openScreen("presets")}>
+          <span style=${{ color: ACCENT }}>${Icon("lucide:sparkles", "text-base")}</span>${T(t, "presetsBtn")}
+        </button>
         ${CATEGORIES.map((c) => {
           const on = c.id === cat;
           return html`<button key=${c.id} data-cat-btn=${c.id} aria-pressed=${on}
@@ -218,6 +226,24 @@ export function map({ S, toast, openScreen, closeScreen }) {
       ${hasMore ? html`<div ref=${moreRef} class="pt-2">
         <button class="btn btn-ghost btn-sm w-full" onClick=${() => setShownN((n) => n + PAGE)} data-more>${T(t, "more")}</button>
       </div>` : null}
+    <//>
+
+    ${/* The library of ready queries ("sweets"), grouped by category, each with a plain line of what it finds.
+         Research-only: a tap runs the search; Маяк never logs in anywhere. */""}
+    <${Sheet} id="presets" open=${screen === "presets"} onClose=${() => closeScreen && closeScreen()}
+      title=${T(t, "presetsTitle")} icon="lucide:sparkles" locale=${loc}>
+      <div class="flex flex-col gap-4" data-presets>
+        ${CATEGORIES.map((c) => html`<div key=${c.id} class="flex flex-col gap-1">
+          <div class=${LABEL + " flex items-center gap-1.5 px-1"}>${Icon(c.icon, "text-sm")} ${T(t, "cat." + c.id)}</div>
+          <div class="flex flex-col divide-y divide-base-300/40">
+            ${c.presets.map((p) => html`<button key=${p} data-preset=${p} onClick=${() => runPreset(p)}
+              class="text-left py-2 px-1 rounded-[var(--ms-r-in)] hover:bg-base-content/5">
+              <span class="font-medium text-sm">${T(t, "cat." + c.id + "." + p)}</span>
+              <span class="block text-xs text-muted leading-snug mt-0.5">${T(t, "desc." + p)}</span>
+            </button>`)}
+          </div>
+        </div>`)}
+      </div>
     <//>
   </div>`;
 }

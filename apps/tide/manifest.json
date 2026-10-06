@@ -4,11 +4,7 @@
   "description": "Живе радіо, яке видно: шістдесят станцій у шести течіях. Deep, Groove, Signal, Bass, Україна, Roots — плавні переходи між станціями й керування з екрана блокування.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

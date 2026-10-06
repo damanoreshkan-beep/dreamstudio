@@ -4,11 +4,7 @@
   "description": "Скануй QR і бач, куди веде посилання, ще до переходу. Попереджає про підробні адреси, скорочені лінки й небезпечні коди. Працює без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

@@ -4,11 +4,7 @@
   "description": "Каталог безкоштовних книг Project Gutenberg — 78 000+ творів, опис українською",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

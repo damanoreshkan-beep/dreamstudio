@@ -4,11 +4,7 @@
   "description": "Каталог свіжих нейромереж із Hugging Face. Що вміє кожна і скільки людей нею вже користується — з описом українською.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

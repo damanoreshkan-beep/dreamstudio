@@ -4,11 +4,7 @@
   "description": "Збережи сигнал свого пульта від воріт чи шлагбаума й відтвори його з телефона. Потрібен приймач HackRF.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

@@ -4,11 +4,7 @@
   "description": "Запиши дві секунди світу — двері, чашку, дощ, свій голос — і грай ними як інструментом. Вісім полів під пальцями, нахил телефона змінює звук, а зігране можна зберегти.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

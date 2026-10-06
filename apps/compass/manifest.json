@@ -4,11 +4,7 @@
   "description": "Компас, що показує справжню північ, а не магнітну. Точний у будь-якій точці світу й працює без інтернету.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

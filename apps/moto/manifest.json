@@ -4,11 +4,7 @@
   "description": "Спідометр для мотоцикла з чотирма панелями на вибір. Кут нахилу в поворотах, пробіг, розгін 0–100, сигнал перевищення швидкості й журнал поїздок по днях.",
   "start_url": "./",
   "scope": "./",
-  "display": "fullscreen",
-  "display_override": [
-    "fullscreen",
-    "standalone"
-  ],
+  "display": "standalone",
   "orientation": "any",
   "theme_color": "#000000",
   "background_color": "#000000",

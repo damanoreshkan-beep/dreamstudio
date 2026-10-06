@@ -1,5 +1,19 @@
 [
   {
+    "id": "2026-10-06-mayak-presets",
+    "date": "2026-10-06",
+    "app": "mayak",
+    "uk": "У Маяку з’явився список «Готові запити» — 48 підказок за категоріями (камери, бази, доступ, файли, пристрої, вразливі), кожна з коротким описом, що саме знаходить.",
+    "en": "Mayak now has a Ready-made queries list — 48 presets by category (cameras, databases, access, files, devices, vulnerable), each with a short line on what it finds."
+  },
+  {
+    "id": "2026-10-06-standalone",
+    "date": "2026-10-06",
+    "app": "store",
+    "uk": "На Android зникла чорна смуга під камерою: застосунки тепер із чистим статусбаром у колір теми. Щоб побачити — перевстанови застосунок.",
+    "en": "On Android the black band under the camera is gone: apps now show a clean status bar in the theme colour. Reinstall the app to see it."
+  },
+  {
     "id": "2026-10-06-fullbleed",
     "date": "2026-10-06",
     "app": "store",
