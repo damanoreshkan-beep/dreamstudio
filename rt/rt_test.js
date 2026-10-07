@@ -35,6 +35,7 @@ import "./tests/lora_test.js";
 import "./tests/motion_test.js";
 import "./tests/muzak_test.js";
 import "./tests/remix_test.js";
+import "./tests/fonoteka_test.js";
 import "./tests/natal_test.js";
 import "./tests/ook_test.js";
 import "./tests/oui_test.js";

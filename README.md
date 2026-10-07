@@ -21,7 +21,7 @@
 </tr>
 </table>
 
-<sub>**90 installable apps** — radio, instruments, astrology, media, games, tools. Dark is the moon's side of the portal, light is the sun's; every screen is drawn with light as the structure.</sub>
+<sub>**91 installable apps** — radio, instruments, astrology, media, games, tools. Dark is the moon's side of the portal, light is the sun's; every screen is drawn with light as the structure.</sub>
 
 </div>
 
@@ -63,7 +63,7 @@ app — the service worker keeps it alive with the network unplugged.
 
 The design system is the owner's own visual language — **light as structure**: objects woven from glowing
 filaments on true black, one warm amber + one electric cyan, volume told by bloom instead of shadow. The
-same contract draws the 90 icons, the store, the chrome and the diagrams on this page. It is enforced, not
+same contract draws the 91 icons, the store, the chrome and the diagrams on this page. It is enforced, not
 documented: an app-authored shadow fails the gate.
 
 ### The theme module

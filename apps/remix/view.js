@@ -122,10 +122,26 @@ function step(dir, manual = true) {
 }
 function seek(ms) { if (audio && !gate) audio.currentTime = ms / 1000; $pos.set(ms); }
 
+// "У Фонотеку" — the edge makes this variant again straight into the person's shelf; nothing leaves the phone.
+const $kept = atom({});   // variant → "" | "busy" | "done"
+async function keep(v, link, toast, t) {
+  if ($kept.get()[v]) return;
+  $kept.set({ ...$kept.get(), [v]: "busy" });
+  try {
+    if (!gate) {
+      const tags = $tags.get();
+      const r = await fetch(`${VPS_PROXY}/library/keep`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link, v, genre: tags?.genre || "", vocal: tags?.vocal || "" }), signal: AbortSignal.timeout(CALL_MS) });
+      if (!r.ok) throw new Error(String(r.status));
+    }
+    $kept.set({ ...$kept.get(), [v]: "done" });
+    toast?.(T(t, "kept"));
+  } catch { $kept.set({ ...$kept.get(), [v]: "" }); $err.set("errKeep"); }
+}
+
 export function remix({ S, toast }) {
   const t = useStore(S.t), locale = useStore(S.locale);
   const link = useStore($link), meta = useStore($meta), busy = useStore($busy), err = useStore($err);
-  const ana = useStore($ana), tags = useStore($tags), tracks = useStore($tracks), cur = useStore($cur);
+  const ana = useStore($ana), tags = useStore($tags), tracks = useStore($tracks), cur = useStore($cur), kept = useStore($kept);
   const playing = useStore($playing), pos = useStore($pos), dur = useStore($dur);
   const input = useRef();
   useEffect(() => { if (!gate && !meta) input.current?.focus(); }, []);
@@ -195,6 +211,8 @@ export function remix({ S, toast }) {
                   : html`<span class="skeleton h-3 w-28 mt-0.5"></span>`}
               </span>
             </button>
+            <button data-keep=${v} aria-label=${T(t, kept[v] === "done" ? "keptA" : "aKeep")} disabled=${st !== "ready" || kept[v] === "busy"} onClick=${() => keep(v, link, toast, t)}
+              class=${`btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 ${kept[v] === "done" ? "text-primary" : "text-base-content/70"} ${kept[v] === "busy" ? "animate-pulse" : ""}`}>${Icon(kept[v] === "done" ? "lucide:library-big" : "lucide:library", "text-[length:var(--ms-icon)]")}</button>
             ${st === "ready" && !gate ? html`<a data-save=${v} href=${tracks[v].url} download=${remixFile(meta, v)} aria-label=${T(t, "aSave")}
                 onClick=${() => toast?.(T(t, "saved"))} class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${Icon("lucide:download", "text-[length:var(--ms-icon)]")}</a>`
               : html`<button data-save=${v} aria-label=${st === "ready" ? T(t, "aSave") : T(t, st === "err" ? "failed" : "waiting")} disabled=${st !== "ready"}

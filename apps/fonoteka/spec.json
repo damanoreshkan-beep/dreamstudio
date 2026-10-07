@@ -1,0 +1,31 @@
+{
+  "id": "fonoteka",
+  "theme": "signal",
+  "category": "sound",
+  "accent": "#5BC8FF",
+  "share": { "files": ["audio/*", ".mp3", ".m4a", ".ogg", ".opus", ".wav", ".flac"] },
+  "tabs": [
+    {
+      "id": "songs",
+      "type": "tool",
+      "icon": "lucide:library",
+      "label": "tabSongs",
+      "view": "fonoteka"
+    },
+    {
+      "id": "me",
+      "type": "profile",
+      "icon": "lucide:user",
+      "label": "tabMe",
+      "titleKey": "tabMe"
+    }
+  ],
+  "profile": {
+    "icon": "lucide:library",
+    "theme": true,
+    "lang": true,
+    "install": true,
+    "account": "any"
+  },
+  "added": "2026-10-07"
+}

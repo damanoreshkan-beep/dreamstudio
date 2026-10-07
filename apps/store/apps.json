@@ -1719,7 +1719,7 @@
     "bg": "#160A12",
     "fg": "#FF7AB6",
     "href": "./remix/",
-    "version": "1.0",
+    "version": "1.1",
     "category": "sound",
     "needs": [],
     "added": "2026-10-07"
@@ -2372,6 +2372,40 @@
     "needs": [
       "camera"
     ]
+  },
+  {
+    "id": "fonoteka",
+    "title": "Фонотека",
+    "titles": {
+      "uk": "Фонотека",
+      "en": "Fonoteka"
+    },
+    "tagline": "Твоя полиця пісень, яка завжди з тобою. Поділись файлом із будь-якого застосунку — і слухай одразу, з перемоткою, без очікування.",
+    "taglines": {
+      "uk": "Твоя полиця пісень, яка завжди з тобою. Поділись файлом із будь-якого застосунку — і слухай одразу, з перемоткою, без очікування.",
+      "en": "Your shelf of songs, always with you. Share a file from any app — and listen right away, with seeking, no waiting."
+    },
+    "glyph": "lucide:library",
+    "art": "<path d=\"m16 6 4 14\"/><path d=\"M12 6v14\"/><path d=\"M8 8v12\"/><path d=\"M4 4v16\"/>",
+    "icon": true,
+    "screens": {
+      "uk": [
+        "Пісні"
+      ],
+      "en": [
+        "Songs"
+      ]
+    },
+    "shots": [
+      "songs"
+    ],
+    "bg": "#07131A",
+    "fg": "#5BC8FF",
+    "href": "./fonoteka/",
+    "version": "1.0",
+    "category": "sound",
+    "needs": [],
+    "added": "2026-10-07"
   },
   {
     "id": "frontier",

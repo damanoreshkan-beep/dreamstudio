@@ -1,5 +1,26 @@
 [
   {
+    "id": "2026-10-07-fonoteka",
+    "date": "2026-10-07",
+    "app": "fonoteka",
+    "uk": "Новий застосунок — Фонотека: своя полиця пісень. Поділись файлом з будь-якого застосунку — він ляже на полицю, а слухати можна одразу, з перемоткою, не чекаючи завантаження всього файлу.",
+    "en": "New app — Fonoteka: your own shelf of songs. Share a file from any app — it lands on the shelf, and you can listen right away, with seeking, without waiting for the whole file."
+  },
+  {
+    "id": "2026-10-07-remix-keep",
+    "date": "2026-10-07",
+    "app": "remix",
+    "uk": "Біля кожної версії з’явилася кнопка «У Фонотеку» — пісня кладеться на твою полицю без завантаження на телефон.",
+    "en": "Each version now has a To Fonoteka button — the song goes to your shelf without a download to the phone."
+  },
+  {
+    "id": "2026-10-07-muzak-keep",
+    "date": "2026-10-07",
+    "app": "muzak",
+    "uk": "Поруч зі «Скачати mp3» є «У Фонотеку» — пісня одразу на твоїй полиці, слухати можна з будь-якого пристрою.",
+    "en": "Next to Download mp3 there is To Fonoteka — the song lands on your shelf, to listen from any device."
+  },
+  {
     "id": "2026-10-07-remix",
     "date": "2026-10-07",
     "app": "remix",

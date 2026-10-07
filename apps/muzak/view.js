@@ -51,8 +51,23 @@ async function save(link, meta, toast, t) {
   finally { $busy.set(""); }
 }
 
+// "У Фонотеку" — the edge downloads the song again straight into the person's shelf (library.js keep); no upload.
+const $kept = atom("");   // "" | "busy" | "done"
+async function keep(link, toast, t) {
+  if ($kept.get()) return;
+  $kept.set("busy"); $err.set("");
+  try {
+    if (!gate) {
+      const r = await fetch(`${VPS_PROXY}/library/keep`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link }), signal: AbortSignal.timeout(200000) });
+      if (!r.ok) throw new Error(String(r.status));
+    }
+    $kept.set("done"); toast?.(T(t, "kept"));
+  } catch { $kept.set(""); $err.set("errKeep"); }
+}
+
 export function muzak({ S, toast }) {
   const t = useStore(S.t);
+  const kept = useStore($kept);
   const link = useStore($link), meta = useStore($meta), busy = useStore($busy), err = useStore($err);
   const input = useRef();
   useEffect(() => { if (!gate && !meta) input.current?.focus(); }, []);
@@ -93,10 +108,14 @@ export function muzak({ S, toast }) {
           <div class="font-mono text-xs tabular-nums text-base-content/70">${clock(meta.duration)}</div>
         </div>
       </div>
-      <button data-save disabled=${busy === "file"} onClick=${() => save(link, meta, toast, t)}
-        class=${`btn btn-primary w-full h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3 ${busy === "file" ? "animate-pulse" : ""}`}>
-        ${Icon(busy === "file" ? "lucide:hourglass" : "lucide:download", "text-[length:var(--ms-icon)]")}<span>${T(t, busy === "file" ? "preparing" : "download")}</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <button data-save disabled=${busy === "file"} onClick=${() => save(link, meta, toast, t)}
+          class=${`btn btn-primary flex-1 min-w-0 h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3 ${busy === "file" ? "animate-pulse" : ""}`}>
+          ${Icon(busy === "file" ? "lucide:hourglass" : "lucide:download", "text-[length:var(--ms-icon)]")}<span>${T(t, busy === "file" ? "preparing" : "download")}</span>
+        </button>
+        <button data-keep aria-label=${T(t, kept === "done" ? "keptA" : "aKeep")} disabled=${kept === "busy"} onClick=${() => keep(link, toast, t)}
+          class=${`btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 ${kept === "done" ? "text-primary" : "text-base-content/70"} ${kept === "busy" ? "animate-pulse" : ""}`}>${Icon(kept === "done" ? "lucide:library-big" : "lucide:library", "text-[length:var(--ms-icon)]")}</button>
+      </div>
     <//>` : null}
   </div>`;
 }
