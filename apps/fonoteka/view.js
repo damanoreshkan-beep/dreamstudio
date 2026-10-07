@@ -132,13 +132,11 @@ export function fonoteka({ S, toast, confirm }) {
     <//>
 
     <${Panel} title=${T(t, "songs")}>
-      <div class="flex items-center gap-[var(--ms-gap)]">
-        ${usage ? html`<div data-usage class="min-w-0 flex-1 font-mono text-xs tabular-nums text-base-content/70 truncate">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : html`<div class="flex-1"></div>`}
-        <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
-        <button data-add onClick=${() => picker.current?.click()} class="btn btn-primary btn-sm h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3 shrink-0">
-          ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
-        </button>
-      </div>
+      ${usage ? html`<div data-usage class="font-mono text-xs tabular-nums text-base-content/70">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : null}
+      <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
+      <button data-add onClick=${() => picker.current?.click()} class="btn btn-primary w-full h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3">
+        ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
+      </button>
       ${err ? html`<div data-err role="alert" class="text-sm text-error">${T(t, err)}</div>` : null}
       <div class="flex flex-col">
         ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class=${`flex items-center gap-3 border-b border-base-content/10 py-1 px-2 h-[var(--ms-ctl)] ${u.state === "up" ? "animate-pulse" : ""}`}>
