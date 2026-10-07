@@ -53,12 +53,7 @@
           "name": "sh_files",
           "accept": [
             "audio/*",
-            ".mp3",
-            ".m4a",
-            ".ogg",
-            ".opus",
-            ".wav",
-            ".flac"
+            ".mp3"
           ]
         }
       ]
