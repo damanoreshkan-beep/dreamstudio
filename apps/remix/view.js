@@ -10,6 +10,7 @@ import { advance } from "/_rt/player.js";
 import { askAI } from "/_rt/ai-core.js";
 import { takeShared, firstLink } from "/_rt/share.js";
 import { videoId, clock, byline } from "/_rt/muzak.js";
+import { report } from "/_rt/telemetry.js";
 import { VARIANTS, remixFile, roomKey, presetLine, whyKeys, parseTags, groundSong, errorKey, FIXTURE_LINK, FIXTURE_META, FIXTURE_ANALYSIS, FIXTURE_TAGS } from "/_rt/remix.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
@@ -33,16 +34,16 @@ function reset() { stop(); $ana.set(null); $tags.set(null); for (const t of Obje
 
 async function find(link) {
   const id = videoId(link);
-  if (!id) { $err.set("errLink"); $meta.set(null); reset(); return; }
+  if (!id) { report("link.reject", { link: String(link || "").slice(0, 120) }, "info"); $err.set("errLink"); $meta.set(null); reset(); return; }
   const my = ++seq;
   $err.set(""); $busy.set("meta"); reset();
   if (gate) { $meta.set(FIXTURE_META); $busy.set(""); return; }
   try {
     const r = await fetch(`${VPS_PROXY}/music/meta?url=${encodeURIComponent(link)}`, { signal: AbortSignal.timeout(40000) });
     if (my !== seq) return;
-    if (!r.ok) { $meta.set(null); const k = errorKey(r.status); if (k) $err.set(k); return; }
+    if (!r.ok) { report("meta.fail", { status: r.status }); $meta.set(null); const k = errorKey(r.status); if (k) $err.set(k); return; }
     $meta.set(await r.json());
-  } catch { if (my === seq) { $meta.set(null); $err.set("errMeta"); } }
+  } catch (e) { report("meta.throw", { err: String(e?.message || e).slice(0, 120) }); if (my === seq) { $meta.set(null); $err.set("errMeta"); } }
   finally { if (my === seq) $busy.set(""); }
 }
 
@@ -69,9 +70,9 @@ async function mix(link, meta, locale) {
   try {
     const r = await fetch(`${VPS_PROXY}/music/analyze?${q}`, { signal: AbortSignal.timeout(CALL_MS) });
     if (my !== seq) return;
-    if (!r.ok) { const k = errorKey(r.status); $err.set(k === "errMeta" ? "errMix" : k); $tracks.set({}); $busy.set(""); return; }
+    if (!r.ok) { report("analyze.fail", { status: r.status }); const k = errorKey(r.status); $err.set(k === "errMeta" ? "errMix" : k); $tracks.set({}); $busy.set(""); return; }
     $ana.set(await r.json());
-  } catch { if (my === seq) { $err.set("errMix"); $tracks.set({}); $busy.set(""); } return; }
+  } catch (e) { report("analyze.throw", { err: String(e?.message || e).slice(0, 120) }); if (my === seq) { $err.set("errMix"); $tracks.set({}); $busy.set(""); } return; }
   $busy.set("mix");
   await Promise.all(VARIANTS.map(async (v) => {
     try {
@@ -81,7 +82,7 @@ async function mix(link, meta, locale) {
       if (my !== seq) { URL.revokeObjectURL(url); return; }
       $tracks.set({ ...$tracks.get(), [v]: { state: "ready", url } });
       if (!$cur.get()) $cur.set(v);
-    } catch { if (my === seq) $tracks.set({ ...$tracks.get(), [v]: { state: "err" } }); }
+    } catch (e) { report("remix.fail", { v, err: String(e?.message || e).slice(0, 120) }); if (my === seq) $tracks.set({ ...$tracks.get(), [v]: { state: "err" } }); }
   }));
   if (my === seq) $busy.set("");
 }
@@ -146,7 +147,8 @@ export function remix({ S, toast }) {
   const input = useRef();
   useEffect(() => { if (!gate && !meta) input.current?.focus(); }, []);
   const paste = async () => {
-    try { const text = (await navigator.clipboard.readText()).trim(); if (text) { $link.set(text); find(text); } } catch { input.current?.focus(); }
+    try { const text = (await navigator.clipboard.readText()).trim(); if (text) { $link.set(text); find(text); } else report("paste.empty", null, "info"); }
+    catch (e) { report("paste.fail", { err: String(e?.name || e).slice(0, 60) }); input.current?.focus(); }
   };
   const started = Object.keys(tracks).length > 0;
   const anyReady = VARIANTS.some((v) => tracks[v]?.state === "ready");

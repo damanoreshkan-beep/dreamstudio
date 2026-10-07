@@ -11,6 +11,7 @@ import { holdAudio } from "/_rt/mediasession.js";
 import { sealedUrl } from "/_rt/sealedfetch.js";
 import { authWall } from "/_rt/authwall.js";
 import { takeShared } from "/_rt/share.js";
+import { report } from "/_rt/telemetry.js";
 import { clock } from "/_rt/muzak.js";
 import { isAudio, songLine, usageLine, titleOf, errorKey, FIXTURE_SONGS, FIXTURE_USAGE } from "/_rt/fonoteka.js";
 
@@ -29,7 +30,7 @@ async function load() {
   loaded = true;
   try {
     const r = await fetch(`${VPS_PROXY}/library/list`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}", signal: AbortSignal.timeout(20000) });
-    if (!r.ok) { if (r.status !== 401) $err.set("errList"); $songs.set([]); return; }
+    if (!r.ok) { if (r.status !== 401) { $err.set("errList"); report("list.fail", { status: r.status }); } $songs.set([]); return; }
     const j = await r.json();
     $songs.set(j.songs || []);
     $usage.set({ count: j.count, bytes: j.bytes, maxFiles: j.maxFiles, maxBytes: j.maxBytes });
@@ -38,7 +39,12 @@ async function load() {
 
 // A file share lands here (sh_files): every song is uploaded as it is, raw, on a sealed URL that carries the session.
 let toastFn = null, tNow = null;
-takeShared((s) => { for (const f of s.files || []) { if (isAudio(f)) upload(f); else toastFn?.(T(tNow, "skipped")); } });
+takeShared((s) => {
+  const files = s.files || [];
+  // the one place a phone's share can be seen from the edge: what arrived, before anything is judged
+  report("share.in", { n: files.length, types: files.map((f) => f.type).slice(0, 5), sizes: files.map((f) => f.size).slice(0, 5), names: files.map((f) => String(f.name || "").slice(0, 40)).slice(0, 5), text: String(s.text || "").slice(0, 80) }, "info");
+  for (const f of files) { if (isAudio(f)) upload(f); else toastFn?.(T(tNow, "skipped")); }
+});
 
 async function upload(f) {
   const k = `${Date.now()}-${f.name}`;
@@ -50,16 +56,18 @@ async function upload(f) {
     if (!r.ok) {
       if (r.status === 401) authWall.set(authWall.get() + 1);
       const why = (await r.json().catch(() => null))?.error;
+      report("upload.fail", { status: r.status, why: String(why || "").slice(0, 80), name: String(f.name || "").slice(0, 40), size: f.size, type: f.type });
       const key = errorKey(r.status, why); if (key) $err.set(key);
       $uploads.set($uploads.get().map((u) => (u.k === k ? { ...u, state: "err" } : u)));
       return;
     }
     const row = await r.json();
+    report("upload.ok", { size: f.size, dur: row.dur }, "info");
     $songs.set([row, ...($songs.get() || [])]);
     const u = $usage.get(); if (u) $usage.set({ ...u, count: u.count + 1, bytes: u.bytes + row.size });
     $uploads.set($uploads.get().filter((x) => x.k !== k));
     toastFn?.(T(tNow, "uploaded"));
-  } catch { $err.set("errUpload"); $uploads.set($uploads.get().map((u) => (u.k === k ? { ...u, state: "err" } : u))); }
+  } catch (e) { report("upload.throw", { err: String(e?.message || e).slice(0, 120), name: String(f.name || "").slice(0, 40), size: f.size }); $err.set("errUpload"); $uploads.set($uploads.get().map((u) => (u.k === k ? { ...u, state: "err" } : u))); }
 }
 
 // ── one element, the shelf as its queue ──────────────────────────────────────────────────────────────────
