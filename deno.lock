@@ -6,7 +6,7 @@
     "jsr:@deno-library/progress@^1.5.1": "1.5.1",
     "jsr:@deno/cache-dir@0.22.2": "0.22.2",
     "jsr:@deno/graph@0.86": "0.86.9",
-    "jsr:@microspec/core@1": "1.2.108",
+    "jsr:@microspec/core@1": "1.2.109",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/async@1": "1.4.0",
@@ -35,7 +35,7 @@
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.26",
     "npm:@jsquash/png@3.0.1": "3.0.1",
     "npm:@jsquash/webp@1.4.0": "1.4.0",
-    "npm:@jsr/microspec__core@1": "1.2.108",
+    "npm:@jsr/microspec__core@1": "1.2.109",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:@resvg/resvg-wasm@2.6.2": "2.6.2",
@@ -112,6 +112,18 @@
     },
     "@microspec/core@1.2.108": {
       "integrity": "ff44090b1c77dabf80dd41b75d7c4c587c306ddc3a8969d923e612f06d288b07",
+      "dependencies": [
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:d3-geo",
+        "npm:htm",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:topojson-client"
+      ]
+    },
+    "@microspec/core@1.2.109": {
+      "integrity": "5d3133d22cbc501f8c47243b6366f9b8f28f4ec1034e3ce45059d97038fe7d6f",
       "dependencies": [
         "npm:@nanostores/persistent",
         "npm:@nanostores/preact",
@@ -257,8 +269,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.108": {
-      "integrity": "sha512-K+g9lwopsDVeHc7bWdBAi9+z4SfjeX79pNPhtXUjsoCjtiGBy6gvqwJG95UJgNPlHh9TbASINKId3ouFAAWVqA==",
+    "@jsr/microspec__core@1.2.109": {
+      "integrity": "sha512-a0JztEWjstoLfYrcpda/8r1vAoHLT7Ao+xiUwynw+WSszLo4tJk6/baT/fKbsFdzu/NaFpJYiBLAOxwi5n3fMw==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -280,7 +292,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.108.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.109.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",
