@@ -3,7 +3,7 @@
   "theme": "signal",
   "category": "sound",
   "accent": "#5BC8FF",
-  "share": { "files": ["audio/*", ".mp3"] },
+  "share": { "files": ["audio/*"] },
   "tabs": [
     {
       "id": "songs",

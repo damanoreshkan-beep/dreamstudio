@@ -52,8 +52,7 @@
         {
           "name": "sh_files",
           "accept": [
-            "audio/*",
-            ".mp3"
+            "audio/*"
           ]
         }
       ]
