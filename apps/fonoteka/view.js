@@ -1,5 +1,5 @@
 import { html } from "htm/preact";
-import { useEffect } from "preact/hooks";
+import { useEffect, useRef } from "preact/hooks";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
@@ -110,6 +110,10 @@ async function remove(s) {
   toastFn?.(T(tNow, "deleted"));
 }
 
+// The other door in: a file picker. Same upload as a share — the picker is for a phone where the share sheet
+// is not an option (iOS cannot share INTO a web app; the APK shell hands in text only).
+function pickFiles(files) { for (const f of files || []) { if (isAudio(f)) upload(f); else toastFn?.(T(tNow, "skipped")); } }
+
 export function fonoteka({ S, toast, confirm }) {
   const t = useStore(S.t), locale = useStore(S.locale);
   const songs = useStore($songs), usage = useStore($usage), uploads = useStore($uploads), err = useStore($err);
@@ -118,6 +122,7 @@ export function fonoteka({ S, toast, confirm }) {
   useEffect(() => { load(); }, []);
   const now = cur ? songOf(cur) : null;
   const askDelete = (s) => confirm({ title: T(t, "delTitle"), body: T(t, "delBody"), verb: T(t, "delYes"), onConfirm: () => remove(s) });
+  const picker = useRef();
 
   return html`<div data-fonoteka data-playing=${playing ? "true" : null} data-songs=${songs ? songs.length : null} class="flex flex-col gap-[var(--ms-gap)] p-[var(--ms-pad)]">
     <${Panel} title=${T(t, "now")}>
@@ -127,7 +132,13 @@ export function fonoteka({ S, toast, confirm }) {
     <//>
 
     <${Panel} title=${T(t, "songs")}>
-      ${usage ? html`<div data-usage class="font-mono text-xs tabular-nums text-base-content/70">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : null}
+      <div class="flex items-center gap-[var(--ms-gap)]">
+        ${usage ? html`<div data-usage class="min-w-0 flex-1 font-mono text-xs tabular-nums text-base-content/70 truncate">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : html`<div class="flex-1"></div>`}
+        <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
+        <button data-add onClick=${() => picker.current?.click()} class="btn btn-primary btn-sm h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3 shrink-0">
+          ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
+        </button>
+      </div>
       ${err ? html`<div data-err role="alert" class="text-sm text-error">${T(t, err)}</div>` : null}
       <div class="flex flex-col">
         ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class=${`flex items-center gap-3 border-b border-base-content/10 py-1 px-2 h-[var(--ms-ctl)] ${u.state === "up" ? "animate-pulse" : ""}`}>

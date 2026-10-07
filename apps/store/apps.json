@@ -1244,7 +1244,7 @@
     "bg": "#120E08",
     "fg": "#F2B84B",
     "href": "./muzak/",
-    "version": "1.9",
+    "version": "1.10",
     "category": "sound",
     "needs": [],
     "added": "2026-10-06"
@@ -1719,7 +1719,7 @@
     "bg": "#160A12",
     "fg": "#FF7AB6",
     "href": "./remix/",
-    "version": "1.1",
+    "version": "1.2",
     "category": "sound",
     "needs": [],
     "added": "2026-10-07"
@@ -2402,7 +2402,7 @@
     "bg": "#07131A",
     "fg": "#5BC8FF",
     "href": "./fonoteka/",
-    "version": "1.0",
+    "version": "1.1",
     "category": "sound",
     "needs": [],
     "added": "2026-10-07"
@@ -3211,7 +3211,7 @@
     "bg": "#0B0B0D",
     "fg": "#ECECEE",
     "href": "./reel/",
-    "version": "1.24",
+    "version": "1.25",
     "category": "feeds",
     "needs": []
   },
