@@ -15,9 +15,14 @@ songs, and this app plays them. Every number below was measured or read on the b
   to make the file again into the shelf — nothing leaves the phone.
 
 ## Share INTO a PWA (VERIFIED on the primary sources)
-- Manifest `share_target` with `method: "POST"`, `enctype: "multipart/form-data"`, `params.files: [{ name, accept }]`;
-  `accept` takes MIME (`audio/*`) and dotted extensions (`.mp3`) — declare BOTH, Chrome lists for either but
-  delivers reliably for both (MDN, web-share-target Level 2, Chrome docs).
+- Manifest `share_target` with `method: "POST"`, `enctype: "multipart/form-data"`, `params.files: [{ name, accept }]`.
+  **`accept` = MIME types only** (`audio/*`). The spec and MDN allow dotted extensions (`.mp3`) and a third-party
+  write-up even advised declaring both — but Chrome copies every entry into the WebAPK's `android:mimeType`
+  verbatim (`WebApkShareTargetUtil.java` hands the list straight to `MimeTypeFilter`, no conversion), and that
+  field takes `type/subtype` only: "There was a problem parsing the package", Chrome hangs at install or falls
+  back to a shortcut. Measured on the owner's S25 twice (with `.mp3` in the list); the core validator refuses
+  extensions since 1.2.108. Samsung Internet is a separate failure: its minting server ships an old
+  `targetSdkVersion`, Android 14+ shows "Blocked dangerous app" (SamsungInternet/support#123) — install from Chrome.
 - The POST is a navigation to `./share-target` that **only the service worker can read**: `event.request.formData()`,
   park the files in a cache, answer `303` to the page so a refresh never re-posts. `sw-core.js shareIn()` does
   this under the `ms-share` cache keyed by scope; `/_rt/share.js takeFiles()` collects and deletes.
