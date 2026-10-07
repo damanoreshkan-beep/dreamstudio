@@ -52,7 +52,8 @@
         {
           "name": "sh_files",
           "accept": [
-            "audio/*"
+            "audio/*",
+            "application/octet-stream"
           ]
         }
       ]
