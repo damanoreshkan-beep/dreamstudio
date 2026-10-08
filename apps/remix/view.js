@@ -20,7 +20,7 @@ const STAGES = ["listen", "fetch", "measure", "mix"];
 const STAGE_UI = { listen: ["lucide:ear", "listening"], fetch: ["lucide:cloud-download", "stageFetch"], measure: ["lucide:audio-waveform", "stageMeasure"], mix: ["lucide:sparkles", "mixing"] };
 // iconify fetches an icon the first time it is shown, and the worker caches it — so a dead zone cannot draw an
 // icon it never saw online (measured: the offline line kept the sparkles icon). These are drawn, unseen, from the tap on.
-const LATER_ICONS = ["lucide:wifi-off", "lucide:audio-lines", "lucide:arrow-down-to-line", "lucide:x", ...Object.values(STAGE_UI).map(([i]) => i)];
+const LATER_ICONS = ["lucide:wifi-off", "lucide:audio-lines", "lucide:x", ...Object.values(STAGE_UI).map(([i]) => i)];
 const $link = atom(gate ? FIXTURE_LINK : "");
 const $meta = atom(gate ? FIXTURE_META : null);
 const $busy = atom("");          // "" | "meta" | "listen" | "fetch" | "measure" | "mix" — the task's own stages
@@ -76,12 +76,14 @@ async function mix(link, meta, locale) {
   if (my !== seq) return;
   $tags.set(tags);
   // The remix is a TASK on the edge (rt/task.js): started once, it runs to the end whatever the link does; its
-  // events arrive by offset and each file by byte range, so a dead zone costs a pause, never the remix. Files
-  // come one at a time in the order they land, so the first version plays while the others are on the way.
+  // events arrive by offset and each file by byte range, so a dead zone costs a pause, never the remix. Every
+  // file starts downloading the moment it lands, all at once, each on its own connection (owner, 2026-10-08:
+  // «паралельно… по черзі навіть не роби»). Measured on one shaped 225 KB/s link with real packet loss (tc netem,
+  // 18.2 MB): at 3–5 % loss three connections finish in 89–102 s against 124–174 s one at a time.
   const ac = run = new AbortController(), signal = ac.signal;
   const fail = (status) => { const k = errorKey(status); $err.set(k === "errMeta" ? "errMix" : k); $tracks.set({}); $busy.set(""); };
   const mark = (v, t) => { if (my === seq) $tracks.set({ ...$tracks.get(), [v]: t }); };
-  let files = Promise.resolve();
+  const files = [];
   try {
     const { id } = await startTask("/music/task", { url: link, genre: tags?.genre || "", vocal: tags?.vocal || "", k: taskKey() }, { signal });
     await followTask(id, (ev) => {
@@ -89,7 +91,7 @@ async function mix(link, meta, locale) {
       if (ev.t === "stage") $busy.set(ev.s === "measure" ? "measure" : "fetch");
       else if (ev.t === "analysis") { $ana.set(ev); $busy.set("mix"); }
       else if (ev.t === "render") mark(ev.v, { state: "render" });
-      else if (ev.t === "ready") { mark(ev.v, { state: "queued" }); files = files.then(async () => {
+      else if (ev.t === "ready") files.push((async () => {
         try {
           let pct = 0;
           mark(ev.v, { state: "dl", pct });
@@ -99,11 +101,11 @@ async function mix(link, meta, locale) {
           mark(ev.v, { state: "ready", url });
           if (!$cur.get()) $cur.set(ev.v);
         } catch (e) { if (!signal.aborted) { report("remix.fail", { v: ev.v, status: e?.status, err: String(e?.message || e).slice(0, 120) }); mark(ev.v, { state: "err" }); } }
-      }); }
+      })());
       else if (ev.t === "fail" && ev.v) { report("remix.fail", { v: ev.v, err: String(ev.error || "").slice(0, 120) }); mark(ev.v, { state: "err" }); }
       else if (ev.t === "fail") { report("task.fail", { status: ev.status, err: String(ev.error || "").slice(0, 120) }); fail(ev.status); }
     }, { signal });
-    await files;
+    await Promise.all(files);
   } catch (e) {
     if (signal.aborted || my !== seq) return;
     report("task.throw", { status: e?.status, err: String(e?.message || e).slice(0, 120) });
@@ -256,7 +258,7 @@ export function remix({ S, toast }) {
               : html`<button data-save=${v} aria-label=${st === "ready" ? T(t, "aSave") : st === "dl" ? `${T(t, "receiving")} ${pct}%` : T(t, st === "err" ? "failed" : st === "render" ? "rendering" : "waiting")} disabled=${st !== "ready"}
                 onClick=${() => toast?.(T(t, "saved"))} class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${st === "dl"
                   ? html`<span class="font-mono text-[11px] tabular-nums text-base-content">${pct}%</span>`
-                  : Icon({ ready: "lucide:download", err: "lucide:x", render: "lucide:audio-lines", queued: "lucide:arrow-down-to-line" }[st] || "lucide:hourglass", `text-[length:var(--ms-icon)] ${st === "render" ? "animate-pulse" : ""}`)}</button>`}
+                  : Icon({ ready: "lucide:download", err: "lucide:x", render: "lucide:audio-lines" }[st] || "lucide:hourglass", `text-[length:var(--ms-icon)] ${st === "render" ? "animate-pulse" : ""}`)}</button>`}
             ${/* the row's divider is its progress, in the stage track's language: pulsing = rendering on the edge, filling = arriving */""}
             ${st === "render" ? html`<span data-progress="render" aria-hidden="true" class="absolute inset-x-0 -bottom-px h-0.5 bg-[var(--app-accent)] animate-pulse"></span>`
               : st === "dl" ? html`<progress data-progress="dl" aria-hidden="true" max="100" value=${pct} class="progress absolute inset-x-0 -bottom-px h-0.5 rounded-none text-[var(--app-accent)]"></progress>` : null}
