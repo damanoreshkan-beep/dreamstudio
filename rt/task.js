@@ -66,6 +66,30 @@ export async function followTask(id, onEvent, { signal } = {}) {
   if (!res.streamClosed && !signal?.aborted) throw new TaskError(404, "task gone");
 }
 
+/** The i18n code a refused start deserves — the words imagejob.js's startJob used, so the screens keep theirs. */
+export const jobCode = (e) => ({ 429: "eRate", 413: "eBig", 401: "eSignIn" })[e?.status] || "eFailed";
+
+/**
+ * One task with ONE result file (a generated clip, an export): start → events → the file by Range. The shape of
+ * imagejob's followOne — `{ status: "done" | "busy" | "error", blob?, url?, …the ready event }` — so a caller swaps
+ * one call; but no poll count and no timeout: it ends when the task does. `onStart(id)` hands out the id (to
+ * cancel), `onLive(ev)` every other event (stage, progress), `onProgress(got, total)` the download. A refused
+ * start throws a TaskError (see jobCode).
+ */
+export async function taskOne(route, body, { signal, onStart, onLive, onProgress } = {}) {
+  const { id } = await startTask(route, { ...body, k: taskKey() }, { signal });
+  onStart?.(id);
+  let ready = null, fail = null;
+  await followTask(id, (ev) => {
+    if (ev.t === "ready") ready = ev;
+    else if (ev.t === "fail") fail = ev;
+    else onLive?.(ev);
+  }, { signal });
+  if (!ready) return { status: fail?.error === "busy" ? "busy" : "error", error: fail?.error || null };
+  const blob = await fetchResumable(`${VPS_PROXY}/task/${id}/${ready.name}`, { signal, size: ready.bytes, onProgress });
+  return { status: "done", blob, url: URL.createObjectURL(blob), ...ready };
+}
+
 /** GET a file whole, resuming with Range from the bytes already in hand after any drop; → a Blob. `size` is the
  *  length when the caller already knows it (a task's `ready` event does): the edge's forward drops
  *  content-length, and without a length a body that ends early but cleanly would pass for the whole file. */

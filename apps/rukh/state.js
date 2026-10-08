@@ -3,7 +3,8 @@ import { persistentAtom } from "@nanostores/persistent";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { collection, idbSupported } from "/_rt/db.js";
-import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskOne, jobCode } from "/_rt/task.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { toDataURL, mockArt } from "/_rt/intake.js";
 import { toEnglish } from "/_rt/translate.js";
@@ -109,7 +110,7 @@ export function playList(urls) {
   load(list[0], true);
 }
 
-let runs = 0, job = null;
+let runs = 0, job = null, ctl = null;   // ctl: the AbortController of the shot in flight
 function land({ blob, url, by, words, pic, dur, res }) {
   const id = newId(), ts = Date.now();
   const clip = { id, url: url || URL.createObjectURL(blob), blob, words, pic: pic || "", by: by || "", ts, dur: dur || 0, res: res || "" };
@@ -130,6 +131,7 @@ export async function generate() {
   if (!words && !src) return;
   const run = ++runs;
   if (job) cancelJob(BASE, job); job = null;
+  ctl?.abort(); ctl = null;
   setJob({ phase: "working", error: null, eta: null, pct: null, elapsed: 0 });
   const model = modelToSend(!!src);
   if (gate) {
@@ -144,7 +146,12 @@ export async function generate() {
     try { sent = await toEnglish(words); } catch (e) { fail(run, e?.code || "eTranslate"); return; }
     if (run !== runs) return;
   }
-  let id;
+  // The shot is a TASK on the edge (rt/task.js, the weak-link transport): it runs to the end on the pods whatever
+  // the link does; its progress arrives as events, the clip by byte range. No poll count, so no "eTimeout".
+  const ac = ctl = new AbortController();
+  const t0 = Date.now();
+  const clock = setInterval(() => { if (run === runs) setJob({ elapsed: Math.round((Date.now() - t0) / 1000) }); }, 1000);   // the countdown on screen, not a deadline
+  let r, by = "";
   try {
     const body = { prompt: sent, ...(model ? { model } : {}) };
     if (src) {
@@ -152,16 +159,14 @@ export async function generate() {
       if (run !== runs) return;
       body.image = sent.data;
     }
-    id = await startJob(BASE, body);
-  } catch (e) { fail(run, e?.code || "eFailed"); return; }
-  if (run !== runs) { cancelJob(BASE, id); return; }
-  job = id;
-  let by = "";
-  const r = await followOne({ base: BASE, job: id, alive: () => run === runs,
-    onLive: (m) => { if (run === runs) { if (m.phase) by = m.phase; setJob({ eta: m.eta ?? null, pct: m.pct ?? null, elapsed: m.elapsed || 0 }); } } });
+    r = await taskOne("/video/task", body, { signal: ac.signal,
+      onStart: (id) => { if (run === runs) job = id; else cancelJob(BASE, id); },
+      onLive: (m) => { if (run === runs && m.t === "progress") { if (m.phase) by = m.phase; setJob({ eta: m.eta ?? null, pct: m.pct ?? null }); } } });
+  } catch (e) { if (run === runs) fail(run, e?.code || jobCode(e)); return; }
+  finally { clearInterval(clock); }
   if (run !== runs) return;
   job = null;
-  if (r.status !== "done") { fail(run, r.status === "busy" ? "eBusy" : r.status === "timeout" ? "eTimeout" : "eFailed"); return; }
+  if (r.status !== "done") { fail(run, r.status === "busy" ? "eBusy" : "eFailed"); return; }
   if (!r.blob || !r.blob.type.startsWith("video/") || r.blob.size < MIN_CLIP_BYTES) { fail(run, "eFailed"); return; }
   land({ blob: r.blob, url: r.url, by: r.by || by, words, pic: src });
 }

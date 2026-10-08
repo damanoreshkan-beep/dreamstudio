@@ -50,7 +50,6 @@
   "eNetwork": "No connection. Try again when you are online",
   "eRate": "Too many requests. Wait a minute",
   "eBusy": "Every GPU is busy. Try again in a minute",
-  "eTimeout": "The clip took too long. Try again",
   "eFailed": "Nothing came back. Try other words",
   "eTranslate": "The words could not be translated. Try again",
   "eBig": "The photo is too large. Pick a smaller one",

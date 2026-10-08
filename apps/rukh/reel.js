@@ -1,7 +1,8 @@
 import { atom } from "nanostores";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
-import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskOne } from "/_rt/task.js";
 import { toEnglish } from "/_rt/translate.js";
 import { report } from "/_rt/telemetry.js";
 
@@ -68,11 +69,12 @@ export async function beatsFor(prompt, durationSec, locale = "en") {
   }
 }
 
-let runs = 0, live = null;
+let runs = 0, live = null, ctl = null;   // ctl: the AbortController of the chunk in flight
 
 /** Stop the reel where it stands; the chunks already filmed stay on the storyboard. */
 export function stopReel() {
   runs++;
+  ctl?.abort(); ctl = null;
   if (live) { cancelJob(BASE, live); live = null; }
   setJob({ phase: $reel.get().some((c) => c.status === "done") ? "done" : "idle", at: 0 });
 }
@@ -85,6 +87,7 @@ export async function runReel({ prompt, firstFrame = "", locale = "en" }) {
   const words = String(prompt || "").trim();
   if (!words) return;
   const run = ++runs;
+  ctl?.abort(); ctl = null;
   const seconds = $length.get();
 
   setJob({ phase: "writing", error: null, at: 0, of: 0 });
@@ -116,10 +119,9 @@ export async function runReel({ prompt, firstFrame = "", locale = "en" }) {
       try { beatEn = await toEnglish(beat); } catch { setChunk(i, { status: "error" }); carry = ""; continue; }
       if (run !== runs) return;
       const body = { prompt: beatEn, seconds: CHUNK_SEC, ...(carry ? { image: carry } : {}) };
-      const id = await startJob(BASE, body);
-      if (run !== runs) { cancelJob(BASE, id); return; }
-      live = id;
-      const r = await followOne({ base: BASE, job: id, alive: () => run === runs });
+      // each chunk is a task on the edge (rt/task.js): a dead zone mid-chunk costs a pause, never the chunk
+      const ac = ctl = new AbortController();
+      const r = await taskOne("/video/task", body, { signal: ac.signal, onStart: (id) => { if (run === runs) live = id; else cancelJob(BASE, id); } });
       live = null;
       if (run !== runs) return;
       if (r.status !== "done" || !r.blob || !r.blob.type.startsWith("video/") || r.blob.size < MIN_CLIP_BYTES) {

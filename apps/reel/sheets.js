@@ -5,7 +5,7 @@ import { useStore } from "@nanostores/preact";
 import { atom } from "nanostores";
 import { T, sys } from "/_rt/i18n.js";
 import { Sheet } from "/_rt/ui.js";
-import { sealedClipUrl } from "/_rt/sealedfetch.js";
+import { taskOne } from "/_rt/task.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { resolveSearch, buildSearchUrl } from "/_rt/urlquery.js";
 import { siteName } from "/_rt/sitelabel.js";
@@ -71,13 +71,11 @@ async function exportClip({ item, format, mode, t, toast }) {
   if (!url || $busy.get()) return;
   $busy.set(`${format}-${mode}`);
   try {
-    const r = await fetch(await sealedClipUrl(url, item.page || null, format));
-    if (!r.ok) {
-      const why = await r.json().catch(() => null);
-      toast?.(why?.error ? `${T(t, "expFail")}: ${why.error}` : T(t, "expFail"));
-      return;
-    }
-    const blob = await r.blob();
+    // The export is a TASK on the edge (rt/task.js): the download, the transcode and a file of up to ~27 MB no
+    // longer hang on one connection — a dead zone costs a pause, and the file resumes by byte range.
+    const r = await taskOne("/clip/task", { url, page: item.page || null, format });
+    if (r.status !== "done") { toast?.(r.error ? `${T(t, "expFail")}: ${r.error}` : T(t, "expFail")); return; }
+    const blob = r.blob;
     const name = exportName(item, format);
     if (mode === "share") {
       const how = await shareFile(blob, name);
@@ -86,8 +84,8 @@ async function exportClip({ item, format, mode, t, toast }) {
       downloadBlob(blob, name);
       toast?.(T(t, "expSaved"));
     }
-  } catch {
-    toast?.(T(t, "expFail"));
+  } catch (e) {
+    toast?.(e?.status && e.message ? `${T(t, "expFail")}: ${e.message}` : T(t, "expFail"));
   } finally {
     $busy.set("");
   }
