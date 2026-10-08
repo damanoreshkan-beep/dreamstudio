@@ -12,6 +12,7 @@ import { takeShared, firstLink } from "/_rt/share.js";
 import { videoId, clock, byline } from "/_rt/muzak.js";
 import { report } from "/_rt/telemetry.js";
 import { VARIANTS, remixFile, roomKey, presetLine, whyKeys, parseTags, groundSong, errorKey, FIXTURE_LINK, FIXTURE_META, FIXTURE_ANALYSIS, FIXTURE_TAGS } from "/_rt/remix.js";
+import { startTask, followTask, fetchResumable, taskKey } from "/_rt/task.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
 const $link = atom(gate ? FIXTURE_LINK : "");
@@ -26,11 +27,11 @@ const $tracks = atom(gate ? MIXED : {});             // variant → { state: "wa
 const $cur = atom(gate ? VARIANTS[0] : "");          // the variant in the transport
 const $playing = atom(false);
 const $pos = atom(0), $dur = atom(0);
-let seq = 0, audio = null;
-const CALL_MS = 110_000;         // the edge answers inside nginx's 120 s; a download + three renders fit with room
+let seq = 0, audio = null, run = null;   // run: the AbortController of the mix in flight
+const CALL_MS = 110_000;         // /library/keep only — the edge answers inside nginx's 120 s
 takeShared((s) => { const link = firstLink(s) || String(s.text || "").trim(); if (link) { $link.set(link); find(link); } });
 
-function reset() { stop(); $ana.set(null); $tags.set(null); for (const t of Object.values($tracks.get())) if (t.url) URL.revokeObjectURL(t.url); $tracks.set({}); $cur.set(""); }
+function reset() { run?.abort(); run = null; stop(); $ana.set(null); $tags.set(null); for (const t of Object.values($tracks.get())) if (t.url) URL.revokeObjectURL(t.url); $tracks.set({}); $cur.set(""); }
 
 async function find(link) {
   const id = videoId(link);
@@ -66,24 +67,36 @@ async function mix(link, meta, locale) {
   const tags = await askTags(meta, locale);
   if (my !== seq) return;
   $tags.set(tags);
-  const q = `url=${encodeURIComponent(link)}${tags ? `&genre=${tags.genre}${tags.vocal ? `&vocal=${tags.vocal}` : ""}` : ""}`;
+  // The remix is a TASK on the edge (rt/task.js): started once, it runs to the end whatever the link does; its
+  // events arrive by offset and each file by byte range, so a dead zone costs a pause, never the remix. Files
+  // come one at a time in the order they land, so the first version plays while the others are on the way.
+  const ac = run = new AbortController(), signal = ac.signal;
+  const fail = (status) => { const k = errorKey(status); $err.set(k === "errMeta" ? "errMix" : k); $tracks.set({}); $busy.set(""); };
+  const mark = (v, t) => { if (my === seq) $tracks.set({ ...$tracks.get(), [v]: t }); };
+  let files = Promise.resolve();
   try {
-    const r = await fetch(`${VPS_PROXY}/music/analyze?${q}`, { signal: AbortSignal.timeout(CALL_MS) });
-    if (my !== seq) return;
-    if (!r.ok) { report("analyze.fail", { status: r.status }); const k = errorKey(r.status); $err.set(k === "errMeta" ? "errMix" : k); $tracks.set({}); $busy.set(""); return; }
-    $ana.set(await r.json());
-  } catch (e) { report("analyze.throw", { err: String(e?.message || e).slice(0, 120) }); if (my === seq) { $err.set("errMix"); $tracks.set({}); $busy.set(""); } return; }
-  $busy.set("mix");
-  await Promise.all(VARIANTS.map(async (v) => {
-    try {
-      const r = await fetch(`${VPS_PROXY}/music/remix?${q}&v=${v}`, { signal: AbortSignal.timeout(CALL_MS) });
-      if (!r.ok) throw new Error(String(r.status));
-      const url = URL.createObjectURL(await r.blob());
-      if (my !== seq) { URL.revokeObjectURL(url); return; }
-      $tracks.set({ ...$tracks.get(), [v]: { state: "ready", url } });
-      if (!$cur.get()) $cur.set(v);
-    } catch (e) { report("remix.fail", { v, err: String(e?.message || e).slice(0, 120) }); if (my === seq) $tracks.set({ ...$tracks.get(), [v]: { state: "err" } }); }
-  }));
+    const { id } = await startTask("/music/task", { url: link, genre: tags?.genre || "", vocal: tags?.vocal || "", k: taskKey() }, { signal });
+    await followTask(id, (ev) => {
+      if (my !== seq) return;
+      if (ev.t === "analysis") { $ana.set(ev); $busy.set("mix"); }
+      else if (ev.t === "ready") files = files.then(async () => {
+        try {
+          const url = URL.createObjectURL(await fetchResumable(`${VPS_PROXY}/task/${id}/${ev.v}`, { signal }));
+          if (my !== seq) { URL.revokeObjectURL(url); return; }
+          mark(ev.v, { state: "ready", url });
+          if (!$cur.get()) $cur.set(ev.v);
+        } catch (e) { if (!signal.aborted) { report("remix.fail", { v: ev.v, status: e?.status, err: String(e?.message || e).slice(0, 120) }); mark(ev.v, { state: "err" }); } }
+      });
+      else if (ev.t === "fail" && ev.v) { report("remix.fail", { v: ev.v, err: String(ev.error || "").slice(0, 120) }); mark(ev.v, { state: "err" }); }
+      else if (ev.t === "fail") { report("task.fail", { status: ev.status, err: String(ev.error || "").slice(0, 120) }); fail(ev.status); }
+    }, { signal });
+    await files;
+  } catch (e) {
+    if (signal.aborted || my !== seq) return;
+    report("task.throw", { status: e?.status, err: String(e?.message || e).slice(0, 120) });
+    fail(e?.status);
+    return;
+  }
   if (my === seq) $busy.set("");
 }
 
