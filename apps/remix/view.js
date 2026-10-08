@@ -15,15 +15,23 @@ import { VARIANTS, remixFile, roomKey, presetLine, whyKeys, parseTags, groundSon
 import { startTask, followTask, fetchResumable, taskKey } from "/_rt/task.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
+// The task's stages, in order, as the edge reports them (rt/task.js): the step track fills left to right.
+const STAGES = ["listen", "fetch", "measure", "mix"];
+const STAGE_UI = { listen: ["lucide:ear", "listening"], fetch: ["lucide:cloud-download", "stageFetch"], measure: ["lucide:audio-waveform", "stageMeasure"], mix: ["lucide:sparkles", "mixing"] };
+// iconify fetches an icon the first time it is shown, and the worker caches it — so a dead zone cannot draw an
+// icon it never saw online (measured: the offline line kept the sparkles icon). These are drawn, unseen, from the tap on.
+const LATER_ICONS = ["lucide:wifi-off", "lucide:audio-lines", "lucide:arrow-down-to-line", "lucide:x", ...Object.values(STAGE_UI).map(([i]) => i)];
 const $link = atom(gate ? FIXTURE_LINK : "");
 const $meta = atom(gate ? FIXTURE_META : null);
-const $busy = atom("");          // "" | "meta" | "listen" | "mix"
+const $busy = atom("");          // "" | "meta" | "listen" | "fetch" | "measure" | "mix" — the task's own stages
+const $offline = atom(!gate && globalThis.navigator?.onLine === false);   // a dead zone: the mix waits, it does not fail
+if (!gate) { addEventListener("offline", () => $offline.set(true)); addEventListener("online", () => $offline.set(false)); }
 const $err = atom("");
 // Under the gate the song is already mixed: the store card and the shots show the whole screen, not its first step.
 const MIXED = Object.fromEntries(VARIANTS.map((v) => [v, { state: "ready" }]));
 const $ana = atom(gate ? FIXTURE_ANALYSIS : null);   // the edge's analysis: bpm, density…, presets, why
 const $tags = atom(gate ? FIXTURE_TAGS : null);      // the AI's genre / vocal / why
-const $tracks = atom(gate ? MIXED : {});             // variant → { state: "wait"|"ready"|"err", url }
+const $tracks = atom(gate ? MIXED : {});             // variant → { state: "wait"|"render"|"dl"|"ready"|"err", pct?, url? }
 const $cur = atom(gate ? VARIANTS[0] : "");          // the variant in the transport
 const $playing = atom(false);
 const $pos = atom(0), $dur = atom(0);
@@ -78,15 +86,20 @@ async function mix(link, meta, locale) {
     const { id } = await startTask("/music/task", { url: link, genre: tags?.genre || "", vocal: tags?.vocal || "", k: taskKey() }, { signal });
     await followTask(id, (ev) => {
       if (my !== seq) return;
-      if (ev.t === "analysis") { $ana.set(ev); $busy.set("mix"); }
-      else if (ev.t === "ready") files = files.then(async () => {
+      if (ev.t === "stage") $busy.set(ev.s === "measure" ? "measure" : "fetch");
+      else if (ev.t === "analysis") { $ana.set(ev); $busy.set("mix"); }
+      else if (ev.t === "render") mark(ev.v, { state: "render" });
+      else if (ev.t === "ready") { mark(ev.v, { state: "queued" }); files = files.then(async () => {
         try {
-          const url = URL.createObjectURL(await fetchResumable(`${VPS_PROXY}/task/${id}/${ev.v}`, { signal }));
+          let pct = 0;
+          mark(ev.v, { state: "dl", pct });
+          const onProgress = (got, total) => { const p = total ? Math.min(100, Math.floor(got * 100 / total)) : 0; if (p !== pct) { pct = p; mark(ev.v, { state: "dl", pct }); } };
+          const url = URL.createObjectURL(await fetchResumable(`${VPS_PROXY}/task/${id}/${ev.v}`, { signal, size: ev.bytes, onProgress }));
           if (my !== seq) { URL.revokeObjectURL(url); return; }
           mark(ev.v, { state: "ready", url });
           if (!$cur.get()) $cur.set(ev.v);
         } catch (e) { if (!signal.aborted) { report("remix.fail", { v: ev.v, status: e?.status, err: String(e?.message || e).slice(0, 120) }); mark(ev.v, { state: "err" }); } }
-      });
+      }); }
       else if (ev.t === "fail" && ev.v) { report("remix.fail", { v: ev.v, err: String(ev.error || "").slice(0, 120) }); mark(ev.v, { state: "err" }); }
       else if (ev.t === "fail") { report("task.fail", { status: ev.status, err: String(ev.error || "").slice(0, 120) }); fail(ev.status); }
     }, { signal });
@@ -156,7 +169,7 @@ export function remix({ S, toast }) {
   const t = useStore(S.t), locale = useStore(S.locale);
   const link = useStore($link), meta = useStore($meta), busy = useStore($busy), err = useStore($err);
   const ana = useStore($ana), tags = useStore($tags), tracks = useStore($tracks), cur = useStore($cur), kept = useStore($kept);
-  const playing = useStore($playing), pos = useStore($pos), dur = useStore($dur);
+  const playing = useStore($playing), pos = useStore($pos), dur = useStore($dur), offline = useStore($offline);
   const input = useRef();
   useEffect(() => { if (!gate && !meta) input.current?.focus(); }, []);
   const paste = async () => {
@@ -205,16 +218,26 @@ export function remix({ S, toast }) {
       ${!started ? html`<button data-mix onClick=${() => mix(link, meta, locale)}
         class="btn btn-primary w-full h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3">
         ${Icon("lucide:sparkles", "text-[length:var(--ms-icon)]")}<span>${T(t, "mix")}</span>
-      </button>` : busy ? html`<div data-stage class="flex items-center gap-2 h-[var(--ms-ctl)] px-1 text-sm text-base-content/70 animate-pulse">
-        ${Icon("lucide:hourglass", "text-[length:var(--ms-icon)]")}<span>${T(t, busy === "listen" ? "listening" : "mixing")}</span>
-      </div>` : null}
+      </button>` : busy ? (() => {
+        const i = Math.max(0, STAGES.indexOf(busy));
+        const [ic, key] = offline ? ["lucide:wifi-off", "offlineWait"] : STAGE_UI[STAGES[i]];
+        return html`<div data-stage=${offline ? "offline" : STAGES[i]} role="status" class="relative flex flex-col gap-2 px-1">
+          <span aria-hidden="true" class="absolute w-px h-px overflow-hidden opacity-0 pointer-events-none">${LATER_ICONS.map((ic) => Icon(ic))}</span>
+          <div class=${`flex items-center gap-2 min-h-[var(--ms-ctl)] text-sm ${offline ? "text-warning" : "text-base-content/70"}`}>
+            ${Icon(ic, `shrink-0 text-[length:var(--ms-icon)] ${offline ? "" : "animate-pulse"}`)}<span class="flex-1 leading-snug">${T(t, key)}</span>
+            <span class="shrink-0 font-mono text-xs tabular-nums text-base-content/50">${i + 1}/${STAGES.length}</span>
+          </div>
+          <div aria-hidden="true" class="grid grid-cols-4 gap-1">${STAGES.map((s, k) => html`<span key=${s}
+            class=${`h-1 rounded-full transition-colors duration-500 ${k < i ? "bg-[var(--app-accent)]" : k === i ? `bg-[var(--app-accent)] ${offline ? "opacity-40" : "animate-pulse"}` : "bg-base-content/15"}`}></span>`)}</div>
+        </div>`;
+      })() : null}
     <//>` : null}
 
     ${started ? html`<${Panel} title=${T(t, "remixes")}>
       <div class="flex flex-col">
         ${VARIANTS.map((v) => {
-          const st = tracks[v]?.state || "wait", p = preset(v), on = cur === v;
-          return html`<div key=${v} data-track=${v} data-state=${st} class="flex items-center gap-2 border-b border-base-content/10 last:border-b-0 py-1">
+          const st = tracks[v]?.state || "wait", p = preset(v), on = cur === v, pct = tracks[v]?.pct || 0;
+          return html`<div key=${v} data-track=${v} data-state=${st} class="relative flex items-center gap-2 border-b border-base-content/10 last:border-b-0 py-1">
             <button data-pick=${v} aria-pressed=${on ? "true" : "false"} aria-label=${`${T(t, "aPick")}: ${T(t, `v_${v}`)}`} disabled=${st !== "ready"}
               onClick=${() => pick(v)}
               class=${`flex-1 min-w-0 flex items-center gap-3 text-left rounded-[var(--ms-r-in)] px-2 h-[var(--ms-ctl)] min-h-0 ${on ? "sf-pressed" : ""} disabled:opacity-60`}>
@@ -230,8 +253,13 @@ export function remix({ S, toast }) {
               class=${`btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 ${kept[v] === "done" ? "text-primary" : "text-base-content/70"} ${kept[v] === "busy" ? "animate-pulse" : ""}`}>${Icon(kept[v] === "done" ? "lucide:library-big" : "lucide:library", "text-[length:var(--ms-icon)]")}</button>
             ${st === "ready" && !gate ? html`<a data-save=${v} href=${tracks[v].url} download=${remixFile(meta, v)} aria-label=${T(t, "aSave")}
                 onClick=${() => toast?.(T(t, "saved"))} class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${Icon("lucide:download", "text-[length:var(--ms-icon)]")}</a>`
-              : html`<button data-save=${v} aria-label=${st === "ready" ? T(t, "aSave") : T(t, st === "err" ? "failed" : "waiting")} disabled=${st !== "ready"}
-                onClick=${() => toast?.(T(t, "saved"))} class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${Icon(st === "ready" ? "lucide:download" : st === "err" ? "lucide:x" : "lucide:hourglass", "text-[length:var(--ms-icon)]")}</button>`}
+              : html`<button data-save=${v} aria-label=${st === "ready" ? T(t, "aSave") : st === "dl" ? `${T(t, "receiving")} ${pct}%` : T(t, st === "err" ? "failed" : st === "render" ? "rendering" : "waiting")} disabled=${st !== "ready"}
+                onClick=${() => toast?.(T(t, "saved"))} class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${st === "dl"
+                  ? html`<span class="font-mono text-[11px] tabular-nums text-base-content">${pct}%</span>`
+                  : Icon({ ready: "lucide:download", err: "lucide:x", render: "lucide:audio-lines", queued: "lucide:arrow-down-to-line" }[st] || "lucide:hourglass", `text-[length:var(--ms-icon)] ${st === "render" ? "animate-pulse" : ""}`)}</button>`}
+            ${/* the row's divider is its progress, in the stage track's language: pulsing = rendering on the edge, filling = arriving */""}
+            ${st === "render" ? html`<span data-progress="render" aria-hidden="true" class="absolute inset-x-0 -bottom-px h-0.5 bg-[var(--app-accent)] animate-pulse"></span>`
+              : st === "dl" ? html`<progress data-progress="dl" aria-hidden="true" max="100" value=${pct} class="progress absolute inset-x-0 -bottom-px h-0.5 rounded-none text-[var(--app-accent)]"></progress>` : null}
           </div>`;
         })}
       </div>

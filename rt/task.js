@@ -66,9 +66,11 @@ export async function followTask(id, onEvent, { signal } = {}) {
   if (!res.streamClosed && !signal?.aborted) throw new TaskError(404, "task gone");
 }
 
-/** GET a file whole, resuming with Range from the bytes already in hand after any drop; → a Blob. */
-export async function fetchResumable(url, { signal, onProgress, fetchFn = (...a) => fetch(...a) } = {}) {
-  let parts = [], got = 0, total = 0, type = "";
+/** GET a file whole, resuming with Range from the bytes already in hand after any drop; → a Blob. `size` is the
+ *  length when the caller already knows it (a task's `ready` event does): the edge's forward drops
+ *  content-length, and without a length a body that ends early but cleanly would pass for the whole file. */
+export async function fetchResumable(url, { signal, onProgress, size = 0, fetchFn = (...a) => fetch(...a) } = {}) {
+  let parts = [], got = 0, total = size, type = "";
   for (let n = 0; ; n++) {
     try {
       const r = await fetchFn(url, { headers: got ? { range: `bytes=${got}-` } : {}, signal });

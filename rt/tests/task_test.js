@@ -34,6 +34,21 @@ Deno.test("task: a server that ignores Range sends the whole body again — the 
   assertEquals(new Uint8Array(await blob.arrayBuffer()), file);
 });
 
+Deno.test("task: with the size known, a body that ends early WITHOUT an error is resumed, not taken as whole", async () => {
+  const file = bytes(500), seen = [];
+  const fetchFn = async (_u, init) => {
+    const range = init.headers.range || "";
+    seen.push(range);
+    if (!range) return new Response(file.slice(0, 200), { status: 200 });   // no length header: the edge's forward strips it
+    return new Response(file.slice(200), { status: 206, headers: { "content-range": "bytes 200-499/500" } });
+  };
+  const progress = [];
+  const blob = await fetchResumable("x", { fetchFn, size: 500, onProgress: (g, t) => progress.push([g, t]) });
+  assertEquals(seen, ["", "bytes=200-"]);
+  assertEquals(new Uint8Array(await blob.arrayBuffer()), file);
+  assertEquals(progress.at(-1), [500, 500], "progress reads against the known size from the first byte");
+});
+
 Deno.test("task: a 404 is final — no retry; an abort stops the wait", async () => {
   let calls = 0;
   const e = await assertRejects(() => fetchResumable("x", { fetchFn: async () => { calls++; return new Response("", { status: 404 }); } }), TaskError);
