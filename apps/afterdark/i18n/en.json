@@ -63,7 +63,6 @@
   "payCancel": "The payment was cancelled",
   "eBusy": "Server busy — try later",
   "eRate": "Too many requests — wait a bit",
-  "eTimeout": "Took too long — try again",
   "eFailed": "Did not work — try another description",
   "eNetwork": "No network",
   "eTranslate": "Could not translate the description",

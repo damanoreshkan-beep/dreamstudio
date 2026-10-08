@@ -8,6 +8,7 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { Panel } from "/_rt/ui.js";
 import { takeShared, firstLink } from "/_rt/share.js";
 import { videoId, clock, byline, errorKey, FIXTURE_LINK, FIXTURE_META } from "/_rt/muzak.js";
+import { taskOne, taskCall } from "/_rt/task.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
 const $link = atom(gate ? FIXTURE_LINK : "");
@@ -38,16 +39,17 @@ async function save(link, meta, toast, t) {
   $err.set(""); $busy.set("file");
   try {
     if (gate) { toast?.(T(t, "saved")); return; }
-    const r = await fetch(`${VPS_PROXY}/music/file?url=${encodeURIComponent(link)}`, { signal: AbortSignal.timeout(200000) });
-    if (!r.ok) { const k = errorKey(r.status); if (k) $err.set(k === "errMeta" ? "errFile" : k); return; }
-    const blob = await r.blob();
+    // a TASK on the edge (rt/task.js, the weak-link transport): yt-dlp runs to the end, the mp3 arrives by byte range
+    const r = await taskOne("/music/filetask", { url: link });
+    if (r.status !== "done") { $err.set("errFile"); return; }
+    const blob = r.blob;
     const name = `${[meta.artist, meta.title].filter(Boolean).join(" - ") || meta.id}.mp3`.replace(/[\\/:*?"<>|]/g, "");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob); a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 60000);
     toast?.(T(t, "saved"));
-  } catch { $err.set("errFile"); }
+  } catch (e) { const k = e?.status ? errorKey(e.status) : ""; $err.set(k && k !== "errMeta" ? k : "errFile"); }
   finally { $busy.set(""); }
 }
 
@@ -57,10 +59,7 @@ async function keep(link, toast, t) {
   if ($kept.get()) return;
   $kept.set("busy"); $err.set("");
   try {
-    if (!gate) {
-      const r = await fetch(`${VPS_PROXY}/library/keep`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link }), signal: AbortSignal.timeout(200000) });
-      if (!r.ok) throw new Error(String(r.status));
-    }
+    if (!gate) await taskCall("/library/keeptask", { url: link });   // a task: the shelf fills whatever the link does
     $kept.set("done"); toast?.(T(t, "kept"));
   } catch { $kept.set(""); $err.set("errKeep"); }
 }

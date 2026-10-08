@@ -1,16 +1,14 @@
 import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
-import { startJob, follow } from "@microspec/core/runtime/imagejob.js";
+import { startTask, taskSlides, followCall, taskKey } from "./task.js";
 import { toEnglish } from "@microspec/core/runtime/translate.js";
 import { session } from "@microspec/core/runtime/auth.js";
 import { gate } from "@microspec/core/runtime/gate.js";
 
-const IMG = `${VPS_PROXY}/image`, CHAR = `${VPS_PROXY}/character`, VISION = `${VPS_PROXY}/vision`;
+const CHAR = `${VPS_PROXY}/character`, VISION = `${VPS_PROXY}/vision`;
 export const LOOK = ", full body head to toe, single character, standing A-pose with arms slightly out, facing camera, centered, plain white background, studio lighting, 3d game character render, no text";
-const POLL = 3000, BUDGET = 20 * 60_000;
 const JOB_TTL = 60 * 60_000;
 const TINTS = ["#FF3EB5", "#39FF6A", "#F5B942", "#7C5CFF", "#22D3EE", "#FF6AD5", "#4ADE80", "#FB7185", "#FBBF24", "#38BDF8", "#F472B6", "#A3E635", "#F97316", "#2DD4BF", "#C084FC", "#FACC15"];
 const HOST = VPS_PROXY.replace(/\/feed$/, "");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** An edge refusal → the app's error key; 402 = the farm wallet cannot pay the body. Pure. */
 export const genStatusCode = (status) => (status === 402 ? "ePoor" : status === 429 ? "eRate" : status === 401 ? "eSignIn" : status === 413 ? "eBig" : "eFailed");
@@ -41,29 +39,29 @@ function headShot(url) {
  * `onFail(code)` (optional) runs before the error atom is set.
  */
 export function makeGenerator({ app, jobKey, $loading, $pct, $error, onDone, onCharged, onFail }) {
-  const jobGet = () => { try { const j = JSON.parse(localStorage.getItem(jobKey) || "null"); return j && typeof j.id === "string" && Date.now() - j.ts < JOB_TTL ? j : null; } catch { return null; } };
+  // a saved job without `task` is from the polling bundle: the edge finishes it on its own and lists it in mine
+  const jobGet = () => { try { const j = JSON.parse(localStorage.getItem(jobKey) || "null"); return j && typeof j.task === "string" && Date.now() - j.ts < JOB_TTL ? j : null; } catch { return null; } };
   const jobSet = (j) => { try { j ? localStorage.setItem(jobKey, JSON.stringify(j)) : localStorage.removeItem(jobKey); } catch { } };
   const whoNow = () => session.get()?.user?.login || "";
   let run = 0, t0 = 0;
   const genElapsed = () => (t0 ? (Date.now() - t0) / 1000 | 0 : 0);
 
-  async function followJob(id, alive, began) {
-    while (Date.now() - began < BUDGET) {
-      await sleep(POLL);
-      if (!alive()) return;
-      let j; try { j = await (await fetch(`${CHAR}/${id}`)).json(); } catch { continue; }
-      if (!j) continue;
-      if (j.status === "error") throw { code: "eFailed", why: j.error };
-      if (j.status === "done") {
-        const c = charOf(j);
-        jobSet(null); $loading.set("");
-        onDone(c);
-        return c;
-      }
-      $loading.set(j.stage === "mesh" || j.stage === "rig" || j.stage === "store" ? j.stage : "queued");
-      $pct.set(j.pct || 0);
-    }
-    throw { code: "eTimeout" };
+  // The body is a TASK on the edge (task.js, the weak-link transport): its stages arrive as events, its row as the
+  // result; a reload follows the same task id. No poll budget — the edge's own pods end a hung Space.
+  async function followJob(task, alive) {
+    let row;
+    try {
+      row = await followCall(task, { onLive: (l) => {
+        if (!alive()) return;
+        $loading.set(l.stage === "mesh" || l.stage === "rig" || l.stage === "store" ? l.stage : "queued");
+        $pct.set(l.pct || 0);
+      } });
+    } catch (e) { throw { code: "eFailed", why: e?.message }; }
+    if (!alive()) return;
+    const c = charOf(row);
+    jobSet(null); $loading.set("");
+    onDone(c);
+    return c;
   }
   function fail(e, alive, charged) {
     if (!alive()) return;
@@ -94,23 +92,25 @@ export function makeGenerator({ app, jobKey, $loading, $pct, $error, onDone, onC
         if (!alive()) return;
         $loading.set("picture");
       } else en = await toEnglish(prompt);
-      const job = await startJob(IMG, { prompt: lookPrompt(en), quality: "fast", aspect: "portrait", ratio: 0.75, seed: Math.floor(Math.random() * 1e9), k: 2 });
-      let blob = null;
-      const st = await follow({ base: IMG, job, alive, onLive: (l) => $pct.set(l.pct || 0), onSlide: (s) => { blob ??= s.blob; } });
+      let blob = null, st;
+      try {
+        st = await taskSlides("/feed/image", { prompt: lookPrompt(en), quality: "fast", aspect: "portrait", ratio: 0.75, seed: Math.floor(Math.random() * 1e9), k: 2 },
+          { onLive: (l) => { if (alive()) $pct.set(l.pct || 0); }, onSlide: (s) => { blob ??= s.blob; } });
+      } catch (e) { throw { code: e?.status ? genStatusCode(e.status) : "eFailed" }; }
       if (!alive()) return;
-      if (!blob) throw { code: st === "busy" ? "eBusy" : st === "timeout" ? "eTimeout" : "eFailed" };
+      if (!blob) throw { code: st === "busy" ? "eBusy" : "eFailed" };
       const { toDataURL } = await import("@microspec/core/runtime/intake.js");
       const url = URL.createObjectURL(blob);
       let image, avatar;
       try { image = (await toDataURL(url, 1024)).data; avatar = await headShot(url); } finally { URL.revokeObjectURL(url); }
       $loading.set("queued"); $pct.set(0);
-      const r = await fetch(CHAR, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app, image, name, kind, avatar }) });
-      const j0 = await r.json().catch(() => ({}));
-      if (!(r.status === 202 || r.status === 409) || !j0.job) throw { code: statusCode(r) };
-      if (r.status === 202) onCharged?.();
-      const began = Date.now();
-      jobSet({ id: j0.job, ts: began, user: whoNow() });
-      return await followJob(j0.job, alive, began);
+      // a 202 start is a new, charged body; a 409 is the one already running — /feed/task follows it either way
+      let rep;
+      try { rep = await startTask("/task", { route: "/feed/character", body: { app, image, name, kind, avatar }, k: taskKey() }); }
+      catch (e) { throw { code: genStatusCode(e?.status) }; }
+      if (rep.status === 202) onCharged?.();
+      jobSet({ task: rep.id, ts: Date.now(), user: whoNow() });
+      return await followJob(rep.id, alive);
     } catch (e) { fail(e, alive, true); }
   }
 
@@ -124,7 +124,7 @@ export function makeGenerator({ app, jobKey, $loading, $pct, $error, onDone, onC
     const my = ++run; t0 = saved.ts;
     const alive = () => my === run;
     $error.set(""); $pct.set(0); $loading.set("queued");
-    followJob(saved.id, alive, saved.ts).catch((e) => fail(e, alive, false));
+    followJob(saved.task, alive).catch((e) => fail(e, alive, false));
   }
 
   /** Forget the wait (the edge finishes on its own and keeps the body in my list). */

@@ -12,7 +12,7 @@ import { takeShared, firstLink } from "/_rt/share.js";
 import { videoId, clock, byline } from "/_rt/muzak.js";
 import { report } from "/_rt/telemetry.js";
 import { VARIANTS, remixFile, roomKey, presetLine, whyKeys, parseTags, groundSong, errorKey, FIXTURE_LINK, FIXTURE_META, FIXTURE_ANALYSIS, FIXTURE_TAGS } from "/_rt/remix.js";
-import { startTask, followTask, fetchResumable, taskKey } from "/_rt/task.js";
+import { startTask, followTask, fetchResumable, taskKey, taskCall } from "/_rt/task.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
 // The task's stages, in order, as the edge reports them (rt/task.js): the step track fills left to right.
@@ -36,7 +36,6 @@ const $cur = atom(gate ? VARIANTS[0] : "");          // the variant in the trans
 const $playing = atom(false);
 const $pos = atom(0), $dur = atom(0);
 let seq = 0, audio = null, run = null;   // run: the AbortController of the mix in flight
-const CALL_MS = 110_000;         // /library/keep only — the edge answers inside nginx's 120 s
 takeShared((s) => { const link = firstLink(s) || String(s.text || "").trim(); if (link) { $link.set(link); find(link); } });
 
 function reset() { run?.abort(); run = null; stop(); $ana.set(null); $tags.set(null); for (const t of Object.values($tracks.get())) if (t.url) URL.revokeObjectURL(t.url); $tracks.set({}); $cur.set(""); }
@@ -159,8 +158,7 @@ async function keep(v, link, toast, t) {
   try {
     if (!gate) {
       const tags = $tags.get();
-      const r = await fetch(`${VPS_PROXY}/library/keep`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: link, v, genre: tags?.genre || "", vocal: tags?.vocal || "" }), signal: AbortSignal.timeout(CALL_MS) });
-      if (!r.ok) throw new Error(String(r.status));
+      await taskCall("/library/keeptask", { url: link, v, genre: tags?.genre || "", vocal: tags?.vocal || "" });   // a task: the render lands on the shelf whatever the link does
     }
     $kept.set({ ...$kept.get(), [v]: "done" });
     toast?.(T(t, "kept"));

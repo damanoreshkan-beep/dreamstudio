@@ -77,6 +77,61 @@ function liveMirror(onLive) {
   return { emit, stop: () => clearInterval(clock) };
 }
 
+/**
+ * A task whose answer is a RECORD (the library keep's row, a character's row): start → events → `{t:"result"}`.
+ * → the record. A refused start or a `fail` event throws a TaskError (its `status`, the edge's words as message).
+ * `onStart(id, reply)` and `onLive(ev)` as in taskOne.
+ */
+export async function taskCall(route, body, { signal, onStart, onLive } = {}) {
+  const reply = await startTask(route, { ...body, k: taskKey() }, { signal });
+  onStart?.(reply.id, reply);
+  return followCall(reply.id, { signal, onLive });
+}
+
+/** Follow an already-started record task `id` (also after a reload) to its `result` → the record. */
+export async function followCall(id, { signal, onLive } = {}) {
+  let result = null, fail = null;
+  const live = liveMirror(onLive);
+  try {
+    await followTask(id, (ev) => {
+      if (ev.t === "result") result = ev.row ?? ev.body;
+      else if (ev.t === "fail") fail = ev;
+      else live.emit(ev);
+    }, { signal });
+  } finally { live.stop(); }
+  if (result) return result;
+  throw new TaskError(fail?.status || 502, fail?.error || "no result");
+}
+
+const TUS_CLIENT = "https://esm.sh/tus-js-client@4.3.1/lib.esm/browser/index.js";   // the browser build: no node polyfills
+
+/**
+ * A file UP to the edge, resumable (tus 1.0 — tus-js-client against edge library.js): 4 MB chunks (under nginx's
+ * 16 MB body cap, and a drop costs at most one chunk's progress); after any drop it asks the edge where it stands
+ * and goes on from there; a reload finds the unfinished upload again (keyed by the file, not by the sealed URL,
+ * which is new every time). `route` + `fields` make the sealed creation URL (the session rides inside).
+ * → the upload's id (the last segment of its URL). A refusal throws a TaskError with the HTTP status.
+ */
+export async function uploadResumable(route, fields, file, { onProgress, signal } = {}) {
+  const [{ Upload }, { sealedUrl }] = await Promise.all([import(TUS_CLIENT), import("@microspec/core/runtime/sealedfetch.js")]);
+  const endpoint = await sealedUrl(route, fields);
+  return await new Promise((done, fail) => {
+    const up = new Upload(file, {
+      endpoint, chunkSize: 4 * 1024 * 1024, removeFingerprintOnSuccess: true,
+      fingerprint: (f) => Promise.resolve(["ms-up", route, f.name, f.type, f.size, f.lastModified].join("|")),
+      metadata: { filename: file.name, filetype: file.type },
+      // the client's own pace between attempts, and no last attempt: a field upload waits for the network
+      retryDelays: [0, 1000, 3000, 5000, 10000, 15000, ...Array(200).fill(15000)],
+      onShouldRetry: (err) => { const s = err?.originalResponse?.getStatus?.(); return !s || s === 409 || s === 423 || s === 429 || s >= 500; },
+      onProgress: (sent, total) => onProgress?.(sent, total),
+      onSuccess: () => done(String(up.url || "").split("/").pop()),
+      onError: (err) => fail(new TaskError(err?.originalResponse?.getStatus?.() || 0, String(err?.originalResponse?.getBody?.() || err?.message || err).slice(0, 200))),
+    });
+    signal?.addEventListener("abort", () => { up.abort(); fail(signal.reason); }, { once: true });
+    up.findPreviousUploads().then((prev) => { if (prev.length) up.resumeFromPreviousUpload(prev[0]); up.start(); });
+  });
+}
+
 /** The i18n code a refused start deserves — the words imagejob.js's startJob used, so the screens keep theirs. */
 export const jobCode = (e) => ({ 429: "eRate", 413: "eBig", 401: "eSignIn" })[e?.status] || "eFailed";
 

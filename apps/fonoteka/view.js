@@ -9,6 +9,7 @@ import { Panel, Transport } from "/_rt/ui.js";
 import { advance } from "/_rt/player.js";
 import { holdAudio } from "/_rt/mediasession.js";
 import { sealedUrl } from "/_rt/sealedfetch.js";
+import { uploadResumable } from "/_rt/task.js";
 import { authWall } from "/_rt/authwall.js";
 import { takeShared } from "/_rt/share.js";
 import { report } from "/_rt/telemetry.js";
@@ -18,7 +19,7 @@ import { isAudio, songLine, usageLine, titleOf, errorKey, FIXTURE_SONGS, FIXTURE
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
 const $songs = atom(gate ? FIXTURE_SONGS : null);   // null until the shelf is read
 const $usage = atom(gate ? FIXTURE_USAGE : null);
-const $uploads = atom([]);                           // [{ k, name, state: "up" | "err" }]
+const $uploads = atom([]);                           // [{ k, name, state: "up" | "err", pct? }]
 const $err = atom("");
 const $cur = atom("");
 const $playing = atom(false);
@@ -52,15 +53,22 @@ async function upload(f) {
   $err.set("");
   if (gate) { $uploads.set($uploads.get().filter((u) => u.k !== k)); return; }
   try {
-    const r = await fetch(await sealedUrl("/library/put", { n: f.name }), { method: "POST", headers: { "content-type": f.type || "audio/mpeg" }, body: f, signal: AbortSignal.timeout(110000) });
-    if (!r.ok) {
-      if (r.status === 401) authWall.set(authWall.get() + 1);
-      const why = (await r.json().catch(() => null))?.error;
-      report("upload.fail", { status: r.status, why: String(why || "").slice(0, 80), name: String(f.name || "").slice(0, 40), size: f.size, type: f.type });
-      const key = errorKey(r.status, why); if (key) $err.set(key);
+    // RESUMABLE (tus, rt/task.js): 4 MB chunks; a dead zone costs a pause, the upload goes on from where it stood,
+    // and a reload finds it again. A raw POST of the whole song under a 110 s abort lost it to any drop.
+    let id;
+    try {
+      id = await uploadResumable("/library/up", { n: f.name }, f, { onProgress: (sent, total) => { const pct = total ? Math.floor(sent * 100 / total) : 0; $uploads.set($uploads.get().map((u) => (u.k === k && u.pct !== pct ? { ...u, pct } : u))); } });
+    } catch (e) {
+      if (!e?.status) throw e;
+      if (e.status === 401) authWall.set(authWall.get() + 1);
+      const why = (() => { try { return JSON.parse(e.message).error; } catch { return ""; } })();
+      report("upload.fail", { status: e.status, why: String(why || "").slice(0, 80), name: String(f.name || "").slice(0, 40), size: f.size, type: f.type });
+      const key = errorKey(e.status, why); if (key) $err.set(key);
       $uploads.set($uploads.get().map((u) => (u.k === k ? { ...u, state: "err" } : u)));
       return;
     }
+    const r = await fetch(`${VPS_PROXY}/library/uprow`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id }) });
+    if (!r.ok) throw new Error(`uprow ${r.status}`);
     const row = await r.json();
     report("upload.ok", { size: f.size, dur: row.dur }, "info");
     $songs.set([row, ...($songs.get() || [])]);
@@ -147,9 +155,11 @@ export function fonoteka({ S, toast, confirm }) {
       </button>
       ${err ? html`<div data-err role="alert" class="text-sm text-error">${T(t, err)}</div>` : null}
       <div class="flex flex-col">
-        ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class=${`flex items-center gap-3 border-b border-base-content/10 py-1 px-2 h-[var(--ms-ctl)] ${u.state === "up" ? "animate-pulse" : ""}`}>
-          ${Icon(u.state === "up" ? "lucide:hourglass" : "lucide:x", `text-[length:var(--ms-icon)] ${u.state === "err" ? "text-error" : "text-base-content/70"}`)}
-          <span class="min-w-0 flex-1 flex flex-col leading-tight"><span class="font-semibold text-sm truncate">${u.name}</span><span class="text-xs text-base-content/70">${T(t, u.state === "up" ? "uploading" : "errUpload")}</span></span>
+        ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class="relative flex items-center gap-3 border-b border-base-content/10 py-1 px-2 h-[var(--ms-ctl)]">
+          ${Icon(u.state === "up" ? "lucide:arrow-up-to-line" : "lucide:x", `text-[length:var(--ms-icon)] ${u.state === "err" ? "text-error" : "text-base-content/70"}`)}
+          <span class="min-w-0 flex-1 flex flex-col leading-tight"><span class="font-semibold text-sm truncate">${u.name}</span><span class="text-xs text-base-content/70">${u.state === "up" ? `${T(t, "uploading")}${u.pct ? ` · ${u.pct}%` : ""}` : T(t, "errUpload")}</span></span>
+          ${/* the row's divider fills with the bytes sent — the remix's progress language */""}
+          ${u.state === "up" ? html`<progress data-progress aria-hidden="true" max="100" value=${u.pct || 0} class="progress absolute inset-x-0 -bottom-px h-0.5 rounded-none text-[var(--app-accent)]"></progress>` : null}
         </div>`)}
         ${songs === null ? [0, 1, 2].map((i) => html`<div key=${i} class="flex items-center gap-3 py-1 px-2 h-[var(--ms-ctl)]"><div class="skeleton w-2 h-2 rounded-full"></div><div class="flex-1 flex flex-col gap-1.5"><div class="skeleton h-3.5 w-2/3"></div><div class="skeleton h-3 w-1/3"></div></div></div>`)
           : songs.map((s) => {
