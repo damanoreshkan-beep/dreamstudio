@@ -2,12 +2,11 @@ import { atom } from "nanostores";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
 import { cancelJob } from "/_rt/imagejob.js";
-import { taskOne } from "/_rt/task.js";
+import { taskOne, taskCall } from "/_rt/task.js";
 import { toEnglish } from "/_rt/translate.js";
 import { report } from "/_rt/telemetry.js";
 
 const BASE = `${VPS_PROXY}/video`;
-const SCENARIO = `${VPS_PROXY}/scenario`;
 /** The chunk (owner, 2026-09-08: no more than two seconds). The edge clamps to the same number and writes
  *  it into the Space's own Duration control where the row has one; see `CHUNK_MAX_SEC` in edge/video.js. */
 export const CHUNK_SEC = 2;
@@ -57,9 +56,8 @@ export async function beatsFor(prompt, durationSec, locale = "en") {
   const n = Math.max(1, Math.ceil(durationSec / CHUNK_SEC));
   if (gate) return Array.from({ length: n }, (_, i) => `${prompt} — ${i + 1}`);
   try {
-    const r = await fetch(SCENARIO, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ prompt, durationSec, locale }) });
-    if (!r.ok) throw new Error(String(r.status));
-    const j = await r.json();
+    // a TASK on the edge (rt/task.js): the beats come from the AI cascade, and a dead zone mid-answer costs a pause
+    const j = await taskCall("/task", { route: "/feed/scenario", body: { prompt, durationSec, locale } });
     const beats = Array.isArray(j?.beats) ? j.beats.filter((b) => typeof b === "string" && b.trim()) : [];
     if (!beats.length) throw new Error("no beats");
     return Array.from({ length: n }, (_, i) => beats[i] || prompt);
