@@ -5,7 +5,8 @@ import { T } from "/_rt/i18n.js";
 import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskOne, jobCode } from "/_rt/task.js";
 import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";
 import { report } from "/_rt/telemetry.js";
 
@@ -77,16 +78,23 @@ export async function enlarge(ctx) {
   if (r !== run) return;
   patch({ inW: sent.w, inH: sent.h });
   const { quality, model } = $opts.get();
-  try { job = await startJob(BASE, { image: sent.data, quality, ...(model && model !== "auto" ? { model } : {}) }); }
-  catch (e) { return fail(r, e.code || "eNetwork"); }
-  if (r !== run) { cancelJob(BASE, job); return; }
-  try { localStorage.setItem(JOB_KEY, JSON.stringify({ job, ts: Date.now() })); } catch { }
+  // a TASK on the edge (rt/task.js, the weak-link transport): progress as events, the picture by byte range
   hold = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, "working") });
-  const res = await followOne({ base: BASE, job, alive: () => r === run, onLive: (live) => patch({ live }) });
+  let res;
+  try {
+    res = await taskOne("/task", { route: "/feed/image/upscale", body: { image: sent.data, quality, ...(model && model !== "auto" ? { model } : {}) } }, {
+      onStart: (_id, rep) => {
+        if (r !== run) { cancelJob(BASE, rep.job); return; }
+        job = rep.job;
+        try { localStorage.setItem(JOB_KEY, JSON.stringify({ job, ts: Date.now() })); } catch { }
+      },
+      onLive: (live) => { if (r === run) patch({ live }); },
+    });
+  } catch (e) { if (r === run) { hold?.(); hold = null; fail(r, e.code || jobCode(e)); } return; }
   if (r !== run) return;
   hold?.(); hold = null;
   try { localStorage.removeItem(JOB_KEY); } catch { }
-  if (res.status !== "done") return fail(r, res.status === "busy" ? "eBusy" : res.status === "timeout" ? "eTimeout" : "eFailed");
+  if (res.status !== "done") return fail(r, res.status === "busy" ? "eBusy" : "eFailed");
   const size = (await sizeOf(res.blob)) || { w: 0, h: 0 };
   if (r !== run) return;
   const out = { url: res.url, w: size.w, h: size.h, ext: extOf(res.blob), by: res.by };

@@ -8,7 +8,8 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { gate } from "/_rt/gate.js";
 import { Island } from "/_rt/ui.js";
 import { Chooser, Camera, mockArt, toDataURL } from "/_rt/intake.js";
-import { startJob, follow as followJob, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskSlides, jobCode } from "/_rt/task.js";
 import { toEnglish } from "/_rt/translate.js";
 import { suggestPrompt } from "/_rt/ai-text.js";
 import { downloadUrl } from "/_rt/apk.js";
@@ -93,27 +94,30 @@ export function retouch({ S, toast }) {
     if (image.length > 9_000_000) return fail(run, "eBig");
     let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail(run, e.code || "eTranslate"); }
     if (run !== runRef.current) return;
-    let job; try { job = await startJob(BASE, { image, prompt: pEn, seed, k: 4 }); } catch (e) { return fail(run, e.code === "eFailed" ? "edFailed" : (e.code || "eNetwork")); }
-    if (run !== runRef.current) { cancelJob(BASE, job); return; }
-    jobRef.current = job;
+    // the edit is a TASK on the edge (rt/task.js, the weak-link transport): each picture by byte range as it lands
+    const alive = () => run === runRef.current;
     const release = holdBackground({ title: T(t, "title"), body: T(t, "eEditing") }); holdRef.current = release;
     const mine = [];
-    const status = await followJob({
-      base: BASE, job, alive: () => run === runRef.current,
-      onLive: (l) => setLive(l),
-      onSlide: (s) => {
-        mine.push({ url: own(s.url), w: s.w, h: s.h, by: s.by });
-        setSlides([...mine]); setMore(true);
-        if (mine.length === 1) {
-          setIdx(0); setPhase("done"); buzz(12);
-          if (document.visibilityState === "hidden") notify({ id: "imagine-edit-done", title: T(t, "title"), body: T(t, "notifEditDone"), url: "./?tab=edit" });
-        }
-      },
-    });
-    if (status === "stale") return;
+    let status;
+    try {
+      status = await taskSlides("/feed/image/edit", { image, prompt: pEn, seed, k: 4 }, {
+        onStart: (_id, rep) => { if (alive()) jobRef.current = rep.job; else cancelJob(BASE, rep.job); },
+        onLive: (l) => { if (alive()) setLive(l); },
+        onSlide: (s) => {
+          if (!alive()) return;
+          mine.push({ url: own(s.url), w: s.w, h: s.h, by: s.by });
+          setSlides([...mine]); setMore(true);
+          if (mine.length === 1) {
+            setIdx(0); setPhase("done"); buzz(12);
+            if (document.visibilityState === "hidden") notify({ id: "imagine-edit-done", title: T(t, "title"), body: T(t, "notifEditDone"), url: "./?tab=edit" });
+          }
+        },
+      });
+    } catch (e) { release(); holdRef.current = null; const c = jobCode(e); return fail(run, c === "eFailed" ? "edFailed" : c); }
+    if (!alive()) return;
     release(); holdRef.current = null; jobRef.current = null;
     setMore(false); setLive(null);
-    if (!mine.length) fail(run, status === "timeout" ? "eTimeout" : status === "busy" ? "eBusy" : "edFailed");
+    if (!mine.length) fail(run, status === "busy" ? "eBusy" : "edFailed");
   };
 
   const cancel = () => {

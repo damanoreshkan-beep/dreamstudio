@@ -60,7 +60,6 @@
   "eNetwork": "No connection. Try again when you are online",
   "eRate": "Too many requests. Wait a minute",
   "eBusy": "Every GPU is taken. Try again in a minute",
-  "eTimeout": "The voice took too long. Try again",
   "eFailed": "Nothing came back. Try other words",
   "eBig": "The take is too long. Record a shorter one",
   "eSignIn": "Sign in to make an echo",

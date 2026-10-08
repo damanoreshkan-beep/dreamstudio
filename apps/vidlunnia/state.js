@@ -5,7 +5,8 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { mic } from "/_rt/sensors.js";
 import { AC } from "/_rt/audio.js";
 import { collection, idbSupported } from "/_rt/db.js";
-import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskOne, jobCode } from "/_rt/task.js";
 import { shareFile, downloadBlob } from "/_rt/apk.js";
 import { conditionSample, encodeWav } from "/_rt/grain.js";
 import { referenceWav, wavDataUrl, decodeWav, mockVoice, envelope, REF_RATE } from "/_rt/wav.js";
@@ -176,7 +177,8 @@ export async function generate() {
     land({ blob: wavBlob(mockVoice(1.6, REF_RATE, hashOf(words + voice + (style?.id || ""))), REF_RATE), words, voice, style: style?.id || "", by: "mock" });
     return;
   }
-  let id;
+  // the voice is a TASK on the edge (rt/task.js, the weak-link transport): progress as events, the clip by byte range
+  let r;
   try {
     let body;
     if (clone) {
@@ -185,16 +187,15 @@ export async function generate() {
       body = { text: words, audio: wavDataUrl(ref), instruct: style?.recipe || "", seed: 0 };
     } else body = { text: words, voice, seed: 0 };
     if (run !== runs) return;
-    id = await startJob(BASE, body);
-  } catch (e) { if (run === runs) $gen.set({ phase: "error", error: e?.code || "eFailed", eta: null, pct: null, elapsed: 0 }); return; }
-  if (run !== runs) { cancelJob(BASE, id); return; }
-  job = id;
-  const r = await followOne({ base: BASE, job: id, alive: () => run === runs,
-    onLive: (m) => { if (run === runs) $gen.set({ ...$gen.get(), eta: m.eta ?? null, pct: m.pct ?? null, elapsed: m.elapsed || 0 }); } });
+    r = await taskOne("/task", { route: "/feed/voice", body }, {
+      onStart: (_id, rep) => { if (run === runs) job = rep.job; else cancelJob(BASE, rep.job); },
+      onLive: (m) => { if (run === runs) $gen.set({ ...$gen.get(), eta: m.eta ?? null, pct: m.pct ?? null, elapsed: m.elapsed || 0 }); },
+    });
+  } catch (e) { if (run === runs) $gen.set({ phase: "error", error: e?.code || jobCode(e), eta: null, pct: null, elapsed: 0 }); return; }
   if (run !== runs) return;
   job = null;
   if (r.status === "done") land({ blob: r.blob, url: r.url, by: r.by, words, voice, style: style?.id || "" });
-  else $gen.set({ phase: "error", error: r.status === "busy" ? "eBusy" : r.status === "timeout" ? "eTimeout" : "eFailed", eta: null, pct: null, elapsed: 0 });
+  else $gen.set({ phase: "error", error: r.status === "busy" ? "eBusy" : "eFailed", eta: null, pct: null, elapsed: 0 });
 }
 
 let el = null;

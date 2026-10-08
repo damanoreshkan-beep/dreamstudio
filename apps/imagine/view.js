@@ -8,7 +8,8 @@ import { gate } from "/_rt/gate.js";
 import { Dust } from "/_rt/dust.js";
 import { Island, Segmented } from "/_rt/ui.js";
 import { mockArt, extOf } from "/_rt/intake.js";
-import { startJob, follow as followJob, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { startTask, followSlides, taskKey, jobCode } from "/_rt/task.js";
 import { writeLastGen } from "/_rt/lastgen.js";
 import { toEnglish } from "/_rt/translate.js";
 import { suggestPrompt } from "/_rt/ai-text.js";
@@ -82,15 +83,16 @@ export function imagine({ S, toast }) {
 
   const freeSlides = (list) => list.forEach((s) => { if (s.url?.startsWith?.("blob:")) URL.revokeObjectURL(s.url); });
 
-  const follow = async (job, run, p, seed) => {
+  // the race is a TASK on the edge (rt/task.js, the weak-link transport); `task` replays after a reload
+  const follow = async (task, run, p, seed) => {
     const alive = () => run === runRef.current;
     const release = holdBackground({ title: T(t, "title"), body: T(t, "eGenerating") });
     holdRef.current = release;
     const mine = [];
-    const status = await followJob({
-      base: BASE, job, alive,
-      onLive: (l) => setLive(l),
+    const status = await followSlides(task, {
+      onLive: (l) => { if (alive()) setLive(l); },
       onSlide: (s) => {
+        if (!alive()) return;
         mine.push({ url: s.url, w: s.w || W, h: s.h || H, by: s.by, seed: seed + s.n, ext: extOf(s.blob) });
         setSlides([...mine]); setMore(true);
         if (mine.length === 1) {
@@ -98,12 +100,12 @@ export function imagine({ S, toast }) {
           if (document.visibilityState === "hidden") notify({ id: "imagine-done", title: T(t, "title"), body: T(t, "notifDone"), url: "./" });
         }
       },
-    });
-    if (status === "stale") return;
+    }).catch(() => "error");   // the task forgotten (core restarted)
+    if (!alive()) return;
     release(); holdRef.current = null; jobRef.current = null;
     setMore(false); setLive(null);
     try { localStorage.removeItem(JOB_KEY); } catch { }
-    if (!mine.length) fail(run, status === "timeout" ? "eTimeout" : status === "busy" ? "eBusy" : "eFailed");
+    if (!mine.length) fail(run, status === "busy" ? "eBusy" : "eFailed");
   };
 
   const generate = async () => {
@@ -119,21 +121,21 @@ export function imagine({ S, toast }) {
     let pEn; try { pEn = await toEnglish(p); } catch (e) { return fail(run, e.code || "eTranslate"); }
     if (run !== runRef.current) return;
     const ratio = Math.max(0.3, Math.min(3, (window.innerWidth || 1) / (window.innerHeight || 1)));
-    let job; try { job = await startJob(BASE, { prompt: pEn, quality, aspect, ratio, seed, k: 4 }); } catch (e) { return fail(run, e.code || "eNetwork"); }
-    if (run !== runRef.current) { cancelJob(BASE, job); return; }
-    jobRef.current = job;
+    let rep; try { rep = await startTask("/task", { route: "/feed/image", body: { prompt: pEn, quality, aspect, ratio, seed, k: 4 }, k: taskKey() }); } catch (e) { return fail(run, e.code || jobCode(e)); }
+    if (run !== runRef.current) { cancelJob(BASE, rep.job); return; }
+    jobRef.current = rep.job;
     const began = Date.now(); setT0(began);
-    try { localStorage.setItem(JOB_KEY, JSON.stringify({ job, prompt: p, seed, ts: began })); } catch { }
-    await follow(job, run, p, seed);
+    try { localStorage.setItem(JOB_KEY, JSON.stringify({ job: rep.job, task: rep.id, prompt: p, seed, ts: began })); } catch { }
+    await follow(rep.id, run, p, seed);
   };
 
   useEffect(() => {
     if (gate) return;
     let j = null; try { j = JSON.parse(localStorage.getItem(JOB_KEY) || "null"); } catch { }
-    if (!j?.job || Date.now() - j.ts > 240000) { try { localStorage.removeItem(JOB_KEY); } catch { } return; }
+    if (!j?.task || Date.now() - j.ts > 240000) { try { localStorage.removeItem(JOB_KEY); } catch { } return; }   // no task: a job from the polling bundle
     const run = ++runRef.current; jobRef.current = j.job;
     setPrompt(j.prompt || ""); setPhase("generating"); setT0(j.ts);
-    follow(j.job, run, j.prompt || "", j.seed || 0);
+    follow(j.task, run, j.prompt || "", j.seed || 0);
   }, []);
 
   const cancel = () => {

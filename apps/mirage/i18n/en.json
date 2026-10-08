@@ -78,7 +78,6 @@
   "eFailed": "Nothing formed. Try different words.",
   "eSignIn": "Sign in to generate.",
   "eRate": "Too many at once. Wait a moment.",
-  "eTimeout": "Took too long. Try again.",
   "eBig": "That photo is too large.",
   "eBusy": "Every GPU is taken. Try again in a minute, or switch to Fast.",
   "eRead": "Could not read it. Try another photo.",

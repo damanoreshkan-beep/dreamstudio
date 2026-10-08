@@ -4,7 +4,8 @@ import { VPS_PROXY } from "/_rt/feed.js";
 import { T } from "/_rt/i18n.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
-import { startJob, followOne, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskOne, jobCode } from "/_rt/task.js";
 import { extOf, sizeOf, toDataURL } from "/_rt/intake.js";
 import { report } from "/_rt/telemetry.js";
 import { STYLES, styleOf } from "/_rt/styles.js";
@@ -49,14 +50,18 @@ export async function shoot(frame, ctx) {
   if (frame.length > 9_000_000) return fail(r, "eBig");
   notifyAsk();
   jobBase = MATERIAL;
-  try { job = await startJob(MATERIAL, { image: frame, material: st.mat, seed }); }
-  catch (e) { return fail(r, e.code || "eNetwork"); }
-  if (r !== run) { cancelJob(MATERIAL, job); return; }
+  // a TASK on the edge (rt/task.js, the weak-link transport): progress as events, the picture by byte range
   hold = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, "working") });
-  const res = await followOne({ base: MATERIAL, job, alive: () => r === run, onLive: (live) => patch({ live }) });
-  if (res.status === "stale") return;
+  let res;
+  try {
+    res = await taskOne("/task", { route: "/feed/image/material", body: { image: frame, material: st.mat, seed } }, {
+      onStart: (_id, rep) => { if (r === run) job = rep.job; else cancelJob(MATERIAL, rep.job); },
+      onLive: (live) => { if (r === run) patch({ live }); },
+    });
+  } catch (e) { return fail(r, e.code || jobCode(e)); }
+  if (r !== run) return;
   hold?.(); hold = null; job = null;
-  if (res.status !== "done") return fail(r, res.status === "timeout" ? "eTimeout" : res.status === "busy" ? "eBusy" : "eFailed");
+  if (res.status !== "done") return fail(r, res.status === "busy" ? "eBusy" : "eFailed");
   const size = await sizeOf(res.blob);
   if (r !== run) { revoke(res.url); return; }
   patch({ phase: "done", out: { url: res.url, w: size?.w || 0, h: size?.h || 0, by: res.by, ext: extOf(res.blob) }, live: null });
@@ -80,11 +85,15 @@ export async function enhance(ctx) {
   try { image = (await toDataURL(st.out.url)).data; } catch { return failHd(r, "eHd"); }
   if (r !== run) return;
   jobBase = UPSCALE;
-  try { job = await startJob(UPSCALE, { image, quality: "hd" }); } catch (e) { return failHd(r, e.code === "eSignIn" ? "eSignIn" : "eHd"); }
-  if (r !== run) { cancelJob(UPSCALE, job); return; }
   hold = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, "enhancing") });
-  const res = await followOne({ base: UPSCALE, job, alive: () => r === run, onLive: (live) => patch({ live }) });
-  if (res.status === "stale") return;
+  let res;
+  try {
+    res = await taskOne("/task", { route: "/feed/image/upscale", body: { image, quality: "hd" } }, {
+      onStart: (_id, rep) => { if (r === run) job = rep.job; else cancelJob(UPSCALE, rep.job); },
+      onLive: (live) => { if (r === run) patch({ live }); },
+    });
+  } catch (e) { return failHd(r, jobCode(e) === "eSignIn" ? "eSignIn" : "eHd"); }
+  if (r !== run) return;
   hold?.(); hold = null; job = null;
   if (res.status !== "done") return failHd(r, res.status === "busy" ? "eBusy" : "eHd");
   const size = await sizeOf(res.blob);

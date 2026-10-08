@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "mirage",
-  version: "bf8987f264",
+  version: "33a55a42c4",
   precache: [
     "./",
     "./history.js",
@@ -69,6 +69,7 @@ self.MS = {
     "/_rt/store.js",
     "/_rt/styles.js",
     "/_rt/swipe.js",
+    "/_rt/task.js",
     "/_rt/telemetry.js",
     "/_rt/theme-lum.css",
     "/_rt/theme.css",

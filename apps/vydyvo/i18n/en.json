@@ -35,7 +35,6 @@
   "eNetwork": "No connection. The next one comes when it is back",
   "eRate": "Too many requests. Pausing a few minutes",
   "eBusy": "Every GPU is taken. Pausing a few minutes",
-  "eTimeout": "The picture took too long. Trying later",
   "eFailed": "Nothing formed. Trying later",
   "eSignIn": "Sign in so new pictures can be painted",
   "eTranslate": "The words would not translate. Trying later",

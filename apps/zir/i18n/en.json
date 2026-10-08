@@ -37,7 +37,6 @@
   "eBusy": "Every GPU is busy. Try again in a minute",
   "eRate": "Too many requests. Wait a moment",
   "eBig": "The photo is too large",
-  "eTimeout": "It took too long. Try again",
   "eSignIn": "Sign in to enlarge",
   "profTagline": "sight for a picture",
   "profTheme": "Dark theme",

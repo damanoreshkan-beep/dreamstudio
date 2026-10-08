@@ -7,7 +7,8 @@ import { writeLastGen } from "/_rt/lastgen.js";
 import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";
-import { startJob, follow, followOne, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { startTask, followSlides, taskOne, taskKey, jobCode } from "/_rt/task.js";
 import { report } from "/_rt/telemetry.js";
 import { styleOf } from "./styles.js";
 
@@ -21,6 +22,7 @@ const randSeed = () => Math.floor(Math.random() * 1e9);
 const JOB_KEY = (mode) => `ms:mirage:job:${mode}`;
 const OPTS_KEY = "ms:mirage:opts";
 const BASE = { make: `${VPS_PROXY}/image`, edit: `${VPS_PROXY}/image/edit`, blend: `${VPS_PROXY}/image/blend`, style: `${VPS_PROXY}/image/style` };
+const ROUTE = { make: "/feed/image", edit: "/feed/image/edit", blend: "/feed/image/blend", style: "/feed/image/style" };   // the job routes /feed/task starts
 
 export const $mode = atom("make");
 export const $make = atom({ prompt: gate ? GATE_PROMPT : "", phase: gate ? "done" : "idle",
@@ -69,28 +71,29 @@ const freeSlides = (list, keep = []) => list.forEach((s) => { if (!keep.includes
 const held = () => [$edit.get().src, $edit.get().original, $read.get().src, $blend.get().a, $blend.get().b, $style.get().a, $style.get().b];
 const stillHeld = (url) => [...held(), ...$make.get().slides.map((s) => s.url), ...$edit.get().slides.map((s) => s.url), ...$blend.get().slides.map((s) => s.url), ...$style.get().slides.map((s) => s.url)].includes(url);
 
+// Every race is a TASK on the edge (rt/task.js, the weak-link transport): progress as events, each picture by byte
+// range the moment it lands. The task id rides next to the job in localStorage, so a reload replays the stream.
 async function race(mode, body, run, ctx, seed) {
-  const base = BASE[mode];
   const alive = () => run === runs[mode];
-  let job;
-  try { job = await startJob(base, body); } catch (e) { return fail(mode, run, e.code || "eNetwork"); }
-  if (!alive()) { cancelJob(base, job); return; }
-  jobs[mode] = job;
+  let rep;
+  try { rep = await startTask("/task", { route: ROUTE[mode], body, k: taskKey() }); } catch (e) { return fail(mode, run, e.code || jobCode(e)); }
+  if (!alive()) { cancelJob(BASE[mode], rep.job); return; }
+  jobs[mode] = rep.job;
   const t0 = Date.now();
-  try { localStorage.setItem(JOB_KEY(mode), JSON.stringify({ job, prompt: body.prompt, seed, ts: t0, quality: body.quality })); } catch { }
+  try { localStorage.setItem(JOB_KEY(mode), JSON.stringify({ job: rep.job, task: rep.id, prompt: body.prompt, seed, ts: t0, quality: body.quality })); } catch { }
   patch(mode, { t0 });
-  await followJob(mode, job, run, ctx, seed);
+  await followJob(mode, rep.id, run, ctx, seed);
 }
 
-async function followJob(mode, job, run, ctx, seed) {
-  const base = BASE[mode], alive = () => run === runs[mode];
+async function followJob(mode, task, run, ctx, seed) {
+  const alive = () => run === runs[mode];
   const release = holdBackground({ title: T(ctx.t, "title"), body: T(ctx.t, mode === "edit" ? "reworking" : mode === "blend" ? "blending" : mode === "style" ? "styling" : "working") });
   holds[mode] = release;
   const mine = [];
-  const status = await follow({
-    base, job, alive,
-    onLive: (live) => patch(mode, { live }),
+  const status = await followSlides(task, {
+    onLive: (live) => { if (alive()) patch(mode, { live }); },
     onSlide: (s) => {
+      if (!alive()) return;
       mine.push({ url: s.url, w: s.w, h: s.h, by: s.by, n: s.n, ext: extOf(s.blob), seed: seed + s.n });
       patch(mode, { slides: [...mine], more: true, ...(mine.length === 1 ? { idx: 0, phase: "done" } : {}) });
       if (mine.length === 1) {
@@ -98,12 +101,12 @@ async function followJob(mode, job, run, ctx, seed) {
         if (document.visibilityState === "hidden") notify({ id: `mirage-${mode}`, title: T(ctx.t, "title"), body: T(ctx.t, "notifDone"), url: "./" });
       }
     },
-  });
-  if (status === "stale") return;
+  }).catch(() => "error");   // the task forgotten (core restarted): the race is lost, say so
+  if (!alive()) return;
   release(); holds[mode] = null; jobs[mode] = null;
   try { localStorage.removeItem(JOB_KEY(mode)); } catch { }
   patch(mode, { more: false, live: null });
-  if (!mine.length) fail(mode, run, status === "timeout" ? "eTimeout" : status === "busy" ? "eBusy" : "eFailed");
+  if (!mine.length) fail(mode, run, status === "busy" ? "eBusy" : "eFailed");
 }
 
 function fail(mode, run, code) {
@@ -242,12 +245,16 @@ export async function enhance(mode) {
   let sent;
   try { sent = (await toDataURL(cur.url)).data; } catch { return fail("eFailed"); }
   if (r !== enhanceRun) return;
-  try { enhanceJob = await startJob(UPSCALE, { image: sent, quality: "hd" }); } catch (e) { return fail(e?.code || "eNetwork"); }
-  if (r !== enhanceRun) { cancelJob(UPSCALE, enhanceJob); return; }
-  const res = await followOne({ base: UPSCALE, job: enhanceJob, alive: () => r === enhanceRun, onLive: (live) => { if (r === enhanceRun) $enhance.set({ ...$enhance.get(), live }); } });
+  let res;
+  try {
+    res = await taskOne("/task", { route: "/feed/image/upscale", body: { image: sent, quality: "hd" } }, {
+      onStart: (_id, rep) => { if (r === enhanceRun) enhanceJob = rep.job; else cancelJob(UPSCALE, rep.job); },
+      onLive: (live) => { if (r === enhanceRun) $enhance.set({ ...$enhance.get(), live }); },
+    });
+  } catch (e) { if (r === enhanceRun) fail(e?.code || jobCode(e)); return; }
   enhanceJob = null;
   if (r !== enhanceRun) return;
-  if (res.status !== "done") return fail(res.status === "busy" ? "eBusy" : res.status === "timeout" ? "eTimeout" : "eFailed");
+  if (res.status !== "done") return fail(res.status === "busy" ? "eBusy" : "eFailed");
   try {
     const size = (await sizeOf(res.blob)) || { w: 0, h: 0 };
     land({ url: res.url, w: size.w, h: size.h, ext: extOf(res.blob), by: res.by });
@@ -295,11 +302,11 @@ export function resume(ctx) {
   for (const mode of ["make", "edit", "blend", "style"]) {
     if (runs[mode]) continue;
     let j = null; try { j = JSON.parse(localStorage.getItem(JOB_KEY(mode)) || "null"); } catch { }
-    if (!j?.job || Date.now() - j.ts > 240000) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { } continue; }
+    if (!j?.task || Date.now() - j.ts > 240000) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { } continue; }   // no task: a job from the polling bundle
     if ((mode === "edit" && !$edit.get().src) || (TWO_SLOT.includes(mode) && !(ATOM[mode].get().a && ATOM[mode].get().b))) { try { localStorage.removeItem(JOB_KEY(mode)); } catch { } continue; }
     const run = ++runs[mode]; jobs[mode] = j.job;
     patch(mode, { phase: "working", prompt: j.prompt || "", t0: j.ts, error: null });
-    followJob(mode, j.job, run, ctx, j.seed || 0);
+    followJob(mode, j.task, run, ctx, j.seed || 0);
   }
 }
 

@@ -6,7 +6,8 @@ import { T } from "/_rt/i18n.js";
 import { toEnglish } from "/_rt/translate.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { suggest } from "/_rt/ai-text.js";
-import { startJob, follow, cancelJob } from "/_rt/imagejob.js";
+import { cancelJob } from "/_rt/imagejob.js";
+import { taskSlides, jobCode } from "/_rt/task.js";
 import { LINES, WORLDS, worldOf, voiceOf, composePrompt, mockFrame, seedUrl } from "./worlds.js";
 
 const OPTS_KEY = "ms:vydyvo:opts";
@@ -14,7 +15,7 @@ const BASE = `${VPS_PROXY}/image`;
 const CAP = 2 + 4;
 const AHEAD = 2;
 const K = 2;
-const BACKOFF = { eRate: 120_000, eBusy: 300_000, eTimeout: 300_000, eFailed: 180_000, eNetwork: 60_000, eSignIn: 600_000, eTranslate: 60_000 };
+const BACKOFF = { eRate: 120_000, eBusy: 300_000, eFailed: 180_000, eNetwork: 60_000, eSignIn: 600_000, eTranslate: 60_000 };
 const DEFAULT = { prompt: "", every: 120, quality: "2k", char: "lum" };
 export const EVERY = [30, 60, 120, 300];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -168,20 +169,20 @@ async function generate() {
   const sw = (typeof screen !== "undefined" && screen.width) || window.innerWidth || 1;
   const sh = (typeof screen !== "undefined" && screen.height) || window.innerHeight || 1;
   const ratio = Math.max(0.3, Math.min(3, sw / sh));
-  try { job = await startJob(BASE, { prompt, quality: o.quality, aspect: "screen", ratio, seed, k: K }); }
-  catch (e) { return fail(run, e.code || "eNetwork"); }
-  if (run !== runs) { cancelJob(BASE, job); return; }
+  // a TASK on the edge (rt/task.js, the weak-link transport): progress as events, each frame by byte range
   hold = holdBackground({ title: T(ctxRef.t, "title"), body: T(ctxRef.t, "notifWorking") });
-  let got = 0;
-  const status = await follow({
-    base: BASE, job, alive: () => run === runs,
-    onLive: (live) => patchGen({ live }),
-    onSlide: (s) => { got++; const fid = addFrame({ url: s.url, blob: s.blob, preset: wid, prompt: o.prompt, subject: scene || null, mode, w: s.w, h: s.h }); lineFor(fid, world, mode, o.prompt, ctxRef?.loc); },
-  });
-  if (status === "stale") return;
+  let got = 0, status;
+  try {
+    status = await taskSlides("/feed/image", { prompt, quality: o.quality, aspect: "screen", ratio, seed, k: K }, {
+      onStart: (_id, rep) => { if (run === runs) job = rep.job; else cancelJob(BASE, rep.job); },
+      onLive: (live) => { if (run === runs) patchGen({ live }); },
+      onSlide: (s) => { if (run !== runs) return; got++; const fid = addFrame({ url: s.url, blob: s.blob, preset: wid, prompt: o.prompt, subject: scene || null, mode, w: s.w, h: s.h }); lineFor(fid, world, mode, o.prompt, ctxRef?.loc); },
+    });
+  } catch (e) { return fail(run, e.code || jobCode(e)); }
+  if (run !== runs) return;
   hold?.(); hold = null; job = null;
   if (got) patchGen({ phase: "idle", error: null, live: null, until: Date.now() + 5000 });
-  else fail(run, status === "busy" ? "eBusy" : status === "timeout" ? "eTimeout" : "eFailed");
+  else fail(run, status === "busy" ? "eBusy" : "eFailed");
 }
 function fail(run, code) {
   if (run !== runs) return;

@@ -66,28 +66,78 @@ export async function followTask(id, onEvent, { signal } = {}) {
   if (!res.streamClosed && !signal?.aborted) throw new TaskError(404, "task gone");
 }
 
+// The live mirror a screen reads (stage, phase, step, steps, eta, pct, got, elapsed): progress events merge into
+// it, and it is handed out again every second with `elapsed` — the screens count down eta − elapsed, as they did
+// on every poll. A display clock, never a deadline.
+function liveMirror(onLive) {
+  const t0 = Date.now();
+  let last = { got: 0 };
+  const emit = (ev) => { if (ev) last = { ...last, ...ev }; onLive?.({ ...last, elapsed: Math.round((Date.now() - t0) / 1000) }); };
+  const clock = onLive ? setInterval(() => emit(), 1000) : 0;
+  return { emit, stop: () => clearInterval(clock) };
+}
+
 /** The i18n code a refused start deserves — the words imagejob.js's startJob used, so the screens keep theirs. */
 export const jobCode = (e) => ({ 429: "eRate", 413: "eBig", 401: "eSignIn" })[e?.status] || "eFailed";
 
 /**
  * One task with ONE result file (a generated clip, an export): start → events → the file by Range. The shape of
  * imagejob's followOne — `{ status: "done" | "busy" | "error", blob?, url?, …the ready event }` — so a caller swaps
- * one call; but no poll count and no timeout: it ends when the task does. `onStart(id)` hands out the id (to
- * cancel), `onLive(ev)` every other event (stage, progress), `onProgress(got, total)` the download. A refused
- * start throws a TaskError (see jobCode).
+ * one call; but no poll count and no timeout: it ends when the task does. `onStart(id, reply)` hands out the id
+ * and the start's reply (`reply.job` cancels a /feed/task job through its route's /cancel), `onLive(ev)` every
+ * other event (stage, progress), `onProgress(got, total)` the download. A refused start throws a TaskError (see
+ * jobCode). Any pod job route rides it as `taskOne("/task", { route: "/feed/voice", body })`.
  */
 export async function taskOne(route, body, { signal, onStart, onLive, onProgress } = {}) {
-  const { id } = await startTask(route, { ...body, k: taskKey() }, { signal });
-  onStart?.(id);
+  const reply = await startTask(route, { ...body, k: taskKey() }, { signal });
+  const id = reply.id;
+  onStart?.(id, reply);
   let ready = null, fail = null;
-  await followTask(id, (ev) => {
-    if (ev.t === "ready") ready = ev;
-    else if (ev.t === "fail") fail = ev;
-    else onLive?.(ev);
-  }, { signal });
+  const live = liveMirror(onLive);
+  try {
+    await followTask(id, (ev) => {
+      if (ev.t === "ready") ready = ev;
+      else if (ev.t === "fail") fail = ev;
+      else live.emit(ev);
+    }, { signal });
+  } finally { live.stop(); }
   if (!ready) return { status: fail?.error === "busy" ? "busy" : "error", error: fail?.error || null };
   const blob = await fetchResumable(`${VPS_PROXY}/task/${id}/${ready.name}`, { signal, size: ready.bytes, onProgress });
   return { status: "done", blob, url: URL.createObjectURL(blob), ...ready };
+}
+
+/**
+ * A several-picture pod job (`/feed/image` and its edits with `k > 1`) as a task: every picture downloads the
+ * moment it lands, all in parallel, and reaches `onSlide({ url, blob, w, h, by, soft, n })` in order — imagejob's
+ * follow() contract, minus its poll count and timeout. → `"done" | "busy" | "error"`. `onStart(id, reply)` and
+ * `onLive(ev)` as in taskOne; a refused start throws a TaskError.
+ */
+export async function taskSlides(route, body, { signal, onStart, onLive, onSlide } = {}) {
+  const reply = await startTask("/task", { route, body, k: taskKey() }, { signal });
+  onStart?.(reply.id, reply);
+  return followSlides(reply.id, { signal, onLive, onSlide });
+}
+
+/** Follow an already-started several-picture task `id` — also after a reload: the stream replays from its start
+ *  and every picture is still a task file (2 h). → `"done" | "busy" | "error"`; a forgotten task rejects. */
+export async function followSlides(id, { signal, onLive, onSlide } = {}) {
+  let fail = null, order = Promise.resolve(), got = 0;
+  const live = liveMirror(onLive);
+  try {
+    await followTask(id, (ev) => {
+      if (ev.t === "slide") {
+        const file = fetchResumable(`${VPS_PROXY}/task/${id}/${ev.name}`, { signal, size: ev.bytes });
+        order = order.then(async () => {
+          const blob = await file.catch(() => null);
+          if (blob) onSlide?.({ url: URL.createObjectURL(blob), blob, w: ev.w, h: ev.h, by: ev.by, soft: ev.soft, n: ev.n });
+          live.emit({ got: ++got });
+        });
+      } else if (ev.t === "fail") fail = ev;
+      else if (ev.t !== "done") live.emit(ev);
+    }, { signal });
+    await order;
+  } finally { live.stop(); }
+  return fail ? (fail.error === "busy" ? "busy" : "error") : "done";
 }
 
 /** GET a file whole, resuming with Range from the bytes already in hand after any drop; → a Blob. `size` is the

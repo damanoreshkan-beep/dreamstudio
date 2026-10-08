@@ -40,7 +40,6 @@
   "eBusy": "All GPUs are busy. Try in a minute",
   "eRate": "Too many requests. Wait a moment",
   "eBig": "The frame is too large",
-  "eTimeout": "Too long. Try again",
   "eSignIn": "Sign in to develop",
   "profTagline": "the camera in our materials",
   "profTheme": "Dark theme",
