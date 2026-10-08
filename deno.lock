@@ -6,7 +6,7 @@
     "jsr:@deno-library/progress@^1.5.1": "1.5.1",
     "jsr:@deno/cache-dir@0.22.2": "0.22.2",
     "jsr:@deno/graph@0.86": "0.86.9",
-    "jsr:@microspec/core@1": "1.2.111",
+    "jsr:@microspec/core@1": "1.2.112",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/async@1": "1.4.0",
@@ -35,7 +35,7 @@
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.26",
     "npm:@jsquash/png@3.0.1": "3.0.1",
     "npm:@jsquash/webp@1.4.0": "1.4.0",
-    "npm:@jsr/microspec__core@1": "1.2.111",
+    "npm:@jsr/microspec__core@1": "1.2.112",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:@resvg/resvg-wasm@2.6.2": "2.6.2",
@@ -148,6 +148,30 @@
     },
     "@microspec/core@1.2.111": {
       "integrity": "a7d0c7e621fd9568317ff33a4e9a4cd9c41d89e8ff7c9b6342465d7511c806cc",
+      "dependencies": [
+        "jsr:@astral/astral",
+        "jsr:@b-fuze/deno-dom",
+        "jsr:@std/assert@1",
+        "jsr:@std/http",
+        "npm:@jsquash/png",
+        "npm:@jsquash/webp",
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:@resvg/resvg-wasm",
+        "npm:ajv",
+        "npm:ajv-formats",
+        "npm:d3-geo",
+        "npm:daisyui",
+        "npm:htm",
+        "npm:linkedom",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:tailwindcss",
+        "npm:topojson-client"
+      ]
+    },
+    "@microspec/core@1.2.112": {
+      "integrity": "46d0fbd8573796f4ffd10ed5d1b2e1f00033e11e1528380f55f2e9cf73119364",
       "dependencies": [
         "jsr:@astral/astral",
         "jsr:@b-fuze/deno-dom",
@@ -305,8 +329,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.111": {
-      "integrity": "sha512-F5IfgBmvw5ICOt7fWfYYtEhsktipdQHjdv7b8FC0aHaQa7yZE5C7FEMxwRh6oKHNQjbzGzkIwxRdKpISvH0KoA==",
+    "@jsr/microspec__core@1.2.112": {
+      "integrity": "sha512-Vhtn27EvBs2D71vbj59L6QUxrJXFql9xoTtZnrm9NC9S6+7VeYZbuTYpbrWjawSxx+bkrWVzdlShrKtD9BlNjg==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -328,7 +352,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.111.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.112.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",

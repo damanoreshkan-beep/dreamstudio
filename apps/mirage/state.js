@@ -8,7 +8,7 @@ import { notify, notifyAsk } from "/_rt/notify.js";
 import { holdBackground } from "/_rt/bghold.js";
 import { mockArt, toDataURL, sizeOf, extOf } from "/_rt/intake.js";
 import { cancelJob } from "/_rt/imagejob.js";
-import { startTask, followSlides, taskOne, taskKey, jobCode } from "/_rt/task.js";
+import { startTask, followSlides, taskOne, taskCall, taskKey, jobCode } from "/_rt/task.js";
 import { report } from "/_rt/telemetry.js";
 import { styleOf } from "./styles.js";
 
@@ -211,17 +211,16 @@ export async function readPhoto(ctx) {
   if (run !== runs.read) return;
   if (image.length > 9_000_000) return fail("read", run, "eBig");
   const ask = ASK[ctx.loc] || ASK.en;
-  try {
-    const r = await fetch(`${VPS_PROXY}/vision`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image, prompt: q ? ask.q + q : ask.read, maxTokens: 400, model: modelFor("read") }) });
-    if (run !== runs.read) return;
-    if (!r.ok) return fail("read", run, r.status === 429 ? "eRate" : r.status === 413 ? "eBig" : r.status === 502 ? "eReadBusy" : "eRead");
-    const j = await r.json().catch(() => null);
-    if (run !== runs.read) return;
-    const out = String(j?.text || "").trim();
-    if (!out) return fail("read", run, "eRead");
-    patch("read", { text: out, phase: "done" });
-    return true;
-  } catch { fail("read", run, "eNetwork"); }
+  // a TASK on the edge (rt/task.js): the vision cascade answers into the task's stream, so a dead zone mid-answer
+  // costs a pause, not the answer
+  let j;
+  try { j = await taskCall("/task", { route: "/feed/vision", body: { image, prompt: q ? ask.q + q : ask.read, maxTokens: 400, model: modelFor("read") } }); }
+  catch (e) { const s = e?.status; if (run === runs.read) fail("read", run, s === 429 ? "eRate" : s === 413 ? "eBig" : s === 502 ? "eReadBusy" : s ? "eRead" : "eNetwork"); return; }
+  if (run !== runs.read) return;
+  const out = String(j?.text || "").trim();
+  if (!out) return fail("read", run, "eRead");
+  patch("read", { text: out, phase: "done" });
+  return true;
 }
 
 const UPSCALE = `${VPS_PROXY}/image/upscale`;

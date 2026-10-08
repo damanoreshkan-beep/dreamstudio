@@ -3,8 +3,8 @@ import { Fragment } from "preact";
 import { useState, useRef, useEffect } from "preact/hooks";
 import { useStore } from "@nanostores/preact";
 import { T } from "/_rt/i18n.js";
-import { VPS_PROXY } from "/_rt/feed.js";
 import { gate } from "/_rt/gate.js";
+import { taskCall } from "/_rt/task.js";
 import { Island, Panel } from "/_rt/ui.js";
 import { Chooser, Camera, mockArt, toDataURL } from "/_rt/intake.js";
 import { Scramble } from "/_rt/skeleton.js";
@@ -50,16 +50,15 @@ export function describe({ S, toast }) {
     if (run !== runRef.current) return;
     if (image.length > 9_000_000) return fail(run, "eBig");
     const ask = ASK[loc] || ASK.en;
-    try {
-      const r = await fetch(`${VPS_PROXY}/vision`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image, prompt: q ? ask.q + q : ask.read, maxTokens: 400 }) });
-      if (run !== runRef.current) return;
-      if (!r.ok) return fail(run, r.status === 429 ? "eRate" : r.status === 413 ? "eBig" : "dsFailed");
-      const j = await r.json().catch(() => null);
-      if (run !== runRef.current) return;
-      const out = String(j?.text || "").trim();
-      if (!out) return fail(run, "dsFailed");
-      setText(out); setPhase("done"); buzz(12);
-    } catch { fail(run, "eNetwork"); }
+    // a TASK on the edge (rt/task.js): the vision cascade answers into the task's stream, so a dead zone mid-answer
+    // costs a pause, not the answer
+    let j;
+    try { j = await taskCall("/task", { route: "/feed/vision", body: { image, prompt: q ? ask.q + q : ask.read, maxTokens: 400 } }); }
+    catch (e) { if (run === runRef.current) fail(run, e?.status === 429 ? "eRate" : e?.status === 413 ? "eBig" : e?.status ? "dsFailed" : "eNetwork"); return; }
+    if (run !== runRef.current) return;
+    const out = String(j?.text || "").trim();
+    if (!out) return fail(run, "dsFailed");
+    setText(out); setPhase("done"); buzz(12);
   };
 
   const copy = async () => { try { await navigator.clipboard.writeText(text); toast?.(T(t, "copied")); } catch { toast?.(T(t, "eNetwork")); } };

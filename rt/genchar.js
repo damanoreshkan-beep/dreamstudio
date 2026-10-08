@@ -1,10 +1,10 @@
 import { VPS_PROXY } from "@microspec/core/runtime/feed.js";
-import { startTask, taskSlides, followCall, taskKey } from "./task.js";
+import { startTask, taskSlides, taskCall, followCall, taskKey } from "./task.js";
 import { toEnglish } from "@microspec/core/runtime/translate.js";
 import { session } from "@microspec/core/runtime/auth.js";
 import { gate } from "@microspec/core/runtime/gate.js";
 
-const CHAR = `${VPS_PROXY}/character`, VISION = `${VPS_PROXY}/vision`;
+const CHAR = `${VPS_PROXY}/character`;
 export const LOOK = ", full body head to toe, single character, standing A-pose with arms slightly out, facing camera, centered, plain white background, studio lighting, 3d game character render, no text";
 const JOB_TTL = 60 * 60_000;
 const TINTS = ["#FF3EB5", "#39FF6A", "#F5B942", "#7C5CFF", "#22D3EE", "#FF6AD5", "#4ADE80", "#FB7185", "#FBBF24", "#38BDF8", "#F472B6", "#A3E635", "#F97316", "#2DD4BF", "#C084FC", "#FACC15"];
@@ -70,7 +70,6 @@ export function makeGenerator({ app, jobKey, $loading, $pct, $error, onDone, onC
     $error.set(e?.code || "eFailed"); $loading.set("");
     if (e?.why) console.warn("[genchar]", e.why);
   }
-  const statusCode = (r) => genStatusCode(r.status);
 
   /**
    * Make a character from `prompt` (any language) or from `photo` (a data: URL — described by /feed/vision first);
@@ -84,9 +83,11 @@ export function makeGenerator({ app, jobKey, $loading, $pct, $error, onDone, onC
     try {
       let en;
       if (photo) {
-        const r = await fetch(VISION, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image: photo, prompt: LOOK_ASK }) });
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok || !j.text) throw { code: statusCode(r), why: j.error || r.status };
+        // the look is a vision TASK (task.js): a dead zone mid-answer costs a pause, not the description
+        let j;
+        try { j = await taskCall("/task", { route: "/feed/vision", body: { image: photo, prompt: LOOK_ASK } }); }
+        catch (e) { throw { code: genStatusCode(e?.status), why: e?.message }; }
+        if (!j?.text) throw { code: "eFailed", why: "vision: empty" };
         if (!looksLikeLook(j.text)) throw { code: "eFailed", why: "vision: " + String(j.text).slice(0, 80) };
         en = j.text;
         if (!alive()) return;
