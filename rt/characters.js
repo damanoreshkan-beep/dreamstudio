@@ -47,7 +47,30 @@ export async function lookup(q) {
   const sid = sidOf();
   if (!sid) return [];
   const j = await post("chars/lookup", { sid, q });
-  return (j?.candidates || []).map((c) => ({ key: c.key, title: c.title, description: c.description || "", thumb: c.thumb || "" }));
+  return (j?.candidates || []).map((c) => ({ key: c.key, title: c.title, description: c.description || "", thumb: c.thumb || "", url: c.url || "" }));
+}
+
+// id → the persona's voice ({gender, age, pitch, accent?, style?}) — cast once on the edge, kept for the session
+const voices = new Map();
+/** The persona's voice in OmniVoice's Voice Design vocabulary (edge chars.js), cast on first ask. */
+export function voiceOf(id) {
+  if (gate) return Promise.resolve({ gender: "Male", age: "Middle-aged", pitch: "Low Pitch" });
+  if (!voices.has(id)) {
+    const sid = sidOf();
+    if (!sid) return Promise.reject(Object.assign(new Error("no session"), { status: 401 }));
+    voices.set(id, post("chars/voice", { sid, id }, 45000).then((j) => j.voice).catch((e) => { voices.delete(id); throw e; }));
+  }
+  return voices.get(id);
+}
+
+/** An admin puts their OWN persona on the shelf every user sees (or takes it back); → the new `public`. */
+export async function publish(id, isPublic = true) {
+  const sid = sidOf();
+  if (!sid) throw Object.assign(new Error("no session"), { status: 401 });
+  const j = await post("chars/publish", { sid, id, public: isPublic });
+  const cur = $characters.get() || [];
+  $characters.set(cur.map((c) => (c.id === id ? { ...c, public: !!j.public } : c)));
+  return !!j.public;
 }
 
 /** Create (or fetch, if it already exists) a character from a Wikipedia key. Pushes it onto the shelf. */

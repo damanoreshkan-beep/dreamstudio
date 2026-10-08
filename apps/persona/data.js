@@ -29,7 +29,7 @@ export const candidateItem = (k) => ({
   byline: k.description,
   story: "",
   cover: k.thumb || monogram(k.title),
-  url: "https://en.wikipedia.org/wiki/" + encodeURIComponent(k.key),
+  url: k.url || "https://en.wikipedia.org/wiki/" + encodeURIComponent(k.key),   // a Ukrainian search links the Ukrainian article
   mine: false, shelf: false, candidate: true,
 });
 

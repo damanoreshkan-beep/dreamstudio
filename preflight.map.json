@@ -63,6 +63,7 @@
     "/_rt/ook.js": "./rt/ook.js",
     "/_rt/oui.js": "./rt/oui.js",
     "/_rt/pendulum.js": "./rt/pendulum.js",
+    "/_rt/personavoice.js": "./rt/personavoice.js",
     "/_rt/pinterest.js": "./rt/pinterest.js",
     "/_rt/places.js": "./rt/places.js",
     "/_rt/portid.js": "./rt/portid.js",

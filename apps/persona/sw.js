@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "persona",
-  version: "141f48512e",
+  version: "d6f503724d",
   precache: [
     "./",
     "./data.js",
@@ -40,6 +40,7 @@ self.MS = {
     "/_rt/material.js",
     "/_rt/overlay.js",
     "/_rt/permissions.js",
+    "/_rt/personavoice.js",
     "/_rt/playback.js",
     "/_rt/player.js",
     "/_rt/profile.js",
@@ -59,6 +60,7 @@ self.MS = {
     "/_rt/sse.js",
     "/_rt/store.js",
     "/_rt/swipe.js",
+    "/_rt/task.js",
     "/_rt/telemetry.js",
     "/_rt/theme-lum.css",
     "/_rt/theme.css",

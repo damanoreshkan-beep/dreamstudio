@@ -7,8 +7,11 @@ import { Island, Sheet } from "/_rt/ui.js";
 import { Scramble } from "/_rt/skeleton.js";
 import { GlStage } from "/_rt/glstage.js";
 import { SignIn } from "/_rt/signin.js";
-import { session, restore } from "/_rt/auth.js";
-import { chats, chat as loadChat, send, create, deleteChat, deleteCharacter } from "/_rt/characters.js";
+import { session, restore, adminPanel } from "/_rt/auth.js";
+import { gate } from "/_rt/gate.js";
+import { chats, chat as loadChat, send, create, deleteChat, deleteCharacter, voiceOf, publish } from "/_rt/characters.js";
+import { taskOne } from "/_rt/task.js";
+import { speechChunks, designFor, voicePhaseKey } from "/_rt/personavoice.js";
 import { toItem } from "./data.js";
 
 const Icon = (icon, cls) => html`<iconify-icon icon=${icon} class=${cls || ""}></iconify-icon>`;
@@ -42,6 +45,12 @@ async function openHistoryChat(characterId, chatId) {
 
 const presence = { think: 0, speak: 0, listen: 0, ready: 0, energy: 0, tThink: 0, tListen: 0, tReady: 0 };
 const presenceVary = () => {
+  // the persona's VOICE moves the presence too: the playing reply's loudness, read off an analyser each frame
+  if (meter && player && !player.paused) {
+    meter.an.getByteTimeDomainData(meter.buf);
+    let sum = 0; for (const b of meter.buf) sum += ((b - 128) / 128) ** 2;
+    presence.energy = Math.max(presence.energy, Math.min(1, Math.sqrt(sum / meter.buf.length) * 4));
+  }
   presence.think += (presence.tThink - presence.think) * 0.06;
   presence.listen += (presence.tListen - presence.listen) * 0.08;
   presence.ready += (presence.tReady - presence.ready) * 0.035;
@@ -75,6 +84,76 @@ async function ask(characterId, text, loc) {
   }
 }
 
+// ── a reply spoken in the persona's voice (owner, 2026-10-08): a tap on the reply ────────────────────────────────
+// The voice is cast once per persona on the edge (Voice Design vocabulary); the reply is cut into pieces the voice
+// route takes (rt/personavoice.js) and every piece is made at once, each a task on the edge (rt/task.js — a dead
+// zone costs a pause, not the voice); they play in order, so the first sentence speaks while the rest are made.
+// A second tap pauses or resumes; the made pieces stay for the session, so a replay is instant.
+const $voice = atom({ id: null, phase: "", pct: 0 });   // phase: casting · making · playing · paused · error
+const spoken = new Map();                               // reply id → [Promise<blob URL>] — one per piece
+let player = null, meter = null, voiceRun = 0;
+
+function ensurePlayer() {
+  if (player) return player;
+  player = new Audio(); player.preload = "auto";
+  try {
+    const ac = new AudioContext(), src = ac.createMediaElementSource(player), an = ac.createAnalyser();
+    an.fftSize = 512; src.connect(an); an.connect(ac.destination);
+    meter = { ac, an, buf: new Uint8Array(an.fftSize) };
+  } catch { meter = null; }   // no analyser: the voice still plays, only the presence stays still
+  return player;
+}
+function stopVoice() {
+  voiceRun++;
+  if (player) { player.onended = null; player.pause(); player.removeAttribute("src"); }
+  $voice.set({ id: null, phase: "", pct: 0 });
+}
+const playPiece = (url, onTime) => new Promise((done, fail) => {
+  const p = ensurePlayer();
+  p.src = url;
+  p.ontimeupdate = () => onTime(p.duration ? p.currentTime / p.duration : 0);
+  p.onended = () => done();
+  p.onerror = () => fail(new Error("decode"));
+  p.play().catch(fail);
+});
+
+async function speakReply(msg, characterId) {
+  const cur = $voice.get();
+  if (cur.id === msg.id && player && (cur.phase === "playing" || cur.phase === "paused")) {
+    if (player.paused) { player.play().catch(() => {}); $voice.set({ ...cur, phase: "playing" }); }
+    else { player.pause(); $voice.set({ ...cur, phase: "paused" }); }
+    return;
+  }
+  stopVoice();
+  const my = voiceRun;
+  if (gate) return;
+  ensurePlayer(); meter?.ac.resume?.().catch?.(() => {});   // the tap is the gesture that unlocks audio
+  $voice.set({ id: msg.id, phase: "casting", pct: 0 });
+  try {
+    if (!spoken.has(msg.id)) {
+      const design = designFor(await voiceOf(characterId), msg.content);
+      if (my !== voiceRun) return;
+      spoken.set(msg.id, speechChunks(msg.content).map((text) =>
+        taskOne("/task", { route: "/feed/voice", body: { text, design } }).then((r) => { if (r.status !== "done") throw new Error(r.status); return r.url; })));
+    }
+    const pieces = spoken.get(msg.id), n = pieces.length;
+    let made = 0;
+    $voice.set({ id: msg.id, phase: "making", pct: 0 });
+    for (const p of pieces) p.then(() => { made++; if (my === voiceRun && $voice.get().phase === "making") $voice.set({ id: msg.id, phase: "making", pct: made / n }); }, () => {});
+    for (let i = 0; i < n; i++) {
+      const url = await pieces[i];
+      if (my !== voiceRun) return;
+      $voice.set({ id: msg.id, phase: "playing", pct: i / n });
+      await playPiece(url, (f) => { if (my === voiceRun && $voice.get().phase === "playing") $voice.set({ id: msg.id, phase: "playing", pct: (i + f) / n }); });
+      if (my !== voiceRun) return;
+    }
+    $voice.set({ id: null, phase: "", pct: 0 });
+  } catch {
+    spoken.delete(msg.id);   // the next tap makes it again
+    if (my === voiceRun) $voice.set({ id: msg.id, phase: "error", pct: 0 });
+  }
+}
+
 function turnsOf(messages) {
   const turns = [];
   for (const m of messages) {
@@ -105,12 +184,17 @@ export function chat({ item, t, loc, S, undo, confirm }) {
   const hasThread = !!th?.messages.length;
 
   useEffect(() => { restore(); }, []);
+  const voice = useStore($voice);
+  useEffect(() => () => stopVoice(), [characterId]);   // leaving the persona silences it
+  const [admin, setAdmin] = useState(false);
+  useEffect(() => { let live = true; adminPanel().then((u) => { if (live) setAdmin(!!u); }); return () => { live = false; }; }, [!!sess]);
 
   useEffect(() => {
     if (!isCandidate || !sess) return;
     let live = true;
     setErr("");
-    create(item.key).then((c) => { if (live) S.detail.set(toItem(c, loc)); }).catch(() => { if (live) setErr("createFailed"); });
+    create(item.key).then((c) => { if (live) S.detail.set(toItem(c, loc)); })
+      .catch((e) => { if (live) setErr(e?.status === 409 && e?.body?.error === "limit" ? "limitReached" : e?.status === 429 ? "slowDown" : "createFailed"); });
     return () => { live = false; };
   }, [item.key, isCandidate, !!sess]);
 
@@ -162,6 +246,15 @@ export function chat({ item, t, loc, S, undo, confirm }) {
   const openHistory = () => S.screen.set("history");
   const btnHistory = history.length > 1 ? html`<button data-history type="button" onClick=${openHistory} aria-label=${T(t, "history")} class="btn btn-ghost btn-sm btn-circle">${Icon("lucide:history", "text-lg")}</button>` : null;
   const btnNew = hasThread && !streaming ? html`<button data-new-chat type="button" onClick=${() => startOver(characterId)} data-haptic="bump" aria-label=${T(t, "newChat")} class="btn btn-ghost btn-sm btn-circle">${Icon("lucide:plus", "text-lg")}</button>` : null;
+  // an admin's OWN persona goes to everyone's shelf only by this explicit act (owner, 2026-10-08)
+  const btnPublish = admin && item.mine ? html`<button data-publish type="button" aria-label=${T(t, "publish")} title=${T(t, "publish")} class="btn btn-ghost btn-sm btn-circle text-base-content/70"
+      onClick=${() => confirm({ title: T(t, "publish"), body: item.title, verb: T(t, "publish"), onConfirm: async () => {
+        const on = await publish(item.id, true).catch(() => false);
+        if (!on) return;
+        const next = { ...item, mine: false, shelf: true };
+        S.detail.set(next);
+        const cur = S.data.get(); if (cur?.items) S.data.set({ ...cur, items: cur.items.map((x) => (x.id === item.id ? next : x)) });
+      } })}>${Icon("lucide:globe", "text-lg")}</button>` : null;
   const btnRemove = item.mine ? html`<button data-remove type="button" aria-label=${T(t, "removePerson")} class="btn btn-ghost btn-sm btn-circle text-base-content/70"
       onClick=${() => confirm({ title: T(t, "removePerson"), body: `${item.title} — ${T(t, "removeBody")}`, verb: T(t, "removeVerb"), onConfirm: async () => {
         const ok = await deleteCharacter(item.id);
@@ -174,7 +267,7 @@ export function chat({ item, t, loc, S, undo, confirm }) {
     ? html`<div data-intro data-slim class="flex items-center gap-3 pt-1">
         <img src=${item.cover} alt="" class="w-10 h-10 rounded-full object-cover shrink-0 sf-inset" />
         <p class="flex-1 min-w-0 text-[0.82rem] text-base-content/70 truncate">${item.byline}</p>
-        <div class="flex shrink-0">${btnHistory}${openWiki}${btnNew}${btnRemove}</div>
+        <div class="flex shrink-0">${btnHistory}${openWiki}${btnNew}${btnPublish}${btnRemove}</div>
       </div>`
     : html`<div data-intro class="flex flex-col gap-3 pt-2">
         <div class="flex items-start gap-4">
@@ -183,7 +276,7 @@ export function chat({ item, t, loc, S, undo, confirm }) {
             <h1 class="text-2xl font-bold leading-tight break-words">${item.title}</h1>
             <p class="text-[0.9rem] leading-snug text-base-content/70 mt-1">${item.byline}</p>
           </div>
-          <div class="flex shrink-0 -mr-2">${btnHistory}${openWiki}${btnRemove}</div>
+          <div class="flex shrink-0 -mr-2">${btnHistory}${openWiki}${btnPublish}${btnRemove}</div>
         </div>
         ${item.story ? html`<p class="text-[0.95rem] leading-relaxed text-base-content/85">${item.story}</p>` : null}
       </div>`;
@@ -214,6 +307,23 @@ export function chat({ item, t, loc, S, undo, confirm }) {
   }
 
   const empty = th.loaded && th.messages.length === 0;
+  // a reply can be spoken once it is whole; its row says what the voice is doing — still a quiet speaker glyph
+  // (the cue that the reply speaks), then the phase, a glyph and a progress line in the accent: pulsing while the
+  // voice is cast and made, filling while it plays
+  const speakable = (m) => !m.pending && !m.failed && !!m.content;
+  const voiceRow = (m) => {
+    const on = voice.id === m.id, ph = on ? voice.phase : "";
+    if (!ph) return html`<div aria-hidden="true" class="mt-1.5 flex text-base-content/35">${Icon("lucide:volume-2", "text-sm")}</div>`;
+    const busy = ph === "casting" || ph === "making";
+    const glyph = { casting: "lucide:audio-lines", making: "lucide:audio-lines", playing: "lucide:pause", paused: "lucide:play", error: "lucide:rotate-cw" }[ph];
+    return html`<div data-voice-row=${ph} role="status" class=${`mt-2 flex items-center gap-2 font-mono text-[length:var(--ms-label)] uppercase tracking-wide ${ph === "error" ? "text-error" : "text-base-content/70"}`}>
+      ${Icon(glyph, `text-base shrink-0 ${busy ? "animate-pulse" : ""}`)}
+      <span class="shrink-0">${T(t, voicePhaseKey(ph))}</span>
+      ${ph !== "error" ? html`<span aria-hidden="true" class="relative flex-1 h-0.5 rounded-full bg-base-content/10 overflow-hidden">
+        <span class=${`absolute inset-y-0 left-0 rounded-full bg-[var(--app-accent)] transition-[width] duration-300 ${busy ? "animate-pulse" : ""}`}
+          style=${`width:${ph === "casting" ? 12 : Math.max(4, Math.round(voice.pct * 100))}%`}></span></span>` : null}
+    </div>`;
+  };
   return html`<div ref=${wrap} data-chat class="flex flex-col gap-[var(--ms-gap)]" style="padding-bottom:calc(var(--composer-h, 4rem) + var(--kb, 0px) + 1rem)">
     ${stage}
     ${intro}
@@ -222,13 +332,17 @@ export function chat({ item, t, loc, S, undo, confirm }) {
       : html`<div class="flex flex-col gap-6 pt-3">
           ${turnsOf(th.messages).map((turn, i) => html`<div data-turn=${i} key=${turn.key} class="flex flex-col gap-2 ms-reveal">
             ${turn.q ? html`<p data-msg="user" class="text-[0.9rem] text-base-content/75 border-l-2 pl-3 whitespace-pre-wrap break-words" style="border-color:var(--app-accent)">${turn.q.content}</p>` : null}
-            ${turn.a ? html`<div data-msg="assistant" data-pending=${turn.a.pending ? "1" : null} class="text-[0.97rem] leading-relaxed text-base-content/90 whitespace-pre-wrap break-words">
+            ${turn.a ? html`<div data-msg="assistant" data-pending=${turn.a.pending ? "1" : null} data-voice=${voice.id === turn.a.id ? voice.phase : null}
+                ...${speakable(turn.a) ? { role: "button", tabIndex: 0, "aria-label": `${T(t, "speak")} ${item.title}`, onClick: () => speakReply(turn.a, characterId),
+                  onKeyDown: (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); speakReply(turn.a, characterId); } } } : {}}
+                class=${`text-[0.97rem] leading-relaxed text-base-content/90 whitespace-pre-wrap break-words ${speakable(turn.a) ? "cursor-pointer rounded-[var(--ms-r-in)] -mx-2 px-2 py-1 transition-colors active:bg-base-content/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--app-accent)]" : ""}`}>
                 ${turn.a.pending && turn.a.chunks ? turn.a.chunks.map((c) => html`<span key=${c.id} class="ms-word-in">${c.text}</span>`) : turn.a.content}${turn.a.pending && !turn.a.content ? html`<span class="text-base-content/70"><${Scramble} len=${18} /></span>` : null}
                 ${turn.a.failed ? html`<div class="flex items-center gap-2 mt-1.5 text-sm text-base-content/70">${T(t, "sendFailed")}
                     <button data-retry type="button" class="btn btn-ghost btn-xs gap-1"
                       onClick=${() => { const m = turn.a, prev = turn.q; patch(characterId, (t0) => ({ ...t0, messages: t0.messages.filter((x) => x !== m && x !== prev) })); if (prev) ask(characterId, prev.content, loc); }}>
                       ${Icon("lucide:rotate-cw")}${T(t, "retry")}</button></div>` : null}
                 ${turn.a.cut && !turn.a.failed ? html`<div class="mt-1 font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "cutOff")}</div>` : null}
+                ${speakable(turn.a) ? voiceRow(turn.a) : null}
               </div>` : null}
           </div>`)}
           <span ref=${tail} aria-hidden="true" style="scroll-margin-bottom:calc(var(--composer-h, 4rem) + var(--kb, 0px) + 1rem)"></span>

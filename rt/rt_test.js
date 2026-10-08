@@ -36,6 +36,7 @@ import "./tests/motion_test.js";
 import "./tests/muzak_test.js";
 import "./tests/remix_test.js";
 import "./tests/task_test.js";
+import "./tests/personavoice_test.js";
 import "./tests/fonoteka_test.js";
 import "./tests/natal_test.js";
 import "./tests/ook_test.js";
