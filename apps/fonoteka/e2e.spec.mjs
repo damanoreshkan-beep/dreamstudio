@@ -9,6 +9,7 @@ export default [
       h.expect(/Польова пісня/.test(await h.bodyText()), "немає назви з імені файлу");
       h.expect(/Rick Astley · 4:11 · 6\.0 MB/.test(await h.bodyText()), "немає рядка виконавець · довжина · розмір");
       h.expect(/3 пісень · 17\.9 MB з 3 GB|3 songs · 17\.9 MB of 3 GB/.test(await h.text("[data-usage]")), "немає зчитування місця");
+      h.expect(/На телефоні 2 з 3|2 of 3 on this phone/.test(await h.text("[data-onphone]")), "немає зчитування «на телефоні 2 з 3»");
       h.expect((await h.count("[data-transport]")) === 1 && (await h.count("#play")) === 1, "немає одного транспорту");
       h.expect((await h.count("[data-add]")) === 1 && (await h.count('[data-picker][type="file"]')) === 1, "немає кнопки «Додати mp3» з вибором файлу");
       h.expect((await h.count(".loading")) === 0, "крутилка на екрані");
@@ -42,6 +43,7 @@ export default [
       h.expect((await h.count('[data-song="c3d4e5f607182930"]')) === 0, "пісня лишилась після підтвердження");
       h.expect(/Видалено|Deleted/.test(await h.bodyText()), "немає підтвердження");
       h.expect((await h.attr("[data-fonoteka]", "data-songs")) === "2", "лічильник не зменшився");
+      h.expect((await h.attr("[data-onphone]", "data-all")) === "true", "лишились дві збережені — має бути «усі на телефоні»");
     },
   },
   {

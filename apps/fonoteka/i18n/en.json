@@ -8,6 +8,8 @@
   "wSongs": "songs",
   "wOf": "of",
   "add": "Add mp3",
+  "onPhoneAll": "All on this phone — they play offline",
+  "onPhoneSome": "{n} of {m} on this phone",
   "empty": "Empty for now",
   "emptyHint": "Add an mp3 or share a song from another app",
   "uploading": "Uploading…",

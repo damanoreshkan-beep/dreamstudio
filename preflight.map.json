@@ -15,7 +15,7 @@
     "daisyui": "npm:daisyui@5",
     "motion": "https://esm.sh/motion@11.18.2",
     "lodash-es": "https://esm.sh/lodash-es@4.17.21",
-    "canvas": "https://jsr.io/@microspec/core/1.2.112/packages/gates/canvas-stub.js",
+    "canvas": "https://jsr.io/@microspec/core/1.2.113/packages/gates/canvas-stub.js",
     "/_rt/acts.js": "./rt/acts.js",
     "/_rt/afterbeat.js": "./rt/afterbeat.js",
     "/_rt/afterdark.js": "./rt/afterdark.js",
@@ -80,6 +80,7 @@
     "/_rt/signif.js": "./rt/signif.js",
     "/_rt/skydial.js": "./rt/skydial.js",
     "/_rt/sonar.js": "./rt/sonar.js",
+    "/_rt/songstore.js": "./rt/songstore.js",
     "/_rt/styles.js": "./rt/styles.js",
     "/_rt/swarm.js": "./rt/swarm.js",
     "/_rt/sweep.js": "./rt/sweep.js",
@@ -100,7 +101,7 @@
     "/_rt/wind.js": "./rt/wind.js",
     "/_rt/wish.js": "./rt/wish.js",
     "/_rt/zodiac.js": "./rt/zodiac.js",
-    "/_rt/": "https://jsr.io/@microspec/core/1.2.112/packages/runtime/",
-    "@microspec/core/runtime/": "https://jsr.io/@microspec/core/1.2.112/packages/runtime/"
+    "/_rt/": "https://jsr.io/@microspec/core/1.2.113/packages/runtime/",
+    "@microspec/core/runtime/": "https://jsr.io/@microspec/core/1.2.113/packages/runtime/"
   }
 }
