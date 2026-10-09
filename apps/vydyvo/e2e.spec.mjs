@@ -30,7 +30,7 @@ export default [
       await h.tap("[data-show-btn]"); await h.wait(400);
       h.expect((await h.count("[data-stage][data-show]")) === 1, "показ не почався");
       h.expect(/\d{1,2}:\d{2}/.test(await h.text("[data-clock]")), "у показі немає годинника");
-      h.expect((await h.count("[data-line]")) === 1, "у показі немає рядка-думки");
+      h.expect((await h.count("[data-thought]")) === 1, "у показі немає рядка-думки");   // data-line is the core's one-line field hook
       await h.back(); await h.wait(400);
       h.expect((await h.count("[data-stage][data-show]")) === 0, "Back не вийшов із показу");
     },

@@ -37,7 +37,7 @@ function ShowType({ t, loc, frame }) {
   return html`<div class="vy-type" aria-hidden="true">
     <div data-clock class="vy-clock"><${Waved} text=${time} /></div>
     <div class="vy-date"><${Waved} text=${date} /></div>
-    ${frame ? html`<p data-line class="vy-line"><${Waved} text=${frame.line || T(t, `l_${((frame.li ?? 0) % LINES) + 1}`)} /></p>` : null}
+    ${frame ? html`<p data-thought class="vy-line"><${Waved} text=${frame.line || T(t, `l_${((frame.li ?? 0) % LINES) + 1}`)} /></p>` : null}
     ${frame?.prompt ? html`<p class="vy-caption">${frame.prompt}</p>` : null}
   </div>`;
 }
