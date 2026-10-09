@@ -88,10 +88,10 @@ export function forge({ S, toast }) {
       <div class="flex-1"></div>
       ${""}
       <${Island} className="pointer-events-auto flex flex-col gap-[var(--ms-gap)]">
-        <input data-intent aria-label=${T(t, "intentLabel")} value=${intent} placeholder=${T(t, "intentPlaceholder")}
+        <textarea data-intent rows="1" data-line enterkeyhint="go" aria-label=${T(t, "intentLabel")} value=${intent} placeholder=${T(t, "intentPlaceholder")}
           onInput=${(e) => setIntent(e.currentTarget.value)}
           onKeyDown=${(e) => { if (e.key === "Enter") doForge(); }}
-          class="input input-ghost w-full text-base focus:outline-none bg-transparent" />
+          class="input input-ghost w-full text-base focus:outline-none bg-transparent"></textarea>
         <div class="flex flex-wrap items-center gap-2">
           <button data-forge onClick=${doForge} disabled=${!intent.trim()} class="btn btn-primary flex-1 min-w-0 gap-2">
             ${Icon("lucide:flame", "text-lg shrink-0")}<span class="truncate">${T(t, sig ? "reforgeBtn" : "forgeBtn")}</span>

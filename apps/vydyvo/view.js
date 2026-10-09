@@ -144,7 +144,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
       </div>
       <${Island} tone="glass" className="flex flex-col gap-2">
         <div class="flex items-center gap-2">
-          <input data-prompt type="text" value=${opts.prompt} spellcheck="false" autocomplete="off"
+          <textarea data-prompt rows="1" data-line enterkeyhint="go" value=${opts.prompt} spellcheck="false" autocomplete="off"
             aria-label=${T(t, "promptLabel")} placeholder=${T(t, "promptPlaceholder")}
             onInput=${(e) => {
               const v = e.currentTarget.value, had = opts.prompt;
@@ -152,7 +152,7 @@ export function vydyvo({ t, S, screen, closeScreen, toast }) {
               if (!v && had && gen.phase === "working") generateNow();
             }}
             onKeyDown=${(e) => { if (e.key === "Enter") { e.currentTarget.blur(); generateNow(); } }}
-            class="flex-1 min-w-0 h-[var(--ms-ctl)] bg-transparent text-[0.95rem] focus:outline-none placeholder:text-base-content/45" />
+            class="flex-1 min-w-0 min-h-[var(--ms-ctl)] leading-6 py-2.5 border-0 bg-transparent text-[0.95rem] focus:outline-none placeholder:text-base-content/45"></textarea>
           ${opts.prompt ? html`<button data-clear class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "clearPrompt")}
             onClick=${() => { setOpts({ prompt: "" }); generateNow(); }}>${Icon("lucide:x", "text-base")}</button>` : null}
           <button data-show-btn class="btn btn-sm btn-primary rounded-full gap-1.5 shrink-0" onClick=${() => S.screen.set("show")}>${Icon("lucide:expand", "text-base")}${T(t, "show")}</button>

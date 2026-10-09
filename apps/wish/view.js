@@ -64,7 +64,7 @@ async function removeList(id) {
   try { await listsColl.remove(id); for (const w of dropped) await wishesColl.remove(w.id); } catch { }
 }
 
-const wishRec = (w) => ({ listId: w.listId, name: (w.name || "").trim(), price: w.price == null ? null : Number(w.price), currency: w.currency || "UAH", url: (w.url || "").trim(), image: w.image || "", want: w.want || 2, note: (w.note || "").trim(), granted: !!w.granted, createdAt: w.createdAt || Date.now() });
+const wishRec = (w) => ({ listId: w.listId, name: (w.name || "").trim(), price: w.price == null || !Number.isFinite(Number(w.price)) ? null : Math.max(0, Number(w.price)), currency: w.currency || "UAH", url: (w.url || "").trim(), image: w.image || "", want: w.want || 2, note: (w.note || "").trim(), granted: !!w.granted, createdAt: w.createdAt || Date.now() });
 
 async function saveWish(d) {
   const id = d.id || uid("w");
@@ -173,17 +173,17 @@ function WishSheet({ S, t, open }) {
     title=${T(t, d && d.id ? "editWish" : "newWish")}>
     ${d ? html`<${Fragment}>
       ${""}
-      <input id="w-name" class="input w-full" placeholder=${T(t, "namePh")} value=${d.name}
-        maxlength="80" onInput=${(e) => set({ name: e.target.value })} />
+      <textarea id="w-name" rows="1" data-line class="input w-full" placeholder=${T(t, "namePh")} value=${d.name}
+        maxlength="80" onInput=${(e) => set({ name: e.target.value })}></textarea>
       <div class="flex gap-2">
-        <input id="w-url" class="input flex-1 min-w-0" inputmode="url" placeholder=${T(t, "linkPh")} value=${d.url}
-          onInput=${(e) => set({ url: e.target.value })} />
+        <textarea id="w-url" rows="1" data-line class="input flex-1 min-w-0" inputmode="url" autocapitalize="off" spellcheck="false" placeholder=${T(t, "linkPh")} value=${d.url}
+          onInput=${(e) => set({ url: e.target.value })}></textarea>
         <button id="w-prefill" class="btn btn-square" aria-label=${T(t, "prefill")}
           disabled=${!d.url.trim() || busy} onClick=${prefill}>${Icon("lucide:sparkles", "text-lg")}</button>
       </div>
       <div class="flex gap-2">
-        <input id="w-price" class="input flex-1 min-w-0 font-mono" type="number" min="0" step="any" inputmode="decimal"
-          placeholder=${T(t, "pricePh")} value=${d.price ?? ""} onInput=${(e) => set({ price: e.target.value === "" ? null : Number(e.target.value) })} />
+        <textarea id="w-price" rows="1" data-line class="input flex-1 min-w-0 font-mono" inputmode="decimal"
+          placeholder=${T(t, "pricePh")} value=${d.price ?? ""} onInput=${(e) => set({ price: e.target.value === "" ? null : e.target.value })}></textarea>
         <select id="w-cur" class="select" aria-label=${T(t, "currency")} value=${d.currency} onChange=${(e) => set({ currency: e.target.value })}>
           ${CURRENCIES.map((c) => html`<option key=${c} value=${c}>${c}</option>`)}
         </select>
@@ -210,8 +210,8 @@ function ListSheet({ S, t, open, closeScreen, confirm }) {
   return html`<${Sheet} id="l-sheet" open=${open && !!d} onClose=${closeScreen} icon=${d ? d.icon : "lucide:list"}
     title=${T(t, d && d.id ? "editListTitle" : "newList")}>
     ${d ? html`<${Fragment}>
-      <input id="l-name" class="input w-full" placeholder=${T(t, "listNamePh")} value=${d.name}
-        maxlength="40" onInput=${(e) => set({ name: e.target.value })} />
+      <textarea id="l-name" rows="1" data-line class="input w-full" placeholder=${T(t, "listNamePh")} value=${d.name}
+        maxlength="40" onInput=${(e) => set({ name: e.target.value })}></textarea>
       ${""}
       <div class="flex flex-col gap-1.5"><div class=${LABEL}>${T(t, "icon")}</div>
         <div class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-wrap gap-2" id="l-icons">${LIST_ICONS.map((ic) => html`<button key=${ic} type="button" aria-label=${ic} aria-pressed=${d.icon === ic}

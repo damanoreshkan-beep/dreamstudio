@@ -52,7 +52,7 @@ export default [
   {
     name: "пошук іде на сервер, а не просіює екран", run: async (h) => {
       await ready(h);
-      await h.type('input[type="search"]', "chatgpt"); await h.wait(3500);
+      await h.type("#filter", "chatgpt"); await h.wait(3500);
       const txt = await h.text("main");
       h.expect(/chatgpt|gpt/i.test(txt), `пошук "chatgpt" нічого не знайшов: "${txt.slice(0, 120)}"`);
     },

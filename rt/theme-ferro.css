@@ -60,6 +60,7 @@ body { background-image: var(--ds-grain); background-size: 260px 260px; }
   --ds-corner: url("/_rt/ds-ferro-n-corner.webp");
   --ds-corner-a: .6;
   --ds-scatter: url("/_rt/ds-ferro-n-scatter.webp");
+  --ds-fill: url("/_rt/ds-ferro-n-fill.avif");
   --ds-scatter-pos: center -31px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .65;
 }
@@ -108,6 +109,7 @@ body { background-image: var(--ds-grain); background-size: 260px 260px; }
   --ds-corner: url("/_rt/ds-ferro-d-corner.webp");
   --ds-corner-a: .7;
   --ds-scatter: url("/_rt/ds-ferro-d-scatter.webp");
+  --ds-fill: url("/_rt/ds-ferro-d-fill.avif");
   --ds-scatter-pos: center -47px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .75;
 }

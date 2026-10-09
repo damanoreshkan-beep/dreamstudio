@@ -131,7 +131,7 @@ export function pulse({ S }) {
     <//>
 
     <${Panel} className="gap-2">
-      <label class="input input-bordered flex items-center gap-2 h-[var(--ms-ctl)] rounded-full">${Icon("lucide:search", "text-lg text-muted")}<input id="q" type="search" class="grow" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
+      <label class="input input-bordered flex items-center gap-2 h-auto min-h-[var(--ms-ctl)] rounded-full">${Icon("lucide:search", "text-lg text-muted")}<textarea rows="1" data-line id="q" enterkeyhint="search" class="grow leading-6 py-1.5 bg-transparent outline-none border-0" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)}></textarea></label>
       <select id="scope" class="select select-bordered rounded-full h-[var(--ms-ctl)] min-h-0 w-full" value=${scope} onChange=${(e) => setScope(e.target.value)} aria-label=${T(t, "fScope")}>
         <option value="all">${T(t, "allScopes")}</option>
         <optgroup label=${T(t, "gLangs")}>${LANGS.map(([c, n]) => html`<option value=${c} key=${c}>${n} · ${c}</option>`)}</optgroup>

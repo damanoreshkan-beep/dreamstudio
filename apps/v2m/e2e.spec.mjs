@@ -50,9 +50,9 @@ export default [
       await h.click('[data-tab="store"]'); await h.wait(150);
       h.expect((await h.count("[data-skel]")) === 0, "магазин перезавантажується при поверненні");
       h.expect((await h.count("[data-tune]")) === n, "кешований список не віддався одразу");
-      await h.type('input[type="search"]', "zzzznomatch"); await h.wait(300);
+      await h.type("#tune-search", "zzzznomatch"); await h.wait(300);
       h.expect((await h.count("[data-tune]")) === 0, "пошук не фільтрує");
-      await h.type('input[type="search"]', ""); await h.wait(300);
+      await h.type("#tune-search", ""); await h.wait(300);
       h.expect((await h.count("[data-tune]")) === n, "список не відновився після очищення пошуку");
     },
   },

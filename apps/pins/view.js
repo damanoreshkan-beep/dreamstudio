@@ -176,10 +176,10 @@ export function pins({ S, toast }) {
   return html`<div class="flex flex-col gap-[var(--ms-gap)]">
     <${Island} className="flex flex-col gap-2">
       <form class="@container flex flex-col @min-[26rem]:flex-row @min-[26rem]:items-center gap-2" onSubmit=${(e) => { e.preventDefault(); grab(q); }}>
-        <input id="q" data-q type="url" inputmode="url" autocomplete="off" value=${q}
+        <textarea rows="1" data-line id="q" data-q inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" value=${q}
           aria-label=${T(t, "inputLabel")} placeholder=${T(t, "inputPlaceholder")}
           onInput=${(e) => $q.set(e.target.value)}
-          class="input input-bordered w-full flex-1 min-w-0" />
+          class="input input-bordered w-full flex-1 min-w-0"></textarea>
         ${""}
         <button id="grab" type="submit" disabled=${busy} aria-busy=${busy ? "true" : null} class="btn btn-primary gap-1.5 shrink-0">
           ${Icon("lucide:arrow-down-to-line", "text-base")}

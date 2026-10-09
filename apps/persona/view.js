@@ -356,11 +356,12 @@ export function chat({ item, t, loc, S, undo, confirm }) {
     ${""}
     <div class="fixed inset-x-0 z-20 flex justify-center px-3 pointer-events-none" style="bottom:calc(env(safe-area-inset-bottom) + var(--kb, 0px) + 0.75rem)">
       <${Island} className="pointer-events-auto w-full max-w-xl" tag="section" aria-label=${T(t, "composer")}>
-        <form ref=${composer} data-composer onSubmit=${(e) => { e.preventDefault(); submit(draft); input.current?.focus?.(); }} class="flex items-center gap-2">
-          <input ref=${input} data-input type="text" value=${draft} onInput=${(e) => setDraft(e.target.value)} enterkeyhint="send" autocomplete="off" autocapitalize="sentences"
+        <form ref=${composer} data-composer onSubmit=${(e) => { e.preventDefault(); submit(draft); input.current?.focus?.(); }} class="flex items-end gap-2">
+          <textarea rows="1" ref=${input} data-input value=${draft} onInput=${(e) => setDraft(e.target.value)} enterkeyhint="send" autocomplete="off" autocapitalize="sentences"
+            onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); e.currentTarget.form.requestSubmit(); } }}
             onFocus=${() => { presence.tListen = 1; }} onBlur=${() => { presence.tListen = 0; }}
             placeholder=${T(t, "composer")} aria-label=${T(t, "composer")}
-            class="sf-inset flex-1 min-w-0 rounded-full border-0 px-3.5 h-[var(--ms-ctl)] text-[0.95rem] text-base-content placeholder:text-muted outline-none focus:ring-1 focus:ring-base-content/25" />
+            class="sf-inset flex-1 min-w-0 rounded-[calc(var(--ms-ctl)/2)] border-0 px-3.5 min-h-[var(--ms-ctl)] py-[calc((var(--ms-ctl)-1.5rem)/2)] leading-6 text-[0.95rem] text-base-content placeholder:text-muted outline-none focus:ring-1 focus:ring-base-content/25"></textarea>
           <button data-send type="submit" aria-label=${T(t, "send")} disabled=${!draft.trim() || streaming} data-haptic="tap"
             class="shrink-0 grid place-items-center w-[var(--ms-ctl)] h-[var(--ms-ctl)] rounded-full text-[var(--app-accent)] disabled:text-muted active:scale-95 transition-transform">
             ${Icon("lucide:arrow-up", "text-[length:var(--ms-icon)]")}

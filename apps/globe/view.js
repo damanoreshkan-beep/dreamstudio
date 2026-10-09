@@ -32,7 +32,7 @@ export function globe({ S }) {
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-sel=${sel || ""} data-matches=${matches.length}>
     <${Globe} selected=${sel} focus=${focus} onPick=${pick} spin=${!sel} />
 
-    <label class="input flex items-center gap-2 h-[var(--ms-ctl)] rounded-[var(--ms-r)]">${Icon("lucide:search", "text-lg text-muted")}<input id="country-search" type="search" class="grow" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)} /></label>
+    <label class="input flex items-center gap-2 h-auto min-h-[var(--ms-ctl)] rounded-[var(--ms-r)]">${Icon("lucide:search", "text-lg text-muted")}<textarea rows="1" data-line enterkeyhint="search" id="country-search" class="grow leading-6 py-1.5 bg-transparent outline-none border-0" placeholder=${T(t, "search")} autocomplete="off" value=${q} onInput=${(e) => setQ(e.target.value)}></textarea></label>
     ${matches.length ? html`<div class="flex flex-col gap-1" id="matches">${matches.map((c) => html`<button class="btn btn-ghost btn-sm justify-start gap-2" data-id=${c.id} key=${c.id} onClick=${() => choose(c)}><span class=${`${LABEL} w-7 text-center shrink-0`}>${iso(c.flag)}</span>${c.n}</button>`)}</div>` : null}
 
     ${f

@@ -439,10 +439,10 @@ export function v2mStore({ S, toast }) {
 
   return html`
     <div class="flex flex-col gap-[var(--ms-gap)] pt-2 pb-2">
-      <label class="input input-sm flex items-center gap-2">
+      <label class="input input-sm flex items-center gap-2 h-auto min-h-8">
         ${Icon("lucide:search", "text-muted")}
-        <input type="search" class="grow" value=${q} aria-label=${T(t, "aSearch")}
-          placeholder=${T(t, "searchPh")} onInput=${(e) => { setQ(e.target.value); setShown(PAGE); }} />
+        <textarea id="tune-search" rows="1" data-line enterkeyhint="search" class="grow leading-5 py-1 bg-transparent outline-none border-0" value=${q} aria-label=${T(t, "aSearch")}
+          placeholder=${T(t, "searchPh")} onInput=${(e) => { setQ(e.target.value); setShown(PAGE); }}></textarea>
       </label>
 
       <div class="flex items-center justify-between gap-2">

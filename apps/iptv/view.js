@@ -75,8 +75,8 @@ export function iptv({ S }) {
         <select id="country" aria-label=${T(t, "country")} class="select select-bordered select-sm rounded-2xl w-full @min-[300px]:w-auto @min-[300px]:shrink-0" value=${country} onChange=${(e) => $country.set(e.target.value)}>
           ${COUNTRIES.map(([c, n]) => html`<option value=${c} key=${c}>${n}</option>`)}
         </select>
-        <label class="input input-bordered input-sm flex items-center gap-2 rounded-2xl flex-1 min-w-0 w-full">
-          ${Icon("lucide:search", "opacity-50")}<input id="ch-search" type="search" aria-label=${T(t, "search")} class="grow min-w-0" placeholder=${T(t, "search")} value=${query} onInput=${(e) => $query.set(e.target.value)} />
+        <label class="input input-bordered input-sm flex items-center gap-2 rounded-2xl flex-1 min-w-0 w-full h-auto min-h-8">
+          ${Icon("lucide:search", "opacity-50")}<textarea rows="1" data-line enterkeyhint="search" id="ch-search" aria-label=${T(t, "search")} class="grow min-w-0 leading-6 py-1 bg-transparent outline-none border-0" placeholder=${T(t, "search")} value=${query} onInput=${(e) => $query.set(e.target.value)}></textarea>
         </label>
       </div></div>
 

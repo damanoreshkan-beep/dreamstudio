@@ -61,7 +61,7 @@ export default [
     name: "пошук фільтрує", run: async (h) => {
       await ready(h);
       const before = await h.count(firstCard);
-      await h.type('input[type="search"]', "zzzqqq-нема-такого"); await h.wait(600);
+      await h.type("#filter", "zzzqqq-нема-такого"); await h.wait(600);
       h.expect((await h.count(firstCard)) < before, "пошук нічого не звузив");
     },
   },

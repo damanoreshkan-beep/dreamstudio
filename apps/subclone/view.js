@@ -102,7 +102,7 @@ export function subcloneView({ S, screen, openScreen, closeScreen, undo }) {
           <span>${rec.cap.entries} ${T(t, "entries")}</span><span>×${rec.cap.repeats} ${T(t, "repeats")}</span>
         </div>
         <div class="flex gap-2">
-          <input value=${nm} onInput=${(e) => setNm(e.target.value)} placeholder=${T(t, "namePlaceholder")} class="input input-sm flex-1" />
+          <textarea rows="1" data-line value=${nm} onInput=${(e) => setNm(e.target.value)} placeholder=${T(t, "namePlaceholder")} class="input input-sm flex-1"></textarea>
           <button data-save class="btn btn-sm btn-primary gap-1.5" onClick=${() => { saveCap(nm); setNm(""); }}>${Icon("lucide:bookmark-plus")}${T(t, "save")}</button>
           <button data-discard aria-label=${T(t, "discard")} class="btn btn-sm btn-ghost btn-circle" onClick=${discard}>${Icon("lucide:x", "text-lg")}</button>
         </div>

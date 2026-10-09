@@ -124,7 +124,7 @@ export function listView({ t, S, screen, openScreen, closeScreen }) {
         ${Icon("lucide:map-pin", "text-[1.05em] text-primary")}<span class="font-semibold">${cityName(city, loc)}</span>${Icon("lucide:chevron-down", "text-[0.85em] opacity-60")}
       </button>
       ${searching
-        ? html`<input ref=${inputRef} data-search type="search" value=${q} placeholder=${T(t, "searchPh")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-bordered input-sm rounded-full flex-1 min-w-0 bg-base-100" />
+        ? html`<textarea rows="1" data-line ref=${inputRef} data-search enterkeyhint="search" value=${q} placeholder=${T(t, "searchPh")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-bordered input-sm rounded-full flex-1 min-w-0 bg-base-100"></textarea>
           <button data-search-close class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "close")} onClick=${closeScreen}>${Icon("lucide:x", "text-xl")}</button>`
         : html`<span class="flex-1"></span>
           <button data-search-btn class="btn btn-ghost btn-sm btn-circle shrink-0" aria-label=${T(t, "search")} onClick=${() => openScreen("search")}>${Icon("lucide:search", "text-xl")}</button>`}

@@ -235,10 +235,10 @@ export function airView({ S, t }) {
         : null}
       <form class="flex items-center gap-2 min-w-0"
             onSubmit=${(e) => { e.preventDefault(); send(draft); setDraft(""); }}>
-        <input data-say type="text" inputmode="text" autocomplete="off"
+        <textarea rows="1" data-line data-say inputmode="text" autocomplete="off"
           class="input input-ghost flex-1 min-w-0 px-3 focus:outline-none"
           aria-label=${T(t, "say")} placeholder=${T(t, "say")}
-          value=${draft} onInput=${(e) => setDraft(e.currentTarget.value)} />
+          value=${draft} onInput=${(e) => setDraft(e.currentTarget.value)}></textarea>
         ${ ""}
         <span data-left class=${`font-mono text-sm tabular-nums shrink-0 ${fit.left ? "text-base-content/70" : "text-warning"}`}>${fit.left}</span>
         <button data-throw type="submit" disabled=${fit.bytes === 0}

@@ -55,8 +55,8 @@ export function BirthSheet({ open, onClose, t, locale }) {
             onInput=${(e) => set({ time: e.target.value })} class="input input-bordered rounded-full h-[var(--ms-ctl)] w-full text-sm font-mono" />`)}
         </div>
 
-        ${field(T(t, "birthPlace"), html`<input data-birth-place type="search" value=${q} placeholder=${draft.place ? placeLabel(draft.place) : T(t, "placeSearch")}
-          onInput=${(e) => setQ(e.target.value)} class="input input-bordered rounded-full h-[var(--ms-ctl)] w-full text-sm" />`)}
+        ${field(T(t, "birthPlace"), html`<textarea data-birth-place rows="1" data-line enterkeyhint="search" value=${q} placeholder=${draft.place ? placeLabel(draft.place) : T(t, "placeSearch")}
+          onInput=${(e) => setQ(e.target.value)} class="input input-bordered rounded-full w-full text-sm"></textarea>`)}
 
         ${searching ? html`<div class="flex flex-col gap-2 px-1">${[26, 22, 24].map((n, i) => html`<div class="text-sm text-base-content/70" key=${i}><${Scramble} len=${n} /></div>`)}</div>` : null}
         ${results && !searching ? (results.length ? html`<div class="flex flex-col rounded-[var(--ms-r-in)] sf-raised sf-e2 overflow-hidden">
@@ -76,8 +76,8 @@ export function BirthSheet({ open, onClose, t, locale }) {
           items=${MODES.map(([v, k]) => ({ id: v, label: T(t, k) }))}
           value=${draft.zoneMode || "place"} onChange=${(v) => set({ zoneMode: v })} />`)}
 
-        ${(draft.zoneMode === "manual") ? field(T(t, "zmManual"), html`<input data-birth-offset type="text" inputmode="text" value=${draft.offset}
-          placeholder="+02:00" onInput=${(e) => set({ offset: e.target.value })} class="input input-bordered rounded-full h-[var(--ms-ctl)] w-full text-sm font-mono" />`) : null}
+        ${(draft.zoneMode === "manual") ? field(T(t, "zmManual"), html`<textarea data-birth-offset rows="1" data-line inputmode="text" autocapitalize="off" spellcheck="false" value=${draft.offset}
+          placeholder="+02:00" onInput=${(e) => set({ offset: e.target.value })} class="input input-bordered rounded-full w-full text-sm font-mono"></textarea>`) : null}
 
         <!-- the one thing the user can actually check against a birth certificate -->
         <div data-birth-resolved class="rounded-[var(--ms-r-in)] sf-inset px-3 py-2.5">

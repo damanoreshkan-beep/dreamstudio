@@ -1,6 +1,8 @@
 const PODS = ["microspec-vpn-p1", "microspec-vpn-p2", "microspec-vpn-p3", "microspec-vpn-p4"];
 const IDS = ["mrfakename/Z-Image-Turbo"];
 const JOBS = JSON.parse(Deno.env.get("JOBS") || "[]");
+// SIZE=2048 for a texture that fills a form on a 3× screen (the default 1024 is an icon master)
+const SIZE = Number(Deno.env.get("SIZE") || 1024);
 const t0 = Date.now();
 const log = (...a) => console.error(((Date.now() - t0) / 1000).toFixed(0) + "s", ...a);
 async function one(pod, name, prompt) {
@@ -8,7 +10,7 @@ async function one(pod, name, prompt) {
   let job;
   try {
     const r = await fetch(`${base}/gen`, { method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ids: IDS, prompt, size: { w: 1024, h: 1024 }, k: 1, concurrency: 1, rotateEach: true }) });
+      body: JSON.stringify({ ids: IDS, prompt, size: { w: SIZE, h: SIZE }, k: 1, concurrency: 1, rotateEach: true }) });
     job = (await r.json()).job;
   } catch (e) { log(pod, name, "SUBMIT-FAIL", e.message); return false; }
   const deadline = Date.now() + 300_000;

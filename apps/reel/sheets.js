@@ -28,15 +28,15 @@ export function SourceSheet({ S, t }) {
   const search = (e) => { e?.preventDefault?.(); const url = norm(), term = q.trim(); if (url && term) goto(buildSearchUrl(url, term)); };
   return html`<${Sheet} open onClose=${() => S.screen.set(null)} title=${T(t, "srcTitle")} icon="lucide:link">
     <form onSubmit=${load} class="flex flex-col gap-3">
-      <label class="input flex items-center gap-2 rounded-2xl">
+      <label class="input flex items-center gap-2 rounded-2xl h-auto min-h-[var(--ms-ctl)]">
         ${Icon("lucide:globe", "opacity-50 shrink-0")}
         ${""}
-        <input id="src-input" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" class="grow min-w-0" placeholder=${T(t, "srcPlaceholder")} aria-label=${T(t, "srcTitle")} value=${val} onInput=${(e) => setVal(e.target.value)} />
+        <textarea id="src-input" rows="1" data-line inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" class="grow min-w-0 leading-6 py-1.5 bg-transparent outline-none border-0" placeholder=${T(t, "srcPlaceholder")} aria-label=${T(t, "srcTitle")} value=${val} onInput=${(e) => setVal(e.target.value)}></textarea>
       </label>
       ${sr.searchable ? html`<div class="flex gap-2">
-        <label class="input flex items-center gap-2 rounded-2xl flex-1">
+        <label class="input flex items-center gap-2 rounded-2xl flex-1 h-auto min-h-[var(--ms-ctl)]">
           ${Icon("lucide:search", "opacity-50 shrink-0")}
-          <input id="sheet-search" type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
+          <textarea id="sheet-search" rows="1" data-line enterkeyhint="search" autocomplete="off" class="grow min-w-0 leading-6 py-1.5 bg-transparent outline-none border-0" placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)}></textarea>
         </label>
         <button type="button" class="btn btn-primary rounded-2xl gap-1 shrink-0" onClick=${search}>${Icon("lucide:search")} ${T(t, "search")}</button>
       </div>` : null}

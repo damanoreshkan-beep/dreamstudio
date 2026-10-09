@@ -182,9 +182,9 @@ function RateSheet({ t, loc, S, open, rate }) {
 
   const field = (label, key, extra) => html`<label class="flex flex-col gap-1 min-w-0 flex-1 basis-[7rem]">
     <span class="font-mono uppercase tracking-wide font-semibold text-[length:var(--ms-label)] text-base-content/70 truncate">${label}</span>
-    <input ...${extra} type="number" min="0" step="any" inputmode="decimal" value=${draft[key] ?? ""}
+    <textarea rows="1" data-line ...${extra} inputmode="decimal" value=${draft[key] ?? ""}
       onInput=${(e) => set(key, e.target.value)}
-      class="input w-full min-w-0 font-mono tabular-nums rounded-[var(--ms-r-in)] h-[var(--ms-ctl)]" />
+      class="input w-full min-w-0 font-mono tabular-nums rounded-[var(--ms-r-in)]"></textarea>
   </label>`;
 
   return html`<${Sheet} id="ratesheet" open=${open} onClose=${close} locale=${loc} tone="frost"

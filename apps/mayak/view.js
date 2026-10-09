@@ -192,13 +192,13 @@ export function map({ S, toast, openScreen, closeScreen }) {
 
   return html`<div class="flex flex-col gap-[var(--ms-gap)]" data-shown=${shown.length} data-cat=${cat || ""} data-total=${all.length}>
     <${Island}>
-      ${/* A textarea, not an input: a Shodan query can be long and multi-token. It grows to the text (2–5 rows),
-           Enter searches, Shift+Enter is a newline. */""}
+      ${/* A textarea, not an input: a Shodan query can be long and multi-token. It grows to the text (the
+           farm's field-sizing, capped here at max-h-32), Enter searches, Shift+Enter is a newline. */""}
       <div class="sf-inset rounded-[var(--ms-r-in)] flex items-start gap-2 p-2">
         ${Icon("lucide:search", "text-lg text-base-content/70 mt-1 shrink-0")}
         <textarea id="host-search" rows="1" autocomplete="off" spellcheck="false"
-          class="grow bg-transparent outline-none resize-none font-mono text-sm leading-snug max-h-32 py-1"
-          value=${q} onInput=${(e) => { setQ(e.target.value); const el = e.target; el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 128) + "px"; }}
+          class="grow bg-transparent outline-none border-0 font-mono text-sm leading-snug max-h-32 py-1"
+          value=${q} onInput=${(e) => setQ(e.target.value)}
           onKeyDown=${(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); search(); } }}
           placeholder=${T(t, "searchPlaceholder")}></textarea>
         ${q.trim() ? html`<button class="btn btn-ghost btn-xs btn-circle shrink-0 mt-0.5" onClick=${search} aria-label=${T(t, "searchBtn")}>${Icon("lucide:arrow-right", "text-base")}</button>` : null}
@@ -383,10 +383,10 @@ export function trace({ S }) {
         value=${mode} onChange=${setMode} variant="solid" size="sm" attr="data-mode" />
       <div class="flex items-center gap-2 mt-2">
         ${mode === "site"
-          ? html`<label class="input flex items-center gap-2 grow h-[var(--ms-ctl)] rounded-[var(--ms-r-in)]">
+          ? html`<label class="input flex items-center gap-2 grow h-auto min-h-[var(--ms-ctl)] rounded-[var(--ms-r-in)]">
               ${Icon("lucide:globe", "text-lg text-base-content/70")}
-              <input id="trace-target" type="text" autocomplete="off" inputmode="url" class="grow bg-transparent outline-none" value=${target}
-                onInput=${(e) => setTarget(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter") run(); }} placeholder=${T(t, "targetPlaceholder")} />
+              <textarea rows="1" data-line id="trace-target" autocomplete="off" inputmode="url" autocapitalize="off" spellcheck="false" class="grow leading-6 py-1.5 bg-transparent outline-none border-0" value=${target}
+                onInput=${(e) => setTarget(e.target.value)} onKeyDown=${(e) => { if (e.key === "Enter") run(); }} placeholder=${T(t, "targetPlaceholder")}></textarea>
             </label>`
           : html`<div class="grow flex items-center gap-2 h-[var(--ms-ctl)] px-1 text-sm text-base-content/70">${Icon("lucide:arrow-down-to-line", "text-lg")}<span>${T(t, "fromNode")}</span></div>`}
         <button class="btn btn-primary h-[var(--ms-ctl)] rounded-[var(--ms-r-in)]" onClick=${run} disabled=${busy || (mode === "site" && !target.trim())} data-trace>${T(t, "traceBtn")}</button>

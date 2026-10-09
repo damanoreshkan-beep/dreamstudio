@@ -103,10 +103,10 @@ function Field({ t, peers, onPeer }) {
         <span class="ph-site-label">
           ${editing
             ? html`<span class="ph-nick-edit">
-                <input class="ph-nick-input" data-nick-input autofocus value=${draft} maxLength="24"
+                <textarea rows="1" data-line class="ph-nick-input" data-nick-input autofocus value=${draft} maxLength="24"
                   placeholder=${T(t, "you")} aria-label=${T(t, "nick")} spellcheck="false"
                   onInput=${(e) => setDraft(e.currentTarget.value)}
-                  onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { setEditing(false); } }} />
+                  onKeyDown=${(e) => { if (e.key === "Enter") { e.preventDefault(); commit(); } else if (e.key === "Escape") { setEditing(false); } }}></textarea>
                 <button class="ph-nick-save" data-nick-save aria-label=${T(t, "send")} onClick=${commit}>${Icon("lucide:check")}</button>
               </span>`
             : html`<button class="ph-site-name ph-me-edit" data-me aria-label=${T(t, "nick")}

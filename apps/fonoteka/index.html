@@ -62,9 +62,10 @@
 
     /* THE ORB. Square, sized by whichever runs out first: width, height, or a ceiling. */
     .fk-orb { position: relative; width: min(15rem, 62vw, 32dvh); aspect-ratio: 1; margin-inline: auto; }
-    /* the theme's texture through the form: its scatter (the motes an empty state sits on) over the page tone —
-       each of the twelve themes fills the same form with its own material, so the app needs no per-theme art */
-    .fk-fill { position: absolute; inset: 0; background: var(--ds-scatter, none) center / 170% auto no-repeat, var(--color-base-100); }
+    /* the theme's MATERIAL through the form: its fill texture (1024, made to be seen inside a free form — a
+       cluster of the material dissolving into the ground) over the page tone; each theme fills the same form
+       with its own material, so the app needs no per-theme art. A theme without a fill falls back to its scatter. */
+    .fk-fill { position: absolute; inset: 0; background: var(--ds-fill, var(--ds-scatter, none)) center / 125% auto no-repeat, var(--color-base-100); }
     /* the rim: the same path as the clip, drawn in an SVG over it so the light can spill OUTSIDE the form */
     .fk-rim { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
     .fk-rim path { fill: none; vector-effect: non-scaling-stroke; transition: stroke var(--t-state) var(--ease-out), opacity var(--t-state) var(--ease-out); }

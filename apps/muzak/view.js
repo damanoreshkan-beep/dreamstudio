@@ -78,10 +78,10 @@ export function muzak({ S, toast }) {
   return html`<div data-muzak data-busy=${busy || null} data-song=${meta ? meta.id : null} class="flex flex-col gap-[var(--ms-gap)] p-[var(--ms-pad)]">
     <${Panel} title=${T(t, "link")}>
       <form class="flex items-center gap-2" onSubmit=${(e) => { e.preventDefault(); find(link); }}>
-        <input ref=${input} data-link type="url" inputmode="url" autocomplete="off" spellcheck="false" enterkeyhint="go"
-          class="input input-bordered sf-inset min-w-0 flex-1 h-[var(--ms-ctl)] font-mono text-sm"
+        <textarea rows="1" data-line ref=${input} data-link inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go"
+          class="input input-bordered sf-inset min-w-0 flex-1 font-mono text-sm"
           placeholder=${T(t, "linkPlaceholder")} value=${link}
-          onInput=${(e) => { $link.set(e.target.value); if ($err.get()) $err.set(""); }} />
+          onInput=${(e) => { $link.set(e.target.value); if ($err.get()) $err.set(""); }}></textarea>
         <button type="button" data-paste aria-label=${T(t, "aPaste")} onClick=${paste}
           class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${Icon("lucide:clipboard-paste", "text-[length:var(--ms-icon)]")}</button>
         <button type="submit" data-find aria-label=${T(t, "aFind")} disabled=${!link || busy === "meta"}

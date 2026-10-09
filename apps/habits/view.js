@@ -131,8 +131,8 @@ function AddSheet({ open, onClose, t }) {
   const draft = useStore($draft);
   const save = async () => { if (!draft.name.trim()) return; await addHabit(draft.name, draft.icon, draft.color); $draft.set({ name: "", icon: "lucide:check", color: "#10b981" }); onClose(); };
   return html`<${Sheet} id="h-add" open=${open} onClose=${onClose} title=${T(t, "newHabit")} icon="lucide:plus">
-    <input id="h-name" class="input w-full" placeholder=${T(t, "namePh")} value=${draft.name}
-      maxlength="40" onInput=${(e) => $draft.set({ ...draft, name: e.target.value })} />
+    <textarea rows="1" data-line id="h-name" class="input w-full" placeholder=${T(t, "namePh")} value=${draft.name}
+      maxlength="40" onInput=${(e) => $draft.set({ ...draft, name: e.target.value })}></textarea>
     <div class="flex flex-col gap-1.5">
       <div class=${LABEL}>${T(t, "icon")}</div>
       <div class="sf-inset rounded-[var(--ms-r-in)] p-2 flex flex-wrap gap-2" id="h-icons">${ICONS.map((ic) => html`<button key=${ic} type="button" aria-label=${ic} aria-pressed=${draft.icon === ic}

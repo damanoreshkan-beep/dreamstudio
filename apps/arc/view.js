@@ -206,9 +206,9 @@ function Chat({ item, t, loc, level, plot, locked, undo }) {
       </div>`}
 
     <form onSubmit=${(e) => { e.preventDefault(); send(draft); }} class="flex items-center gap-2">
-      <input data-ask type="text" value=${draft} onInput=${(e) => setDraft(e.target.value)}
+      <textarea rows="1" data-line data-ask value=${draft} onInput=${(e) => setDraft(e.target.value)}
         placeholder=${T(t, "askPlaceholder")} aria-label=${T(t, "askTitle")}
-        class="sf-inset flex-1 min-w-0 rounded-full border-0 px-3.5 h-[var(--ms-ctl)] text-[0.95rem] text-base-content placeholder:text-muted outline-none focus:ring-1 focus:ring-base-content/25" />
+        class="sf-inset flex-1 min-w-0 rounded-[calc(var(--ms-ctl)/2)] border-0 px-3.5 py-2 leading-6 min-h-[var(--ms-ctl)] text-[0.95rem] text-base-content placeholder:text-muted outline-none focus:ring-1 focus:ring-base-content/25"></textarea>
       <button data-ask-send type="submit" aria-label=${T(t, "askSend")} disabled=${!draft.trim()}
         class="shrink-0 grid place-items-center w-[var(--ms-ctl)] h-[var(--ms-ctl)] rounded-full text-[var(--app-accent)] disabled:text-muted">
         ${Icon("lucide:corner-down-left", "text-[length:var(--ms-icon)]")}

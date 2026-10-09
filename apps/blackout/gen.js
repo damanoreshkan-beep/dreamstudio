@@ -55,7 +55,7 @@ export function GenSheet({ t, loc, open, onClose }) {
             ? html`<div class="relative h-[52dvh] min-h-[16rem] rounded-2xl overflow-hidden bg-black"><${Camera} loc=${loc} reason=${T(t, "camReason")} privacy=${T(t, "camPrivacy")} onCapture=${(d) => { setPhoto(d); setCam(false); }} onClose=${() => setCam(false)} onSettings=${() => setCam(false)} /></div>`
             : html`<div class="relative h-40 rounded-2xl bg-base-content/5 overflow-hidden"><${Chooser} loc=${loc} onPick=${setPhoto} onCamera=${() => setCam(true)} /></div>`}
       <div class="flex items-center gap-2 flex-wrap">
-        <input data-gen-name type="text" maxlength="40" value=${name} placeholder=${T(t, "genName")} disabled=${!!stage} onInput=${(e) => setName(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[8rem]" />
+        <textarea rows="1" data-line data-gen-name maxlength="40" value=${name} placeholder=${T(t, "genName")} disabled=${!!stage} onInput=${(e) => setName(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[8rem]"></textarea>
         <${Segmented} attr="data-gen-kind" size="sm" variant="ghost" label=${T(t, "kind")} value=${kind} onChange=${setKind}
           items=${[{ id: "human", label: T(t, "kindHuman"), icon: "lucide:user" }, { id: "creature", label: T(t, "kindCreature"), icon: "lucide:ghost" }]} />
       </div>

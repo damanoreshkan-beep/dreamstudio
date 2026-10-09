@@ -37,7 +37,7 @@ function GenSheet({ t, loc, open, onClose, onTopUp }) {
     <div data-gen-form class="flex flex-col gap-3">
       <textarea data-gen-prompt rows="3" value=${prompt} placeholder=${T(t, "genPrompt")} disabled=${!!stage} onInput=${(e) => setPrompt(e.currentTarget.value)} class="textarea textarea-bordered bg-base-100 w-full text-base leading-snug"></textarea>
       <div class="flex items-center gap-2 flex-wrap">
-        <input data-gen-name type="text" maxlength="40" value=${name} placeholder=${T(t, "genName")} disabled=${!!stage} onInput=${(e) => setName(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[8rem]" />
+        <textarea rows="1" data-line data-gen-name maxlength="40" value=${name} placeholder=${T(t, "genName")} disabled=${!!stage} onInput=${(e) => setName(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[8rem]"></textarea>
         <${Segmented} attr="data-gen-kind" size="sm" variant="ghost" label=${T(t, "kind")} value=${kind} onChange=${setKind}
           items=${[{ id: "human", label: T(t, "kindHuman"), icon: "lucide:user" }, { id: "creature", label: T(t, "kindCreature"), icon: "lucide:ghost" }]} />
       </div>
@@ -135,7 +135,7 @@ export function castView({ S }) {
         <span data-moves class="badge badge-ghost font-mono tabular-nums" data-moves=${moves.length}>${moves.length}</span>
         <button data-stars type="button" class=${chip(isStars)} onClick=${() => setMoves(DEFAULT_MOVES.slice())}><iconify-icon icon="lucide:star"></iconify-icon>${T(t, "starMoves")}</button>
         <button data-all-moves type="button" aria-pressed=${allDancesOn ? "true" : "false"} class=${chip(allDancesOn)} onClick=${() => setMoves(allDancesOn ? DEFAULT_MOVES.slice() : allDanceIds)}><iconify-icon icon="lucide:sparkles"></iconify-icon>${T(t, "allDances")}</button>
-        <input data-move-search type="search" value=${q} placeholder=${T(t, "searchMoves")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[9rem]" />
+        <textarea rows="1" data-line enterkeyhint="search" data-move-search value=${q} placeholder=${T(t, "searchMoves")} onInput=${(e) => setQ(e.currentTarget.value)} class="input input-sm input-bordered bg-base-100 flex-1 min-w-[9rem]"></textarea>
       </div>
       <h3 class="text-[0.78rem] font-medium text-muted pt-1 pb-1.5">${T(t, "moves")} · ${curated.length + dances.length}</h3>
       <div data-move-list class="flex flex-wrap gap-1.5">

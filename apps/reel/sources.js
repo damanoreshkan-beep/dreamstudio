@@ -91,9 +91,9 @@ export function sources({ S, undo, toast }) {
     <div class="flex flex-col gap-4 @container">
       ${""}
       <div class="flex items-center gap-2">
-        ${subs.length >= FILTER_FROM ? html`<label class="input input-sm flex items-center gap-2 rounded-2xl flex-1 min-w-0">
+        ${subs.length >= FILTER_FROM ? html`<label class="input input-sm flex items-center gap-2 rounded-2xl flex-1 min-w-0 h-auto min-h-8">
           ${Icon("lucide:filter", "opacity-50 shrink-0 text-sm")}
-          <input id="src-filter" type="search" inputmode="search" autocomplete="off" class="grow min-w-0" placeholder=${T(t, "filterPh")} aria-label=${T(t, "filterPh")} value=${q} onInput=${(e) => setQ(e.target.value)} />
+          <textarea id="src-filter" rows="1" data-line enterkeyhint="search" autocomplete="off" class="grow min-w-0 leading-5 py-1 bg-transparent outline-none border-0" placeholder=${T(t, "filterPh")} aria-label=${T(t, "filterPh")} value=${q} onInput=${(e) => setQ(e.target.value)}></textarea>
         </label>` : null}
         <button id="add-url" class=${`btn btn-primary rounded-2xl gap-2 ${subs.length >= FILTER_FROM ? "btn-sm shrink-0" : "flex-1"}`} onClick=${() => S.screen.set("source")}>${Icon("lucide:plus")} ${T(t, "addUrl")}</button>
       </div>

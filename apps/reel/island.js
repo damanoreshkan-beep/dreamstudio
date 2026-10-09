@@ -80,9 +80,9 @@ function SearchDrawer({ t, base, onFind, onClose }) {
       ${Icon("lucide:x", "text-lg")}
     </button>
     ${""}
-    <input id="island-q" ref=${ref} type="text" inputmode="search" autocomplete="off" autocapitalize="off" spellcheck="false"
-      class="grow min-w-0 bg-transparent text-sm text-white placeholder:text-white/40 outline-none px-1"
-      placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)} />
+    <textarea id="island-q" ref=${ref} rows="1" data-line enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false"
+      class="grow min-w-0 bg-transparent text-sm leading-6 py-1.5 border-0 text-white placeholder:text-white/40 outline-none px-1"
+      placeholder=${T(t, "searchPh")} aria-label=${T(t, "search")} value=${q} onInput=${(e) => setQ(e.target.value)}></textarea>
     <button id="island-find" type="submit" class="btn btn-sm rounded-full gap-1 shrink-0 border border-white/20 bg-white/15 text-white hover:bg-white/25">
       ${Icon("lucide:search", "text-sm")}<span class="text-xs">${T(t, "find")}</span>
     </button>

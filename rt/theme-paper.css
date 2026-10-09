@@ -67,6 +67,7 @@ body { background-image: var(--ds-grain); background-size: 220px 220px; }
   --ds-corner: url("/_rt/ds-paper-d-corner.webp");
   --ds-corner-a: .8;
   --ds-scatter: url("/_rt/ds-paper-d-scatter.webp");
+  --ds-fill: url("/_rt/ds-paper-d-fill.avif");
   --ds-scatter-pos: center -54px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .85;
 }
@@ -115,6 +116,7 @@ body { background-image: var(--ds-grain); background-size: 220px 220px; }
   --ds-corner: url("/_rt/ds-paper-n-corner.webp");
   --ds-corner-a: .65;
   --ds-scatter: url("/_rt/ds-paper-n-scatter.webp");
+  --ds-fill: url("/_rt/ds-paper-n-fill.avif");
   --ds-scatter-pos: center -45px; --ds-scatter-size: 260px auto;
   --ds-scatter-a: .7;
 }

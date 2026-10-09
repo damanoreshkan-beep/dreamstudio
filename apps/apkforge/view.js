@@ -76,13 +76,13 @@ export function forge({ S, toast }) {
     <//>
 
     ${""}
-    <input type="url" inputmode="url" value=${url} onInput=${(e) => setUrl(e.target.value)}
+    <textarea rows="1" data-line inputmode="url" autocapitalize="off" spellcheck="false" value=${url} onInput=${(e) => setUrl(e.target.value)}
       placeholder=${T(t, "forgeUrlPlaceholder")} aria-label=${T(t, "forgeUrlLabel")}
-      class="input w-full sf-inset border-0 h-[var(--ms-ctl)] rounded-[var(--ms-r)] font-mono text-sm shrink-0" />
+      class="input w-full sf-inset border-0 rounded-[var(--ms-r)] font-mono text-sm shrink-0"></textarea>
 
-    <input type="text" value=${name} onInput=${(e) => { editedName.current = true; setName(e.target.value); }}
+    <textarea rows="1" data-line value=${name} onInput=${(e) => { editedName.current = true; setName(e.target.value); }}
       placeholder=${T(t, "forgeNamePlaceholder")} aria-label=${T(t, "forgeNameLabel")}
-      class="input w-full sf-inset border-0 h-[var(--ms-ctl)] rounded-[var(--ms-r)] text-sm shrink-0" />
+      class="input w-full sf-inset border-0 rounded-[var(--ms-r)] text-sm shrink-0"></textarea>
 
     ${""}
     ${done

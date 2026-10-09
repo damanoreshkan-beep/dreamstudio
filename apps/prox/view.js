@@ -364,12 +364,12 @@ function PresetCard({ preset, active, t }) {
       <span class=${`ml-auto ${CHIP}`}>${T(t, `target_${preset.target}`)}</span>
     </div>
     ${preset.custom
-      ? html`<input data-field=${preset.id} type="text" inputmode="text" autocomplete="off"
+      ? html`<textarea rows="1" data-line data-field=${preset.id} inputmode="text" autocomplete="off"
           class="input input-sm input-ghost w-full min-w-0 px-3 focus:outline-none border-0 sf-inset rounded-full"
           aria-label=${T(t, FIELD_LABEL[preset.custom] || "fieldUrl")}
           placeholder=${T(t, FIELD_LABEL[preset.custom] || "fieldUrl")}
           value=${fields[preset.id] || ""}
-          onInput=${(e) => $fields.set({ ...$fields.get(), [preset.id]: e.currentTarget.value })} />`
+          onInput=${(e) => $fields.set({ ...$fields.get(), [preset.id]: e.currentTarget.value })}></textarea>`
       : null}
     <button data-send=${preset.id} onClick=${() => (on ? stopEmit() : emit(preset))}
       class=${`btn btn-sm shrink-0 ${on ? "btn-outline" : "btn-primary"}`}>
