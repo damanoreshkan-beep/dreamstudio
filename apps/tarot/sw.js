@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "tarot",
-  version: "8ada9dc48f",
+  version: "7e7697ae90",
   precache: [
     "./",
     "./hero.wgsl",
@@ -51,6 +51,8 @@ self.MS = {
     "/_rt/sealed.js",
     "/_rt/sealedfetch.js",
     "/_rt/sensors.js",
+    "/_rt/shape.js",
+    "/_rt/shapes.vendor.js",
     "/_rt/shell-actions.js",
     "/_rt/shell.js",
     "/_rt/signin.js",

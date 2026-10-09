@@ -3,7 +3,7 @@
 // /_rt/sw-core.js. `precache` is this app's shell — enough to boot with the network unplugged.
 self.MS = {
   app: "outpost",
-  version: "5143bcaf0f",
+  version: "f3a2768f55",
   precache: [
     "./",
     "./i18n/en.json",
@@ -50,6 +50,8 @@ self.MS = {
     "/_rt/sealed.js",
     "/_rt/sealedfetch.js",
     "/_rt/sensors.js",
+    "/_rt/shape.js",
+    "/_rt/shapes.vendor.js",
     "/_rt/shell-actions.js",
     "/_rt/shell.js",
     "/_rt/signin.js",

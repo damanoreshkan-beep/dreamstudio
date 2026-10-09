@@ -1,12 +1,14 @@
 import { html } from "htm/preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
-import { T } from "/_rt/i18n.js";
+import { T, sys } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
-import { Panel, Transport } from "/_rt/ui.js";
+import { Transport } from "/_rt/ui.js";
 import { advance } from "/_rt/player.js";
+import { shapeOf, pathOf, scalePath, shaper } from "/_rt/shape.js";
+import { envelopeOfBlob, breathe } from "/_rt/breath.js";
 import { holdAudio } from "/_rt/mediasession.js";
 import { sealedUrl } from "/_rt/sealedfetch.js";
 import { uploadResumable } from "/_rt/task.js";
@@ -135,6 +137,30 @@ async function play(id) {
   if (!hold) hold = holdAudio({ title: titleOf(s), artist: s.artist || "", onPlay: () => a.play(), onPause: () => a.pause(), onPrev: () => step(-1), onNext: () => step(1) });
   else hold.meta(titleOf(s));
   a.play().catch(() => $playing.set(false));
+  if (breathing !== id) breatheSong(id);
+}
+
+// ── the orb breathes with the song (core breath.js): the copy on the phone is read ONCE into a bass
+// envelope, then the compositor plays it as a `scale` track pinned to the audio clock. A streamed song (no
+// copy yet) holds still. Never an AnalyserNode — Web Audio in the playback path stops the song when iOS
+// backgrounds the page.
+let orbEl = null, breathing = "", unbreathe = () => {};
+const IDLE = "Cookie9Sided";   // the orb's form before any song is chosen
+const envs = new Map();
+function stopBreath() { unbreathe(); unbreathe = () => {}; breathing = ""; }
+async function breatheSong(id) {
+  stopBreath();
+  if (gate || !audio || !orbEl) return;
+  let env = envs.get(id);
+  if (!env) {
+    const blob = await store.blob(id).catch(() => null);
+    env = blob && await envelopeOfBlob(blob).catch(() => null);
+    if (!env) return;
+    envs.set(id, env);
+  }
+  if ($cur.get() !== id || !orbEl || breathing) return;
+  unbreathe = breathe(orbEl, env, audio);
+  breathing = id;
 }
 function toggle() {
   if ($playing.get()) { if (gate) $playing.set(false); else audio?.pause(); return; }
@@ -147,7 +173,7 @@ function step(dir, manual = true) {
   if (next >= 0) play(list[next].id);
 }
 function seek(ms) { if (audio && !gate) audio.currentTime = ms / 1000; $pos.set(ms); }
-function stop() { if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); } if (kept) { URL.revokeObjectURL(kept); kept = ""; } $cur.set(""); $playing.set(false); $pos.set(0); $dur.set(0); }
+function stop() { stopBreath(); if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); } if (kept) { URL.revokeObjectURL(kept); kept = ""; } $cur.set(""); $playing.set(false); $pos.set(0); $dur.set(0); }
 
 async function remove(s) {
   if (!gate) {
@@ -175,51 +201,105 @@ export function fonoteka({ S, toast, confirm }) {
   const askDelete = (s) => confirm({ title: T(t, "delTitle"), body: T(t, "delBody"), verb: T(t, "delYes"), onConfirm: () => remove(s) });
   const picker = useRef();
 
-  return html`<div data-fonoteka data-playing=${playing ? "true" : null} data-songs=${songs ? songs.length : null} class="flex flex-col gap-[var(--ms-gap)] p-[var(--ms-pad)]">
-    <${Panel} title=${T(t, "now")}>
-      <${Transport} size="sm" locale=${locale} playing=${playing} onToggle=${toggle} disabled=${!songs?.length}
-        onPrev=${() => step(-1)} onNext=${() => step(1)} pos=${pos} dur=${dur} onSeek=${seek}
-        title=${now ? titleOf(now) : T(t, "nothing")} subtitle=${now ? (now.artist || clock(now.dur)) : null} />
-    <//>
+  // THE ORB — the playing song's form, the theme's texture through it, its rim a light. The shaper flows it
+  // into the next song's form (one-shot) and the clip follows the orb's measured size. Layout effects, so
+  // the first paint already has the form (an unclipped square for one frame is exactly the box we left).
+  const orb = useRef(), fill = useRef(), rim = useRef(), core = useRef(), form = useRef();
+  useLayoutEffect(() => {
+    let w = orb.current.offsetWidth, last = "";
+    const lay = (d) => {
+      last = d;
+      if (w) fill.current.style.clipPath = `path("${scalePath(d, w)}")`;
+      for (const p of rim.current.children) p.setAttribute("d", d);
+    };
+    form.current = shaper(shapeOf($cur.get() || IDLE), lay);
+    const ro = new ResizeObserver(() => { const nw = orb.current?.offsetWidth || 0; if (nw !== w) { w = nw; if (last) lay(last); } });
+    ro.observe(orb.current);
+    orbEl = orb.current;
+    if ($cur.get() && $playing.get()) breatheSong($cur.get());   // back from the other tab mid-song
+    return () => { ro.disconnect(); form.current.stop(); if (orbEl === orb.current) { stopBreath(); orbEl = null; } };
+  }, []);
+  useLayoutEffect(() => { form.current?.to(shapeOf(cur || IDLE)); }, [cur]);
 
-    <${Panel} title=${T(t, "songs")}>
-      ${usage ? html`<div data-usage class="font-mono text-xs tabular-nums text-base-content/70">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : null}
-      ${songs?.length ? html`<div data-onphone data-all=${onPhone === songs.length ? "true" : null} class="flex items-center gap-1.5 text-xs text-base-content/70">
-        ${Icon(onPhone === songs.length ? "lucide:smartphone" : "lucide:arrow-down-to-line", `text-sm ${onPhone === songs.length ? "text-[var(--app-accent)]" : ""}`)}
-        <span class="tabular-nums">${onPhone === songs.length ? T(t, "onPhoneAll") : T(t, "onPhoneSome", { n: onPhone, m: songs.length })}</span>
-      </div>` : null}
+  // the mini orb rides above the dock once the orb has scrolled away — one observer, one attribute
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => setAway(e.intersectionRatio < 0.2), { threshold: [0, 0.2] });
+    io.observe(core.current);
+    return () => io.disconnect();
+  }, []);
+  const mini = away && !!now;
+  const toOrb = () => core.current?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+
+  const glyph = (id, on = false) => html`<svg aria-hidden="true" viewBox="0 0 1 1" class=${`fk-glyph ${on ? "on" : ""}`}><path d=${pathOf(shapeOf(id))} /></svg>`;
+
+  return html`<div data-fonoteka data-playing=${playing ? "true" : null} data-songs=${songs ? songs.length : null} class="flex flex-col gap-[calc(var(--ms-gap)*2)] p-[var(--ms-pad)]">
+    <section ref=${core} aria-label=${T(t, "now")} class="flex flex-col items-center gap-[var(--ms-gap)] pt-2 scroll-mt-[var(--hdr-h)]">
+      <div ref=${orb} class="fk-orb" aria-hidden="true">
+        <div ref=${fill} class="fk-fill"></div>
+        <svg ref=${rim} class="fk-rim" viewBox="0 0 1 1"><path class="b1" /><path class="b2" /><path class="e" /></svg>
+      </div>
+      <${Transport} form locale=${locale} playing=${playing} onToggle=${toggle} disabled=${!songs?.length} className="w-full pt-1"
+        onPrev=${() => step(-1)} onNext=${() => step(1)} pos=${pos} dur=${dur} onSeek=${seek} onScrub=${seek}
+        title=${now ? titleOf(now) : T(t, "nothing")} subtitle=${now ? (now.artist || clock(now.dur)) : ""} />
+    </section>
+
+    <section aria-labelledby="fk-shelf" class="flex flex-col gap-[var(--ms-gap)]">
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="fk-shelf" class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "songs")}</h2>
+        ${/* a secondary action: a rim of light, not a second ink form competing with the play button */""}
+        <button data-add onClick=${() => picker.current?.click()} class="btn rounded-full sf-raised shrink-0 h-[var(--ms-ctl)] min-h-0 px-4 gap-2 font-medium ms-press">
+          ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
+        </button>
+      </div>
+      <div class="flex flex-col gap-1 -mt-1">
+        ${usage ? html`<div data-usage class="font-mono text-xs tabular-nums text-muted">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : null}
+        ${songs?.length ? html`<div data-onphone data-all=${onPhone === songs.length ? "true" : null} class="flex items-center gap-1.5 text-xs text-muted">
+          ${Icon(onPhone === songs.length ? "lucide:smartphone" : "lucide:arrow-down-to-line", `text-sm ${onPhone === songs.length ? "text-secondary" : ""}`)}
+          <span class="tabular-nums">${onPhone === songs.length ? T(t, "onPhoneAll") : T(t, "onPhoneSome", { n: onPhone, m: songs.length })}</span>
+        </div>` : null}
+      </div>
       <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
-      <button data-add onClick=${() => picker.current?.click()} class="btn btn-primary w-full h-[var(--ms-ctl)] min-h-0 gap-2 sf-e3">
-        ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
-      </button>
       ${err ? html`<div data-err role="alert" class="text-sm text-error">${T(t, err)}</div>` : null}
-      <div class="flex flex-col">
-        ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class="relative flex items-center gap-3 border-b border-base-content/10 py-1 px-2 h-[var(--ms-ctl)]">
-          ${Icon(u.state === "up" ? "lucide:arrow-up-to-line" : "lucide:x", `text-[length:var(--ms-icon)] ${u.state === "err" ? "text-error" : "text-base-content/70"}`)}
-          <span class="min-w-0 flex-1 flex flex-col leading-tight"><span class="font-semibold text-sm truncate">${u.name}</span><span class="text-xs text-base-content/70">${u.state === "up" ? `${T(t, "uploading")}${u.pct ? ` · ${u.pct}%` : ""}` : T(t, "errUpload")}</span></span>
-          ${/* the row's divider fills with the bytes sent — the remix's progress language */""}
-          ${u.state === "up" ? html`<progress data-progress aria-hidden="true" max="100" value=${u.pct || 0} class="progress absolute inset-x-0 -bottom-px h-0.5 rounded-none text-[var(--app-accent)]"></progress>` : null}
+      <div class="flex flex-col gap-1">
+        ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class="fk-row flex items-center gap-3 px-2 h-[var(--ms-ctl)]">
+          ${/* the song's own form fills with light from the bottom as the bytes go up */""}
+          <span class="fk-up" aria-hidden="true">
+            <svg viewBox="0 0 1 1" class="fk-glyph"><path d=${pathOf(shapeOf(u.name))} /></svg>
+            ${u.state === "up" ? html`<svg data-progress viewBox="0 0 1 1" class="fk-glyph lit" style=${`clip-path:inset(${100 - (u.pct || 0)}% 0 0 0)`}><path d=${pathOf(shapeOf(u.name))} /></svg>` : null}
+          </span>
+          <span class="min-w-0 flex-1 flex flex-col leading-tight"><span class="font-semibold text-sm truncate">${u.name}</span><span class=${`text-xs ${u.state === "err" ? "text-error" : "text-muted"}`}>${u.state === "up" ? `${T(t, "uploading")}${u.pct ? ` · ${u.pct}%` : ""}` : T(t, "errUpload")}</span></span>
         </div>`)}
-        ${songs === null ? [0, 1, 2].map((i) => html`<div key=${i} class="flex items-center gap-3 py-1 px-2 h-[var(--ms-ctl)]"><div class="skeleton w-2 h-2 rounded-full"></div><div class="flex-1 flex flex-col gap-1.5"><div class="skeleton h-3.5 w-2/3"></div><div class="skeleton h-3 w-1/3"></div></div></div>`)
+        ${songs === null ? [0, 1, 2].map((i) => html`<div key=${i} class="flex items-center gap-3 px-2 h-[var(--ms-ctl)]"><div class="skeleton w-7 h-7 rounded-full"></div><div class="flex-1 flex flex-col gap-1.5"><div class="skeleton h-3.5 w-2/3"></div><div class="skeleton h-3 w-1/3"></div></div></div>`)
           : songs.map((s) => {
             const on = cur === s.id;
-            return html`<div key=${s.id} data-song=${s.id} class="flex items-center gap-2 border-b border-base-content/10 last:border-b-0 py-1">
+            return html`<div key=${s.id} data-song=${s.id} class="fk-row flex items-center gap-1">
               <button data-play=${s.id} aria-pressed=${on ? "true" : "false"} aria-label=${`${T(t, "aPlay")}: ${titleOf(s)}`} onClick=${() => (on ? toggle() : play(s.id))}
-                class=${`flex-1 min-w-0 flex items-center gap-3 text-left rounded-[var(--ms-r-in)] px-2 h-[var(--ms-ctl)] min-h-0 ${on ? "sf-pressed" : ""}`}>
-                <span aria-hidden="true" class=${`w-2 h-2 shrink-0 rounded-full ${on ? "bg-[var(--app-accent)]" : "bg-base-content/20"}`}></span>
-                <span class="min-w-0 flex-1 flex flex-col leading-tight">
+                class="flex-1 min-w-0 flex items-center gap-3 text-left px-2 h-[calc(var(--ms-ctl)+.5rem)] min-h-0 ms-press">
+                ${glyph(s.id)}
+                <span class="min-w-0 flex-1 flex flex-col leading-tight gap-0.5">
                   <span class="font-semibold text-sm truncate">${titleOf(s)}</span>
-                  <span class="font-mono text-xs tabular-nums text-base-content/70 truncate">${songLine(s, clock)}</span>
+                  <span class="font-mono text-xs tabular-nums text-muted truncate">${songLine(s, clock)}</span>
                 </span>
               </button>
               <button data-del=${s.id} data-haptic="bump" aria-label=${`${T(t, "aDelete")}: ${titleOf(s)}`} onClick=${() => askDelete(s)}
-                class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-base-content/70">${Icon("lucide:trash-2", "text-[length:var(--ms-icon)]")}</button>
+                class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0 text-muted">${Icon("lucide:trash-2", "text-[length:var(--ms-icon)]")}</button>
             </div>`;
           })}
-        ${songs && !songs.length && !uploads.length ? html`<div data-empty class="py-6 flex flex-col items-center gap-2 text-center text-base-content/70">
-          ${Icon("lucide:library", "text-3xl")}<div class="font-semibold text-sm text-base-content">${T(t, "empty")}</div><div class="text-sm">${T(t, "emptyHint")}</div>
+        ${songs && !songs.length && !uploads.length ? html`<div data-none class="py-6 flex flex-col items-center gap-1 text-center">
+          <div class="font-semibold text-sm">${T(t, "empty")}</div><div class="text-sm text-muted">${T(t, "emptyHint")}</div>
         </div>` : null}
       </div>
-    <//>
+    </section>
+
+    <div data-mini data-show=${mini ? "true" : "false"} aria-hidden=${mini ? null : "true"} inert=${!mini} class="fk-mini">
+      <div class="sf-raised sf-e4 rounded-full h-[3.25rem] pl-3 pr-1 flex items-center gap-2 bg-base-100">
+        <button class="flex-1 min-w-0 flex items-center gap-3 text-left h-full ms-press" aria-label=${now ? `${T(t, "now")}: ${titleOf(now)}` : T(t, "now")} onClick=${toOrb}>
+          ${now ? glyph(now.id, true) : null}
+          <span class="min-w-0 flex-1 font-semibold text-sm truncate">${now ? titleOf(now) : ""}</span>
+        </button>
+        <button class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0" aria-label=${sys(playing ? "aPause" : "aPlay", locale)} onClick=${toggle}>${Icon(playing ? "lucide:pause" : "lucide:play", "text-[length:var(--ms-icon)]")}</button>
+      </div>
+    </div>
   </div>`;
 }
