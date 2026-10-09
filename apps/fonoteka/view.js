@@ -1,11 +1,11 @@
 import { html } from "htm/preact";
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
-import { T, sys } from "/_rt/i18n.js";
+import { T } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
-import { Transport } from "/_rt/ui.js";
+import { Transport, Island } from "/_rt/ui.js";
 import { advance } from "/_rt/player.js";
 import { shapeOf, pathOf, scalePath, shaper } from "/_rt/shape.js";
 import { envelopeOfBlob, breathe } from "/_rt/breath.js";
@@ -188,6 +188,24 @@ async function remove(s) {
 
 // The other door in: a file picker. Same upload as a share — the picker is for a phone where the share sheet
 // is not an option (iOS cannot share INTO a web app; the APK shell hands in text only).
+// Share the SONG ITSELF — the file, through the phone's share sheet (Telegram, a messenger, Files), not a
+// link: a shelf is private, a link would open nothing for the person it was sent to. The copy kept on the
+// phone first; a song not kept yet is fetched once on its sealed URL.
+async function shareSong(s) {
+  if (!s || gate) return;
+  try {
+    const blob = (await store.blob(s.id).catch(() => null)) || await (await fetch(await sealedUrl("/library/get", { id: s.id }))).blob();
+    const file = new File([blob], s.name || `${titleOf(s)}.mp3`, { type: blob.type || "audio/mpeg" });
+    if (!navigator.canShare?.({ files: [file] })) { report("share.out.unsupported", { type: file.type }, "info"); toastFn?.(T(tNow, "shareNo")); return; }
+    await navigator.share({ files: [file], title: titleOf(s) });
+    report("share.out.ok", { size: file.size }, "info");
+  } catch (e) {
+    if (e?.name === "AbortError") return;   // the person closed the sheet
+    report("share.out.fail", { err: String(e?.message || e).slice(0, 120) });
+    toastFn?.(T(tNow, "shareFail"));
+  }
+}
+
 function pickFiles(files) { for (const f of files || []) { if (isAudio(f)) upload(f); else toastFn?.(T(tNow, "skipped")); } }
 
 export function fonoteka({ S, toast, confirm }) {
@@ -204,7 +222,7 @@ export function fonoteka({ S, toast, confirm }) {
   // THE ORB — the playing song's form, the theme's texture through it, its rim a light. The shaper flows it
   // into the next song's form (one-shot) and the clip follows the orb's measured size. Layout effects, so
   // the first paint already has the form (an unclipped square for one frame is exactly the box we left).
-  const orb = useRef(), fill = useRef(), rim = useRef(), core = useRef(), form = useRef();
+  const orb = useRef(), fill = useRef(), rim = useRef(), form = useRef();
   useLayoutEffect(() => {
     let w = orb.current.offsetWidth, last = "";
     const lay = (d) => {
@@ -221,37 +239,21 @@ export function fonoteka({ S, toast, confirm }) {
   }, []);
   useLayoutEffect(() => { form.current?.to(shapeOf(cur || IDLE)); }, [cur]);
 
-  // the mini orb rides above the dock once the orb has scrolled away — one observer, one attribute
-  const [away, setAway] = useState(false);
-  useEffect(() => {
-    const io = new IntersectionObserver(([e]) => setAway(e.intersectionRatio < 0.2), { threshold: [0, 0.2] });
-    io.observe(core.current);
-    return () => io.disconnect();
-  }, []);
-  const mini = away && !!now;
-  const toOrb = () => core.current?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-
   const glyph = (id, on = false) => html`<svg aria-hidden="true" viewBox="0 0 1 1" class=${`fk-glyph ${on ? "on" : ""}`}><path d=${pathOf(shapeOf(id))} /></svg>`;
 
+  // THE THREE ZONES (owner 2026-10-09): the header is the title alone; the body is content — the orb and the
+  // shelf; every control lives in ONE island in the thumb's reach above the dock: the song, the filament,
+  // prev · play · next, and the app's two actions — share this song, add songs.
   return html`<div data-fonoteka data-playing=${playing ? "true" : null} data-songs=${songs ? songs.length : null} class="flex flex-col gap-[calc(var(--ms-gap)*2)] p-[var(--ms-pad)]">
-    <section ref=${core} aria-label=${T(t, "now")} class="flex flex-col items-center gap-[var(--ms-gap)] pt-2 scroll-mt-[var(--hdr-h)]">
+    <section aria-label=${T(t, "now")} class="flex justify-center pt-2">
       <div ref=${orb} class="fk-orb" aria-hidden="true">
         <div ref=${fill} class="fk-fill"></div>
         <svg ref=${rim} class="fk-rim" viewBox="0 0 1 1"><path class="b1" /><path class="b2" /><path class="e" /></svg>
       </div>
-      <${Transport} form locale=${locale} playing=${playing} onToggle=${toggle} disabled=${!songs?.length} className="w-full pt-1"
-        onPrev=${() => step(-1)} onNext=${() => step(1)} pos=${pos} dur=${dur} onSeek=${seek} onScrub=${seek}
-        title=${now ? titleOf(now) : T(t, "nothing")} subtitle=${now ? (now.artist || clock(now.dur)) : ""} />
     </section>
 
     <section aria-labelledby="fk-shelf" class="flex flex-col gap-[var(--ms-gap)]">
-      <div class="flex items-center justify-between gap-3">
-        <h2 id="fk-shelf" class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "songs")}</h2>
-        ${/* a secondary action: a rim of light, not a second ink form competing with the play button */""}
-        <button data-add onClick=${() => picker.current?.click()} class="btn rounded-full sf-raised shrink-0 h-[var(--ms-ctl)] min-h-0 px-4 gap-2 font-medium ms-press">
-          ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
-        </button>
-      </div>
+      <h2 id="fk-shelf" class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "songs")}</h2>
       <div class="flex flex-col gap-1 -mt-1">
         ${usage ? html`<div data-usage class="font-mono text-xs tabular-nums text-muted">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : null}
         ${songs?.length ? html`<div data-onphone data-all=${onPhone === songs.length ? "true" : null} class="flex items-center gap-1.5 text-xs text-muted">
@@ -259,7 +261,6 @@ export function fonoteka({ S, toast, confirm }) {
           <span class="tabular-nums">${onPhone === songs.length ? T(t, "onPhoneAll") : T(t, "onPhoneSome", { n: onPhone, m: songs.length })}</span>
         </div>` : null}
       </div>
-      <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
       ${err ? html`<div data-err role="alert" class="text-sm text-error">${T(t, err)}</div>` : null}
       <div class="flex flex-col gap-1">
         ${uploads.map((u) => html`<div key=${u.k} data-upload data-state=${u.state} class="fk-row flex items-center gap-3 px-2 h-[var(--ms-ctl)]">
@@ -292,14 +293,15 @@ export function fonoteka({ S, toast, confirm }) {
       </div>
     </section>
 
-    <div data-mini data-show=${mini ? "true" : "false"} aria-hidden=${mini ? null : "true"} inert=${!mini} class="fk-mini">
-      <div class="sf-raised sf-e4 rounded-full h-[3.25rem] pl-3 pr-1 flex items-center gap-2 bg-base-100">
-        <button class="flex-1 min-w-0 flex items-center gap-3 text-left h-full ms-press" aria-label=${now ? `${T(t, "now")}: ${titleOf(now)}` : T(t, "now")} onClick=${toOrb}>
-          ${now ? glyph(now.id, true) : null}
-          <span class="min-w-0 flex-1 font-semibold text-sm truncate">${now ? titleOf(now) : ""}</span>
-        </button>
-        <button class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0" aria-label=${sys(playing ? "aPause" : "aPlay", locale)} onClick=${toggle}>${Icon(playing ? "lucide:pause" : "lucide:play", "text-[length:var(--ms-icon)]")}</button>
-      </div>
-    </div>
+    <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
+    <${Island} pinned className="w-full max-w-md !py-3">
+      <${Transport} form locale=${locale} playing=${playing} onToggle=${toggle} disabled=${!songs?.length}
+        onPrev=${() => step(-1)} onNext=${() => step(1)} pos=${pos} dur=${dur} onSeek=${seek} onScrub=${seek}
+        title=${now ? titleOf(now) : T(t, "nothing")} subtitle=${now ? (now.artist || clock(now.dur)) : ""}
+        actions=${[
+          { id: "share", icon: "lucide:share-2", label: T(t, "aShare"), onClick: () => shareSong(now), disabled: !now, attr: { "data-share": true } },
+          { id: "add", icon: "lucide:plus", label: T(t, "add"), onClick: () => picker.current?.click(), attr: { "data-add": true } },
+        ]} />
+    <//>
   </div>`;
 }
