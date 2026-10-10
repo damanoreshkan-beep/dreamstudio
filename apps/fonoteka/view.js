@@ -138,6 +138,7 @@ async function play(id) {
   else hold.meta(titleOf(s));
   a.play().catch(() => $playing.set(false));
   if (breathing !== id) breatheSong(id);
+  readyShare(s);   // so a tap on "share" can open the sheet inside the gesture
 }
 
 // ── the orb breathes with the song (core breath.js): the copy on the phone is read ONCE into a bass
@@ -191,22 +192,35 @@ async function remove(s) {
 // Share the SONG ITSELF — the file, through the phone's share sheet (Telegram, a messenger, Files), not a
 // link: a shelf is private, a link would open nothing for the person it was sent to. The copy kept on the
 // phone first; a song not kept yet is fetched once on its sealed URL.
-async function shareSong(s) {
+//
+// The File is made READY before the tap (when the song becomes current), and the tap calls share() with no
+// await in front of it. Chrome's browser side consumes the gesture itself (ShareServiceImpl::Share →
+// ConsumeTransientUserActivation) and answers "Permission denied" when the gesture has gone stale — which
+// is what a 6 MB read from the cache between the tap and share() did (share.out.fail ×7, 2026-10-10, also
+// after the type fix). The profile's share works for the same reason: it calls share() at once.
+let shareable = null;   // { id, file } — the current song as the share sheet will receive it
+async function readyShare(s) {
+  if (!s || gate || shareable?.id === s.id) return;
+  const blob = (await store.blob(s.id).catch(() => null)) || await fetch(await sealedUrl("/library/get", { id: s.id })).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
+  if (!blob) return;
+  // the TYPE decides whether the sheet opens at all: a kept copy comes back as application/octet-stream, which
+  // Chrome refuses — so it comes from the name
+  const f = shareFile(s.name || `${titleOf(s)}.mp3`, blob.type);
+  shareable = { id: s.id, file: new File([blob], f.name, { type: f.type }) };
+}
+function shareSong(s) {
   if (!s || gate) return;
-  try {
-    const blob = (await store.blob(s.id).catch(() => null)) || await (await fetch(await sealedUrl("/library/get", { id: s.id }))).blob();
-    // the TYPE decides whether the sheet opens at all: a kept copy comes back as application/octet-stream and
-    // Chrome refuses that with "Permission denied" (telemetry share.out.fail, 2026-10-10) — so it comes from the name
-    const f = shareFile(s.name || `${titleOf(s)}.mp3`, blob.type);
-    const file = new File([blob], f.name, { type: f.type });
-    if (!navigator.canShare?.({ files: [file] })) { report("share.out.unsupported", { type: file.type }, "info"); toastFn?.(T(tNow, "shareNo")); return; }
-    await navigator.share({ files: [file], title: titleOf(s) });
-    report("share.out.ok", { size: file.size }, "info");
-  } catch (e) {
-    if (e?.name === "AbortError") return;   // the person closed the sheet
-    report("share.out.fail", { err: String(e?.message || e).slice(0, 120) });
-    toastFn?.(T(tNow, "shareFail"));
-  }
+  if (shareable?.id !== s.id) { readyShare(s); toastFn?.(T(tNow, "shareWait")); return; }   // not read yet: one more tap
+  const file = shareable.file;
+  if (!navigator.canShare?.({ files: [file] })) { report("share.out.unsupported", { type: file.type }, "info"); toastFn?.(T(tNow, "shareNo")); return; }
+  navigator.share({ files: [file], title: titleOf(s) }).then(
+    () => report("share.out.ok", { size: file.size }, "info"),
+    (e) => {
+      if (e?.name === "AbortError") return;   // the person closed the sheet
+      report("share.out.fail", { err: String(e?.message || e).slice(0, 120), type: file.type, size: file.size });
+      toastFn?.(T(tNow, "shareFail"));
+    },
+  );
 }
 
 function pickFiles(files) { for (const f of files || []) { if (isAudio(f)) upload(f); else toastFn?.(T(tNow, "skipped")); } }
@@ -238,6 +252,7 @@ export function fonoteka({ S, toast, confirm }) {
     ro.observe(orb.current);
     orbEl = orb.current;
     if ($cur.get() && $playing.get()) breatheSong($cur.get());   // back from the other tab mid-song
+    if ($cur.get()) readyShare(songOf($cur.get()));
     return () => { ro.disconnect(); form.current.stop(); if (orbEl === orb.current) { stopBreath(); orbEl = null; } };
   }, []);
   useLayoutEffect(() => { form.current?.to(shapeOf(cur || IDLE)); }, [cur]);

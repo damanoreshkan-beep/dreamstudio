@@ -19,6 +19,7 @@
   "aShare": "Share the song",
   "shareNo": "This phone can't share files from the browser",
   "shareFail": "Couldn't share the song",
+  "shareWait": "Getting the song ready — tap again",
   "delTitle": "Delete this song?",
   "delBody": "It leaves the shelf and the player. The only way back is to upload it again.",
   "delYes": "Delete",
