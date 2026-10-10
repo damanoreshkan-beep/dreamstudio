@@ -5,33 +5,6 @@ export const MB = 1_000_000;
 /** A shared file the library takes: audio by type, or by a known extension when the type is blank. */
 export const isAudio = (f) => !!f && (String(f.type || "").startsWith("audio/") || /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i.test(String(f.name || "")));
 
-// The audio types the phone's share sheet accepts, by extension. Chrome refuses a file share whose type is
-// not on its allow-list with "Permission denied" — and a kept song comes back from the cache as
-// application/octet-stream (the edge serves the bytes untyped), which is exactly what failed (2026-10-10).
-const AUDIO = { mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg", wav: "audio/wav", flac: "audio/flac", weba: "audio/webm" };
-
-/**
- * The file a song is shared as: an allowed audio type from its extension (else the blob's own audio type,
- * else mp3), and a name that carries a matching extension.
- * @returns {{ name: string, type: string }}
- */
-export function shareFile(name, blobType) {
-  const raw = String(name || "");
-  const ext = /\.([a-z0-9]{2,5})$/i.exec(raw)?.[1]?.toLowerCase();
-  const type = ext && AUDIO[ext] ? AUDIO[ext] : /^audio\//.test(blobType || "") ? blobType : "audio/mpeg";
-  const out = ext && AUDIO[ext] ? ext : Object.entries(AUDIO).find(([, t]) => t === type)?.[0] || "mp3";
-  return { name: `${safeBase(ext && AUDIO[ext] ? raw.slice(0, -ext.length - 1) : raw.replace(/\.[a-z0-9]{2,5}$/i, ""))}.${out}`, type };
-}
-
-// Chrome on Android refuses a shared file by its NAME too (ShareServiceImpl.isDangerousFilename): any "..",
-// a "/" or "\", a leading/trailing space or a trailing dot, and an extension not in its lower-case list
-// (".MP3" fails). Song titles carry all of these ("Song... (live)", "AC/DC"), and the refusal reads
-// "Permission denied" — the third cause after the type and the gesture (2026-10-10).
-function safeBase(base) {
-  const s = String(base).replace(/[\/\\]+/g, " ").replace(/\.{2,}/g, ".").replace(/[\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().replace(/^[.\s]+|[.\s]+$/g, "");
-  return s || "song";
-}
-
 /** "6.0 MB" — one decimal, never a float tail. */
 export const mb = (bytes) => `${(Math.max(0, Number(bytes) || 0) / MB).toFixed(1)} MB`;
 

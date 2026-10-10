@@ -16,7 +16,7 @@ import { authWall } from "/_rt/authwall.js";
 import { takeShared } from "/_rt/share.js";
 import { report } from "/_rt/telemetry.js";
 import { clock } from "/_rt/muzak.js";
-import { isAudio, songLine, usageLine, titleOf, errorKey, shareFile, FIXTURE_SONGS, FIXTURE_USAGE } from "/_rt/fonoteka.js";
+import { isAudio, songLine, usageLine, titleOf, errorKey, FIXTURE_SONGS, FIXTURE_USAGE } from "/_rt/fonoteka.js";
 import { songStore, keeper } from "/_rt/songstore.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
@@ -189,36 +189,38 @@ async function remove(s) {
 
 // The other door in: a file picker. Same upload as a share — the picker is for a phone where the share sheet
 // is not an option (iOS cannot share INTO a web app; the APK shell hands in text only).
-// Share the SONG ITSELF — the file, through the phone's share sheet (Telegram, a messenger, Files), not a
-// link: a shelf is private, a link would open nothing for the person it was sent to. The copy kept on the
-// phone first; a song not kept yet is fetched once on its sealed URL.
+// Share a LINK to the song's own public page, not the file (owner 2026-10-10: «ділитись не піснею, а лінкою на
+// цей трек … без авторизації»). The edge gives the song a token once (`/library/link`) and serves, with no
+// session, a page with a player for this one song plus everything a chat's link preview reads — the 1200×630
+// card, and the mp4 Telegram plays inline (edge songpage.js / songcard.js). A file in a chat was a download; a
+// link is the song, playable where it lands.
 //
-// The File is made READY before the tap (when the song becomes current), and the tap calls share() with no
-// await in front of it. Chrome's browser side consumes the gesture itself (ShareServiceImpl::Share →
-// ConsumeTransientUserActivation) and answers "Permission denied" when the gesture has gone stale — which
-// is what a 6 MB read from the cache between the tap and share() did (share.out.fail ×7, 2026-10-10, also
-// after the type fix). The profile's share works for the same reason: it calls share() at once.
-let shareable = null;   // { id, file } — the current song as the share sheet will receive it
+// The URL is made READY before the tap (when the song becomes current), and the tap calls share() with no await
+// in front of it: Chrome consumes the gesture browser-side (ShareServiceImpl::Share → ConsumeTransientUserActivation)
+// and answers "Permission denied" to a stale one — what a 6 MB read between the tap and share() did (2026-10-10).
+// A browser with no share sheet (desktop) gets the link on the clipboard instead.
+let shareable = null;   // { id, url } — the current song's public link
 async function readyShare(s) {
   if (!s || gate || shareable?.id === s.id) return;
-  const blob = (await store.blob(s.id).catch(() => null)) || await fetch(await sealedUrl("/library/get", { id: s.id })).then((r) => (r.ok ? r.blob() : null)).catch(() => null);
-  if (!blob) return;
-  // the TYPE decides whether the sheet opens at all: a kept copy comes back as application/octet-stream, which
-  // Chrome refuses — so it comes from the name
-  const f = shareFile(s.name || `${titleOf(s)}.mp3`, blob.type);
-  shareable = { id: s.id, file: new File([blob], f.name, { type: f.type }) };
+  const r = await fetch(`${VPS_PROXY}/library/link`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: s.id }), signal: AbortSignal.timeout(20000) }).catch(() => null);
+  if (!r?.ok) { if (r) report("share.link.fail", { status: r.status }); return; }
+  const { url } = await r.json();
+  shareable = { id: s.id, url };
 }
 function shareSong(s) {
   if (!s || gate) return;
-  if (shareable?.id !== s.id) { readyShare(s); toastFn?.(T(tNow, "shareWait")); return; }   // not read yet: one more tap
-  const file = shareable.file;
-  if (!navigator.canShare?.({ files: [file] })) { report("share.out.unsupported", { type: file.type }, "info"); toastFn?.(T(tNow, "shareNo")); return; }
-  navigator.share({ files: [file], title: titleOf(s) }).then(
-    () => report("share.out.ok", { size: file.size }, "info"),
+  if (shareable?.id !== s.id) { readyShare(s); toastFn?.(T(tNow, "shareWait")); return; }   // no link yet: one more tap
+  const { url } = shareable, data = { title: titleOf(s), url };
+  if (!navigator.share || !navigator.canShare?.(data)) {
+    navigator.clipboard?.writeText(url).then(() => toastFn?.(T(tNow, "shareCopied")), () => toastFn?.(T(tNow, "shareFail")));
+    return;
+  }
+  navigator.share(data).then(
+    () => report("share.out.ok", {}, "info"),
     (e) => {
       if (e?.name === "AbortError") return;   // the person closed the sheet
-      report("share.out.fail", { err: String(e?.message || e).slice(0, 120), type: file.type, size: file.size, name: file.name.slice(0, 80) });
-      toastFn?.(T(tNow, "shareFail"));
+      report("share.out.fail", { err: String(e?.message || e).slice(0, 120) });
+      navigator.clipboard?.writeText(url).then(() => toastFn?.(T(tNow, "shareCopied")), () => toastFn?.(T(tNow, "shareFail")));
     },
   );
 }
