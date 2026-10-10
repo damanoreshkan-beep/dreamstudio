@@ -1,11 +1,11 @@
 import { html } from "htm/preact";
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/preact";
-import { T } from "/_rt/i18n.js";
+import { T, sys } from "/_rt/i18n.js";
 import { gate } from "/_rt/gate.js";
 import { VPS_PROXY } from "/_rt/feed.js";
-import { Transport, Island } from "/_rt/ui.js";
+import { Transport } from "/_rt/ui.js";
 import { advance } from "/_rt/player.js";
 import { shapeOf, pathOf, scalePath, shaper } from "/_rt/shape.js";
 import { envelopeOfBlob, breathe } from "/_rt/breath.js";
@@ -239,7 +239,7 @@ export function fonoteka({ S, toast, confirm }) {
   // THE ORB — the playing song's form, the theme's texture through it, its rim a light. The shaper flows it
   // into the next song's form (one-shot) and the clip follows the orb's measured size. Layout effects, so
   // the first paint already has the form (an unclipped square for one frame is exactly the box we left).
-  const orb = useRef(), fill = useRef(), rim = useRef(), form = useRef();
+  const orb = useRef(), fill = useRef(), rim = useRef(), core = useRef(), form = useRef();
   useLayoutEffect(() => {
     let w = orb.current.offsetWidth, last = "";
     const lay = (d) => {
@@ -259,19 +259,37 @@ export function fonoteka({ S, toast, confirm }) {
 
   const glyph = (id, on = false) => html`<svg aria-hidden="true" viewBox="0 0 1 1" class=${`fk-glyph ${on ? "on" : ""}`}><path d=${pathOf(shapeOf(id))} /></svg>`;
 
-  // THE THREE ZONES (owner 2026-10-09): the header is the title alone; the body is content — the orb and the
-  // shelf; every control lives in ONE island in the thumb's reach above the dock: the song, the filament,
-  // prev · play · next, and the app's two actions — share this song, add songs.
+  // the mini orb rides above the dock once the player has scrolled away — one observer, one attribute
+  // (owner 2026-10-10: the player lives in the body, the ONLY island is this one, after a scroll down)
+  const [away, setAway] = useState(false);
+  useEffect(() => {
+    const io = new IntersectionObserver(([e]) => setAway(e.intersectionRatio < 0.2), { threshold: [0, 0.2] });
+    io.observe(core.current);
+    return () => io.disconnect();
+  }, []);
+  const mini = away && !!now;
+  const toOrb = () => core.current?.scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+
   return html`<div data-fonoteka data-playing=${playing ? "true" : null} data-songs=${songs ? songs.length : null} class="flex flex-col gap-[calc(var(--ms-gap)*2)] p-[var(--ms-pad)]">
-    <section aria-label=${T(t, "now")} class="flex justify-center pt-2">
+    <section ref=${core} aria-label=${T(t, "now")} class="flex flex-col items-center gap-[var(--ms-gap)] pt-2 scroll-mt-[var(--hdr-h)]">
       <div ref=${orb} class="fk-orb" aria-hidden="true">
         <div ref=${fill} class="fk-fill"></div>
         <svg ref=${rim} class="fk-rim" viewBox="0 0 1 1"><path class="b1" /><path class="b2" /><path class="e" /></svg>
       </div>
+      <${Transport} form locale=${locale} playing=${playing} onToggle=${toggle} disabled=${!songs?.length} className="w-full pt-1"
+        onPrev=${() => step(-1)} onNext=${() => step(1)} pos=${pos} dur=${dur} onSeek=${seek} onScrub=${seek}
+        title=${now ? titleOf(now) : T(t, "nothing")} subtitle=${now ? (now.artist || clock(now.dur)) : ""}
+        actions=${[{ id: "share", icon: "lucide:share-2", label: T(t, "aShare"), onClick: () => shareSong(now), disabled: !now, attr: { "data-share": true } }]} />
     </section>
 
     <section aria-labelledby="fk-shelf" class="flex flex-col gap-[var(--ms-gap)]">
-      <h2 id="fk-shelf" class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "songs")}</h2>
+      <div class="flex items-center justify-between gap-3">
+        <h2 id="fk-shelf" class="font-mono text-[length:var(--ms-label)] uppercase tracking-wider text-muted">${T(t, "songs")}</h2>
+        ${/* a secondary action: a rim of light, not a second ink form competing with the play button */""}
+        <button data-add onClick=${() => picker.current?.click()} class="btn rounded-full sf-raised shrink-0 h-[var(--ms-ctl)] min-h-0 px-4 gap-2 font-medium ms-press">
+          ${Icon("lucide:plus", "text-[length:var(--ms-icon)]")}<span>${T(t, "add")}</span>
+        </button>
+      </div>
       <div class="flex flex-col gap-1 -mt-1">
         ${usage ? html`<div data-usage class="font-mono text-xs tabular-nums text-muted">${usageLine(usage, { songs: T(t, "wSongs"), of: T(t, "wOf") })}</div>` : null}
         ${songs?.length ? html`<div data-onphone data-all=${onPhone === songs.length ? "true" : null} class="flex items-center gap-1.5 text-xs text-muted">
@@ -312,14 +330,14 @@ export function fonoteka({ S, toast, confirm }) {
     </section>
 
     <input ref=${picker} data-picker type="file" accept="audio/*,.mp3,.m4a,.ogg,.opus,.wav,.flac" multiple class="hidden" onChange=${(e) => { pickFiles(e.target.files); e.target.value = ""; }} />
-    <${Island} pinned className="w-full max-w-md !py-3">
-      <${Transport} form locale=${locale} playing=${playing} onToggle=${toggle} disabled=${!songs?.length}
-        onPrev=${() => step(-1)} onNext=${() => step(1)} pos=${pos} dur=${dur} onSeek=${seek} onScrub=${seek}
-        title=${now ? titleOf(now) : T(t, "nothing")} subtitle=${now ? (now.artist || clock(now.dur)) : ""}
-        actions=${[
-          { id: "share", icon: "lucide:share-2", label: T(t, "aShare"), onClick: () => shareSong(now), disabled: !now, attr: { "data-share": true } },
-          { id: "add", icon: "lucide:plus", label: T(t, "add"), onClick: () => picker.current?.click(), attr: { "data-add": true } },
-        ]} />
-    <//>
+    <div data-mini data-show=${mini ? "true" : "false"} aria-hidden=${mini ? null : "true"} inert=${!mini} class="fk-mini">
+      <div class="sf-raised sf-e4 rounded-full h-[3.25rem] pl-3 pr-1 flex items-center gap-2 bg-base-100">
+        <button class="flex-1 min-w-0 flex items-center gap-3 text-left h-full ms-press" aria-label=${now ? `${T(t, "now")}: ${titleOf(now)}` : T(t, "now")} onClick=${toOrb}>
+          ${now ? glyph(now.id, true) : null}
+          <span class="min-w-0 flex-1 font-semibold text-sm truncate">${now ? titleOf(now) : ""}</span>
+        </button>
+        <button class="btn btn-ghost btn-circle shrink-0 w-[var(--ms-ctl)] h-[var(--ms-ctl)] min-h-0" aria-label=${sys(playing ? "aPause" : "aPlay", locale)} onClick=${toggle}>${Icon(playing ? "lucide:pause" : "lucide:play", "text-[length:var(--ms-icon)]")}</button>
+      </div>
+    </div>
   </div>`;
 }

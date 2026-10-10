@@ -46,5 +46,15 @@
     .fk-row { transition: opacity var(--t-state) var(--ease-out), translate var(--t-state) var(--ease-out); }
     @starting-style { .fk-row { opacity: 0; translate: 0 6px; } }
 
-    @media (prefers-reduced-motion: reduce) { .fk-row { transition: none; } }
+    /* THE MINI ORB — the screen's ONLY island (owner 2026-10-10): when the player scrolls away, the playing song
+       follows above the dock: a pill (a full round has no corner to reconcile), the song's glyph lit, its title,
+       play/pause. Shown by an IntersectionObserver flipping one attribute; the move is one transition. */
+    .fk-mini { position: fixed; z-index: 30; left: 50%; bottom: calc(var(--dock-h) + env(safe-area-inset-bottom) + .5rem);
+      width: min(22rem, calc(100vw - 2rem)); translate: -50% .75rem; opacity: 0; pointer-events: none;
+      transition: opacity var(--t-state) var(--ease-out), translate var(--t-state) var(--ease-out); }
+    .fk-mini[data-show="true"] { translate: -50% 0; opacity: 1; pointer-events: auto; }
+    @media (prefers-reduced-motion: reduce) {
+      .fk-mini { translate: -50% 0; }
+      .fk-row { transition: none; }
+    }
   </style>
