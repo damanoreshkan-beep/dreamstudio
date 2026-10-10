@@ -38,7 +38,7 @@ jobs:
         run: deno task build
       - name: Digital Asset Links (Android App Links for the APK shells)
         # Writes dist/.well-known/assetlinks.json — one entry per installable app, so a tapped
-        # dreamstudio.mooo.com link opens the installed APK shell instead of the browser. Must ship in the
+        # mriia.si link opens the installed APK shell instead of the browser. Must ship in the
         # same dist/ the rsync below deploys (Android verifies it at install time).
         run: deno run --allow-read --allow-write tools/gen-assetlinks.mjs
       - name: Eye on dist (real Chromium, measured)
@@ -71,8 +71,8 @@ jobs:
           ssh-keyscan -t ed25519 "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           rsync -az --delete --rsync-path="sudo rsync" -e "ssh -i ~/.ssh/deploy_key" dist/ "$VPS_USER@$VPS_HOST:$VPS_PATH/"
           sleep 2
-          curl -fsS -o /dev/null https://dreamstudio.mooo.com/store/
-          test "$(curl -fsS https://dreamstudio.mooo.com/_rt/build.js)" = "$(cat dist/_rt/build.js)"
+          curl -fsS -o /dev/null https://mriia.si/store/
+          test "$(curl -fsS https://mriia.si/_rt/build.js)" = "$(cat dist/_rt/build.js)"
       # Only a deploy that reached this line is announced: every step above has passed and the live site
       # answered with this build. A failed announcement never fails the deploy.
       - name: Tell the owner what changed for people (Telegram, the DreamStudio bot)

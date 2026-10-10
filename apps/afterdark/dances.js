@@ -40,7 +40,7 @@ export const MOVES = [
 export const MOVE_IDS = MOVES.map((m) => m.id);
 export const DEFAULT_MOVES = MOVES.filter((m) => m.star).map((m) => m.id);
 export const moveById = (id) => MOVES.find((m) => m.id === id) || null;
-export const LIB_URL = "https://dreamstudio.mooo.com/geo/mx";
+export const LIB_URL = "/geo/mx";   // same origin — the farm serves /geo on every host it lives on
 const BUNDLED = new Set(MOVE_IDS);
 export const isMoveId = (id) => /^\d{6,}$/.test(String(id));
 export const moveUrl = (id) => (BUNDLED.has(id) ? new URL(`assets/move-${id}.glb`, import.meta.url).href : (isMoveId(id) ? `${LIB_URL}/move/${id}.glb` : null));

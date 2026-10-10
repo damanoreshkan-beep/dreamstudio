@@ -1,4 +1,4 @@
-export const LIB_URL = "https://dreamstudio.mooo.com/geo/mx";
+export const LIB_URL = "/geo/mx";   // same origin — the farm serves /geo on every host it lives on
 const BUNDLED = new Set(["kaya","michelle","arissa","eve","sophie","nightshade","louise","kachujin","jolleen","pirate","akai"]);
 export const CHARACTERS = [
   { id: "kaya", name: "Kaya", tint: "#FF3EB5" },

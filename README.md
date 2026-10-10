@@ -1,23 +1,23 @@
 <div align="center">
 
-# DreamStudio
+# Mriia
 
 **A farm of installable micro-apps, woven from light.**
 
 [![verify](https://github.com/damanoreshkan-beep/dreamstudio/actions/workflows/verify.yml/badge.svg)](https://github.com/damanoreshkan-beep/dreamstudio/actions/workflows/verify.yml)
-[![live](https://img.shields.io/badge/DreamStudio-live-3fb950)](https://dreamstudio.mooo.com/store/)
+[![live](https://img.shields.io/badge/Mriia-live-3fb950)](https://mriia.si/store/)
 [![core](https://img.shields.io/badge/core-microspec-F2B84B)](https://github.com/damanoreshkan-beep/microspec)
 [![built on Android](https://img.shields.io/badge/built%20on-Termux%20%2F%20Android-a78bfa)](https://github.com/damanoreshkan-beep/microspec#written-on-a-phone)
 
-### **[▶ Open the store](https://dreamstudio.mooo.com/store/)** — add any app to your home screen; they work offline.
+### **[▶ Open the store](https://mriia.si/store/)** — add any app to your home screen; they work offline.
 
 <br>
 
 <table>
 <tr>
-<td width="33%"><a href="https://dreamstudio.mooo.com/fmradio/"><img src="apps/store/assets/shot-fmradio--tune.webp" alt="FM Radio — a HackRF One demodulated live in a browser tab"></a><div align="center"><sub><b>FM Radio</b> · a HackRF One over WebUSB, demodulated on-device</sub></div></td>
-<td width="33%"><a href="https://dreamstudio.mooo.com/mirage/"><img src="apps/store/assets/shot-mirage--stage.webp" alt="Mirage — AI imagery with material style cards"></a><div align="center"><sub><b>Mirage</b> · make, rework and blend imagery in eleven materials</sub></div></td>
-<td width="33%"><a href="https://dreamstudio.mooo.com/handpan/"><img src="apps/store/assets/shot-handpan--play.webp" alt="Handpan — a playable tone field lit by the design system"></a><div align="center"><sub><b>Handpan</b> · struck tone fields with generated melodic lines</sub></div></td>
+<td width="33%"><a href="https://mriia.si/fmradio/"><img src="apps/store/assets/shot-fmradio--tune.webp" alt="FM Radio — a HackRF One demodulated live in a browser tab"></a><div align="center"><sub><b>FM Radio</b> · a HackRF One over WebUSB, demodulated on-device</sub></div></td>
+<td width="33%"><a href="https://mriia.si/mirage/"><img src="apps/store/assets/shot-mirage--stage.webp" alt="Mirage — AI imagery with material style cards"></a><div align="center"><sub><b>Mirage</b> · make, rework and blend imagery in eleven materials</sub></div></td>
+<td width="33%"><a href="https://mriia.si/handpan/"><img src="apps/store/assets/shot-handpan--play.webp" alt="Handpan — a playable tone field lit by the design system"></a><div align="center"><sub><b>Handpan</b> · struck tone fields with generated melodic lines</sub></div></td>
 </tr>
 </table>
 
@@ -35,7 +35,7 @@ schema, the gates — it knows nothing about these apps) and this repo's own **`
 radio demodulation, astrology mathematics, instrument theory, and the **WebUSB drivers** that talk to real
 hardware from a browser tab with nothing installed.
 
-<img src="docs/diagrams/architecture.svg" width="880" alt="DreamStudio layers: apps over rt/ domain modules and WebUSB drivers, over the pinned microspec core, over the web platform, down to real radio hardware.">
+<img src="docs/diagrams/architecture.svg" width="880" alt="Mriia layers: apps over rt/ domain modules and WebUSB drivers, over the pinned microspec core, over the web platform, down to real radio hardware.">
 
 - **`apps/`** — the farm. Each app declares its tabs and cards in `spec.json`, writes one `data.js` /
   `view.js`, and inherits accessibility, responsiveness, offline, i18n and routing from the core.

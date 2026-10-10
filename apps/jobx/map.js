@@ -3,7 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 import { isGate } from "/_rt/gate.js";
 import { viewFor, DEV_HOST, $glReady, shortSalary } from "./jobs.js";
 
-const GEO = "https://dreamstudio.mooo.com/geo";
+const GEO = `${location.origin}/geo`;   // same origin, absolute — deck.gl's tile template is resolved by loaders.gl, not the page
 const LUMA = "9.4.2";
 const DECK_URL = `https://esm.sh/deck.gl@9.4.0?deps=${["core", "engine", "shadertools", "webgl", "gpgpu", "gltf"].map((p) => `@luma.gl/${p}@${LUMA}`).join(",")}`;
 

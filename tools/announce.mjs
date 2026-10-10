@@ -3,7 +3,7 @@
 // New = entries of apps/store/changelog.json the live one did not have. No new entry, no message: a deploy
 // that changed nothing a person can notice is not news. Needs TG_BOT_TOKEN and TG_CHAT_ID (repo secrets).
 //   deno run -A tools/announce.mjs --snapshot <file>    save the live changelog before the deploy replaces it
-const SITE = "https://dreamstudio.mooo.com";
+const SITE = "https://mriia.si";
 const dry = Deno.args.includes("--dry");
 if (Deno.args.includes("--snapshot")) {
   let body = "[]";
