@@ -16,11 +16,20 @@ const AUDIO = { mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", ogg: "aud
  * @returns {{ name: string, type: string }}
  */
 export function shareFile(name, blobType) {
-  const ext = /\.([a-z0-9]{2,5})$/i.exec(String(name || ""))?.[1]?.toLowerCase();
-  if (ext && AUDIO[ext]) return { name, type: AUDIO[ext] };
-  const type = /^audio\//.test(blobType || "") ? blobType : "audio/mpeg";
-  const add = Object.entries(AUDIO).find(([, t]) => t === type)?.[0] || "mp3";
-  return { name: `${String(name || "song").replace(/\.[a-z0-9]{2,5}$/i, "")}.${add}`, type };
+  const raw = String(name || "");
+  const ext = /\.([a-z0-9]{2,5})$/i.exec(raw)?.[1]?.toLowerCase();
+  const type = ext && AUDIO[ext] ? AUDIO[ext] : /^audio\//.test(blobType || "") ? blobType : "audio/mpeg";
+  const out = ext && AUDIO[ext] ? ext : Object.entries(AUDIO).find(([, t]) => t === type)?.[0] || "mp3";
+  return { name: `${safeBase(ext && AUDIO[ext] ? raw.slice(0, -ext.length - 1) : raw.replace(/\.[a-z0-9]{2,5}$/i, ""))}.${out}`, type };
+}
+
+// Chrome on Android refuses a shared file by its NAME too (ShareServiceImpl.isDangerousFilename): any "..",
+// a "/" or "\", a leading/trailing space or a trailing dot, and an extension not in its lower-case list
+// (".MP3" fails). Song titles carry all of these ("Song... (live)", "AC/DC"), and the refusal reads
+// "Permission denied" — the third cause after the type and the gesture (2026-10-10).
+function safeBase(base) {
+  const s = String(base).replace(/[\/\\]+/g, " ").replace(/\.{2,}/g, ".").replace(/[\u0000-\u001f]/g, "").replace(/\s+/g, " ").trim().replace(/^[.\s]+|[.\s]+$/g, "");
+  return s || "song";
 }
 
 /** "6.0 MB" — one decimal, never a float tail. */

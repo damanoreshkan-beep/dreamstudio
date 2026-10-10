@@ -217,7 +217,7 @@ function shareSong(s) {
     () => report("share.out.ok", { size: file.size }, "info"),
     (e) => {
       if (e?.name === "AbortError") return;   // the person closed the sheet
-      report("share.out.fail", { err: String(e?.message || e).slice(0, 120), type: file.type, size: file.size });
+      report("share.out.fail", { err: String(e?.message || e).slice(0, 120), type: file.type, size: file.size, name: file.name.slice(0, 80) });
       toastFn?.(T(tNow, "shareFail"));
     },
   );
