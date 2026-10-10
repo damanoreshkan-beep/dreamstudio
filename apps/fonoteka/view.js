@@ -16,7 +16,7 @@ import { authWall } from "/_rt/authwall.js";
 import { takeShared } from "/_rt/share.js";
 import { report } from "/_rt/telemetry.js";
 import { clock } from "/_rt/muzak.js";
-import { isAudio, songLine, usageLine, titleOf, errorKey, FIXTURE_SONGS, FIXTURE_USAGE } from "/_rt/fonoteka.js";
+import { isAudio, songLine, usageLine, titleOf, errorKey, shareFile, FIXTURE_SONGS, FIXTURE_USAGE } from "/_rt/fonoteka.js";
 import { songStore, keeper } from "/_rt/songstore.js";
 
 const Icon = (icon, cls = "") => html`<iconify-icon icon=${icon} class=${cls}></iconify-icon>`;
@@ -195,7 +195,10 @@ async function shareSong(s) {
   if (!s || gate) return;
   try {
     const blob = (await store.blob(s.id).catch(() => null)) || await (await fetch(await sealedUrl("/library/get", { id: s.id }))).blob();
-    const file = new File([blob], s.name || `${titleOf(s)}.mp3`, { type: blob.type || "audio/mpeg" });
+    // the TYPE decides whether the sheet opens at all: a kept copy comes back as application/octet-stream and
+    // Chrome refuses that with "Permission denied" (telemetry share.out.fail, 2026-10-10) — so it comes from the name
+    const f = shareFile(s.name || `${titleOf(s)}.mp3`, blob.type);
+    const file = new File([blob], f.name, { type: f.type });
     if (!navigator.canShare?.({ files: [file] })) { report("share.out.unsupported", { type: file.type }, "info"); toastFn?.(T(tNow, "shareNo")); return; }
     await navigator.share({ files: [file], title: titleOf(s) });
     report("share.out.ok", { size: file.size }, "info");

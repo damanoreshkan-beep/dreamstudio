@@ -5,6 +5,24 @@ export const MB = 1_000_000;
 /** A shared file the library takes: audio by type, or by a known extension when the type is blank. */
 export const isAudio = (f) => !!f && (String(f.type || "").startsWith("audio/") || /\.(mp3|m4a|aac|ogg|opus|wav|flac)$/i.test(String(f.name || "")));
 
+// The audio types the phone's share sheet accepts, by extension. Chrome refuses a file share whose type is
+// not on its allow-list with "Permission denied" — and a kept song comes back from the cache as
+// application/octet-stream (the edge serves the bytes untyped), which is exactly what failed (2026-10-10).
+const AUDIO = { mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", ogg: "audio/ogg", oga: "audio/ogg", opus: "audio/ogg", wav: "audio/wav", flac: "audio/flac", weba: "audio/webm" };
+
+/**
+ * The file a song is shared as: an allowed audio type from its extension (else the blob's own audio type,
+ * else mp3), and a name that carries a matching extension.
+ * @returns {{ name: string, type: string }}
+ */
+export function shareFile(name, blobType) {
+  const ext = /\.([a-z0-9]{2,5})$/i.exec(String(name || ""))?.[1]?.toLowerCase();
+  if (ext && AUDIO[ext]) return { name, type: AUDIO[ext] };
+  const type = /^audio\//.test(blobType || "") ? blobType : "audio/mpeg";
+  const add = Object.entries(AUDIO).find(([, t]) => t === type)?.[0] || "mp3";
+  return { name: `${String(name || "song").replace(/\.[a-z0-9]{2,5}$/i, "")}.${add}`, type };
+}
+
 /** "6.0 MB" — one decimal, never a float tail. */
 export const mb = (bytes) => `${(Math.max(0, Number(bytes) || 0) / MB).toFixed(1)} MB`;
 

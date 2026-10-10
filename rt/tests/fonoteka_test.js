@@ -1,5 +1,13 @@
 import { assert, assertEquals } from "jsr:@std/assert@1";
-import { isAudio, mb, songLine, usageLine, titleOf, errorKey, FIXTURE_SONGS, FIXTURE_USAGE } from "../fonoteka.js";
+import { isAudio, mb, songLine, usageLine, titleOf, errorKey, shareFile, FIXTURE_SONGS, FIXTURE_USAGE } from "../fonoteka.js";
+
+Deno.test("fonoteka shareFile — the share sheet gets an allowed audio type, never the cache's octet-stream", () => {
+  assertEquals(shareFile("Rick Astley - Never Gonna.mp3", "application/octet-stream"), { name: "Rick Astley - Never Gonna.mp3", type: "audio/mpeg" }, "the failure of 2026-10-10: Chrome said Permission denied");
+  assertEquals(shareFile("field.M4A", ""), { name: "field.M4A", type: "audio/mp4" });
+  assertEquals(shareFile("voice.opus", "audio/ogg").type, "audio/ogg");
+  assertEquals(shareFile("no-extension", "audio/flac"), { name: "no-extension.flac", type: "audio/flac" });
+  assertEquals(shareFile("track.bin", "application/octet-stream"), { name: "track.mp3", type: "audio/mpeg" }, "an unknown name still leaves as an mp3");
+});
 
 const clock = (sec) => `${Math.floor(sec / 60)}:${String(Math.round(sec) % 60).padStart(2, "0")}`;
 
