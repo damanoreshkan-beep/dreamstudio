@@ -1,16 +1,16 @@
 <div align="center">
 
-<img src="icon.svg" width="84" height="84" alt="DreamStudio">
+<img src="icon.svg" width="84" height="84" alt="Mriia">
 
-# DreamStudio
+# Mriia
 
-**Усі застосунки DreamStudio в одному місці. Ставляться на телефон в один дотик і працюють без інтернету.**
+**Усі застосунки Mriia в одному місці. Ставляться на телефон в один дотик і працюють без інтернету.**
 
 ![](https://img.shields.io/badge/-app-C13BFF?style=flat-square) ![](https://img.shields.io/badge/-offline-1F6B42?style=flat-square) ![](https://img.shields.io/badge/-installable-000000?style=flat-square)
 
 <br>
 
-<img src="../../docs/shots/store.png" width="640" alt="DreamStudio">
+<img src="../../docs/shots/store.png" width="640" alt="Mriia">
 
 </div>
 
