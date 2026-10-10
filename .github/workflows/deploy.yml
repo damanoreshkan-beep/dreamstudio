@@ -75,7 +75,7 @@ jobs:
           test "$(curl -fsS https://mriia.si/_rt/build.js)" = "$(cat dist/_rt/build.js)"
       # Only a deploy that reached this line is announced: every step above has passed and the live site
       # answered with this build. A failed announcement never fails the deploy.
-      - name: Tell the owner what changed for people (Telegram, the DreamStudio bot)
+      - name: Tell the owner what changed for people (Telegram, the Mriia bot)
         continue-on-error: true
         env:
           TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}

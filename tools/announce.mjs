@@ -1,4 +1,4 @@
-// After a successful deploy: tell the owner, in the DreamStudio bot, what changed for people.
+// After a successful deploy: tell the owner, in the Mriia bot (@mriia_si_bot), what changed for people.
 //   deno run -A tools/announce.mjs <changelog as it was live BEFORE this deploy> [--dry]
 // New = entries of apps/store/changelog.json the live one did not have. No new entry, no message: a deploy
 // that changed nothing a person can notice is not news. Needs TG_BOT_TOKEN and TG_CHAT_ID (repo secrets).
@@ -20,8 +20,8 @@ const fresh = (await read("apps/store/changelog.json")).filter((e) => e?.id && !
 if (!fresh.length) { console.log("announce: nothing new for people in this deploy"); Deno.exit(0); }
 
 const apps = await read("apps/store/apps.json");
-const titleOf = (id) => (id === "store" ? "DreamStudio" : apps.find((a) => a.id === id)?.titles?.uk || id);
-const text = `<b>DreamStudio · оновлення</b>\n\n` + fresh.map((e) => `<b>${esc(titleOf(e.app))}</b>\n${esc(e.uk)}`).join("\n\n");
+const titleOf = (id) => (id === "store" ? "Mriia" : apps.find((a) => a.id === id)?.titles?.uk || id);
+const text = `<b>Mriia · оновлення</b>\n\n` + fresh.map((e) => `<b>${esc(titleOf(e.app))}</b>\n${esc(e.uk)}`).join("\n\n");
 const targets = [...new Set(fresh.map((e) => e.app))].slice(0, 3);
 const keyboard = targets.map((id) => [{ text: titleOf(id), url: `${SITE}/${id}/` }]);
 
