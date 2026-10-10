@@ -4,7 +4,7 @@
 
 **A farm of installable micro-apps, woven from light.**
 
-[![verify](https://github.com/damanoreshkan-beep/dreamstudio/actions/workflows/verify.yml/badge.svg)](https://github.com/damanoreshkan-beep/dreamstudio/actions/workflows/verify.yml)
+[![verify](https://github.com/damanoreshkan-beep/mriia/actions/workflows/verify.yml/badge.svg)](https://github.com/damanoreshkan-beep/mriia/actions/workflows/verify.yml)
 [![live](https://img.shields.io/badge/Mriia-live-3fb950)](https://mriia.si/store/)
 [![core](https://img.shields.io/badge/core-microspec-F2B84B)](https://github.com/damanoreshkan-beep/microspec)
 [![built on Android](https://img.shields.io/badge/built%20on-Termux%20%2F%20Android-a78bfa)](https://github.com/damanoreshkan-beep/microspec#written-on-a-phone)

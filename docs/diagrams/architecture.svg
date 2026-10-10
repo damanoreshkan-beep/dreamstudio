@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" width="880" height="460" role="img" aria-label="DreamStudio architecture: 74 apps over rt/ domain modules and WebUSB drivers, over the pinned microspec core, over the web platform, down to real radio hardware.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" width="880" height="460" role="img" aria-label="Mriia architecture: 74 apps over rt/ domain modules and WebUSB drivers, over the pinned microspec core, over the web platform, down to real radio hardware.">
   <style>
     .t   { font: 600 13px ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; fill: #f2ead9; }
     .s   { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #a89f8d; }
@@ -25,7 +25,7 @@
   </defs>
 
   <rect x="1" y="1" width="878" height="458" rx="16" fill="#050505" stroke="rgba(255,232,196,.14)"/>
-  <text class="cap" x="32" y="36">DREAMSTUDIO — WHAT A TAP TRAVELS THROUGH</text>
+  <text class="cap" x="32" y="36">MRIIA — WHAT A TAP TRAVELS THROUGH</text>
 
   <!-- L1: the apps -->
   <rect x="32" y="54" width="816" height="64" rx="13" fill="#0A0A0D" stroke="rgba(242,184,75,.6)" stroke-width="1.3"/>
