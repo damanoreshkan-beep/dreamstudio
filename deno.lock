@@ -6,12 +6,13 @@
     "jsr:@deno-library/progress@^1.5.1": "1.5.1",
     "jsr:@deno/cache-dir@0.22.2": "0.22.2",
     "jsr:@deno/graph@0.86": "0.86.9",
-    "jsr:@microspec/core@1": "1.2.126",
+    "jsr:@microspec/core@1": "1.2.127",
     "jsr:@microspec/core@1.2.122": "1.2.122",
     "jsr:@microspec/core@1.2.123": "1.2.123",
     "jsr:@microspec/core@1.2.124": "1.2.124",
     "jsr:@microspec/core@1.2.125": "1.2.125",
     "jsr:@microspec/core@1.2.126": "1.2.126",
+    "jsr:@microspec/core@1.2.127": "1.2.127",
     "jsr:@std/assert@*": "1.0.19",
     "jsr:@std/assert@1": "1.0.19",
     "jsr:@std/async@1": "1.4.0",
@@ -40,7 +41,7 @@
     "jsr:@zip-js/zip-js@^2.7.52": "2.8.26",
     "npm:@jsquash/png@3.0.1": "3.0.1",
     "npm:@jsquash/webp@1.4.0": "1.4.0",
-    "npm:@jsr/microspec__core@1": "1.2.126",
+    "npm:@jsr/microspec__core@1": "1.2.127",
     "npm:@nanostores/persistent@0.10.2": "0.10.2_nanostores@0.11.4",
     "npm:@nanostores/preact@0.5.2": "0.5.2_nanostores@0.11.4_preact@10.27.1",
     "npm:@resvg/resvg-wasm@2.6.2": "2.6.2",
@@ -535,6 +536,30 @@
         "npm:topojson-client"
       ]
     },
+    "@microspec/core@1.2.127": {
+      "integrity": "80a6723385f73a64dc0a6dfda52f74aa5afa315caf54e0379738a1a1ea74b740",
+      "dependencies": [
+        "jsr:@astral/astral",
+        "jsr:@b-fuze/deno-dom",
+        "jsr:@std/assert@1",
+        "jsr:@std/http",
+        "npm:@jsquash/png",
+        "npm:@jsquash/webp",
+        "npm:@nanostores/persistent",
+        "npm:@nanostores/preact",
+        "npm:@resvg/resvg-wasm",
+        "npm:ajv",
+        "npm:ajv-formats",
+        "npm:d3-geo",
+        "npm:daisyui",
+        "npm:htm",
+        "npm:linkedom",
+        "npm:nanostores",
+        "npm:preact",
+        "npm:tailwindcss",
+        "npm:topojson-client"
+      ]
+    },
     "@std/assert@1.0.19": {
       "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
       "dependencies": [
@@ -670,8 +695,8 @@
       ],
       "tarball": "https://npm.jsr.io/~/11/@jsr/denosaurs__plug/1.0.3.tgz"
     },
-    "@jsr/microspec__core@1.2.126": {
-      "integrity": "sha512-8huVKFqeew8XuhKz4DaYC+mU5CIG2lB9dCBYov0DBQb0p3PaKhedV23671CqudSA9zJMbrJiSW4yojYQ71wDJg==",
+    "@jsr/microspec__core@1.2.127": {
+      "integrity": "sha512-5qEDMAVRzoPOGiS1l3Q8AplZjTKEl8LR39f4NeUUwzqn1VfklNpMXpjffF9JcE3wIg9kxRdFJZ+KTix5IPUWMw==",
       "dependencies": [
         "@jsquash/png",
         "@jsquash/webp",
@@ -693,7 +718,7 @@
         "tailwindcss",
         "topojson-client"
       ],
-      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.126.tgz"
+      "tarball": "https://npm.jsr.io/~/11/@jsr/microspec__core/1.2.127.tgz"
     },
     "@jsr/std__assert@0.213.1": {
       "integrity": "sha512-mbq7QHPHeAJiJJlwmjNI0uoZlvIU2rG89df8ceeJB1pgE5b54DkiNhjQmmfBft0/fYO8/d933rBYwcNzuLxhXA==",

@@ -13,6 +13,14 @@
       "view": "muzak"
     },
     {
+      "id": "likes",
+      "type": "tool",
+      "icon": "lucide:heart",
+      "label": "tabLikes",
+      "view": "likes",
+      "needs": ["auth"]
+    },
+    {
       "id": "me",
       "type": "profile",
       "icon": "lucide:user",

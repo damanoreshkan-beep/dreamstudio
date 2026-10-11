@@ -40,6 +40,21 @@ export default [
     },
   },
   {
+    name: "вподобане: пісні з YouTube списком, у кожної своя кнопка mp3, тап на назву відкриває пісню", run: async (h) => {
+      await h.click('[data-tab="likes"]'); await h.wait(250);
+      h.expect((await h.attr("[data-likes]", "data-connected")) === "true", "список не показаний під гейтом");
+      h.expect((await h.count("[data-like]")) === 4, "не 4 пісні");
+      h.expect((await h.count("[data-dl]")) === 4, "не в кожної пісні своя кнопка");
+      h.expect(/YouTube · Оксана/.test(await h.bodyText()), "немає рядка, чий це YouTube");
+      h.expect((await h.count("[data-more]")) === 1, "немає «Показати ще»");
+      h.expect((await h.count("[data-yt-off]")) === 1, "немає «Відключити»");
+      await h.tap('[data-dl="kXYiU_JCYtU"]'); await h.wait(400);
+      h.expect(/Збережено|Saved/.test(await h.bodyText()), "немає підтвердження");
+      await h.click('[data-open="fJ9rUzIMcZQ"]'); await h.wait(300);
+      h.expect((await h.prop("[data-link]", "value")).includes("fJ9rUzIMcZQ"), "пісня не відкрилась у вкладці «Пісня»");
+    },
+  },
+  {
     name: "i18n EN/UA", run: async (h) => {
       await h.click('[data-tab="me"]'); await h.wait(150);
       await h.click('[data-loc="en"]'); await h.wait(250);
